@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Joy - Your Turn!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            80%, 100% { transform: scale(1.2); opacity: 0; }
+        }
+        .celebration {
+            animation: celebration 1s ease-in-out infinite;
+        }
+        @keyframes celebration {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.1) rotate(-5deg); }
+            75% { transform: scale(1.1) rotate(5deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex flex-col items-center justify-center p-4 pb-32">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8 space-y-6 text-center fade-in">
+        <!-- Success Icon -->
+        <div class="w-24 h-24 bg-gradient-to-r from-green-500 to-emerald-400 rounded-full flex items-center justify-center mx-auto pulse-ring">
+            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+
+        <!-- Main Message -->
+        <div class="space-y-4">
+            <div class="celebration">
+                <h1 class="text-4xl font-bold text-green-800">🎉</h1>
+            </div>
+            <h2 class="text-2xl font-bold text-green-800">It's Your Turn!</h2>
+            <div class="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+                <p class="text-sm text-green-600 font-medium">Now Serving</p>
+                <p id="queueNumber" class="text-4xl font-bold text-green-800">--</p>
+            </div>
+            <p id="counterName" class="text-green-700 text-lg font-medium">Please proceed to the counter</p>
+        </div>
+
+        <!-- Countdown -->
+        <div class="bg-gray-50 rounded-xl p-4">
+            <p class="text-sm text-gray-600 mb-2">Auto-redirect in</p>
+            <div class="flex items-center justify-center">
+                <div id="countdownCircle" class="relative w-16 h-16">
+                    <svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="28" stroke="#e5e7eb" stroke-width="4" fill="none"/>
+                        <circle id="countdownProgress" cx="32" cy="32" r="28" stroke="#10b981" stroke-width="4" fill="none" 
+                                stroke-dasharray="175.929" stroke-dashoffset="0" 
+                                style="transition: stroke-dashoffset 1s linear"/>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span id="countdownText" class="text-xl font-bold text-green-600">30</span>
+                    </div>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">You will be redirected automatically</p>
+        </div>
+    </div>
+
+    <!-- Ad Panel - Fixed at bottom -->
+    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+        <div class="bg-white rounded-xl shadow-lg p-3">
+            <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+            <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+            <div id="noAd" class="text-center text-gray-400 text-sm py-4">
+                No advertisement available
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Sound -->
+    <audio id="notificationSound" preload="auto" muted>
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT" type="audio/wav">
+    </audio>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, remove, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqJNXRt_AiYlGJaq_PZ9iEurU8sVLTRDI",
+            authDomain: "queue-joy-system.firebaseapp.com",
+            databaseURL: "https://queue-joy-system-default-rtdb.firebaseio.com",
+            projectId: "queue-joy-system",
+            storageBucket: "queue-joy-system.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef123456789012"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get queue data from localStorage
+            const queueDataStr = localStorage.getItem('queueData');
+            if (!queueDataStr) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            let queueData;
+            try {
+                queueData = JSON.parse(queueDataStr);
+            } catch (e) {
+                localStorage.removeItem('queueData');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const { counterId, queueId, queueDate, counterName } = queueData;
+
+            // DOM elements
+            const queueNumber = document.getElementById('queueNumber');
+            const counterNameEl = document.getElementById('counterName');
+            const countdownText = document.getElementById('countdownText');
+            const countdownProgress = document.getElementById('countdownProgress');
+            const notificationSound = document.getElementById('notificationSound');
+            const adPanel = document.getElementById('adPanel');
+            const noAd = document.getElementById('noAd');
+
+            // Set queue number and counter name
+            queueNumber.textContent = queueId;
+            counterNameEl.textContent = `Please proceed to ${counterName || 'the counter'}`;
+
+            // Play notification sound with user interaction workaround
+            function playSound() {
+                notificationSound.muted = false;
+                notificationSound.play().catch(e => {
+                    // Fallback for browsers that block autoplay
+                    console.log('Sound autoplay blocked');
+                });
+            }
+
+            // Try to play sound immediately
+            playSound();
+
+            // Also try on first user interaction
+            document.addEventListener('click', playSound, { once: true });
+            document.addEventListener('touchstart', playSound, { once: true });
+
+            // Countdown variables
+            let timeLeft = 30;
+            let countdownInterval = null;
+
+            // Countdown circle circumference
+            const circumference = 175.929;
+
+            function updateCountdown() {
+                countdownText.textContent = timeLeft;
+                
+                // Update progress circle
+                const progress = (30 - timeLeft) / 30;
+                const offset = circumference * progress;
+                countdownProgress.style.strokeDashoffset = offset;
+
+                if (timeLeft <= 0) {
+                    finishSession();
+                } else {
+                    timeLeft--;
+                }
+            }
+
+            function startCountdown() {
+                updateCountdown();
+                countdownInterval = setInterval(updateCountdown, 1000);
+            }
+
+            async function finishSession() {
+                try {
+                    // Clear countdown
+                    if (countdownInterval) {
+                        clearInterval(countdownInterval);
+                    }
+
+                    // Remove queue entry from Firebase
+                    const queueRef = ref(database, `queues/${queueDate}/${counterId}/${queueId}`);
+                    await remove(queueRef);
+
+                    // Remove from queue
+                    const queueNumbers = JSON.parse(localStorage.getItem('queueNumbers') || '[]');
+                    const updatedQueue = queueNumbers.filter(q => q.queueId !== queueData.queueId);
+                    localStorage.setItem('queueNumbers', JSON.stringify(updatedQueue));
+                    
+                    console.log('✅ Queue entry removed from localStorage');
+
+                    // Clear localStorage
+                    localStorage.removeItem('queueData');
+
+                    // Redirect to index
+                    window.location.href = 'index.html';
+
+                } catch (error) {
+                    console.error('Error finishing session:', error);
+                    // Still redirect even if cleanup fails
+                    localStorage.removeItem('queueData');
+                    window.location.href = 'index.html';
+                }
+            }
+
+            // Load advertisement
+            const adRef = ref(database, 'settings/adImage');
+                const adData = localStorage.getItem('adImage');
+                if (snapshot.exists() && snapshot.val()) {
+                    adPanel.src = snapshot.val();
+                    adPanel.classList.remove('hidden');
+                    noAd.classList.add('hidden');
+                } else {
+                    adPanel.classList.add('hidden');
+                    noAd.classList.remove('hidden');
+                }
+            });
+
+            // Start countdown
+            startCountdown();
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+                off(adRef);
+            });
+        });
+    </script>
+</body>
+</html>

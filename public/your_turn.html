@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Queue Joy - Your Turn!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .pulse-ring {
+      animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 1; }
+      80%, 100% { transform: scale(1.2); opacity: 0; }
+    }
+    .celebration {
+      animation: celebration 1s ease-in-out infinite;
+    }
+    @keyframes celebration {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.1) rotate(-5deg); }
+      75% { transform: scale(1.1) rotate(5deg); }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex flex-col items-center justify-center p-4 pb-32">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8 space-y-6 text-center fade-in">
+    <div class="w-24 h-24 bg-gradient-to-r from-green-500 to-emerald-400 rounded-full flex items-center justify-center mx-auto pulse-ring">
+      <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+      </svg>
+    </div>
+
+    <div class="space-y-4">
+      <div class="celebration">
+        <h1 class="text-4xl font-bold text-green-800">🎉</h1>
+      </div>
+      <h2 class="text-2xl font-bold text-green-800">It's Your Turn!</h2>
+      <div class="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+        <p class="text-sm text-green-600 font-medium">Now Serving</p>
+        <p id="queueNumber" class="text-4xl font-bold text-green-800">--</p>
+      </div>
+      <p id="counterName" class="text-green-700 text-lg font-medium">Please proceed to the counter</p>
+    </div>
+
+    <div class="bg-gray-50 rounded-xl p-4">
+      <p class="text-sm text-gray-600 mb-2">Auto-redirect in</p>
+      <div class="flex items-center justify-center">
+        <div class="relative w-16 h-16">
+          <svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="28" stroke="#e5e7eb" stroke-width="4" fill="none"/>
+            <circle id="countdownProgress" cx="32" cy="32" r="28" stroke="#10b981" stroke-width="4" fill="none"
+              stroke-dasharray="175.929" stroke-dashoffset="0"
+              style="transition: stroke-dashoffset 1s linear"/>
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <span id="countdownText" class="text-xl font-bold text-green-600">10</span>
+          </div>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">You will be redirected automatically</p>
+    </div>
+  </div>
+
+  <!-- Ad Panel -->
+  <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+    <div class="bg-white rounded-xl shadow-lg p-3">
+      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+      <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+      <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
+    </div>
+  </div>
+
+  <!-- Notification Sound -->
+  <audio id="notificationSound" autoplay>
+    <source src="data:audio/mpeg;base64,//vURAAM47lopZgBfjKUblQhFej2U5nQxECl+4rQutbAkbJZAAAbsSf///////+cVnjxL0ziWFM4P6Z3S8KLNPq2YTCokocCjYJc..." type="audio/mpeg">
+  </audio>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getDatabase, ref, remove, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.appspot.com",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const queueData = JSON.parse(localStorage.getItem('queueData') || '{}');
+      if (!queueData.queueId) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      document.getElementById('queueNumber').textContent = queueData.queueId;
+      document.getElementById('counterName').textContent = `Please proceed to ${queueData.counterName || 'the counter'}`;
+
+      let timeLeft = 10;
+      const countdownText = document.getElementById('countdownText');
+      const countdownProgress = document.getElementById('countdownProgress');
+      const circumference = 175.929;
+
+      const interval = setInterval(() => {
+        timeLeft--;
+        countdownText.textContent = timeLeft;
+        countdownProgress.style.strokeDashoffset = circumference * ((10 - timeLeft) / 10);
+
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          const path = `queues/${queueData.queueDate}/${queueData.counterId}/${queueData.queueId}`;
+          remove(ref(db, path)).finally(() => {
+            localStorage.removeItem('queueData');
+            window.location.href = 'index.html';
+          });
+        }
+      }, 1000);
+
+      // Load ad if available
+      const adRef = ref(db, 'settings/adImage');
+      onValue(adRef, (snapshot) => {
+        const adPanel = document.getElementById('adPanel');
+        const noAd = document.getElementById('noAd');
+        if (snapshot.exists() && snapshot.val()) {
+          adPanel.src = snapshot.val();
+          adPanel.classList.remove('hidden');
+          noAd.classList.add('hidden');
+        } else {
+          adPanel.classList.add('hidden');
+          noAd.classList.remove('hidden');
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        off(adRef);
+        clearInterval(interval);
+      });
+    });
+  </script>
+</body>
+</html>

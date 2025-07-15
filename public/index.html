@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Joy - Get Your Number</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
+        <!-- Hamburger Menu Button - TOP RIGHT OF CARD -->
+        <button id="menuBtn" class="absolute top-4 right-4 p-2 text-xl text-gray-600 hover:text-gray-800 transition-colors z-10">☰</button>
+        
+        <!-- Logo -->
+        <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
+            </svg>
+        </div>
+
+        <!-- Title -->
+        <div class="space-y-2">
+            <h1 class="text-2xl font-bold text-gray-800">Queue Joy</h1>
+            <p id="introText" class="text-gray-600">Real-time queueing system. Mobile-friendly. No app needed.</p>
+        </div>
+
+        <!-- Get Number Button -->
+        <button 
+            id="getNumberBtn" 
+            class="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-400 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        >
+            <span id="btnText">🎫 Get My Number</span>
+            <div id="btnSpinner" class="hidden flex items-center justify-center">
+                <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Getting your number...
+            </div>
+        </button>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-600 text-sm"></p>
+        </div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p class="text-green-600 text-sm"></p>
+        </div>
+    </div>
+
+    <!-- Menu Dropdown -->
+    <div id="menuDropdown" class="hidden fixed bg-white shadow-xl rounded-xl p-4 w-48 z-40 space-y-3 fade-in border border-gray-100" style="top: 70px; right: 20px;">
+        <button id="counterPanelBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-purple-600 transition-colors p-2 rounded-lg hover:bg-purple-50">
+            <span class="text-xl">⚙️</span>
+            <span>Counter Panel</span>
+        </button>
+        <button id="statusBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
+            <span class="text-xl">📊</span>
+            <span>Queue Status</span>
+        </button>
+        <button id="gameBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-green-600 transition-colors p-2 rounded-lg hover:bg-green-50">
+            <span class="text-xl">🎮</span>
+            <span>Play Game</span>
+        </button>
+    </div>
+
+    <!-- Ad Panel - Fixed at bottom -->
+    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+        <div class="bg-white rounded-xl shadow-lg p-3">
+            <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+            <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+            <div id="noAd" class="text-center text-gray-400 text-sm py-4">
+                No advertisement available
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, onValue, off, runTransaction } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "demo-key",
+            authDomain: "queue-joy-demo.firebaseapp.com",
+            databaseURL: "https://queue-joy-demo-default-rtdb.firebaseio.com",
+            projectId: "queue-joy-demo",
+            storageBucket: "queue-joy-demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuBtn = document.getElementById('menuBtn');
+            const menuDropdown = document.getElementById('menuDropdown');
+            const counterPanelBtn = document.getElementById('counterPanelBtn');
+            const statusBtn = document.getElementById('statusBtn');
+            const gameBtn = document.getElementById('gameBtn');
+            const getNumberBtn = document.getElementById('getNumberBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const adPanel = document.getElementById('adPanel');
+            const noAd = document.getElementById('noAd');
+            const introText = document.getElementById('introText');
+
+            let countersData = {};
+
+            // Toggle menu
+            menuBtn.addEventListener('click', () => {
+                menuDropdown.classList.toggle('hidden');
+            });
+
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!menuDropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+                    menuDropdown.classList.add('hidden');
+                }
+            });
+
+            // Navigation
+            counterPanelBtn.addEventListener('click', () => {
+                window.location.href = 'counter.html';
+            });
+
+            statusBtn.addEventListener('click', () => {
+                // Check if user has queue data first
+                const queueData = localStorage.getItem('queueData');
+                if (queueData) {
+                    window.location.href = 'status.html';
+                } else {
+                    showError('You need to get a queue number first!');
+                }
+            });
+
+            gameBtn.addEventListener('click', () => {
+                // Check if user has queue data first
+                const queueData = localStorage.getItem('queueData');
+                if (queueData) {
+                    window.location.href = 'game.html';
+                } else {
+                    showError('You need to get a queue number first!');
+                }
+            });
+
+            function showError(message) {
+                console.error('❌ Error:', message);
+                errorMessage.querySelector('p').textContent = message;
+                errorMessage.classList.remove('hidden');
+                successMessage.classList.add('hidden');
+                setTimeout(() => {
+                    errorMessage.classList.add('hidden');
+                }, 5000);
+            }
+
+            function showSuccess(message) {
+                console.log('✅ Success:', message);
+                successMessage.querySelector('p').textContent = message;
+                successMessage.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+            }
+
+            function setLoading(loading) {
+                getNumberBtn.disabled = loading;
+                if (loading) {
+                    btnText.classList.add('hidden');
+                    btnSpinner.classList.remove('hidden');
+                } else {
+                    btnText.classList.remove('hidden');
+                    btnSpinner.classList.add('hidden');
+                }
+            }
+
+            // Real-time counter sync
+            const countersRef = ref(database, 'settings/counters');
+            onValue(countersRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    countersData = snapshot.val();
+                    console.log('🔄 Counters updated:', countersData);
+                } else {
+                    countersData = {};
+                    console.log('📭 No counters available');
+                }
+            });
+
+            // Load intro text from Firebase
+            const introRef = ref(database, 'settings/introText');
+            onValue(introRef, (snapshot) => {
+                if (snapshot.exists() && snapshot.val()) {
+                    introText.textContent = snapshot.val();
+                } else {
+                    introText.textContent = 'Real-time queueing system. Mobile-friendly. No app needed.';
+                }
+            });
+
+            // Load advertisement
+            const adRef = ref(database, 'settings/adImage');
+            onValue(adRef, (snapshot) => {
+                if (snapshot.exists() && snapshot.val()) {
+                    adPanel.src = snapshot.val();
+                    adPanel.classList.remove('hidden');
+                    noAd.classList.add('hidden');
+                } else {
+                    adPanel.classList.add('hidden');
+                    noAd.classList.remove('hidden');
+                }
+            });
+
+            async function getQueueNumber() {
+                try {
+                    console.log('🎫 Starting queue number generation...');
+                    setLoading(true);
+                    errorMessage.classList.add('hidden');
+                    successMessage.classList.add('hidden');
+
+                    // Check if counters are available
+                    const activeCounters = Object.entries(countersData).filter(([id, counter]) => counter.active);
+                    
+                    if (activeCounters.length === 0) {
+                        showError('Sorry, all counters are currently offline. Please try again later.');
+                        return;
+                    }
+
+                    // Select first active counter
+                    const [counterId, counterData] = activeCounters[0];
+                    console.log('🎯 Selected counter:', counterId, counterData);
+
+                    // Generate next queue number
+                    const nextNumber = counterData.lastIssued + 1;
+                    const queueId = `${counterData.prefix}${String(nextNumber).padStart(3, '0')}`;
+                    
+                    console.log('🎟️ Generated queue ID:', queueId);
+
+                    // Get today's date
+                    const today = new Date().toISOString().split('T')[0];
+
+                    // Save queue entry to Firebase
+                    const queueRef = ref(database, `queues/${today}/${counterId}/${queueId}`);
+                    await set(queueRef, {
+                        status: 'waiting',
+                        timestamp: Date.now(),
+                        createdAt: new Date().toISOString()
+                    });
+
+                    // Update counter's lastIssued
+                    const counterRef = ref(database, `settings/counters/${counterId}/lastIssued`);
+                    await set(counterRef, nextNumber);
+
+                    console.log('💾 Queue data saved to Firebase');
+
+                    // Save metadata to localStorage
+                    const queueData = {
+                        counterId: counterId,
+                        queueId: queueId,
+                        queueDate: today,
+                        counterName: counterData.name,
+                        prefix: counterData.prefix
+                    };
+
+                    localStorage.setItem('queueData', JSON.stringify(queueData));
+                    console.log('💾 Queue data saved to localStorage:', queueData);
+
+                    // Show success message
+                    showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
+
+                    // Small delay to show success message, then redirect
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    console.log('🔄 Redirecting to status.html...');
+                    window.location.href = 'status.html';
+
+                } catch (error) {
+                    console.error('❌ Error getting queue number:', error);
+                    showError('Failed to get queue number. Please try again.');
+                } finally {
+                    setLoading(false);
+                }
+            }
+
+            // Get Number functionality
+            getNumberBtn.addEventListener('click', getQueueNumber);
+
+            // Check if user already has a queue number
+            const existingQueueData = localStorage.getItem('queueData');
+            if (existingQueueData) {
+                try {
+                    const queueData = JSON.parse(existingQueueData);
+                    const today = new Date().toISOString().split('T')[0];
+                    
+                    // If queue is from today, redirect to status
+                    if (queueData.queueDate === today) {
+                        console.log('🔄 Existing queue found, redirecting to status');
+                        window.location.href = 'status.html';
+                        return;
+                    } else {
+                        // Clear old queue data
+                        console.log('🧹 Clearing old queue data');
+                        localStorage.removeItem('queueData');
+                    }
+                } catch (e) {
+                    console.error('❌ Invalid queue data, clearing');
+                    localStorage.removeItem('queueData');
+                }
+            }
+
+            // Cleanup listeners on page unload
+            window.addEventListener('beforeunload', () => {
+                off(countersRef);
+                off(introRef);
+                off(adRef);
+            });
+        });
+    </script>
+</body>
+</html>

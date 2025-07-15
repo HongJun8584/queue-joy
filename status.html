@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Joy - Your Status</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            80%, 100% { transform: scale(1.2); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
+        <!-- Header -->
+        <div class="space-y-2">
+            <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
+            <p id="counterName" class="text-sm text-gray-600">--</p>
+        </div>
+
+        <!-- Your Number Card -->
+        <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
+            <p class="text-sm text-purple-600 font-medium">Your Number</p>
+            <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
+        </div>
+
+        <!-- Current Status -->
+        <div class="space-y-4">
+            <div class="bg-gray-50 rounded-xl p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm text-gray-600">Now Serving</span>
+                    <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
+                </div>
+                <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-sm text-gray-600">People Ahead</p>
+                    <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-sm text-gray-600">Est. Wait</p>
+                    <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Play Game Button -->
+        <button 
+            id="gameBtn" 
+            class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300"
+        >
+            🎮 Play While Waiting
+        </button>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-600 text-sm text-center"></p>
+        </div>
+    </div>
+
+    <!-- Ad Panel - Fixed at bottom -->
+    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+        <div class="bg-white rounded-xl shadow-lg p-3">
+            <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+            <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+            <div id="noAd" class="text-center text-gray-400 text-sm py-4">
+                No advertisement available
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚀 Status.html script starting...');
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ Status DOM Content Loaded');
+            
+            // Get queue data from localStorage
+            const queueDataStr = localStorage.getItem('queueData');
+            if (!queueDataStr) {
+                console.log('❌ No queue data found, redirecting to index');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            let queueData;
+            try {
+                queueData = JSON.parse(queueDataStr);
+                console.log('✅ Queue data loaded:', queueData);
+            } catch (e) {
+                console.error('❌ Invalid queue data, clearing and redirecting');
+                localStorage.removeItem('queueData');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Validate required fields
+            if (!queueData.counterId || !queueData.queueId || !queueData.queueDate || !queueData.prefix) {
+                console.error('❌ Incomplete queue data, redirecting');
+                localStorage.removeItem('queueData');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const { counterId, queueId, queueDate, prefix, counterName } = queueData;
+            const queueNumber = parseInt(queueId.replace(prefix, ''));
+
+            // DOM elements
+            const yourNumber = document.getElementById('yourNumber');
+            const counterNameEl = document.getElementById('counterName');
+            const nowServing = document.getElementById('nowServing');
+            const peopleAhead = document.getElementById('peopleAhead');
+            const estimatedWait = document.getElementById('estimatedWait');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const gameBtn = document.getElementById('gameBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            const adPanel = document.getElementById('adPanel');
+            const noAd = document.getElementById('noAd');
+
+            // Set initial data
+            yourNumber.textContent = queueId;
+            counterNameEl.textContent = counterName || 'Counter';
+
+            function showError(message) {
+                if (errorMessage) {
+                    errorMessage.querySelector('p').textContent = message;
+                    errorMessage.classList.remove('hidden');
+                    setTimeout(() => {
+                        errorMessage.classList.add('hidden');
+                    }, 5000);
+                }
+            }
+
+            function updateStatus() {
+                console.log('🔄 Updating status...');
+                
+                // Get counter data from localStorage
+                const countersData = localStorage.getItem('availableCounters');
+                let currentServing = 1;
+                
+                if (countersData) {
+                    try {
+                        const counters = JSON.parse(countersData);
+                        const counter = counters.counter1; // Use counter1 as default
+                        if (counter) {
+                            currentServing = counter.nowServing;
+                            console.log('📊 Current serving:', currentServing);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error parsing counter data');
+                    }
+                }
+
+                nowServing.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
+                
+                const ahead = Math.max(0, queueNumber - currentServing);
+                peopleAhead.textContent = ahead;
+                
+                const waitMinutes = ahead * 2; // 2 minutes per person
+                estimatedWait.textContent = waitMinutes > 0 ? `${waitMinutes} min` : 'Soon';
+
+                // Check if it's your turn
+                if (currentServing === queueNumber) {
+                    console.log('🎉 It\'s your turn! Redirecting to your_turn.html');
+                    window.location.href = 'your_turn.html';
+                    return;
+                }
+
+                // Update status indicator
+                if (ahead === 0) {
+                    statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+                } else if (ahead <= 2) {
+                    statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
+                } else {
+                    statusIndicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
+                }
+            }
+
+            // Load advertisement
+            function loadAd() {
+                const adData = localStorage.getItem('adImage');
+                if (adData && adPanel && noAd) {
+                    adPanel.src = adData;
+                    adPanel.classList.remove('hidden');
+                    noAd.classList.add('hidden');
+                } else if (adPanel && noAd) {
+                    adPanel.classList.add('hidden');
+                    noAd.classList.remove('hidden');
+                }
+            }
+
+            // Event listeners
+            if (gameBtn) {
+                gameBtn.addEventListener('click', function() {
+                    console.log('🎮 Game button clicked');
+                    window.location.href = 'game.html';
+                });
+            }
+
+            // Check if queue date is today
+            const today = new Date().toISOString().split('T')[0];
+            if (queueDate !== today) {
+                showError('Your queue number has expired. Please get a new number.');
+                setTimeout(() => {
+                    localStorage.removeItem('queueData');
+                    window.location.href = 'index.html';
+                }, 3000);
+                return;
+            }
+
+            // Check if already your_turn
+            const queueNumbers = JSON.parse(localStorage.getItem('queueNumbers') || '[]');
+            const matched = queueNumbers.find(q => q.queueId === queueId && q.status === 'your_turn');
+            if (matched) {
+                console.log('🎯 You are already in your_turn. Redirecting...');
+                const alertAudio = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+                alertAudio.play().catch(e => console.warn('🔇 Unable to play sound:', e));
+                setTimeout(() => {
+                    window.location.href = 'your_turn.html';
+                }, 1000);
+            } else {
+                // Initial updates
+                updateStatus();
+                loadAd();
+
+                // Update status every 5 seconds
+                setInterval(updateStatus, 5000);
+            }
+
+
+            console.log('✅ Status.html initialization complete');
+        });
+    </script>
+</body>
+</html>

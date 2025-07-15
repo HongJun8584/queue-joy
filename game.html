@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Joy - Memory Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card {
+            perspective: 1000px;
+            cursor: pointer;
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 fade-in">
+        <!-- Header -->
+        <div class="text-center space-y-2">
+            <div class="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-xl font-bold text-indigo-800">Memory Game</h1>
+            <p id="queueInfo" class="text-sm text-gray-600">Your number: --</p>
+        </div>
+
+        <!-- Game Stats -->
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-gray-50 rounded-lg p-2">
+                <p class="text-xs text-gray-600">Moves</p>
+                <p id="moves" class="text-sm font-bold text-gray-800">0</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-2">
+                <p class="text-xs text-gray-600">Matches</p>
+                <p id="matches" class="text-sm font-bold text-gray-800">0/6</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-2">
+                <p class="text-xs text-gray-600">Time</p>
+                <p id="timer" class="text-sm font-bold text-gray-800">0:00</p>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div id="gameBoard" class="grid grid-cols-4 gap-2 aspect-square">
+            <!-- Cards will be generated here -->
+        </div>
+
+        <!-- Game Complete -->
+        <div id="gameComplete" class="hidden bg-green-50 border-2 border-green-200 rounded-xl p-3 text-center">
+            <div class="text-2xl mb-1">🎉</div>
+            <p class="text-green-800 font-bold">Great job!</p>
+            <div id="finalStats" class="text-green-700 text-xs"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="space-y-2">
+            <button id="newGameBtn" class="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-xl shadow hover:scale-105 transition-all duration-300">
+                🎮 New Game
+            </button>
+            
+            <button id="backBtn" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                ← Back to Status
+            </button>
+        </div>
+    </div>
+
+    <!-- Ad Panel - Fixed at bottom -->
+    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+        <div class="bg-white rounded-xl shadow-lg p-3">
+            <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+            <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+            <div id="noAd" class="text-center text-gray-400 text-sm py-4">
+                No advertisement available
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqJNXRt_AiYlGJaq_PZ9iEurU8sVLTRDI",
+            authDomain: "queue-joy-system.firebaseapp.com",
+            databaseURL: "https://queue-joy-system-default-rtdb.firebaseio.com",
+            projectId: "queue-joy-system",
+            storageBucket: "queue-joy-system.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef123456789012"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user has queue data
+            const queueDataStr = localStorage.getItem('queueData');
+            if (!queueDataStr) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            let queueData;
+            try {
+                queueData = JSON.parse(queueDataStr);
+            } catch (e) {
+                localStorage.removeItem('queueData');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Display queue info
+            document.getElementById('queueInfo').textContent = `Your number: ${queueData.queueId}`;
+
+            // Game variables
+            let gameBoard = [];
+            let flippedCards = [];
+            let matchedPairs = 0;
+            let moves = 0;
+            let gameStartTime = null;
+            let gameTimer = null;
+
+            // Game symbols (6 pairs for 3x4 grid)
+            const symbols = ['🎯', '🎨', '🎪', '🎭', '🎸', '🎲'];
+            
+            // DOM elements
+            const gameBoardEl = document.getElementById('gameBoard');
+            const movesEl = document.getElementById('moves');
+            const matchesEl = document.getElementById('matches');
+            const timerEl = document.getElementById('timer');
+            const gameCompleteEl = document.getElementById('gameComplete');
+            const finalStatsEl = document.getElementById('finalStats');
+            const newGameBtn = document.getElementById('newGameBtn');
+            const backBtn = document.getElementById('backBtn');
+            const adPanel = document.getElementById('adPanel');
+            const noAd = document.getElementById('noAd');
+
+            function shuffleArray(array) {
+                const shuffled = [...array];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                return shuffled;
+            }
+
+            function initializeGame() {
+                // Reset game state
+                gameBoard = [];
+                flippedCards = [];
+                matchedPairs = 0;
+                moves = 0;
+                gameStartTime = null;
+                
+                if (gameTimer) {
+                    clearInterval(gameTimer);
+                    gameTimer = null;
+                }
+
+                // Create card pairs and shuffle
+                const cardPairs = [...symbols, ...symbols];
+                const shuffledCards = shuffleArray(cardPairs);
+
+                // Clear board
+                gameBoardEl.innerHTML = '';
+                gameCompleteEl.classList.add('hidden');
+
+                // Create cards
+                shuffledCards.forEach((symbol, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'card aspect-square';
+                    card.dataset.index = index;
+                    card.dataset.symbol = symbol;
+
+                    card.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-front bg-gradient-to-br from-purple-400 to-indigo-500 text-white">
+                                <span class="text-lg">?</span>
+                            </div>
+                            <div class="card-back bg-white border-2 border-gray-200">
+                                <span>${symbol}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    card.addEventListener('click', () => flipCard(card, index));
+                    gameBoardEl.appendChild(card);
+                });
+
+                // Update UI
+                updateStats();
+            }
+
+            function flipCard(cardEl, index) {
+                // Prevent flipping if card is already flipped or matched
+                if (cardEl.classList.contains('flipped') || flippedCards.length >= 2) {
+                    return;
+                }
+
+                // Start timer on first move
+                if (!gameStartTime) {
+                    gameStartTime = Date.now();
+                    startTimer();
+                }
+
+                // Flip card
+                cardEl.classList.add('flipped');
+                flippedCards.push({ element: cardEl, index, symbol: cardEl.dataset.symbol });
+
+                // Check for match when 2 cards are flipped
+                if (flippedCards.length === 2) {
+                    moves++;
+                    updateStats();
+                    
+                    setTimeout(() => {
+                        checkMatch();
+                    }, 1000);
+                }
+            }
+
+            function checkMatch() {
+                const [card1, card2] = flippedCards;
+
+                if (card1.symbol === card2.symbol) {
+                    // Match found
+                    matchedPairs++;
+                    card1.element.style.opacity = '0.7';
+                    card2.element.style.opacity = '0.7';
+
+                    // Check if game is complete
+                    if (matchedPairs === symbols.length) {
+                        setTimeout(() => {
+                            completeGame();
+                        }, 500);
+                    }
+                } else {
+                    // No match, flip cards back
+                    setTimeout(() => {
+                        card1.element.classList.remove('flipped');
+                        card2.element.classList.remove('flipped');
+                    }, 500);
+                }
+
+                flippedCards = [];
+                updateStats();
+            }
+
+            function startTimer() {
+                gameTimer = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = elapsed % 60;
+                    timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+            }
+
+            function updateStats() {
+                movesEl.textContent = moves;
+                matchesEl.textContent = `${matchedPairs}/${symbols.length}`;
+            }
+
+            function completeGame() {
+                if (gameTimer) {
+                    clearInterval(gameTimer);
+                }
+
+                const totalTime = Math.floor((Date.now() - gameStartTime) / 1000);
+                const minutes = Math.floor(totalTime / 60);
+                const seconds = totalTime % 60;
+
+                finalStatsEl.innerHTML = `Time: ${minutes}:${seconds.toString().padStart(2, '0')} | Moves: ${moves}`;
+                gameCompleteEl.classList.remove('hidden');
+            }
+
+            // Event listeners
+            newGameBtn.addEventListener('click', initializeGame);
+            
+            backBtn.addEventListener('click', () => {
+                window.location.href = 'status.html';
+            });
+
+            // Load advertisement
+            const adRef = ref(database, 'settings/adImage');
+                const adData = localStorage.getItem('adImage');
+                if (snapshot.exists() && snapshot.val()) {
+                    adPanel.src = snapshot.val();
+                    adPanel.classList.remove('hidden');
+                    noAd.classList.add('hidden');
+                } else {
+                    adPanel.classList.add('hidden');
+                    noAd.classList.remove('hidden');
+                }
+            });
+
+            // Check for turn updates
+            const counterRef = ref(database, `settings/counters/${queueData.counterId}`);
+                const countersData = localStorage.getItem('availableCounters');
+                        const counter = counters.counter1; // Use counter1 as default
+                    const counterData = snapshot.val();
+                    const queueNumber = parseInt(queueData.queueId.replace(queueData.prefix, ''));
+                    
+                    // Check if it's your turn
+                    if (counterData.nowServing === queueNumber) {
+                        window.location.href = 'your_turn.html';
+                    }
+                }
+            });
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                off(adRef);
+                off(counterRef);
+                if (gameTimer) {
+                    clearInterval(gameTimer);
+                }
+            });
+
+            // Initialize game
+            initializeGame();
+        });
+    </script>
+</body>
+</html>
