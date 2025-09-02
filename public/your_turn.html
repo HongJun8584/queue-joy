@@ -108,6 +108,11 @@
   let firstPlay = false;
 
   document.addEventListener("DOMContentLoaded", () => {
+    // 🔔 Ask for notification permission early
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get("queueId");
 
@@ -146,9 +151,30 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || "Counter";
 
-            // 🔊 Play sound once when assigned
+            // 🔔 Play sound + show notification once
             if (!firstPlay) {
               dingSound.play().catch(() => console.log("Autoplay blocked"));
+
+              if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                  const notif = new Notification("Queue Joy - It's Your Turn!", {
+                    body: `Your number ${data.queueId || queueKey} → ${counterData.name || "Counter"}`,
+                    icon: "https://img.icons8.com/color/96/appointment-reminders.png"
+                  });
+                  notif.onclick = () => window.focus();
+                } else if (Notification.permission !== "denied") {
+                  Notification.requestPermission().then((perm) => {
+                    if (perm === "granted") {
+                      const notif = new Notification("Queue Joy - It's Your Turn!", {
+                        body: `Your number ${data.queueId || queueKey} → ${counterData.name || "Counter"}`,
+                        icon: "https://img.icons8.com/color/96/appointment-reminders.png"
+                      });
+                      notif.onclick = () => window.focus();
+                    }
+                  });
+                }
+              }
+
               firstPlay = true;
             }
           }
@@ -170,7 +196,7 @@
     document.getElementById("backBtn").addEventListener("click", () => {
       window.location.replace(`status.html?queueId=${queueKey}`);
     });
-  }); // ✅ this closes DOMContentLoaded, no extra bracket!
+  }); // ✅ this closes DOMContentLoaded
 
   window.addEventListener("beforeunload", () => {
     if (queueRef) off(queueRef);
