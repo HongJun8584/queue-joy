@@ -2,83 +2,63 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Queue Joy - It's Your Turn!</title>
+  <!-- Tailwind CDN (fine for dev; the console warning is just advice for production builds) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.8s ease-in; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .pulse-ring {
-      position: absolute;
-      width: 120px;
-      height: 120px;
-      border: 4px solid rgba(99,102,241,0.5);
-      border-radius: 9999px;
-      animation: pulse-ring 1.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
-    }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 1; }
-      80%, 100% { transform: scale(1.6); opacity: 0; }
-    }
+    .fade-in { animation: fadeIn .6s ease-out; }
+    @keyframes fadeIn { from {opacity:0;transform:translateY(8px)} to {opacity:1;transform:translateY(0)} }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
 
-  <!-- Main Card -->
-  <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6 text-center fade-in">
-    <!-- Animated Ring -->
-    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div class="pulse-ring"></div>
-    </div>
-
-    <!-- Header -->
-    <div class="space-y-2 relative">
-      <div class="w-20 h-20 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
-        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+  <main class="w-full max-w-xl bg-white rounded-2xl shadow-xl p-8 text-center space-y-6 fade-in">
+    <header class="space-y-2">
+      <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 grid place-items-center text-white shadow-md">
+        <svg viewBox="0 0 24 24" class="w-8 h-8" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
-      <h1 class="text-3xl font-bold text-indigo-800">It’s Your Turn!</h1>
-      <p class="text-gray-600 text-sm">Please proceed to your assigned counter below</p>
-    </div>
+      <h1 class="text-3xl font-extrabold text-indigo-900">It’s Your Turn!</h1>
+      <p class="text-gray-600">Please proceed to the counter below</p>
+    </header>
 
-    <!-- Your Number -->
-    <div class="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl p-4 border-2 border-indigo-200 shadow">
-      <p class="text-sm text-indigo-600 font-medium">Your Queue Number</p>
-      <p id="yourNumber" class="text-5xl font-extrabold text-indigo-800">--</p>
-    </div>
+    <section class="space-y-3">
+      <div class="rounded-xl border-2 border-indigo-200 bg-indigo-50/70 p-4">
+        <p class="text-sm text-indigo-600 font-medium">Your Queue Number</p>
+        <p id="yourNumber" class="mt-1 text-5xl font-black text-indigo-900 tracking-wide">--</p>
+      </div>
 
-    <!-- Counter Info -->
-    <div class="bg-gray-50 rounded-xl p-4 space-y-2 shadow-inner">
-      <p class="text-sm text-gray-600">Proceed To</p>
-      <p id="counterName" class="text-2xl font-bold text-purple-700">--</p>
-    </div>
+      <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <p class="text-sm text-gray-600">Proceed To</p>
+        <p id="counterName" class="mt-1 text-2xl font-bold text-purple-700">--</p>
+      </div>
 
-    <!-- Error Message -->
-    <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-red-600 text-sm text-center"></p>
-    </div>
-  </div>
+      <p id="hint" class="text-xs text-gray-500 italic">
+        (You’ll still be notified even if this tab is in the background.)
+      </p>
+    </section>
 
-  <!-- 🔊 Sound -->
-  <audio id="dingSound" preload="auto">
-    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg" />
-    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.mp3" type="audio/mpeg" />
+    <div id="errorBox" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-sm"></div>
+  </main>
+
+  <!-- Sound -->
+  <audio id="ding" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.mp3" type="audio/mpeg">
   </audio>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // ===== CONFIG (your instance; explicitly pass URL to avoid attaching to any default/demo DB) =====
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -90,50 +70,114 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    // Force the exact RTDB instance (prevents the “queue-joy-demo…” warning/attach)
+    const db = getDatabase(app, firebaseConfig.databaseURL);
 
-    let queueRef, counterRef;
-    let firstPlay = false;
+    // ===== DOM =====
+    const yourNumberEl = document.getElementById("yourNumber");
+    const counterNameEl = document.getElementById("counterName");
+    const errorBox = document.getElementById("errorBox");
+    const ding = document.getElementById("ding");
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const params = new URLSearchParams(window.location.search);
-      const queueKey = params.get("queueId");
+    // ===== Helpers =====
+    const showError = (msg) => {
+      errorBox.textContent = msg;
+      errorBox.classList.remove("hidden");
+    };
 
-      if (!queueKey) {
-        document.getElementById("errorMessage").classList.remove("hidden");
-        document.querySelector("#errorMessage p").textContent = "Queue not found.";
-        return;
+    const getParam = (keys) => {
+      const usp = new URLSearchParams(window.location.search);
+      for (const k of keys) {
+        const v = usp.get(k);
+        if (v) return v;
       }
+      return null;
+    };
 
-      const yourNumberEl = document.getElementById("yourNumber");
-      const counterNameEl = document.getElementById("counterName");
-      const dingSound = document.getElementById("dingSound");
+    // Ask for notification permission (non-blocking)
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
 
-      queueRef = ref(db, `queues/${queueKey}`);
+    // ===== Main =====
+    let queueRef = null;
+    let counterRef = null;
+    let counterFallbackRef = null;
+    let playedOnce = false;
+
+    const queueKey = getParam(["queueId", "queueid", "qid", "id"]);
+    if (!queueKey) {
+      showError("Missing queueId in URL.");
+    } else {
+      // Your DB export shows the collection is "queue" (singular)
+      queueRef = ref(db, `queue/${queueKey}`);
+
       onValue(queueRef, (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.val();
-        yourNumberEl.textContent = data.prefix && data.number ? `${data.prefix}${data.number}` : queueKey;
+        if (!snap.exists()) {
+          showError("Your queue entry was not found.");
+          return;
+        }
 
-        if (data.counterId) {
-          counterRef = ref(db, `settings/counters/${data.counterId}`);
-          onValue(counterRef, (counterSnap) => {
-            if (!counterSnap.exists()) return;
-            const counterData = counterSnap.val();
-            counterNameEl.textContent = counterData.name || "Counter";
+        const q = snap.val() || {};
+        const { queueId, counterId } = q;
 
-            if (!firstPlay) {
-              dingSound.play().catch(() => console.log("Autoplay blocked"));
-              firstPlay = true;
+        // Show user's ticket number
+        yourNumberEl.textContent = queueId || "—";
+
+        // Attach counter name listener (root: counters/{counterId})
+        if (counterId && !counterRef && !counterFallbackRef) {
+          counterRef = ref(db, `counters/${counterId}`);
+          onValue(counterRef, (cSnap) => {
+            if (cSnap.exists()) {
+              const c = cSnap.val() || {};
+              counterNameEl.textContent = c.name || "Counter";
+              maybeNotify(queueId, c.name);
+            } else {
+              // Fallback if you ever nest under settings/counters
+              counterFallbackRef = ref(db, `settings/counters/${counterId}`);
+              onValue(counterFallbackRef, (c2Snap) => {
+                if (c2Snap.exists()) {
+                  const c2 = c2Snap.val() || {};
+                  counterNameEl.textContent = c2.name || "Counter";
+                  maybeNotify(queueId, c2.name);
+                } else {
+                  counterNameEl.textContent = "Counter";
+                }
+              });
             }
           });
         }
+      }, (err) => {
+        showError("Failed to read your queue entry. Please refresh.");
+        console.error(err);
       });
-    });
+    }
 
+    function maybeNotify(ticket, counterName) {
+      if (playedOnce) return;
+      playedOnce = true;
+
+      // Sound
+      ding.play().catch(() => { /* autoplay may be blocked */ });
+
+      // Notification
+      if ("Notification" in window && Notification.permission === "granted") {
+        const n = new Notification("Queue Joy • It's Your Turn!", {
+          body: `Ticket ${ticket || ""} → ${counterName || "Counter"}`,
+          icon: "https://img.icons8.com/color/96/appointment-reminders.png",
+          tag: "queue-joy-your-turn"
+        });
+        n.onclick = () => window.focus();
+      }
+    }
+
+    // Clean-up listeners
     window.addEventListener("beforeunload", () => {
-      if (queueRef) off(queueRef);
-      if (counterRef) off(counterRef);
+      try {
+        if (queueRef) off(queueRef);
+        if (counterRef) off(counterRef);
+        if (counterFallbackRef) off(counterFallbackRef);
+      } catch (_) {}
     });
   </script>
 </body>
