@@ -3,86 +3,135 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Your Turn - Queue Joy</title>
+  <title>Queue Joy - It's Your Turn!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
   <style>
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      text-align: center;
-    }
-    .container {
-      background: white;
-      padding: 40px;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      max-width: 400px;
-    }
-    h1 {
-      font-size: 2rem;
-      color: #333;
-      margin-bottom: 20px;
-    }
-    p {
-      font-size: 1rem;
-      color: #555;
-      margin-bottom: 10px;
-    }
-    .countdown {
-      font-size: 1.25rem;
-      font-weight: bold;
-      color: #d32f2f;
-      margin-top: 10px;
-    }
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn .8s ease-in; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(20px);} to { opacity:1; transform: translateY(0);} }
   </style>
 </head>
-<body>
-  <div class="container">
-    <h1>It's Your Turn 🎉</h1>
-    <p>You will be redirected to the homepage automatically.</p>
-    <p class="countdown">Redirecting in <span id="timer">15</span> seconds...</p>
+<body class="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-6">
+
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center space-y-6 fade-in">
+    <h1 class="text-3xl font-bold text-indigo-800">It’s Your Turn!</h1>
+    <p class="text-gray-600 text-sm">Please proceed to:</p>
+
+    <!-- Counter only -->
+    <div class="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl p-6 border-2 border-indigo-200 shadow">
+      <p id="counterName" class="text-4xl font-extrabold text-purple-700">Loading...</p>
+    </div>
+
+    <!-- Countdown -->
+    <p class="text-xs text-gray-500 italic">Redirecting back in <span id="countdown">15</span> seconds…</p>
+
+    <!-- Inline error -->
+    <div id="error" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-2"></div>
   </div>
 
-  <script type="module">
-    // Firebase (if you want to keep consistent config, though this page doesn’t use DB)
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+  <!-- Optional sound (kept, but won’t block if autoplay is restricted) -->
+  <audio id="dingSound" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.mp3" type="audio/mpeg">
+  </audio>
 
+  <script type="module">
+    import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // --- Your actual config ---
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      databaseURL: "YOUR_DATABASE_URL",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
 
-    // Initialize (safe, no errors even if unused)
-    const app = initializeApp(firebaseConfig);
-    getDatabase(app);
+    // Force using the correct DB URL and avoid clashing with any existing app on the page
+    const DATABASE_URL = "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app";
+    let app;
+    try {
+      app = getApp("queueJoyRuntime");
+    } catch {
+      app = initializeApp(firebaseConfig, "queueJoyRuntime");
+    }
+    const db = getDatabase(app, DATABASE_URL);
 
-    // Countdown redirect
-    let seconds = 15;
-    const timerEl = document.getElementById("timer");
+    let queueRef, counterRef;
 
-    const countdown = setInterval(() => {
-      seconds--;
-      timerEl.textContent = seconds;
-      if (seconds <= 0) {
-        clearInterval(countdown);
-        window.location.href = "index.html";
+    const elCounter = document.getElementById("counterName");
+    const elError = document.getElementById("error");
+    const dingSound = document.getElementById("dingSound");
+    const countdownEl = document.getElementById("countdown");
+
+    const showError = (msg) => {
+      elError.textContent = msg;
+      elError.classList.remove("hidden");
+    };
+
+    // 15s countdown + redirect
+    let timeLeft = 15;
+    const timer = setInterval(() => {
+      timeLeft--;
+      countdownEl.textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        window.location.replace("index.html");
       }
     }, 1000);
 
-    // Extra safety: fallback auto redirect after 15s
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 15000);
+    // Load data
+    const params = new URLSearchParams(window.location.search);
+    const queueKey = params.get("queueId");
+
+    if (!queueKey) {
+      showError("Missing queueId. Redirecting…");
+      setTimeout(() => window.location.replace("index.html"), 1200);
+    } else {
+      queueRef = ref(db, `queues/${queueKey}`);
+      onValue(queueRef, (snap) => {
+        if (!snap.exists()) {
+          showError("Your queue entry could not be found. Redirecting…");
+          setTimeout(() => window.location.replace("index.html"), 1500);
+          return;
+        }
+        const q = snap.val();
+        const counterId = q && q.counterId ? String(q.counterId) : "";
+        if (!counterId) {
+          showError("Counter not assigned yet.");
+          return;
+        }
+
+        // Read counter name
+        counterRef = ref(db, `counters/${counterId}`);
+        onValue(counterRef, (cSnap) => {
+          if (!cSnap.exists()) {
+            showError("Counter not found.");
+            return;
+          }
+          const counter = cSnap.val();
+          const name = (counter && counter.name) ? String(counter.name) : "Counter";
+          elCounter.textContent = name;
+
+          // Try play a short beep once
+          dingSound.play().catch(() => { /* autoplay may be blocked; ignore */ });
+        });
+      });
+    }
+
+    // Cleanup
+    window.addEventListener("beforeunload", () => {
+      try {
+        if (queueRef) off(queueRef);
+        if (counterRef) off(counterRef);
+      } catch {}
+    });
   </script>
 </body>
 </html>

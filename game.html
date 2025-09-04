@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -9,8 +9,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.5s ease-in; }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -28,7 +32,7 @@
         </svg>
       </div>
       <h1 class="text-xl font-bold text-indigo-800">Snake Game</h1>
-      <p id="queueInfo" class="text-sm text-gray-600"></p>
+      <p class="text-xs text-gray-500 italic">No worries, the system will call you even if you are playing!</p>
     </div>
     <!-- Game Stats -->
     <div class="grid grid-cols-2 gap-2 text-center">
@@ -108,7 +112,7 @@
     const gameCanvas = document.getElementById('gameCanvas');
     const ctx = gameCanvas.getContext('2d');
     const grid = 16;
-    const tileCount = 20;
+    const tileCount = 20; // 320 / 16 = 20
     let count = 0;
     let score = 0;
     let highScore = 0;
@@ -126,7 +130,10 @@
       cells: [],
       maxCells: 4
     };
-    let apple = { x: 256, y: 256 };
+    let apple = {
+      x: 256,
+      y: 256
+    };
 
     function showError(msg) {
       inlineError.textContent = msg;
@@ -191,8 +198,18 @@
     }
 
     function initializeGame() {
-      snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
-      apple = { x: 256, y: 256 };
+      snake = {
+        x: 160,
+        y: 160,
+        dx: grid,
+        dy: 0,
+        cells: [],
+        maxCells: 4
+      };
+      apple = {
+        x: 256,
+        y: 256
+      };
       score = 0;
       scoreEl.textContent = score;
       count = 0;
@@ -201,7 +218,7 @@
       gameLoop = requestAnimationFrame(loop);
     }
 
-    // --- Click/tap control ---
+    // --- Tap / Click Controls ---
     gameCanvas.addEventListener('click', (e) => {
       if (!gameLoop) return;
       const rect = gameCanvas.getBoundingClientRect();
@@ -209,17 +226,18 @@
       const clickY = e.clientY - rect.top;
       const headX = snake.x + grid / 2;
       const headY = snake.y + grid / 2;
-      const dx = clickX - headX;
-      const dy = clickY - headY;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 0 && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
-        else if (dx < 0 && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
+      const diffX = clickX - headX;
+      const diffY = clickY - headY;
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 0 && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
+        else if (diffX < 0 && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
       } else {
-        if (dy > 0 && snake.dy === 0) { snake.dx = 0; snake.dy = grid; }
-        else if (dy < 0 && snake.dy === 0) { snake.dx = 0; snake.dy = -grid; }
+        if (diffY > 0 && snake.dy === 0) { snake.dx = 0; snake.dy = grid; }
+        else if (diffY < 0 && snake.dy === 0) { snake.dx = 0; snake.dy = -grid; }
       }
     });
 
+    // --- Firebase Listeners ---
     function initAdListener() {
       if (!database) return;
       adRef = ref(database, 'settings/adImage');
@@ -241,43 +259,18 @@
     }
 
     function initQueueListener(queueId) {
-      if (!database || !queueId) return;
-      queueRef = ref(database, `queues/${queueId}`);
-      onValue(queueRef, (snapshot) => {
-        try {
-          if (!snapshot.exists()) return;
-          const q = snapshot.val() || {};
-          const prefix = (q.prefix ?? '').toString();
-          const number = parseInt(q.number, 10);
-          const counterId = (q.counterId ?? '').toString();
-          if (prefix && !isNaN(number)) {
-            queueInfoEl.textContent = `Your number: ${prefix}${number}`;
-          }
-          if (counterId && !isNaN(number)) {
-            if (counterRef) off(counterRef);
-            counterRef = ref(database, `settings/counters/${counterId}`);
-            onValue(counterRef, (counterSnap) => {
-              if (hasNavigated) return;
-              try {
-                if (counterSnap.exists()) {
-                  const c = counterSnap.val() || {};
-                  const nowServing = parseInt(c.nowServing, 10);
-                  if (!isNaN(nowServing) && nowServing === number) {
-                    hasNavigated = true;
-                    if (gameLoop) cancelAnimationFrame(gameLoop);
-                    window.location.href = `your_turn.html?queueId=${encodeURIComponent(queueId)}`;
-                  }
-                }
-              } catch (e) {
-                console.error('Counter listener error:', e);
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Queue listener error:', e);
-        }
-      });
+  if (!database || !queueId) return;
+  queueRef = ref(database, `queues/${queueId}/status`);
+  onValue(queueRef, (snap) => {
+    if (!snap.exists()) return;
+    const status = snap.val();
+    if (status === 'called' && !hasNavigated) {
+      hasNavigated = true;
+      // Redirect to your_turn.html
+      window.location.href = `your_turn.html?queueId=${encodeURIComponent(queueId)}`;
     }
+  });
+}
 
     document.addEventListener('DOMContentLoaded', () => {
       initializeGame();
