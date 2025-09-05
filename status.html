@@ -1,228 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queue Joy - Your Status</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.5s ease-in; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 1; }
-      80%, 100% { transform: scale(1.2); opacity: 0; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queue Joy - Your Status</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .fade-in { animation: fadeIn 0.5s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+  @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 80%,100% { transform: scale(1.2); opacity: 0; } }
+</style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
 
-  <!-- Main Card -->
-  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
-    <!-- Header -->
-    <div class="space-y-2">
-      <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
+<!-- Main Card -->
+<div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
+  <div class="space-y-2">
+    <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+      <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+    </div>
+    <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
+    <p id="counterName" class="text-sm text-gray-600">--</p>
+  </div>
+
+  <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
+    <p class="text-sm text-purple-600 font-medium">Your Number</p>
+    <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
+  </div>
+
+  <div class="space-y-4">
+    <div class="bg-gray-50 rounded-xl p-4">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm text-gray-600">Now Serving</span>
+        <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full transition-colors"></div>
       </div>
-      <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
-      <p id="counterName" class="text-sm text-gray-600">--</p>
+      <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
     </div>
 
-    <!-- Your Number -->
-    <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
-      <p class="text-sm text-purple-600 font-medium">Your Number</p>
-      <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
-    </div>
-
-    <!-- Status Info -->
-    <div class="space-y-4">
+    <div class="grid grid-cols-2 gap-4">
       <div class="bg-gray-50 rounded-xl p-4">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm text-gray-600">Now Serving</span>
-          <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
-        </div>
-        <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
+        <p class="text-sm text-gray-600">People Ahead</p>
+        <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
       </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-sm text-gray-600">People Ahead</p>
-          <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-sm text-gray-600">Est. Wait</p>
-          <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Game Button -->
-    <button id="gameBtn"
-      class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300">
-      🎮 Play While Waiting
-    </button>
-
-    <!-- Error Message -->
-    <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-red-600 text-sm text-center"></p>
-    </div>
-  </div>
-
-  <!-- Advertisement -->
-  <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
-    <div class="bg-white rounded-xl shadow-lg p-3">
-      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <img id="adPanel" src="" alt="Advertisement"
-           class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-      <div id="noAd" class="text-center text-gray-400 text-sm py-4">
-        No advertisement available
+      <div class="bg-gray-50 rounded-xl p-4">
+        <p class="text-sm text-gray-600">Est. Wait</p>
+        <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  <button id="gameBtn"
+    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300">
+    🎮 Play While Waiting
+  </button>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-    };
+  <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
+    <p class="text-red-600 text-sm text-center"></p>
+  </div>
+</div>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+<!-- Advertisement -->
+<div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+  <div class="bg-white rounded-xl shadow-lg p-3">
+    <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+    <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+    <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
+  </div>
+</div>
 
-    // Global refs for cleanup
-    let queueRef, counterRef, servingRef, adRef;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    document.addEventListener("DOMContentLoaded", () => {
-      console.log("✅ Status DOM Loaded");
+const firebaseConfig = {
+  apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+  authDomain: "queue-joy-aa21b.firebaseapp.com",
+  databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "queue-joy-aa21b",
+  storageBucket: "queue-joy-aa21b.firebasestorage.app",
+  messagingSenderId: "950240394209",
+  appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+};
 
-      const params = new URLSearchParams(window.location.search);
-      const queueKey = params.get("queueId");
-      if (!queueKey) {
-        console.error("❌ No queueId found in URL");
-        window.location.href = "index.html";
-        return;
-      }
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-      const yourNumber = document.getElementById("yourNumber");
-      const counterNameEl = document.getElementById("counterName");
-      const nowServingEl = document.getElementById("nowServing");
-      const peopleAheadEl = document.getElementById("peopleAhead");
-      const estimatedWaitEl = document.getElementById("estimatedWait");
-      const indicator = document.getElementById("statusIndicator");
-      const errorMessage = document.getElementById("errorMessage");
-      const adPanel = document.getElementById("adPanel");
-      const noAd = document.getElementById("noAd");
+let queueRef, counterRef, servingRef, adRef;
 
-      const showError = (msg) => {
-        errorMessage.querySelector("p").textContent = msg;
-        errorMessage.classList.remove("hidden");
-        setTimeout(() => errorMessage.classList.add("hidden"), 5000);
-      };
+document.addEventListener("DOMContentLoaded", () => {
+  const yourNumber = document.getElementById("yourNumber");
+  const counterNameEl = document.getElementById("counterName");
+  const nowServingEl = document.getElementById("nowServing");
+  const peopleAheadEl = document.getElementById("peopleAhead");
+  const estimatedWaitEl = document.getElementById("estimatedWait");
+  const indicator = document.getElementById("statusIndicator");
+  const errorMessage = document.getElementById("errorMessage");
+  const adPanel = document.getElementById("adPanel");
+  const noAd = document.getElementById("noAd");
 
-      // Live ad listener
-      adRef = ref(db, "settings/adImage");
-      onValue(adRef, (snap) => {
-        const adUrl = snap.val();
-        if (adUrl) {
-          adPanel.src = adUrl;
-          adPanel.classList.remove("hidden");
-          noAd.classList.add("hidden");
-        } else {
-          adPanel.classList.add("hidden");
-          noAd.classList.remove("hidden");
-        }
-      });
+  const showError = (msg) => {
+    errorMessage.querySelector("p").textContent = msg;
+    errorMessage.classList.remove("hidden");
+    setTimeout(() => errorMessage.classList.add("hidden"), 5000);
+  };
 
-      // Queue listener
-      queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, (snap) => {
-        if (!snap.exists()) {
-          showError("Your queue entry was not found.");
-          setTimeout(() => window.location.href = "index.html", 2000);
-          return;
-        }
+  // Determine queueKey
+  const params = new URLSearchParams(window.location.search);
+  let queueKey = params.get("queueId") || sessionStorage.getItem("lastQueueId");
+  if (!queueKey) {
+    showError("Queue not found. Please join from the main page.");
+    return;
+  }
+  sessionStorage.setItem("lastQueueId", queueKey);
 
-        const { counterId, queueId } = snap.val();
-        yourNumber.textContent = queueId;
+  // Live ad listener
+  adRef = ref(db, "settings/adImage");
+  onValue(adRef, (snap) => {
+    const adUrl = snap.val();
+    if (adUrl) {
+      adPanel.src = adUrl;
+      adPanel.classList.remove("hidden");
+      noAd.classList.add("hidden");
+    } else {
+      adPanel.classList.add("hidden");
+      noAd.classList.remove("hidden");
+    }
+  });
 
-        if (!counterRef) {
-          counterRef = ref(db, `counters/${counterId}`);
-          onValue(counterRef, (counterSnap) => {
-            if (!counterSnap.exists()) return;
-            const counterData = counterSnap.val();
-            counterNameEl.textContent = counterData.name || "Counter";
+  // Queue listener
+  queueRef = ref(db, `queue/${queueKey}`);
+  onValue(queueRef, (snap) => {
+    if (!snap.exists()) {
+      showError("Your queue entry was not found.");
+      return;
+    }
 
-            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || "");
-            const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
+    const { counterId, queueId } = snap.val();
+    yourNumber.textContent = queueId;
 
-            // Now Serving listener
-            servingRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(servingRef, (nowSnap) => {
-              const currentServing = nowSnap.val() || 0;
-              nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
+    if (!counterRef) {
+      counterRef = ref(db, `counters/${counterId}`);
+      onValue(counterRef, (counterSnap) => {
+        if (!counterSnap.exists()) return;
+        const counterData = counterSnap.val();
+        counterNameEl.textContent = counterData.name || "Counter";
 
-              const ahead = Math.max(0, yourNumberNum - currentServing);
-              peopleAheadEl.textContent = ahead;
-              estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : "Soon";
+        const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || "");
+        const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
 
-              if (ahead === 0) {
-                indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
-                setTimeout(() => {
-                window.location.href = "/public/your_turn.html?queueId=" + encodeURIComponent(queueKey);
-              }, 2000);
+        // Now Serving listener
+        servingRef = ref(db, `counters/${counterId}/nowServing`);
+        onValue(servingRef, (nowSnap) => {
+          const currentServing = nowSnap.val() || 0;
+          nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
 
-              } else if (ahead <= 2) {
-                indicator.className = "w-3 h-3 bg-yellow-400 rounded-full animate-pulse";
-              } else {
-                indicator.className = "w-3 h-3 bg-blue-400 rounded-full";
-              }
-            });
-          });
-        }
-      });
+          const ahead = Math.max(0, yourNumberNum - currentServing);
+          peopleAheadEl.textContent = ahead;
+          estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : "Soon";
 
-      // Cleanup
-      window.addEventListener("beforeunload", () => {
-        if (queueRef) off(queueRef);
-        if (counterRef) off(counterRef);
-        if (servingRef) off(servingRef);
-        if (adRef) off(adRef);
-      });
-    });
-
-    // Game button
-    document.getElementById("gameBtn").addEventListener("click", () => {
-      fetch("game.html", { method: "HEAD" })
-        .then(res => {
-          if (res.ok) {
-            window.location.href = "game.html";
+          if (ahead === 0) {
+            indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
+            // optional: notify user via alert or sound
+          } else if (ahead <= 2) {
+            indicator.className = "w-3 h-3 bg-yellow-400 rounded-full animate-pulse";
           } else {
-            alert("Game is currently unavailable. Please wait or enjoy our ad!");
+            indicator.className = "w-3 h-3 bg-blue-400 rounded-full";
           }
-        })
-        .catch(() => {
-          alert("Game could not be loaded. Please try again later.");
         });
-    });
-  </script>
+      });
+    }
+  });
+
+  // Cleanup on unload
+  window.addEventListener("beforeunload", () => {
+    if (queueRef) off(queueRef);
+    if (counterRef) off(counterRef);
+    if (servingRef) off(servingRef);
+    if (adRef) off(adRef);
+  });
+});
+
+// Game button
+document.getElementById("gameBtn").addEventListener("click", () => {
+  fetch("game.html", { method: "HEAD" })
+    .then(res => {
+      if (res.ok) window.location.href = "game.html";
+      else alert("Game unavailable. Enjoy the ad!");
+    })
+    .catch(() => alert("Game could not be loaded. Try again later."));
+});
+</script>
 </body>
 </html>
