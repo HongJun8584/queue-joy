@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Queue Joy - It's Your Turn!</title>
-  <!-- Tailwind CDN (fine for dev; the console warning is just advice for production builds) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -47,18 +46,11 @@
     <div id="errorBox" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-sm"></div>
   </main>
 
-  <!-- Sound -->
-  <audio id="ding" preload="auto">
-    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
-    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.mp3" type="audio/mpeg">
-  </audio>
-
   <!-- Firebase (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ===== CONFIG (your instance; explicitly pass URL to avoid attaching to any default/demo DB) =====
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -70,16 +62,12 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    // Force the exact RTDB instance (prevents the “queue-joy-demo…” warning/attach)
     const db = getDatabase(app, firebaseConfig.databaseURL);
 
-    // ===== DOM =====
     const yourNumberEl = document.getElementById("yourNumber");
     const counterNameEl = document.getElementById("counterName");
     const errorBox = document.getElementById("errorBox");
-    const ding = document.getElementById("ding");
 
-    // ===== Helpers =====
     const showError = (msg) => {
       errorBox.textContent = msg;
       errorBox.classList.remove("hidden");
@@ -94,22 +82,15 @@
       return null;
     };
 
-    // Ask for notification permission (non-blocking)
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
-
-    // ===== Main =====
     let queueRef = null;
     let counterRef = null;
     let counterFallbackRef = null;
-    let playedOnce = false;
+    let notifiedOnce = false;
 
     const queueKey = getParam(["queueId", "queueid", "qid", "id"]);
     if (!queueKey) {
       showError("Missing queueId in URL.");
     } else {
-      // Your DB export shows the collection is "queue" (singular)
       queueRef = ref(db, `queue/${queueKey}`);
 
       onValue(queueRef, (snap) => {
@@ -120,11 +101,8 @@
 
         const q = snap.val() || {};
         const { queueId, counterId } = q;
-
-        // Show user's ticket number
         yourNumberEl.textContent = queueId || "—";
 
-        // Attach counter name listener (root: counters/{counterId})
         if (counterId && !counterRef && !counterFallbackRef) {
           counterRef = ref(db, `counters/${counterId}`);
           onValue(counterRef, (cSnap) => {
@@ -133,7 +111,6 @@
               counterNameEl.textContent = c.name || "Counter";
               maybeNotify(queueId, c.name);
             } else {
-              // Fallback if you ever nest under settings/counters
               counterFallbackRef = ref(db, `settings/counters/${counterId}`);
               onValue(counterFallbackRef, (c2Snap) => {
                 if (c2Snap.exists()) {
@@ -154,13 +131,10 @@
     }
 
     function maybeNotify(ticket, counterName) {
-      if (playedOnce) return;
-      playedOnce = true;
+      if (notifiedOnce) return;
+      notifiedOnce = true;
 
-      // Sound
-      ding.play().catch(() => { /* autoplay may be blocked */ });
-
-      // Notification
+      // Only Notification (no sound)
       if ("Notification" in window && Notification.permission === "granted") {
         const n = new Notification("Queue Joy • It's Your Turn!", {
           body: `Ticket ${ticket || ""} → ${counterName || "Counter"}`,
@@ -171,7 +145,6 @@
       }
     }
 
-    // Clean-up listeners
     window.addEventListener("beforeunload", () => {
       try {
         if (queueRef) off(queueRef);
