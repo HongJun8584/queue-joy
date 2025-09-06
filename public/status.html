@@ -1,317 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Joy - Your Status</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .pulse-ring {
-            animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
-        }
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); opacity: 1; }
-            80%, 100% { transform: scale(1.2); opacity: 0; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queue Joy - Your Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 1; }
+      80%, 100% { transform: scale(1.2); opacity: 0; }
+    }
+  </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
-    <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
-        <!-- Header -->
-        <div class="space-y-2">
-            <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-            </div>
-            <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
-            <p id="counterName" class="text-sm text-gray-600">--</p>
-        </div>
 
-        <!-- Your Number Card -->
-        <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
-            <p class="text-sm text-purple-600 font-medium">Your Number</p>
-            <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
-        </div>
-
-        <!-- Current Status -->
-        <div class="space-y-4">
-            <div class="bg-gray-50 rounded-xl p-4">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-sm text-gray-600">Now Serving</span>
-                    <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
-                </div>
-                <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-50 rounded-xl p-4">
-                    <p class="text-sm text-gray-600">People Ahead</p>
-                    <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
-                </div>
-                <div class="bg-gray-50 rounded-xl p-4">
-                    <p class="text-sm text-gray-600">Est. Wait</p>
-                    <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Play Game Button -->
-        <button 
-            id="gameBtn" 
-            class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300"
-        >
-            🎮 Play While Waiting
-        </button>
-
-        <!-- Error Message -->
-        <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-red-600 text-sm text-center"></p>
-        </div>
+  <!-- Main Card -->
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
+    <!-- Header -->
+    <div class="space-y-2">
+      <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
+      <p id="counterName" class="text-sm text-gray-600">--</p>
     </div>
 
-    <!-- Ad Panel - Fixed at bottom -->
-    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
-        <div class="bg-white rounded-xl shadow-lg p-3">
-            <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-            <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-            <div id="noAd" class="text-center text-gray-400 text-sm py-4">
-                No advertisement available
-            </div>
-        </div>
+    <!-- Your Number -->
+    <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
+      <p class="text-sm text-purple-600 font-medium">Your Number</p>
+      <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
     </div>
 
-    <!-- Firebase and FCM Scripts -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, onValue, off, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
-        import './index.js'; // Import index.js for service worker registration
+    <!-- Status Info -->
+    <div class="space-y-4">
+      <div class="bg-gray-50 rounded-xl p-4">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-sm text-gray-600">Now Serving</span>
+          <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
+        </div>
+        <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
+      </div>
 
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-            authDomain: "queue-joy-aa21b.firebaseapp.com",
-            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "queue-joy-aa21b",
-            storageBucket: "queue-joy-aa21b.firebasestorage.app",
-            messagingSenderId: "950240394209",
-            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-        };
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-gray-50 rounded-xl p-4">
+          <p class="text-sm text-gray-600">People Ahead</p>
+          <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-4">
+          <p class="text-sm text-gray-600">Est. Wait</p>
+          <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
+        </div>
+      </div>
+    </div>
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-        const messaging = getMessaging(app);
+    <!-- Game Button -->
+    <button id="gameBtn"
+      class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300">
+      🎮 Play While Waiting
+    </button>
 
-        // Request notification permission
-        async function requestNotificationPermission() {
-            try {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    console.log('Notification permission granted.');
-                    const vapidKey = 'BM6-cvmqAerBUtL2It-9OZKdJZqRtpltM75S03sig8mg8MankP5UOEvSm0m1zUbXb6azFI6mkJZylT7EXjXeIBc';
-                    const token = await getToken(messaging, { vapidKey });
-                    if (token) {
-                        console.log('FCM Token:', token);
-                        const queueDataStr = localStorage.getItem('queueData');
-                        if (queueDataStr) {
-                            const queueData = JSON.parse(queueDataStr);
-                            const queueId = queueData.queueId;
-                            if (queueId) {
-                                await set(ref(database, `/tokens/${queueId}`), token);
-                                console.log(`FCM token stored for queueId: ${queueId}`);
-                            }
-                        }
-                    } else {
-                        console.log('No registration token available.');
-                    }
-                } else {
-                    console.log('Notification permission denied.');
-                }
-            } catch (error) {
-                console.error('Error requesting notification permission:', error);
-            }
+    <!-- Error Message -->
+    <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
+      <p class="text-red-600 text-sm text-center"></p>
+    </div>
+  </div>
+
+  <!-- Advertisement -->
+  <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+    <div class="bg-white rounded-xl shadow-lg p-3">
+      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+      <img id="adPanel" src="" alt="Advertisement"
+           class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+      <div id="noAd" class="text-center text-gray-400 text-sm py-4">
+        No advertisement available
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Global refs for cleanup
+    let queueRef, counterRef, servingRef, adRef;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      console.log("✅ Status DOM Loaded");
+
+      const params = new URLSearchParams(window.location.search);
+      const queueKey = params.get("queueId");
+      if (!queueKey) {
+        console.error("❌ No queueId found in URL");
+        window.location.href = "index.html";
+        return;
+      }
+
+      const yourNumber = document.getElementById("yourNumber");
+      const counterNameEl = document.getElementById("counterName");
+      const nowServingEl = document.getElementById("nowServing");
+      const peopleAheadEl = document.getElementById("peopleAhead");
+      const estimatedWaitEl = document.getElementById("estimatedWait");
+      const indicator = document.getElementById("statusIndicator");
+      const errorMessage = document.getElementById("errorMessage");
+      const adPanel = document.getElementById("adPanel");
+      const noAd = document.getElementById("noAd");
+
+      const showError = (msg) => {
+        errorMessage.querySelector("p").textContent = msg;
+        errorMessage.classList.remove("hidden");
+        setTimeout(() => errorMessage.classList.add("hidden"), 5000);
+      };
+
+      // Live ad listener
+      adRef = ref(db, "settings/adImage");
+      onValue(adRef, (snap) => {
+        const adUrl = snap.val();
+        if (adUrl) {
+          adPanel.src = adUrl;
+          adPanel.classList.remove("hidden");
+          noAd.classList.add("hidden");
+        } else {
+          adPanel.classList.add("hidden");
+          noAd.classList.remove("hidden");
+        }
+      });
+
+      // Queue listener
+      queueRef = ref(db, `queue/${queueKey}`);
+      onValue(queueRef, (snap) => {
+        if (!snap.exists()) {
+          showError("Your queue entry was not found.");
+          setTimeout(() => window.location.href = "index.html", 2000);
+          return;
         }
 
-        // Handle foreground messages
-        onMessage(messaging, (payload) => {
-            console.log('Foreground message received:', payload);
-            const notificationTitle = payload.notification?.title || 'Queue Update';
-            const notificationOptions = {
-                body: payload.notification?.body || 'Your queue number is being called!',
-                icon: '/icon.png', // Ensure icon.png exists in public directory
-            };
-            new Notification(notificationTitle, notificationOptions);
-            if (payload.data?.status === 'your_turn') {
-                const queueId = payload.data?.queueId || localStorage.getItem('queueData')?.queueId;
-                if (queueId) {
-                    window.location.href = `your_turn.html?queueId=${queueId}`;
-                }
-            }
-        });
+        const { counterId, queueId } = snap.val();
+        yourNumber.textContent = queueId;
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Request notification permission
-            requestNotificationPermission();
+        if (!counterRef) {
+          counterRef = ref(db, `counters/${counterId}`);
+          onValue(counterRef, (counterSnap) => {
+            if (!counterSnap.exists()) return;
+            const counterData = counterSnap.val();
+            counterNameEl.textContent = counterData.name || "Counter";
 
-            // Get queue data from localStorage
-            const queueDataStr = localStorage.getItem('queueData');
-            if (!queueDataStr) {
-                console.log('No queue data found, redirecting to index');
-                window.location.href = 'index.html';
-                return;
-            }
+            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || "");
+            const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
 
-            let queueData;
-            try {
-                queueData = JSON.parse(queueDataStr);
-                console.log('Queue data loaded:', queueData);
-            } catch (e) {
-                console.error('Invalid queue data, clearing and redirecting');
-                localStorage.removeItem('queueData');
-                window.location.href = 'index.html';
-                return;
-            }
+            // Now Serving listener
+            servingRef = ref(db, `counters/${counterId}/nowServing`);
+            onValue(servingRef, (nowSnap) => {
+              const currentServing = nowSnap.val() || 0;
+              nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
 
-            // Validate required fields
-            if (!queueData.counterId || !queueData.queueId || !queueData.queueDate || !queueData.prefix) {
-                console.error('Incomplete queue data, redirecting');
-                localStorage.removeItem('queueData');
-                window.location.href = 'index.html';
-                return;
-            }
+              const ahead = Math.max(0, yourNumberNum - currentServing);
+              peopleAheadEl.textContent = ahead;
+              estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : "Soon";
 
-            const { counterId, queueId, queueDate, prefix, counterName } = queueData;
-            const queueNumber = parseInt(queueId.replace(prefix, ''));
-
-            // DOM elements
-            const yourNumber = document.getElementById('yourNumber');
-            const counterNameEl = document.getElementById('counterName');
-            const nowServing = document.getElementById('nowServing');
-            const peopleAhead = document.getElementById('peopleAhead');
-            const estimatedWait = document.getElementById('estimatedWait');
-            const statusIndicator = document.getElementById('statusIndicator');
-            const gameBtn = document.getElementById('gameBtn');
-            const errorMessage = document.getElementById('errorMessage');
-            const adPanel = document.getElementById('adPanel');
-            const noAd = document.getElementById('noAd');
-
-            // Set initial data
-            yourNumber.textContent = queueId;
-            counterNameEl.textContent = counterName || 'Counter';
-
-            function showError(message) {
-                errorMessage.querySelector('p').textContent = message;
-                errorMessage.classList.remove('hidden');
+              if (ahead === 0) {
+                indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
                 setTimeout(() => {
-                    errorMessage.classList.add('hidden');
-                }, 5000);
-            }
+                window.location.href = "/public/your_turn.html?queueId=" + encodeURIComponent(queueKey);
+              }, 2000);
 
-            function updateStatus(currentServing) {
-                nowServing.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
-                const ahead = Math.max(0, queueNumber - currentServing);
-                peopleAhead.textContent = ahead;
-                const waitMinutes = ahead * 2;
-                estimatedWait.textContent = waitMinutes > 0 ? `${waitMinutes} min` : 'Soon';
-
-                // Redirect if it's the user's turn
-                if (currentServing === queueNumber) {
-                    console.log('It\'s your turn! Redirecting to your_turn.html');
-                    window.location.href = `your_turn.html?queueId=${queueId}`;
-                    return;
-                }
-
-                // Update status indicator
-                if (ahead === 0) {
-                    statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-                } else if (ahead <= 2) {
-                    statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
-                } else {
-                    statusIndicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
-                }
-            }
-
-            // Firebase listeners
-            const counterRef = ref(database, `settings/counters/${counterId}`);
-            const queueRef = ref(database, `queues/${queueDate}/${counterId}/${queueId}`);
-            const adRef = ref(database, 'settings/adImage');
-
-            // Listen to counter updates
-            onValue(counterRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    const counterData = snapshot.val();
-                    console.log('Counter data updated:', counterData);
-                    updateStatus(counterData.nowServing || 1);
-                    if (counterData.name !== counterName) {
-                        counterNameEl.textContent = counterData.name;
-                        queueData.counterName = counterData.name;
-                        localStorage.setItem('queueData', JSON.stringify(queueData));
-                    }
-                } else {
-                    console.error('Counter not found');
-                    showError('Counter not found. Please contact staff.');
-                }
-            }, (error) => {
-                console.error('Firebase error:', error);
-                showError('Connection error. Please check your internet connection.');
+              } else if (ahead <= 2) {
+                indicator.className = "w-3 h-3 bg-yellow-400 rounded-full animate-pulse";
+              } else {
+                indicator.className = "w-3 h-3 bg-blue-400 rounded-full";
+              }
             });
+          });
+        }
+      });
 
-            // Listen to queue entry status
-            onValue(queueRef, (snapshot) => {
-                if (!snapshot.exists()) {
-                    console.log('Queue entry removed, redirecting to index');
-                    localStorage.removeItem('queueData');
-                    window.location.href = 'index.html';
-                }
-            });
+      // Cleanup
+      window.addEventListener("beforeunload", () => {
+        if (queueRef) off(queueRef);
+        if (counterRef) off(counterRef);
+        if (servingRef) off(servingRef);
+        if (adRef) off(adRef);
+      });
+    });
 
-            // Load advertisement
-            onValue(adRef, (snapshot) => {
-                if (snapshot.exists() && snapshot.val()) {
-                    adPanel.src = snapshot.val();
-                    adPanel.classList.remove('hidden');
-                    noAd.classList.add('hidden');
-                } else {
-                    adPanel.classList.add('hidden');
-                    noAd.classList.remove('hidden');
-                }
-            });
-
-            // Event listeners
-            gameBtn.addEventListener('click', () => {
-                window.location.href = 'game.html';
-            });
-
-            // Cleanup on page unload
-            window.addEventListener('beforeunload', () => {
-                off(counterRef);
-                off(queueRef);
-                off(adRef);
-            });
-
-            // Check if queue date is today
-            const today = new Date().toISOString().split('T')[0];
-            if (queueDate !== today) {
-                showError('Your queue number has expired. Please get a new number.');
-                setTimeout(() => {
-                    localStorage.removeItem('queueData');
-                    window.location.href = 'index.html';
-                }, 3000);
-            }
+    // Game button
+    document.getElementById("gameBtn").addEventListener("click", () => {
+      fetch("game.html", { method: "HEAD" })
+        .then(res => {
+          if (res.ok) {
+            window.location.href = "game.html";
+          } else {
+            alert("Game is currently unavailable. Please wait or enjoy our ad!");
+          }
+        })
+        .catch(() => {
+          alert("Game could not be loaded. Please try again later.");
         });
-    </script>
+    });
+  </script>
 </body>
 </html>
