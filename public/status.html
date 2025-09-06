@@ -92,27 +92,80 @@
         </div>
     </div>
 
-    <!-- Firebase -->
+    <!-- Firebase and FCM Scripts -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getDatabase, ref, onValue, off, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
+        import './index.js'; // Import index.js for service worker registration
 
         // Firebase configuration
         const firebaseConfig = {
-        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-        authDomain: "queue-joy-aa21b.firebaseapp.com",
-        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "queue-joy-aa21b",
-        storageBucket: "queue-joy-aa21b.firebasestorage.app",
-        messagingSenderId: "950240394209",
-        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+            authDomain: "queue-joy-aa21b.firebaseapp.com",
+            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "queue-joy-aa21b",
+            storageBucket: "queue-joy-aa21b.firebasestorage.app",
+            messagingSenderId: "950240394209",
+            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
         };
 
-        
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
+        const messaging = getMessaging(app);
+
+        // Request notification permission
+        async function requestNotificationPermission() {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    console.log('Notification permission granted.');
+                    const vapidKey = 'BM6-cvmqAerBUtL2It-9OZKdJZqRtpltM75S03sig8mg8MankP5UOEvSm0m1zUbXb6azFI6mkJZylT7EXjXeIBc';
+                    const token = await getToken(messaging, { vapidKey });
+                    if (token) {
+                        console.log('FCM Token:', token);
+                        const queueDataStr = localStorage.getItem('queueData');
+                        if (queueDataStr) {
+                            const queueData = JSON.parse(queueDataStr);
+                            const queueId = queueData.queueId;
+                            if (queueId) {
+                                await set(ref(database, `/tokens/${queueId}`), token);
+                                console.log(`FCM token stored for queueId: ${queueId}`);
+                            }
+                        }
+                    } else {
+                        console.log('No registration token available.');
+                    }
+                } else {
+                    console.log('Notification permission denied.');
+                }
+            } catch (error) {
+                console.error('Error requesting notification permission:', error);
+            }
+        }
+
+        // Handle foreground messages
+        onMessage(messaging, (payload) => {
+            console.log('Foreground message received:', payload);
+            const notificationTitle = payload.notification?.title || 'Queue Update';
+            const notificationOptions = {
+                body: payload.notification?.body || 'Your queue number is being called!',
+                icon: '/icon.png', // Ensure icon.png exists in public directory
+            };
+            new Notification(notificationTitle, notificationOptions);
+            if (payload.data?.status === 'your_turn') {
+                const queueId = payload.data?.queueId || localStorage.getItem('queueData')?.queueId;
+                if (queueId) {
+                    window.location.href = `your_turn.html?queueId=${queueId}`;
+                }
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Request notification permission
+            requestNotificationPermission();
+
             // Get queue data from localStorage
             const queueDataStr = localStorage.getItem('queueData');
             if (!queueDataStr) {
@@ -169,17 +222,15 @@
 
             function updateStatus(currentServing) {
                 nowServing.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
-                
                 const ahead = Math.max(0, queueNumber - currentServing);
                 peopleAhead.textContent = ahead;
-                
-                const waitMinutes = ahead * 2; // 2 minutes per person
+                const waitMinutes = ahead * 2;
                 estimatedWait.textContent = waitMinutes > 0 ? `${waitMinutes} min` : 'Soon';
 
-                // Check if it's your turn
+                // Redirect if it's the user's turn
                 if (currentServing === queueNumber) {
                     console.log('It\'s your turn! Redirecting to your_turn.html');
-                    window.location.href = 'your_turn.html';
+                    window.location.href = `your_turn.html?queueId=${queueId}`;
                     return;
                 }
 
@@ -204,11 +255,8 @@
                     const counterData = snapshot.val();
                     console.log('Counter data updated:', counterData);
                     updateStatus(counterData.nowServing || 1);
-                    
-                    // Update counter name if changed
                     if (counterData.name !== counterName) {
                         counterNameEl.textContent = counterData.name;
-                        // Update localStorage
                         queueData.counterName = counterData.name;
                         localStorage.setItem('queueData', JSON.stringify(queueData));
                     }
