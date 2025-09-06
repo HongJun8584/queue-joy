@@ -1,362 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Joy - Memory Game</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .card {
-            perspective: 1000px;
-            cursor: pointer;
-        }
-        .card-inner {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            transition: transform 0.6s;
-            transform-style: preserve-3d;
-        }
-        .card.flipped .card-inner {
-            transform: rotateY(180deg);
-        }
-        .card-front, .card-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            backface-visibility: hidden;
-            border-radius: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-        .card-back {
-            transform: rotateY(180deg);
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Queue Joy - Snake Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    canvas { border: 1px solid #4B5EAA; touch-action: none; }
+  </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
-    <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 fade-in">
-        <!-- Header -->
-        <div class="text-center space-y-2">
-            <div class="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-            </div>
-            <h1 class="text-xl font-bold text-indigo-800">Memory Game</h1>
-            <p id="queueInfo" class="text-sm text-gray-600">Your number: --</p>
-        </div>
-
-        <!-- Game Stats -->
-        <div class="grid grid-cols-3 gap-2 text-center">
-            <div class="bg-gray-50 rounded-lg p-2">
-                <p class="text-xs text-gray-600">Moves</p>
-                <p id="moves" class="text-sm font-bold text-gray-800">0</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-2">
-                <p class="text-xs text-gray-600">Matches</p>
-                <p id="matches" class="text-sm font-bold text-gray-800">0/6</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-2">
-                <p class="text-xs text-gray-600">Time</p>
-                <p id="timer" class="text-sm font-bold text-gray-800">0:00</p>
-            </div>
-        </div>
-
-        <!-- Game Board -->
-        <div id="gameBoard" class="grid grid-cols-4 gap-2 aspect-square">
-            <!-- Cards will be generated here -->
-        </div>
-
-        <!-- Game Complete -->
-        <div id="gameComplete" class="hidden bg-green-50 border-2 border-green-200 rounded-xl p-3 text-center">
-            <div class="text-2xl mb-1">🎉</div>
-            <p class="text-green-800 font-bold">Great job!</p>
-            <div id="finalStats" class="text-green-700 text-xs"></div>
-        </div>
-
-        <!-- Actions -->
-        <div class="space-y-2">
-            <button id="newGameBtn" class="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-xl shadow hover:scale-105 transition-all duration-300">
-                🎮 New Game
-            </button>
-            
-            <button id="backBtn" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                ← Back to Status
-            </button>
-        </div>
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 fade-in">
+    <!-- Header -->
+    <div class="text-center space-y-2">
+      <div class="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M15 14h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h1 class="text-xl font-bold text-indigo-800">Snake Game</h1>
+      <p class="text-xs text-gray-500 italic">No worries, the system will call you even if you are playing!</p>
     </div>
-
-    <!-- Ad Panel - Fixed at bottom -->
-    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
-        <div class="bg-white rounded-xl shadow-lg p-3">
-            <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-            <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-            <div id="noAd" class="text-center text-gray-400 text-sm py-4">
-                No advertisement available
-            </div>
-        </div>
+    <!-- Game Stats -->
+    <div class="grid grid-cols-2 gap-2 text-center">
+      <div class="bg-gray-50 rounded-lg p-2">
+        <p class="text-xs text-gray-600">Score</p>
+        <p id="score" class="text-sm font-bold text-gray-800">0</p>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-2">
+        <p class="text-xs text-gray-600">High Score</p>
+        <p id="highScore" class="text-sm font-bold text-gray-800">0</p>
+      </div>
     </div>
+    <!-- Game Board -->
+    <div id="gameBoard" class="relative aspect-square">
+      <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full" width="320" height="320"></canvas>
+    </div>
+    <!-- Game Complete -->
+    <div id="gameOver" class="hidden bg-red-50 border-2 border-red-200 rounded-xl p-3 text-center">
+      <div class="text-2xl mb-1">😢</div>
+      <p class="text-red-800 font-bold">Game Over!</p>
+      <div id="finalStats" class="text-red-700 text-xs"></div>
+    </div>
+    <!-- Actions -->
+    <div class="space-y-2">
+      <button id="newGameBtn" class="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-xl shadow hover:scale-105 transition-all duration-300">
+        🎮 New Game
+      </button>
+      <button id="backBtn" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+        ← Back to Status
+      </button>
+      <div id="inlineError" class="hidden text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded-lg p-2"></div>
+    </div>
+  </div>
+  <!-- Ad Panel -->
+  <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+    <div class="bg-white rounded-xl shadow-lg p-3">
+      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+      <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+      <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
+    </div>
+  </div>
+  <!-- Firebase and Game Script -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-    <!-- Firebase -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
 
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "demo-key",
-            authDomain: "queue-joy-demo.firebaseapp.com",
-            databaseURL: "https://queue-joy-demo-default-rtdb.firebaseio.com",
-            projectId: "queue-joy-demo",
-            storageBucket: "queue-joy-demo.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef123456"
-        };
+    let app, database;
+    try {
+      app = initializeApp(firebaseConfig);
+      database = getDatabase(app);
+    } catch (e) {
+      console.error('Firebase initialization failed:', e);
+    }
 
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
+    // --- UI refs ---
+    const queueInfoEl = document.getElementById('queueInfo');
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const gameOverEl = document.getElementById('gameOver');
+    const finalStatsEl = document.getElementById('finalStats');
+    const newGameBtn = document.getElementById('newGameBtn');
+    const backBtn = document.getElementById('backBtn');
+    const adPanel = document.getElementById('adPanel');
+    const noAd = document.getElementById('noAd');
+    const inlineError = document.getElementById('inlineError');
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if user has queue data
-            const queueDataStr = localStorage.getItem('queueData');
-            if (!queueDataStr) {
-                window.location.href = 'index.html';
-                return;
-            }
+    const gameCanvas = document.getElementById('gameCanvas');
+    const ctx = gameCanvas.getContext('2d');
+    const grid = 16;
+    const tileCount = 20; // 320 / 16 = 20
+    let count = 0;
+    let score = 0;
+    let highScore = 0;
+    let gameLoop = null;
+    let hasNavigated = false;
+    let adRef = null;
+    let queueRef = null;
+    let counterRef = null;
 
-            let queueData;
-            try {
-                queueData = JSON.parse(queueDataStr);
-            } catch (e) {
-                localStorage.removeItem('queueData');
-                window.location.href = 'index.html';
-                return;
-            }
+    let snake = {
+      x: 160,
+      y: 160,
+      dx: grid,
+      dy: 0,
+      cells: [],
+      maxCells: 4
+    };
+    let apple = {
+      x: 256,
+      y: 256
+    };
 
-            // Display queue info
-            document.getElementById('queueInfo').textContent = `Your number: ${queueData.queueId}`;
+    function showError(msg) {
+      inlineError.textContent = msg;
+      inlineError.classList.remove('hidden');
+    }
 
-            // Game variables
-            let gameBoard = [];
-            let flippedCards = [];
-            let matchedPairs = 0;
-            let moves = 0;
-            let gameStartTime = null;
-            let gameTimer = null;
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
 
-            // Game symbols (6 pairs for 3x4 grid)
-            const symbols = ['🎯', '🎨', '🎪', '🎭', '🎸', '🎲'];
-            
-            // DOM elements
-            const gameBoardEl = document.getElementById('gameBoard');
-            const movesEl = document.getElementById('moves');
-            const matchesEl = document.getElementById('matches');
-            const timerEl = document.getElementById('timer');
-            const gameCompleteEl = document.getElementById('gameComplete');
-            const finalStatsEl = document.getElementById('finalStats');
-            const newGameBtn = document.getElementById('newGameBtn');
-            const backBtn = document.getElementById('backBtn');
-            const adPanel = document.getElementById('adPanel');
-            const noAd = document.getElementById('noAd');
+    function loop() {
+      gameLoop = requestAnimationFrame(loop);
+      if (++count < 4) return;
+      count = 0;
+      ctx.fillStyle = '#F3F4F6';
+      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
 
-            function shuffleArray(array) {
-                const shuffled = [...array];
-                for (let i = shuffled.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                }
-                return shuffled;
-            }
+      snake.x += snake.dx;
+      snake.y += snake.dy;
 
-            function initializeGame() {
-                // Reset game state
-                gameBoard = [];
-                flippedCards = [];
-                matchedPairs = 0;
-                moves = 0;
-                gameStartTime = null;
-                
-                if (gameTimer) {
-                    clearInterval(gameTimer);
-                    gameTimer = null;
-                }
+      if (snake.x < 0 || snake.x >= gameCanvas.width || snake.y < 0 || snake.y >= gameCanvas.height) {
+        endGame();
+        return;
+      }
 
-                // Create card pairs and shuffle
-                const cardPairs = [...symbols, ...symbols];
-                const shuffledCards = shuffleArray(cardPairs);
+      snake.cells.unshift({x: snake.x, y: snake.y});
+      if (snake.cells.length > snake.maxCells) {
+        snake.cells.pop();
+      }
 
-                // Clear board
-                gameBoardEl.innerHTML = '';
-                gameCompleteEl.classList.add('hidden');
+      ctx.fillStyle = 'red';
+      ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
 
-                // Create cards
-                shuffledCards.forEach((symbol, index) => {
-                    const card = document.createElement('div');
-                    card.className = 'card aspect-square';
-                    card.dataset.index = index;
-                    card.dataset.symbol = symbol;
+      ctx.fillStyle = 'green';
+      snake.cells.forEach(function(cell, index) {
+        ctx.fillRect(cell.x, cell.y, grid-1, grid-1);
+        if (cell.x === apple.x && cell.y === apple.y) {
+          score += 10;
+          snake.maxCells++;
+          scoreEl.textContent = score;
+          if (score > highScore) {
+            highScore = score;
+            highScoreEl.textContent = highScore;
+          }
+          apple.x = getRandomInt(0, tileCount) * grid;
+          apple.y = getRandomInt(0, tileCount) * grid;
+        }
+        for (var i = index + 1; i < snake.cells.length; i++) {
+          if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+            endGame();
+            return;
+          }
+        }
+      });
+    }
 
-                    card.innerHTML = `
-                        <div class="card-inner">
-                            <div class="card-front bg-gradient-to-br from-purple-400 to-indigo-500 text-white">
-                                <span class="text-lg">?</span>
-                            </div>
-                            <div class="card-back bg-white border-2 border-gray-200">
-                                <span>${symbol}</span>
-                            </div>
-                        </div>
-                    `;
+    function endGame() {
+      if (gameLoop) cancelAnimationFrame(gameLoop);
+      gameLoop = null;
+      finalStatsEl.innerHTML = `Final Score: ${score}`;
+      gameOverEl.classList.remove('hidden');
+    }
 
-                    card.addEventListener('click', () => flipCard(card, index));
-                    gameBoardEl.appendChild(card);
-                });
+    function initializeGame() {
+      snake = {
+        x: 160,
+        y: 160,
+        dx: grid,
+        dy: 0,
+        cells: [],
+        maxCells: 4
+      };
+      apple = {
+        x: 256,
+        y: 256
+      };
+      score = 0;
+      scoreEl.textContent = score;
+      count = 0;
+      gameOverEl.classList.add('hidden');
+      if (gameLoop) cancelAnimationFrame(gameLoop);
+      gameLoop = requestAnimationFrame(loop);
+    }
 
-                // Update UI
-                updateStats();
-            }
+    // --- Tap / Click Controls ---
+    gameCanvas.addEventListener('click', (e) => {
+      if (!gameLoop) return;
+      const rect = gameCanvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const headX = snake.x + grid / 2;
+      const headY = snake.y + grid / 2;
+      const diffX = clickX - headX;
+      const diffY = clickY - headY;
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 0 && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
+        else if (diffX < 0 && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
+      } else {
+        if (diffY > 0 && snake.dy === 0) { snake.dx = 0; snake.dy = grid; }
+        else if (diffY < 0 && snake.dy === 0) { snake.dx = 0; snake.dy = -grid; }
+      }
+    });
 
-            function flipCard(cardEl, index) {
-                // Prevent flipping if card is already flipped or matched
-                if (cardEl.classList.contains('flipped') || flippedCards.length >= 2) {
-                    return;
-                }
+    // --- Firebase Listeners ---
+    function initAdListener() {
+      if (!database) return;
+      adRef = ref(database, 'settings/adImage');
+      onValue(adRef, (snap) => {
+        try {
+          const val = snap.exists() ? snap.val() : '';
+          if (val) {
+            adPanel.src = val;
+            adPanel.classList.remove('hidden');
+            noAd.classList.add('hidden');
+          } else {
+            adPanel.classList.add('hidden');
+            noAd.classList.remove('hidden');
+          }
+        } catch (e) {
+          console.error('Ad listener error:', e);
+        }
+      });
+    }
 
-                // Start timer on first move
-                if (!gameStartTime) {
-                    gameStartTime = Date.now();
-                    startTimer();
-                }
+    function initQueueListener(queueId) {
+  if (!database || !queueId) return;
+  queueRef = ref(database, `queues/${queueId}/status`);
+  onValue(queueRef, (snap) => {
+    if (!snap.exists()) return;
+    const status = snap.val();
+    if (status === 'called' && !hasNavigated) {
+      hasNavigated = true;
+      // Redirect to your_turn.html
+      window.location.href = `public/your_turn.html?queueId=${encodeURIComponent(queueId)}`;
+    }
+  });
+}
 
-                // Flip card
-                cardEl.classList.add('flipped');
-                flippedCards.push({ element: cardEl, index, symbol: cardEl.dataset.symbol });
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeGame();
+      initAdListener();
+      const params = new URLSearchParams(window.location.search);
+      const queueId = params.get('queueId');
+      backBtn.onclick = () => {
+        if (gameLoop) cancelAnimationFrame(gameLoop);
+        window.location.href = queueId ? `status.html?queueId=${encodeURIComponent(queueId)}` : 'index.html';
+      };
+      initQueueListener(queueId);
+    });
 
-                // Check for match when 2 cards are flipped
-                if (flippedCards.length === 2) {
-                    moves++;
-                    updateStats();
-                    
-                    setTimeout(() => {
-                        checkMatch();
-                    }, 1000);
-                }
-            }
+    window.addEventListener('beforeunload', () => {
+      try {
+        if (adRef) off(adRef);
+        if (queueRef) off(queueRef);
+        if (counterRef) off(counterRef);
+        if (gameLoop) cancelAnimationFrame(gameLoop);
+      } catch (_) {}
+    });
 
-            function checkMatch() {
-                const [card1, card2] = flippedCards;
-
-                if (card1.symbol === card2.symbol) {
-                    // Match found
-                    matchedPairs++;
-                    card1.element.style.opacity = '0.7';
-                    card2.element.style.opacity = '0.7';
-
-                    // Check if game is complete
-                    if (matchedPairs === symbols.length) {
-                        setTimeout(() => {
-                            completeGame();
-                        }, 500);
-                    }
-                } else {
-                    // No match, flip cards back
-                    setTimeout(() => {
-                        card1.element.classList.remove('flipped');
-                        card2.element.classList.remove('flipped');
-                    }, 500);
-                }
-
-                flippedCards = [];
-                updateStats();
-            }
-
-            function startTimer() {
-                gameTimer = setInterval(() => {
-                    const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
-                    const minutes = Math.floor(elapsed / 60);
-                    const seconds = elapsed % 60;
-                    timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                }, 1000);
-            }
-
-            function updateStats() {
-                movesEl.textContent = moves;
-                matchesEl.textContent = `${matchedPairs}/${symbols.length}`;
-            }
-
-            function completeGame() {
-                if (gameTimer) {
-                    clearInterval(gameTimer);
-                }
-
-                const totalTime = Math.floor((Date.now() - gameStartTime) / 1000);
-                const minutes = Math.floor(totalTime / 60);
-                const seconds = totalTime % 60;
-
-                finalStatsEl.innerHTML = `Time: ${minutes}:${seconds.toString().padStart(2, '0')} | Moves: ${moves}`;
-                gameCompleteEl.classList.remove('hidden');
-            }
-
-            // Event listeners
-            newGameBtn.addEventListener('click', initializeGame);
-            
-            backBtn.addEventListener('click', () => {
-                window.location.href = 'status.html';
-            });
-
-            // Load advertisement
-            const adRef = ref(database, 'settings/adImage');
-            onValue(adRef, (snapshot) => {
-                if (snapshot.exists() && snapshot.val()) {
-                    adPanel.src = snapshot.val();
-                    adPanel.classList.remove('hidden');
-                    noAd.classList.add('hidden');
-                } else {
-                    adPanel.classList.add('hidden');
-                    noAd.classList.remove('hidden');
-                }
-            });
-
-            // Check for turn updates
-            const counterRef = ref(database, `settings/counters/${queueData.counterId}`);
-            onValue(counterRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    const counterData = snapshot.val();
-                    const queueNumber = parseInt(queueData.queueId.replace(queueData.prefix, ''));
-                    
-                    // Check if it's your turn
-                    if (counterData.nowServing === queueNumber) {
-                        window.location.href = 'your_turn.html';
-                    }
-                }
-            });
-
-            // Cleanup on page unload
-            window.addEventListener('beforeunload', () => {
-                off(adRef);
-                off(counterRef);
-                if (gameTimer) {
-                    clearInterval(gameTimer);
-                }
-            });
-
-            // Initialize game
-            initializeGame();
-        });
-    </script>
+    newGameBtn.addEventListener('click', initializeGame);
+  </script>
+  <script src="index.js"></script>
 </body>
 </html>
