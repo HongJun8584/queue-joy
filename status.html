@@ -201,7 +201,7 @@ async function setupNotifications(queueId) {
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
       const token = await getToken(messaging, {
-        vapidKey: "YOUR_PUBLIC_VAPID_KEY" // 🔑 replace with your Firebase VAPID key
+        vapidKey: "BM6-cvmqAerBUtL2It-9OZKdJZqRtpltM75S03sig8mg8MankP5UOEvSm0m1zUbXb6azFI6mkJZylT7EXjXeIBc"
       });
       if (token) {
         console.log("✅ Got FCM token:", token);
