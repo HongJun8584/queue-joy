@@ -47,10 +47,10 @@
   </main>
 
 <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getDatabase, ref, set, get, onValue, off, runTransaction } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-    // ✅ Replace with your real Firebase config from queue-joy-aa21b
+// ✅ Replace with your real Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
   authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -61,103 +61,88 @@ const firebaseConfig = {
   appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
 };
 
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-</script>
+const yourNumberEl = document.getElementById("yourNumber");
+const counterNameEl = document.getElementById("counterName");
+const errorBox = document.getElementById("errorBox");
 
-<script>
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app, firebaseConfig.databaseURL);
+const showError = (msg) => {
+  errorBox.textContent = msg;
+  errorBox.classList.remove("hidden");
+};
 
-    const yourNumberEl = document.getElementById("yourNumber");
-    const counterNameEl = document.getElementById("counterName");
-    const errorBox = document.getElementById("errorBox");
+const getParam = (keys) => {
+  const usp = new URLSearchParams(window.location.search);
+  for (const k of keys) {
+    const v = usp.get(k);
+    if (v) return v;
+  }
+  return null;
+};
 
-    const showError = (msg) => {
-      errorBox.textContent = msg;
-      errorBox.classList.remove("hidden");
-    };
+let notifiedOnce = false;
 
-    const getParam = (keys) => {
-      const usp = new URLSearchParams(window.location.search);
-      for (const k of keys) {
-        const v = usp.get(k);
-        if (v) return v;
-      }
-      return null;
-    };
+const queueKey = getParam(["queueId", "queueid", "qid", "id"]);
+if (!queueKey) {
+  showError("Missing queueId in URL.");
+} else {
+  const queueRef = ref(db, `queue/${queueKey}`);
+  onValue(queueRef, (snap) => {
+    if (!snap.exists()) {
+      showError("Your queue entry was not found.");
+      return;
+    }
+    const q = snap.val() || {};
+    const queueId = q.queueId || q.id || q.number; // fallback keys
+    const counterId = q.counterId;
 
-    let queueRef = null;
-    let counterRef = null;
-    let counterFallbackRef = null;
-    let notifiedOnce = false;
+    yourNumberEl.textContent = queueId || "—";
 
-    const queueKey = getParam(["queueId", "queueid", "qid", "id"]);
-    if (!queueKey) {
-      showError("Missing queueId in URL.");
-    } else {
-      queueRef = ref(db, `queue/${queueKey}`);
-
-      onValue(queueRef, (snap) => {
-        if (!snap.exists()) {
-          showError("Your queue entry was not found.");
-          return;
-        }
-
-        const q = snap.val() || {};
-        const { queueId, counterId } = q;
-        yourNumberEl.textContent = queueId || "—";
-
-        if (counterId && !counterRef && !counterFallbackRef) {
-          counterRef = ref(db, `counters/${counterId}`);
-          onValue(counterRef, (cSnap) => {
-            if (cSnap.exists()) {
-              const c = cSnap.val() || {};
-              counterNameEl.textContent = c.name || "Counter";
-              maybeNotify(queueId, c.name);
-            } else {
-              counterFallbackRef = ref(db, `settings/counters/${counterId}`);
-              onValue(counterFallbackRef, (c2Snap) => {
-                if (c2Snap.exists()) {
-                  const c2 = c2Snap.val() || {};
-                  counterNameEl.textContent = c2.name || "Counter";
-                  maybeNotify(queueId, c2.name);
-                } else {
-                  counterNameEl.textContent = "Counter";
-                }
-              });
-            }
+    if (counterId) {
+      const counterRef = ref(db, `counters/${counterId}`);
+      onValue(counterRef, (cSnap) => {
+        if (cSnap.exists()) {
+          const c = cSnap.val() || {};
+          counterNameEl.textContent = c.name || "Counter";
+          maybeNotify(queueId, c.name);
+        } else {
+          // fallback to settings/counters
+          const fallbackRef = ref(db, `settings/counters/${counterId}`);
+          onValue(fallbackRef, (fSnap) => {
+            const f = fSnap.val() || {};
+            counterNameEl.textContent = f.name || "Counter";
+            maybeNotify(queueId, f.name);
           });
         }
-      }, (err) => {
-        showError("Failed to read your queue entry. Please refresh.");
-        console.error(err);
       });
     }
+  }, (err) => {
+    showError("Failed to read your queue entry. Please refresh.");
+    console.error(err);
+  });
+}
 
-    function maybeNotify(ticket, counterName) {
-      if (notifiedOnce) return;
-      notifiedOnce = true;
+function maybeNotify(ticket, counterName) {
+  if (notifiedOnce) return;
+  notifiedOnce = true;
 
-      // Only Notification (no sound)
-      if ("Notification" in window && Notification.permission === "granted") {
-        const n = new Notification("Queue Joy • It's Your Turn!", {
-          body: `Ticket ${ticket || ""} → ${counterName || "Counter"}`,
-          icon: "https://img.icons8.com/color/96/appointment-reminders.png",
-          tag: "queue-joy-your-turn"
-        });
-        n.onclick = () => window.focus();
-      }
-    }
-
-    window.addEventListener("beforeunload", () => {
-      try {
-        if (queueRef) off(queueRef);
-        if (counterRef) off(counterRef);
-        if (counterFallbackRef) off(counterFallbackRef);
-      } catch (_) {}
+  if ("Notification" in window && Notification.permission === "granted") {
+    const n = new Notification("Queue Joy • It's Your Turn!", {
+      body: `Ticket ${ticket || ""} → ${counterName || "Counter"}`,
+      icon: "https://img.icons8.com/color/96/appointment-reminders.png",
+      tag: "queue-joy-your-turn"
     });
-  </script>
+    n.onclick = () => window.focus();
+  }
+}
+
+window.addEventListener("beforeunload", () => {
+  try {
+    off(ref(db, `queue/${queueKey}`));
+  } catch (_) {}
+});
+</script>
 </body>
 </html>
