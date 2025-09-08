@@ -224,5 +224,48 @@
         });
     });
   </script>
+  <script>
+    // ✅ OneSignal Notification when it's your turn
+    let notified = false;
+    function sendTurnNotification(ticket, counter) {
+      if (notified) return;
+      notified = true;
+
+      if (window.OneSignal) {
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function (OneSignal) {
+          try {
+            await OneSignal.Notifications.create({
+              headings: { en: "Queue Joy • It's Your Turn!" },
+              contents: { en: `Ticket ${ticket} → ${counter}` },
+              url: window.location.href
+            });
+            console.log("📢 OneSignal notification sent:", ticket, counter);
+          } catch (err) {
+            console.error("❌ OneSignal notification failed:", err);
+          }
+        });
+      }
+    }
+
+    // 🔗 Hook into your nowServing check
+    document.addEventListener("DOMContentLoaded", () => {
+      const yourNumber = document.getElementById("yourNumber");
+      const counterNameEl = document.getElementById("counterName");
+      const nowServingEl = document.getElementById("nowServing");
+
+      const observer = new MutationObserver(() => {
+        const ticket = yourNumber.textContent.trim();
+        const counter = counterNameEl.textContent.trim();
+        const nowServing = nowServingEl.textContent.trim();
+
+        if (ticket && nowServing && ticket === nowServing) {
+          sendTurnNotification(ticket, counter);
+        }
+      });
+
+      observer.observe(nowServingEl, { childList: true, subtree: true });
+    });
+  </script>
 </body>
 </html>
