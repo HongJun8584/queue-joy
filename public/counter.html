@@ -13,6 +13,7 @@
         .transition-all { transition: all 0.3s ease; }
         .modal-backdrop {
             background: rgba(0, 0, 0, 0.5);
+            -webkit-backdrop-filter: blur(4px);
             backdrop-filter: blur(4px);
         }
         .slide-up {
@@ -60,6 +61,7 @@
                         type="button"
                         id="togglePin"
                         class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Show or hide PIN"
                     >
                         <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -273,7 +275,7 @@
         <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4 slide-up max-h-96 overflow-y-auto">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-indigo-600">How It Works</h3>
-                <button id="closeHelp" class="text-gray-400 hover:text-gray-600">
+                <button id="closeHelp" class="text-gray-400 hover:text-gray-600" title="Close Help">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
