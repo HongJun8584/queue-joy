@@ -1017,13 +1017,16 @@ case 'skip': {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            message: `Number ${updates[`counters/${counterId}/nowServing`]} please proceed to counter ${updates[`counters/${counterId}/name`] || "Counter"}`
+            ticket: updates[`counters/${counterId}/nowServing`],
+            counter: updates[`counters/${counterId}/name`] || "Counter"
         })
         })
         .then(res => res.json())
         .then(data => console.log("📢 Push sent:", data))
         .catch(err => console.error("❌ Push error:", err));
-                showFeedback(counterId, message, 'success');
+
+        showFeedback(counterId, message, 'success');
+
 
         if (action === 'remove') {
             delete activeCounters[counterId];
@@ -1201,6 +1204,15 @@ function listenAndAssignQueue() {
             });
         });
     </script>
-    <script src="index.js"></script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "3b0fc874-4427-4278-9f5c-4edd5d92c7e2",
+      notifyButton: { enable: false } // no widget in staff panel
+    });
+  });
+</script>
 </body>
 </html>
