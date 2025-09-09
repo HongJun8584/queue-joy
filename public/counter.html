@@ -1010,8 +1010,20 @@ case 'skip': {
 
         // ✅ Single Firebase update
         await update(ref(database), updates);
+        console.log("✅ Updated nowServing:", updates);
 
-        showFeedback(counterId, message, 'success');
+        // 🔔 Trigger OneSignal push via Netlify function
+        fetch("/.netlify/functions/sendPush", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            message: `Number ${updates[`counters/${counterId}/nowServing`]} please proceed to counter ${updates[`counters/${counterId}/name`] || "Counter"}`
+        })
+        })
+        .then(res => res.json())
+        .then(data => console.log("📢 Push sent:", data))
+        .catch(err => console.error("❌ Push error:", err));
+                showFeedback(counterId, message, 'success');
 
         if (action === 'remove') {
             delete activeCounters[counterId];
