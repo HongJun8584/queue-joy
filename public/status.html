@@ -186,9 +186,6 @@
 
               if (ahead === 0) {
                 indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
-
-                sendTurnNotification(queueId, counterData.name || "Counter");
-
                 setTimeout(() => {
                 window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
               }, 2000);
@@ -227,41 +224,5 @@
         });
     });
   </script>
-<script>
-  // ✅ OneSignal Notification when it's your turn
-  let notified = false;
-  function sendTurnNotification(ticket, counter) {
-    if (notified) return;
-    notified = true;
-
-    if (window.OneSignal) {
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      window.OneSignalDeferred.push(async function (OneSignal) {
-        try {
-          // Check subscription
-          const isSubscribed = await OneSignal.User.PushSubscription.optedIn;
-          if (!isSubscribed) {
-            console.warn("⚠️ User is not subscribed to notifications.");
-            return;
-          }
-
-          // Use the service worker to show a push-style notification
-          const registration = await navigator.serviceWorker.ready;
-          registration.showNotification("Queue Joy • It's Your Turn!", {
-            body: `Ticket ${ticket} → ${counter}`,
-            icon: "/favicon.ico", // change to your app icon
-            badge: "/favicon.ico",
-            data: { url: window.location.origin + "/your_turn.html?queueId=" + encodeURIComponent(ticket) },
-            vibrate: [200, 100, 200]
-          });
-
-          console.log("📢 Notification triggered via service worker:", ticket, counter);
-        } catch (err) {
-          console.error("❌ Notification failed:", err);
-        }
-      });
-    }
-  }
-</script>
 </body>
 </html>

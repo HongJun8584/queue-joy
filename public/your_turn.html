@@ -124,29 +124,6 @@ if (!queueKey) {
   });
 }
 
-function maybeNotify(ticket, counterName) {
-  if (notifiedOnce) return;
-  notifiedOnce = true;
-
-  if ("Notification" in window) {
-    if (Notification.permission === "granted") {
-      const n = new Notification("Queue Joy • It's Your Turn!", {
-        body: `Ticket ${ticket || ""} → ${counterName || "Counter"}`,
-        icon: "https://img.icons8.com/color/96/appointment-reminders.png",
-        tag: "queue-joy-your-turn"
-      });
-      n.onclick = () => window.focus();
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission();
-    }
-  }
-}
-
-window.addEventListener("beforeunload", () => {
-  try {
-    off(ref(db, `queue/${queueKey}`));
-  } catch (_) {}
-});
 </script>
 </body>
 </html>
