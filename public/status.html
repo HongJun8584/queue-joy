@@ -188,7 +188,7 @@
                 indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
 
                 sendTurnNotification(queueId, counterData.name || "Counter");
-                
+
                 setTimeout(() => {
                 window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
               }, 2000);
@@ -262,25 +262,6 @@
       });
     }
   }
-
-  // 🔗 Hook into your nowServing check
-  document.addEventListener("DOMContentLoaded", () => {
-    const yourNumber = document.getElementById("yourNumber");
-    const counterNameEl = document.getElementById("counterName");
-    const nowServingEl = document.getElementById("nowServing");
-
-    const observer = new MutationObserver(() => {
-      const ticket = yourNumber.textContent.trim();
-      const counter = counterNameEl.textContent.trim();
-      const nowServing = nowServingEl.textContent.trim();
-
-      if (ticket && nowServing && ticket === nowServing) {
-        sendTurnNotification(ticket, counter);
-      }
-    });
-
-    observer.observe(nowServingEl, { childList: true, subtree: true });
-  });
 </script>
 </body>
 </html>
