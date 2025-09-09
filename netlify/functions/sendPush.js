@@ -1,9 +1,15 @@
-import OneSignal from "onesignal-node";
+// netlify/functions/sendPush.js
+const OneSignal = require("onesignal-node");
 
-const client = new OneSignal.Client(process.env.ONESIGNAL_APP_ID, process.env.ONESIGNAL_API_KEY);
+// Initialize OneSignal client with env variables
+const client = new OneSignal.Client(
+  process.env.ONESIGNAL_APP_ID,
+  process.env.ONESIGNAL_API_KEY
+);
 
-export async function handler(event) {
+exports.handler = async function(event, context) {
   try {
+    // Parse POST body
     const { ticket, counter } = JSON.parse(event.body);
 
     if (!ticket || !counter) {
@@ -13,12 +19,14 @@ export async function handler(event) {
       };
     }
 
+    // Prepare notification payload
     const notification = {
       contents: { en: `Number ${ticket} → Please proceed to ${counter}` },
-      included_segments: ["All"], // Or use targeting if needed
+      included_segments: ["All"], // Adjust if you want specific targeting
       name: "queue-notification",
     };
 
+    // Send notification
     const response = await client.createNotification(notification);
 
     return {
@@ -32,4 +40,4 @@ export async function handler(event) {
       body: JSON.stringify({ error: err.message }),
     };
   }
-}
+};

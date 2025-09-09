@@ -315,18 +315,13 @@
       autoRedirectIfActiveQueue();
     });
   </script>
-      <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
 <script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "3b0fc874-4427-4278-9f5c-4edd5d92c7e2",
-      notifyButton: { enable: true } // shows small bell widget
-    });
-
-    // ask permission immediately
-    OneSignal.Notifications.requestPermission().then((permission) => {
-      console.log("Notification permission:", permission);
+  window.OneSignal = window.OneSignal || [];
+  OneSignal.push(function() {
+    OneSignal.init({
+      appId: "YOUR_ONESIGNAL_APP_ID",
+      notifyButton: { enable: true }
     });
   });
 </script>
