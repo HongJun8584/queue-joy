@@ -230,7 +230,7 @@
           } else {
             // if not immediate, watch for subscriptionChange event
             try {
-              OneSignal.on('subscriptionChange', async (isSubscribedNow) => {
+              OneSignal.Notifications.addEventListener('subscriptionChange', async (isSubscribedNow) => {
                 if (isSubscribedNow) {
                   const idNow = await OneSignal.getUserId();
                   if (idNow) {
