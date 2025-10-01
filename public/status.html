@@ -267,5 +267,15 @@
       observer.observe(nowServingEl, { childList: true, subtree: true });
     });
   </script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // 🔑 Replace with your real OneSignal App ID
+      safari_web_id: "",              // (optional, for Safari)
+    });
+  });
+</script>
 </body>
 </html>
