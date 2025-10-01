@@ -358,21 +358,43 @@
     });
   </script>
 
-  <!-- OneSignal SDK (kept as you had it; appId stays the same) -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-  <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        await OneSignal.init({
-          appId: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // preserved (your App ID)
-          safari_web_id: "", // optional
-        });
-        console.log('[OneSignal] initialized');
-      } catch (err) {
-        console.warn('[OneSignal] init error', err);
-      }
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    console.log("✅ OneSignal SDK Loaded");
+
+    await OneSignal.init({
+      appId: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // YOUR REAL APP ID
     });
-  </script>
+
+    // Prompt user for push subscription
+    OneSignal.Slidedown.promptPush();
+
+    // Listen for subscription
+    OneSignal.Notifications.addEventListener("permissionChange", (e) => {
+      console.log("🔔 Permission changed:", e);
+    });
+
+    OneSignal.Notifications.addEventListener("click", (event) => {
+      console.log("📩 Notification clicked:", event);
+    });
+  });
+
+  // Custom function to trigger backend push
+  async function sendTurnNotification(queueKey, turnNumber) {
+    try {
+      const response = await fetch("/.netlify/functions/triggerPushToSubscriber", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queueKey, turnNumber }),
+      });
+      const data = await response.json();
+      console.log("✅ Push result:", data);
+    } catch (err) {
+      console.error("❌ Push error:", err);
+    }
+  }
+</script>
 </body>
 </html>
