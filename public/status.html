@@ -93,14 +93,14 @@
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      storageBucket: "queue-joy-aa21b.firebasedestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
@@ -111,53 +111,161 @@
     // Global refs for cleanup
     let queueRef, counterRef, servingRef, adRef;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      console.log("✅ Status DOM Loaded");
+    // helper: save subscriber/player id -> queueSubscriptions/{queueKey}
+    async function saveSubscriberForQueue(playerId, qKey) {
+      if (!playerId || !qKey) return;
+      try {
+        await set(ref(db, `subscribers/${playerId}`), {
+          subscribedAt: Date.now(),
+          queueKey: qKey
+        });
+        await set(ref(db, `queueSubscriptions/${qKey}`), playerId);
+        console.log('[saveSubscriberForQueue] saved', playerId, 'for', qKey);
+      } catch (err) {
+        console.error('[saveSubscriberForQueue] error:', err);
+      }
+    }
+
+    // helper: fetch subscriber for queueKey
+    async function getSubscriberForQueue(qKey) {
+      try {
+        const snap = await get(ref(db, `queueSubscriptions/${qKey}`));
+        return snap && snap.exists() ? snap.val() : null;
+      } catch (err) {
+        console.error('getSubscriberForQueue error', err);
+        return null;
+      }
+    }
+
+    // fallback: call Netlify function to trigger server-side push (uses server REST key)
+    async function triggerPushViaFunction(playerId, ticket, counterName, qKey) {
+      if (!playerId) {
+        console.warn('No playerId to trigger push');
+        return;
+      }
+      try {
+        const res = await fetch('/.netlify/functions/triggerPushToSubscriber', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerId,
+            ticket,
+            counter: counterName,
+            queueKey: qKey
+          })
+        });
+        const body = await res.json().catch(()=>null);
+        console.log('triggerPushViaFunction response', res.status, body);
+      } catch (err) {
+        console.error('triggerPushViaFunction error', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('✅ Status DOM Loaded');
 
       const params = new URLSearchParams(window.location.search);
-      const queueKey = params.get("queueId");
+      const queueKey = params.get('queueId');
       if (!queueKey) {
-        console.error("❌ No queueId found in URL");
-        window.location.href = "index.html";
+        console.error('❌ No queue data found, redirecting to index');
+        window.location.href = 'index.html';
         return;
       }
 
-      const yourNumber = document.getElementById("yourNumber");
-      const counterNameEl = document.getElementById("counterName");
-      const nowServingEl = document.getElementById("nowServing");
-      const peopleAheadEl = document.getElementById("peopleAhead");
-      const estimatedWaitEl = document.getElementById("estimatedWait");
-      const indicator = document.getElementById("statusIndicator");
-      const errorMessage = document.getElementById("errorMessage");
-      const adPanel = document.getElementById("adPanel");
-      const noAd = document.getElementById("noAd");
+      const yourNumber = document.getElementById('yourNumber');
+      const counterNameEl = document.getElementById('counterName');
+      const nowServing = document.getElementById('nowServing');
+      const peopleAhead = document.getElementById('peopleAhead');
+      const estimatedWait = document.getElementById('estimatedWait');
+      const statusIndicator = document.getElementById('statusIndicator');
+      const gameBtn = document.getElementById('gameBtn');
+      const errorMessage = document.getElementById('errorMessage');
+      const adPanelEl = document.getElementById('adPanel');
+      const noAd = document.getElementById('noAd');
 
-      const showError = (msg) => {
-        errorMessage.querySelector("p").textContent = msg;
-        errorMessage.classList.remove("hidden");
-        setTimeout(() => errorMessage.classList.add("hidden"), 5000);
-      };
+      // set initial placeholder
+      yourNumber.textContent = '--';
+      counterNameEl.textContent = '--';
 
-      // Live ad listener
-      adRef = ref(db, "settings/adImage");
-      onValue(adRef, (snap) => {
-        const adUrl = snap.val();
-        if (adUrl) {
-          adPanel.src = adUrl;
-          adPanel.classList.remove("hidden");
-          noAd.classList.add("hidden");
-        } else {
-          adPanel.classList.add("hidden");
-          noAd.classList.remove("hidden");
+      function showError(message) {
+        errorMessage.querySelector('p').textContent = message;
+        errorMessage.classList.remove('hidden');
+        setTimeout(() => {
+          errorMessage.classList.add('hidden');
+        }, 5000);
+      }
+
+      // OneSignal: capture subscriber id when SDK ready
+      // keep OneSignal appId as-is (not changed)
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          // request permission & get id
+          // check subscription status
+          let isSubscribed = false;
+          try {
+            isSubscribed = await OneSignal.isPushNotificationsEnabled();
+          } catch(e){ /* continue */ }
+
+          if (!isSubscribed) {
+            // trigger native prompt (may not show if user blocked)
+            try { await OneSignal.showNativePrompt(); } catch(e){}
+          }
+
+          // attempt to get OneSignal user id (player id)
+          let playerId = null;
+          try {
+            // modern API
+            playerId = await OneSignal.getUserId();
+          } catch (e) {
+            try {
+              // fallback
+              OneSignal.getUserId(function(id){ playerId = id; });
+            } catch(_) {}
+          }
+
+          // if we got it synchronously, save to DB
+          if (playerId) {
+            await saveSubscriberForQueue(playerId, queueKey);
+          } else {
+            // if not immediate, watch for subscriptionChange event
+            try {
+              OneSignal.on('subscriptionChange', async (isSubscribedNow) => {
+                if (isSubscribedNow) {
+                  const idNow = await OneSignal.getUserId();
+                  if (idNow) {
+                    await saveSubscriberForQueue(idNow, queueKey);
+                  }
+                }
+              });
+            } catch(e) {
+              console.warn('OneSignal event binding failed', e);
+            }
+          }
+        } catch (err) {
+          console.warn('OneSignal ready handler error', err);
         }
       });
 
-      // Queue listener
+      // Load advertisement listener
+      adRef = ref(db, 'settings/adImage');
+      onValue(adRef, (snap) => {
+        if (snap.exists() && snap.val()) {
+          adPanelEl.src = snap.val();
+          adPanelEl.classList.remove('hidden');
+          noAd.classList.add('hidden');
+        } else {
+          adPanelEl.classList.add('hidden');
+          noAd.classList.remove('hidden');
+        }
+      });
+
+      // Main queue listener
       queueRef = ref(db, `queue/${queueKey}`);
       onValue(queueRef, (snap) => {
         if (!snap.exists()) {
-          showError("Your queue entry was not found.");
-          setTimeout(() => window.location.href = "index.html", 2000);
+          showError('Your queue entry was not found.');
+          setTimeout(() => window.location.href = 'index.html', 2000);
           return;
         }
 
@@ -165,117 +273,106 @@
         yourNumber.textContent = queueId;
 
         if (!counterRef) {
-          counterRef = ref(db, `counters/${counterId}`);
+          counterRef = ref(db, `settings/counters/${counterId}`);
           onValue(counterRef, (counterSnap) => {
             if (!counterSnap.exists()) return;
             const counterData = counterSnap.val();
-            counterNameEl.textContent = counterData.name || "Counter";
+            counterNameEl.textContent = counterData.name || 'Counter';
 
-            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || "");
+            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || '');
             const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
 
-            // Now Serving listener
+            // Now Serving listener - tracks current serving number
             servingRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(servingRef, (nowSnap) => {
+            let pushSent = false; // prevent duplicate fallback pushes from status
+
+            onValue(servingRef, async (nowSnap) => {
               const currentServing = nowSnap.val() || 0;
-              nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
+              nowServing.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
 
               const ahead = Math.max(0, yourNumberNum - currentServing);
-              peopleAheadEl.textContent = ahead;
-              estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : "Soon";
+              peopleAhead.textContent = ahead;
+              estimatedWait.textContent = ahead > 0 ? `${ahead * 2} min` : 'Soon';
 
               if (ahead === 0) {
-                indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
+                statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+
+                // Redirect UI after short pause
                 setTimeout(() => {
-                window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
-              }, 2000);
+                  window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
+                }, 2000);
+
+                // Fallback: if counter didn't trigger server push, this will attempt to send once.
+                // This uses your Netlify server function (which holds your OneSignal REST key).
+                if (!pushSent) {
+                  pushSent = true;
+                  try {
+                    const subscriberId = await getSubscriberForQueue(queueKey);
+                    if (subscriberId) {
+                      // call server function to send real push
+                      await triggerPushViaFunction(subscriberId, queueId, counterData.name || 'the counter', queueKey);
+                    } else {
+                      console.warn('No subscriberId mapped for queueKey:', queueKey);
+                    }
+                  } catch (err) {
+                    console.error('Error in fallback push:', err);
+                  }
+                }
 
               } else if (ahead <= 2) {
-                indicator.className = "w-3 h-3 bg-yellow-400 rounded-full animate-pulse";
+                statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
+                pushSent = false; // reset so next time we can send
               } else {
-                indicator.className = "w-3 h-3 bg-blue-400 rounded-full";
+                statusIndicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
+                pushSent = false;
               }
             });
           });
         }
       });
 
-      // Cleanup
-      window.addEventListener("beforeunload", () => {
-        if (queueRef) off(queueRef);
-        if (counterRef) off(counterRef);
-        if (servingRef) off(servingRef);
-        if (adRef) off(adRef);
+      // Cleanup on unload
+      window.addEventListener('beforeunload', () => {
+        try {
+          if (queueRef) off(queueRef);
+          if (counterRef) off(counterRef);
+          if (servingRef) off(servingRef);
+          if (adRef) off(adRef);
+        } catch (_) {}
+      });
+
+      // Game button behaviour
+      gameBtn.addEventListener('click', () => {
+        fetch('game.html', { method: 'HEAD' })
+          .then(res => {
+            if (res.ok) {
+              window.location.href = 'game.html';
+            } else {
+              alert('Game is currently unavailable. Please wait or enjoy our ad!');
+            }
+          })
+          .catch(() => {
+            alert('Game could not be loaded. Please try again later.');
+          });
       });
     });
-
-    // Game button
-    document.getElementById("gameBtn").addEventListener("click", () => {
-      fetch("game.html", { method: "HEAD" })
-        .then(res => {
-          if (res.ok) {
-            window.location.href = "game.html";
-          } else {
-            alert("Game is currently unavailable. Please wait or enjoy our ad!");
-          }
-        })
-        .catch(() => {
-          alert("Game could not be loaded. Please try again later.");
-        });
-    });
   </script>
+
+  <!-- OneSignal SDK (kept as you had it; appId stays the same) -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    // ✅ OneSignal Notification when it's your turn
-    let notified = false;
-    function sendTurnNotification(ticket, counter) {
-      if (notified) return;
-      notified = true;
-
-      if (window.OneSignal) {
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        window.OneSignalDeferred.push(async function (OneSignal) {
-          try {
-            await OneSignal.Notifications.create({
-              headings: { en: "Queue Joy • It's Your Turn!" },
-              contents: { en: `Ticket ${ticket} → ${counter}` },
-              url: window.location.href
-            });
-            console.log("📢 OneSignal notification sent:", ticket, counter);
-          } catch (err) {
-            console.error("❌ OneSignal notification failed:", err);
-          }
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        await OneSignal.init({
+          appId: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // preserved (your App ID)
+          safari_web_id: "", // optional
         });
+        console.log('[OneSignal] initialized');
+      } catch (err) {
+        console.warn('[OneSignal] init error', err);
       }
-    }
-
-    // 🔗 Hook into your nowServing check
-    document.addEventListener("DOMContentLoaded", () => {
-      const yourNumber = document.getElementById("yourNumber");
-      const counterNameEl = document.getElementById("counterName");
-      const nowServingEl = document.getElementById("nowServing");
-
-      const observer = new MutationObserver(() => {
-        const ticket = yourNumber.textContent.trim();
-        const counter = counterNameEl.textContent.trim();
-        const nowServing = nowServingEl.textContent.trim();
-
-        if (ticket && nowServing && ticket === nowServing) {
-          sendTurnNotification(ticket, counter);
-        }
-      });
-
-      observer.observe(nowServingEl, { childList: true, subtree: true });
     });
   </script>
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // 🔑 Replace with your real OneSignal App ID
-      safari_web_id: "",              // (optional, for Safari)
-    });
-  });
-</script>
 </body>
 </html>
