@@ -401,7 +401,7 @@
       console.log("✅ OneSignal SDK Loaded (status.html)");
       try {
         await OneSignal.init({
-          appId: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // YOUR REAL APP ID - must match dashboard
+          ONESIGNAL_APP_ID: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // YOUR REAL APP ID - must match dashboard
         });
       } catch (e) {
         console.warn('OneSignal init failed', e);
