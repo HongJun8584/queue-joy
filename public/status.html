@@ -393,55 +393,71 @@
     });
   </script>
 
-  <!-- OneSignal SDK preserved (still used only to register/save playerId for backend) -->
+  <!-- ✅ OneSignal SDK -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function(OneSignal) {
       console.log("✅ OneSignal SDK Loaded (status.html)");
+
       try {
         await OneSignal.init({
-          ONESIGNAL_APP_ID: "e4c09fc6-4a7b-4029-9606-ebfca153b866", // YOUR REAL APP ID - must match dashboard
+          appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06", // ✅ your correct new App ID
         });
       } catch (e) {
-        console.warn('OneSignal init failed', e);
+        console.warn("❌ OneSignal init failed", e);
+        return;
       }
 
-      // Prompt user for push subscription slidedown (non-blocking)
-      try { OneSignal.Slidedown.promptPush(); } catch(e){}
-
-      // When subscribed, save mapping so backend can push when needed
+      // 🔔 Prompt the user for push permission
       try {
-        // modern API
-        const playerId = await OneSignal.getUserId();
-        if (playerId) {
-          // Save mapping to Firebase via the frontend helper function defined in module script
-          // The module script defines global saveSubscriberForQueue; if not, backend will still work when user subscribes via other pages.
-          if (typeof saveSubscriberForQueue === 'function') {
-            // try to save using the helper (may be available in module scope)
-            try { saveSubscriberForQueue(playerId, new URLSearchParams(window.location.search).get('queueId')); } catch(e){}
-          }
-        } else {
-          // Bind event to catch future subscription changes
-          try {
-            OneSignal.Notifications.addEventListener('subscriptionChange', async (isSubscribedNow) => {
-              if (isSubscribedNow) {
-                const idNow = await OneSignal.getUserId();
-                if (idNow) {
-                  if (typeof saveSubscriberForQueue === 'function') {
-                    try { saveSubscriberForQueue(idNow, new URLSearchParams(window.location.search).get('queueId')); } catch(e){}
-                  }
-                }
-              }
-            });
-          } catch(e) {
-            console.warn('OneSignal subscription event bind failed', e);
-          }
-        }
-      } catch (err) {
-        console.warn('OneSignal userId fetch failed', err);
+        OneSignal.Slidedown.promptPush();
+      } catch (e) {
+        console.warn("⚠️ Slidedown prompt failed", e);
       }
 
+      // ✅ Grab queueId from URL
+      const queueId = new URLSearchParams(window.location.search).get("queueId");
+
+      // ✅ Save playerId → queueId mapping
+      async function saveMapping() {
+        try {
+          const playerId = await OneSignal.User.Push.getId();
+          if (playerId) {
+            console.log("✅ Got OneSignal playerId:", playerId);
+
+            if (typeof saveSubscriberForQueue === "function") {
+              try {
+                await saveSubscriberForQueue(playerId, queueId);
+                console.log("✅ Saved mapping:", { playerId, queueId });
+              } catch (err) {
+                console.warn("⚠️ saveSubscriberForQueue failed", err);
+              }
+            }
+          } else {
+            console.log("⚠️ No playerId yet (not subscribed)");
+          }
+        } catch (err) {
+          console.warn("❌ Failed to fetch playerId", err);
+        }
+      }
+
+      // Run immediately
+      await saveMapping();
+
+      // Re-run when subscription changes
+      try {
+        OneSignal.Notifications.addEventListener("subscriptionChange", async (isSubscribedNow) => {
+          console.log("🔔 Subscription change:", isSubscribedNow);
+          if (isSubscribedNow) {
+            await saveMapping();
+          }
+        });
+      } catch (e) {
+        console.warn("⚠️ Subscription event binding failed", e);
+      }
+
+      // Debug logs
       OneSignal.Notifications.addEventListener("permissionChange", (e) => {
         console.log("🔔 Permission changed:", e);
       });
