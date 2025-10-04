@@ -20,7 +20,6 @@
       0% { transform: scale(0.8); opacity: 1; }
       80%, 100% { transform: scale(1.2); opacity: 0; }
     }
-    /* small non-invasive "enable notifications" hint when permission default */
     #notifyHint {
       position: fixed;
       top: 12px;
@@ -47,7 +46,6 @@
 
   <!-- Main Card -->
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
-    <!-- Header -->
     <div class="space-y-2">
       <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,13 +57,11 @@
       <p id="counterName" class="text-sm text-gray-600">--</p>
     </div>
 
-    <!-- Your Number -->
     <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
       <p class="text-sm text-purple-600 font-medium">Your Number</p>
       <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
     </div>
 
-    <!-- Status Info -->
     <div class="space-y-4">
       <div class="bg-gray-50 rounded-xl p-4">
         <div class="flex justify-between items-center mb-2">
@@ -87,13 +83,11 @@
       </div>
     </div>
 
-    <!-- Game Button -->
     <button id="gameBtn"
       class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300">
       🎮 Play While Waiting
     </button>
 
-    <!-- Error Message -->
     <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
       <p class="text-red-600 text-sm text-center"></p>
     </div>
@@ -146,10 +140,9 @@
     // State
     let queueRef, counterRef, servingRef, adRef;
     let queueKey = null;
-    let pushSent = false; // prevents duplicate local notifications for same queue
+    let pushSent = false;
     let lastServingValue = null;
 
-    // Audio beep for emphasis (short beep)
     function playBeep() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -162,12 +155,9 @@
         g.gain.value = 0.02;
         o.start();
         setTimeout(()=>{ o.stop(); ctx.close(); }, 220);
-      } catch (e) {
-        // ignore audio errors
-      }
+      } catch (e) {}
     }
 
-    // Show in-page error
     function showError(message) {
       errorMessage.querySelector('p').textContent = message;
       errorMessage.classList.remove('hidden');
@@ -176,7 +166,6 @@
       }, 5000);
     }
 
-    // Show non-invasive hint if permission default
     function updateNotifyHint() {
       if ('Notification' in window) {
         if (Notification.permission === 'default') {
@@ -189,7 +178,6 @@
       }
     }
 
-    // Request notification permission (user-initiated helps browsers allow)
     async function requestNotificationPermission() {
       if (!('Notification' in window)) return;
       try {
@@ -201,25 +189,14 @@
       }
     }
 
-    // Create a local browser notification (background-tab friendly)
     function sendLocalNotification(title, options = {}) {
       try {
-        if (!('Notification' in window)) {
-          console.warn('Notifications not supported');
-          return false;
-        }
-        if (Notification.permission !== 'granted') {
-          console.warn('Notification permission not granted');
-          return false;
-        }
+        if (!('Notification' in window)) return false;
+        if (Notification.permission !== 'granted') return false;
 
         const n = new Notification(title, options);
         n.onclick = function(ev) {
-          // Focus the tab / window and redirect to your_turn
-          try {
-            window.focus();
-          } catch (_) {}
-          // if queueKey exists, go to your_turn
+          try { window.focus(); } catch (_) {}
           if (queueKey) {
             window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
           }
@@ -246,9 +223,8 @@
         console.error('[saveSubscriberForQueue] error:', err);
       }
     }
-
-    // Fallback fetch to Netlify function is intentionally NOT called here.
-    // Primary pushes should be done by backend when counters update.
+    // Make the helper available globally so non-module scripts can call it
+    window.saveSubscriberForQueue = saveSubscriberForQueue;
 
     document.addEventListener('DOMContentLoaded', function() {
       console.log('✅ Status DOM Loaded (background-notify ready)');
@@ -261,7 +237,6 @@
         return;
       }
 
-      // initial placeholders
       yourNumber.textContent = '--';
       counterNameEl.textContent = '--';
 
@@ -304,14 +279,12 @@
             const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || '');
             const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
 
-            // Now Serving listener - tracks current serving number
+            // Now Serving listener
             servingRef = ref(db, `counters/${counterId}/nowServing`);
-
             onValue(servingRef, async (nowSnap) => {
               const currentServing = nowSnap.val() || 0;
               nowServing.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
 
-              // reset pushSent when serving changes backward/forward so we can notify again
               if (lastServingValue === null) lastServingValue = currentServing;
               if (currentServing !== lastServingValue) {
                 pushSent = false;
@@ -325,17 +298,13 @@
               if (ahead === 0) {
                 statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
 
-                // Redirect UI after short pause
                 setTimeout(() => {
                   window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
                 }, 2000);
 
-                // Background notification behavior:
-                // Only send one local notification per "turn" to avoid spamming.
                 if (!pushSent) {
                   pushSent = true;
 
-                  // If notifications are granted, send local system notification (works when tab is backgrounded)
                   if ('Notification' in window && Notification.permission === 'granted') {
                     const title = "Queue Joy — It's your turn";
                     const body = `Now serving ${prefix}${String(currentServing).padStart(3, "0")} at ${counterData.name || 'the counter'}.`;
@@ -348,13 +317,9 @@
                       console.warn('[status] Local notification not shown (permission or support issue)');
                     }
                   } else {
-                    // If permission default, leave the non-invasive hint to let user enable manually
                     updateNotifyHint();
                     console.log('[status] Notification permission not granted (skipped local notify)');
                   }
-
-                  // NOTE: we intentionally DO NOT call backend push from here.
-                  // Primary push actions should be triggered server-side when counters update.
                 }
               } else if (ahead <= 2) {
                 statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
@@ -366,7 +331,6 @@
         }
       });
 
-      // Cleanup on unload
       window.addEventListener('beforeunload', () => {
         try {
           if (queueRef) off(queueRef);
@@ -376,7 +340,6 @@
         } catch (_) {}
       });
 
-      // Game button behaviour
       gameBtn.addEventListener('click', () => {
         fetch('game.html', { method: 'HEAD' })
           .then(res => {
@@ -393,7 +356,7 @@
     });
   </script>
 
-  <!-- ✅ OneSignal SDK -->
+  <!-- ✅ OneSignal SDK (v16) -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -402,69 +365,84 @@
 
       try {
         await OneSignal.init({
-          appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06", // ✅ your correct new App ID
+          appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06" // your App ID
         });
       } catch (e) {
         console.warn("❌ OneSignal init failed", e);
         return;
       }
 
-      // 🔔 Prompt the user for push permission
+      // show gentle slidedown prompt (non-blocking)
       try {
         OneSignal.Slidedown.promptPush();
       } catch (e) {
         console.warn("⚠️ Slidedown prompt failed", e);
       }
 
-      // ✅ Grab queueId from URL
       const queueId = new URLSearchParams(window.location.search).get("queueId");
 
-      // ✅ Save playerId → queueId mapping
+      // Save mapping: use the v16 property for subscription id
       async function saveMapping() {
         try {
-          const playerId = await OneSignal.User.Push.getId();
-          if (playerId) {
-            console.log("✅ Got OneSignal playerId:", playerId);
+          // v16 exposes subscription state on OneSignal.User.PushSubscription
+          const playerId = (OneSignal && OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) || null;
 
-            if (typeof saveSubscriberForQueue === "function") {
+          if (playerId) {
+            console.log("✅ Got OneSignal Player ID:", playerId);
+            if (window.saveSubscriberForQueue && typeof window.saveSubscriberForQueue === 'function') {
               try {
-                await saveSubscriberForQueue(playerId, queueId);
+                await window.saveSubscriberForQueue(playerId, queueId);
                 console.log("✅ Saved mapping:", { playerId, queueId });
               } catch (err) {
                 console.warn("⚠️ saveSubscriberForQueue failed", err);
               }
             }
           } else {
-            console.log("⚠️ No playerId yet (not subscribed)");
+            // If no id yet, listen for subscription change (v16 PushSubscription 'change' event)
+            try {
+              // listener will receive an object with `id` when subscription becomes active
+              OneSignal.User.PushSubscription.addEventListener('change', async (state) => {
+                try {
+                  const newId = state && state.id ? state.id : null;
+                  if (newId) {
+                    console.log("✅ Player ID (after subscription):", newId);
+                    if (window.saveSubscriberForQueue && typeof window.saveSubscriberForQueue === 'function') {
+                      try {
+                        await window.saveSubscriberForQueue(newId, queueId);
+                        console.log("✅ Saved mapping after change:", { newId, queueId });
+                      } catch (err) {
+                        console.warn("⚠️ saveSubscriberForQueue failed (change)", err);
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.warn("⚠️ subscription change handler error", e);
+                }
+              });
+            } catch (e) {
+              console.warn("⚠️ PushSubscription change listener failed", e);
+            }
           }
         } catch (err) {
-          console.warn("❌ Failed to fetch playerId", err);
+          console.warn('❌ OneSignal playerId fetch failed', err);
         }
       }
 
-      // Run immediately
+      // run immediately and also rely on listener if not immediately available
       await saveMapping();
 
-      // Re-run when subscription changes
+      // Debugging hooks (keeps useful logs)
       try {
-        OneSignal.Notifications.addEventListener("subscriptionChange", async (isSubscribedNow) => {
-          console.log("🔔 Subscription change:", isSubscribedNow);
-          if (isSubscribedNow) {
-            await saveMapping();
-          }
+        OneSignal.Notifications.addEventListener("permissionChange", (e) => {
+          console.log("🔔 Permission changed:", e);
         });
-      } catch (e) {
-        console.warn("⚠️ Subscription event binding failed", e);
-      }
+      } catch (_) {}
 
-      // Debug logs
-      OneSignal.Notifications.addEventListener("permissionChange", (e) => {
-        console.log("🔔 Permission changed:", e);
-      });
-
-      OneSignal.Notifications.addEventListener("click", (event) => {
-        console.log("📩 Notification clicked:", event);
-      });
+      try {
+        OneSignal.Notifications.addEventListener("click", (event) => {
+          console.log("📩 Notification clicked:", event);
+        });
+      } catch (_) {}
     });
   </script>
 </body>
