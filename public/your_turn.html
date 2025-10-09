@@ -38,257 +38,262 @@
         <p id="counterName" class="mt-1 text-2xl font-bold text-purple-700">--</p>
       </div>
 
-      <p id="hint" class="text-xs text-gray-500 italic">
-        (You’ll be notified with sound even if this tab is in the background.)
-      </p>
+      <p id="hint" class="text-xs text-gray-500 italic">(You’ll be notified with a soft sound + push when it’s your turn.)</p>
     </section>
 
     <div id="errorBox" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-sm"></div>
   </main>
 
-  <!-- Softer notification sound -->
+  <!-- Soft notification sound -->
   <audio id="alertSound" preload="auto">
     <source src="https://actions.google.com/sounds/v1/notifications/notification_simple-01.ogg" type="audio/ogg">
   </audio>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getDatabase, ref, onValue, off, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+  <!-- Firebase + page logic (module) -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getDatabase, ref, onValue, off, get, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-// ---------- Firebase config (unchanged) ----------
-const firebaseConfig = {
-  apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-  authDomain: "queue-joy-aa21b.firebaseapp.com",
-  databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "queue-joy-aa21b",
-  storageBucket: "queue-joy-aa21b.firebasestorage.app",
-  messagingSenderId: "950240394209",
-  appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-};
+    // ---------- Firebase config (unchanged) ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+    // Expose a safe helper so OneSignal init script (non-module) can save mapping
+    window.saveSubscriberForQueue = async function (playerId, qKey) {
+      try {
+        if (!playerId || !qKey) return;
+        await set(ref(db, `queueSubscriptions/${qKey}`), playerId);
+        console.log('[saveSubscriberForQueue] saved', playerId, '=>', qKey);
+      } catch (e) {
+        console.warn('[saveSubscriberForQueue] failed', e);
+      }
+    };
 
-// ---------- DOM ----------
-const yourNumberEl = document.getElementById("yourNumber");
-const counterNameEl = document.getElementById("counterName");
-const errorBox = document.getElementById("errorBox");
-const sound = document.getElementById("alertSound");
+    // ---------- DOM ----------
+    const yourNumberEl = document.getElementById("yourNumber");
+    const counterNameEl = document.getElementById("counterName");
+    const errorBox = document.getElementById("errorBox");
+    const sound = document.getElementById("alertSound");
 
-const showError = (msg) => {
-  errorBox.textContent = msg;
-  errorBox.classList.remove("hidden");
-  console.error(msg);
-};
+    const showError = (msg) => {
+      errorBox.textContent = msg;
+      errorBox.classList.remove("hidden");
+      console.error(msg);
+    };
 
-const getParam = (keys) => {
-  const usp = new URLSearchParams(window.location.search);
-  for (const k of keys) {
-    const v = usp.get(k);
-    if (v) return v;
-  }
-  return null;
-};
+    const getParam = (keys) => {
+      const usp = new URLSearchParams(window.location.search);
+      for (const k of keys) {
+        const v = usp.get(k);
+        if (v) return v;
+      }
+      return null;
+    };
 
-let notifiedOnce = false;
-const queueKey = getParam(["queueId", "queueid", "qid", "id"]);
-if (!queueKey) {
-  showError("Missing queueId in URL.");
-} else {
-  console.log('[your_turn] queueKey=', queueKey);
-  const queueRef = ref(db, `queue/${queueKey}`);
-
-  onValue(queueRef, (snap) => {
-    if (!snap.exists()) {
-      showError("Your queue entry was not found.");
-      return;
+    // queueKey (support multiple param names)
+    const queueKey = getParam(['queueId','queueid','qid','id']);
+    if (!queueKey) {
+      showError('Missing queueId in URL.');
+      throw new Error('Missing queueId');
     }
+    console.log('[your_turn] queueKey=', queueKey);
 
-    const q = snap.val() || {};
-    // flexible keys used earlier across your app
-    const queueId = q.ticketNumber || q.queueId || q.id || q.number || q.queueIdString || q.queueNo;
-    const counterId = q.counterAssigned || q.counterId || q.counter;
+    // avoid double notifications
+    let notified = false;
 
-    yourNumberEl.textContent = queueId || "—";
+    // read queue entry, show data, and notify
+    const queueRef = ref(db, `queue/${queueKey}`);
+    onValue(queueRef, async (snap) => {
+      if (!snap.exists()) {
+        showError('Your queue entry was not found.');
+        return;
+      }
+      const q = snap.val() || {};
+      const ticket = q.ticketNumber || q.queueId || q.id || q.number || q.queueNo || q.ticket || null;
+      const counterId = q.counterAssigned || q.counterId || q.counter || null;
+      yourNumberEl.textContent = ticket || '—';
 
-    if (counterId) {
-      const counterRef = ref(db, `counters/${counterId}`);
-      onValue(counterRef, (cSnap) => {
-        if (cSnap.exists()) {
+      if (counterId) {
+        const counterRef = ref(db, `counters/${counterId}`);
+        onValue(counterRef, async (cSnap) => {
+          if (!cSnap.exists()) return;
           const c = cSnap.val() || {};
           const counterName = c.name || `Counter ${counterId}`;
           counterNameEl.textContent = counterName;
-          // Trigger once only — this page is the "your turn" page so we expect immediate notify
-          triggerNotification(queueId, counterName).catch(e => console.warn('triggerNotification fail', e));
-        }
-      });
-    }
-  }, (err) => {
-    showError("Failed to read your queue entry. Please refresh.");
-    console.error(err);
-  });
-}
 
-// ---------- send push via serverless Netlify function ----------
-async function sendServerNotificationToPlayer(playerId, title, body, url) {
-  if (!playerId) {
-    console.warn('[sendServerNotification] missing playerId');
-    return { ok: false, error: 'missing playerId' };
-  }
-
-  try {
-    console.log('[sendServerNotification] calling Netlify function for playerId=', playerId);
-    const res = await fetch('/.netlify/functions/sendNotification', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerId,
-        title,
-        body,
-        url: url || window.location.origin
-      })
+          // since this is the your_turn page, notify once as soon as counter is present
+          if (!notified) {
+            notified = true;
+            await triggerNotification(ticket, counterName);
+          }
+        });
+      }
+    }, (err) => {
+      showError('Failed to read your queue entry. Please refresh.');
+      console.error(err);
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.warn('[sendServerNotification] non-ok response', res.status, text);
-      return { ok: false, status: res.status, text };
-    }
-    const json = await res.json().catch(()=>null);
-    console.log('[sendServerNotification] success', json);
-    return { ok: true, json };
-  } catch (err) {
-    console.error('[sendServerNotification] fetch failed', err);
-    return { ok: false, error: err };
-  }
-}
-
-// ---------- main notification flow ----------
-async function triggerNotification(ticket, counterName) {
-  if (notifiedOnce) {
-    console.log('[triggerNotification] already notified once — skipping');
-    return;
-  }
-  notifiedOnce = true;
-
-  const title = "Queue Joy — It's Your Turn!";
-  const body = `Ticket ${ticket || ''} → ${counterName || 'Counter'}`;
-
-  // 1) Play the local softer sound
-  try {
-    sound.currentTime = 0;
-    await sound.play();
-    console.log('[triggerNotification] played sound');
-  } catch (e) {
-    console.warn('[triggerNotification] sound play failed (autoplay/user gesture?)', e);
-  }
-
-  // 2) Try server-side OneSignal push using saved mapping in Firebase: queueSubscriptions/{queueKey} -> playerId
-  try {
-    // Read the mapping from your real-time DB
-    const mappingSnap = await get(ref(db, `queueSubscriptions/${queueKey}`));
-    const playerIdFromDB = mappingSnap.exists() ? mappingSnap.val() : null;
-    console.log('[triggerNotification] playerIdFromDB=', playerIdFromDB);
-
-    if (playerIdFromDB) {
-      const serverResult = await sendServerNotificationToPlayer(playerIdFromDB, title, body, window.location.href);
-      if (serverResult.ok) {
-        console.log('[triggerNotification] server-side push requested successfully');
-      } else {
-        console.warn('[triggerNotification] server-side push failed or returned error', serverResult);
+    // attempt server push (Netlify function), fallback to native notifications
+    async function sendServerNotificationToPlayer(playerId, title, body, url) {
+      if (!playerId) return { ok:false, error:'missing playerId' };
+      try {
+        const res = await fetch('/.netlify/functions/sendNotification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, title, body, url })
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(()=>null);
+          return { ok:false, status: res.status, text: txt };
+        }
+        const json = await res.json().catch(()=>null);
+        return { ok:true, json };
+      } catch (e) {
+        return { ok:false, error: e };
       }
-    } else {
-      console.log('[triggerNotification] no playerId mapping found in queueSubscriptions; will attempt to probe local SDK state');
     }
-  } catch (err) {
-    console.warn('[triggerNotification] failed to send server push', err);
-  }
 
-  // 3) Probe OneSignal SDK for local player id (debug) and log it
-  try {
-    if (window.OneSignal) {
-      // v16 uses OneSignal.User.PushSubscription.id, but getUserId may not exist in some builds
-      let localId = null;
+    async function triggerNotification(ticket, counterName) {
+      const title = "Queue Joy — It's Your Turn!";
+      const body = `Ticket ${ticket || ''} → ${counterName || ''}`;
+
+      // 1) play soft sound
+      try { sound.currentTime = 0; await sound.play(); console.log('[notify] sound played'); } catch (e) { console.warn('[notify] sound play blocked', e); }
+
+      // 2) Try server-side OneSignal push using mapping stored in DB
       try {
-        if (typeof OneSignal.getUserId === 'function') {
-          localId = await OneSignal.getUserId();
+        const playerSnap = await get(ref(db, `queueSubscriptions/${queueKey}`));
+        const playerIdFromDB = playerSnap.exists() ? playerSnap.val() : null;
+        console.log('[notify] playerIdFromDB=', playerIdFromDB);
+        if (playerIdFromDB) {
+          const result = await sendServerNotificationToPlayer(playerIdFromDB, title, body, window.location.href);
+          console.log('[notify] server push result', result);
+        } else {
+          console.log('[notify] no playerId mapping found in DB for queueKey');
         }
-      } catch (_) {}
+      } catch (e) {
+        console.warn('[notify] server push attempt failed', e);
+      }
+
+      // 3) show native Notification fallback
       try {
-        if (!localId && OneSignal.User && OneSignal.User.PushSubscription) {
-          localId = OneSignal.User.PushSubscription.id || null;
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            const n = new Notification(title, { body, icon: 'https://img.icons8.com/color/96/appointment-reminders.png', tag: `queuejoy-${queueKey}` });
+            n.onclick = () => { try { window.focus(); } catch(_){}; };
+            console.log('[notify] native notification shown');
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => console.log('[notify] permission result', p));
+          } else {
+            console.log('[notify] native permission denied');
+          }
         }
+      } catch (e) {
+        console.warn('[notify] native notification failed', e);
+      }
+
+      // 4) tiny UI confirmation
+      try {
+        const el = document.createElement('div');
+        el.textContent = `${ticket || ''} → ${counterName || ''}`;
+        Object.assign(el.style, {
+          position: 'fixed', bottom: '18px', left: '50%', transform:'translateX(-50%)',
+          background:'#0f172a', color:'#fff', padding:'8px 12px', borderRadius:'10px', zIndex:9999
+        });
+        document.body.appendChild(el);
+        setTimeout(()=> el.remove(), 5000);
       } catch(_) {}
-      console.log('[triggerNotification] local OneSignal playerId (probe) =', localId);
-    } else {
-      console.log('[triggerNotification] OneSignal SDK not present on page');
     }
-  } catch (e) {
-    console.warn('[triggerNotification] OneSignal probe failed', e);
-  }
 
-  // 4) Native browser notification fallback (guarantee user sees something)
-  try {
-    if ("Notification" in window) {
-      if (Notification.permission === "granted") {
-        const n = new Notification(title, { body, icon: "https://img.icons8.com/color/96/appointment-reminders.png", tag: `queue-joy-${queueKey}` });
-        n.onclick = () => { try { window.focus(); } catch(_) {}; window.location.href = window.location.href; };
-        console.log('[triggerNotification] native Notification shown');
-      } else if (Notification.permission !== "denied") {
-        // Ask permission (user-gesture not required in some browsers for this prompt)
-        Notification.requestPermission().then(p => console.log('[triggerNotification] permission result', p));
-      } else {
-        console.log('[triggerNotification] native Notification permission denied');
+    // cleanup
+    window.addEventListener('beforeunload', () => {
+      try { off(queueRef); } catch(_) {}
+    });
+
+    // log registered service workers for debugging
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        console.log('[SW] registrations:', regs.map(r => ({ scope: r.scope, scriptURL: r.active?.scriptURL || r.installing?.scriptURL })));
+      }).catch(e => console.warn('[SW] getRegistrations failed', e));
+    }
+  </script>
+
+  <!-- OneSignal SDK (single include) -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    // robust OneSignal init & playerId saving (uses window.saveSubscriberForQueue from module above)
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      console.log('[OneSignal] SDK Loaded (your_turn)');
+      try {
+        // point to the worker file that exists in your public root
+        try { OneSignal.SERVICE_WORKER_PATH = "/OneSignalSDKWorker.js"; } catch(_) {}
+        try { OneSignal.SERVICE_WORKER_UPDATER_PATH = "/OneSignalSDKUpdaterWorker.js"; } catch(_) {}
+
+        await OneSignal.init({
+          appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06",
+          notifyButton: { enable: false },
+          serviceWorkerPath: "/OneSignalSDKWorker.js",
+          allowLocalhostAsSecureOrigin: true
+        });
+
+        console.log('[OneSignal] initialized');
+
+        // attempt to obtain playerId from multiple places
+        let playerId = null;
+        try {
+          if (typeof OneSignal.getUserId === 'function') {
+            playerId = await OneSignal.getUserId();
+          }
+        } catch(e) { /* ignore */ }
+
+        try {
+          if (!playerId && OneSignal.User && OneSignal.User.PushSubscription) {
+            playerId = OneSignal.User.PushSubscription.id || null;
+          }
+        } catch(e) { /* ignore */ }
+
+        console.log('[OneSignal] playerId probe ->', playerId);
+
+        // Save mapping (if possible)
+        try {
+          const queueKey = new URLSearchParams(window.location.search).get('queueId');
+          if (playerId && queueKey && typeof window.saveSubscriberForQueue === 'function') {
+            await window.saveSubscriberForQueue(playerId, queueKey);
+            console.log('[OneSignal] saved playerId -> queueSubscriptions/' + queueKey);
+          }
+        } catch(e) { console.warn('[OneSignal] save mapping failed', e); }
+
+        // If playerId not yet available, listen for change event
+        try {
+          if (OneSignal.User && OneSignal.User.PushSubscription && typeof OneSignal.User.PushSubscription.addEventListener === 'function') {
+            OneSignal.User.PushSubscription.addEventListener('change', async (state) => {
+              try {
+                const newId = state?.id || null;
+                console.log('[OneSignal] PushSubscription change, id=', newId);
+                const queueKey = new URLSearchParams(window.location.search).get('queueId');
+                if (newId && queueKey && typeof window.saveSubscriberForQueue === 'function') {
+                  await window.saveSubscriberForQueue(newId, queueKey);
+                  console.log('[OneSignal] saved new playerId -> queueSubscriptions/' + queueKey);
+                }
+              } catch(e) { console.warn('PushSubscription change handler error', e); }
+            });
+          }
+        } catch(e) { /* ignore */ }
+
+      } catch (err) {
+        console.warn('[OneSignal] init failed', err);
       }
-    } else {
-      console.log('[triggerNotification] Notifications API not supported');
-    }
-  } catch (e) {
-    console.warn('[triggerNotification] native notification failed', e);
-  }
-
-  // 5) Optional UI fallback: brief in-page visual notice (non-blocking)
-  try {
-    const el = document.createElement('div');
-    el.textContent = `It's your turn — ${ticket || ''} → ${counterName || ''}`;
-    el.style.position = 'fixed';
-    el.style.bottom = '18px';
-    el.style.left = '50%';
-    el.style.transform = 'translateX(-50%)';
-    el.style.background = '#111827';
-    el.style.color = 'white';
-    el.style.padding = '10px 14px';
-    el.style.borderRadius = '12px';
-    el.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
-    el.style.zIndex = 9999;
-    document.body.appendChild(el);
-    setTimeout(()=> el.remove(), 5000);
-  } catch (_) {}
-}
-
-// cleanup on leave
-window.addEventListener("beforeunload", () => {
-  try { off(ref(db, `queue/${queueKey}`)); } catch (_) {}
-});
-</script>
-
-<!-- OneSignal SDK (kept, but we DO NOT call Notifications.display which doesn't exist) -->
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    try {
-      await OneSignal.init({
-        appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06",
-        notifyButton: { enable: false },
-        serviceWorkerPath: "/OneSignalSDKWorker.js",
-        allowLocalhostAsSecureOrigin: true
-      });
-      console.log('[OneSignal] initialized on your_turn page');
-    } catch (e) {
-      console.warn('[OneSignal] init failed', e);
-    }
-  });
-</script>
+    });
+  </script>
 </body>
 </html>
