@@ -39,12 +39,17 @@
       </div>
 
       <p id="hint" class="text-xs text-gray-500 italic">
-        (You’ll still be notified even if this tab is in the background.)
+        (You’ll be notified with sound even if this tab is in the background.)
       </p>
     </section>
 
     <div id="errorBox" class="hidden rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-sm"></div>
   </main>
+
+  <!-- ✅ Sound effect -->
+  <audio id="alertSound" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+  </audio>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -67,6 +72,7 @@ const db = getDatabase(app);
 const yourNumberEl = document.getElementById("yourNumber");
 const counterNameEl = document.getElementById("counterName");
 const errorBox = document.getElementById("errorBox");
+const sound = document.getElementById("alertSound");
 
 const showError = (msg) => {
   errorBox.textContent = msg;
@@ -106,15 +112,7 @@ if (!queueKey) {
         if (cSnap.exists()) {
           const c = cSnap.val() || {};
           counterNameEl.textContent = c.name || `Counter ${counterId}`;
-          maybeNotify(queueId, counterNameEl.textContent);
-        } else {
-          // fallback to settings/counters
-          const fallbackRef = ref(db, `settings/counters/${counterId}`);
-          onValue(fallbackRef, (fSnap) => {
-            const f = fSnap.val() || {};
-            counterNameEl.textContent = f.name || `Counter ${counterId}`;
-            maybeNotify(queueId, counterNameEl.textContent);
-          });
+          triggerNotification(queueId, counterNameEl.textContent);
         }
       });
     }
@@ -124,10 +122,23 @@ if (!queueKey) {
   });
 }
 
-function maybeNotify(ticket, counterName) {
+async function triggerNotification(ticket, counterName) {
   if (notifiedOnce) return;
   notifiedOnce = true;
 
+  // ✅ Play sound
+  try { sound.currentTime = 0; await sound.play(); } catch (_) {}
+
+  // ✅ OneSignal Push
+  if (window.OneSignal) {
+    OneSignal.Notifications.display({
+      title: "Queue Joy",
+      body: `It's your turn! Ticket ${ticket} → ${counterName}`,
+      icon: "https://img.icons8.com/color/96/appointment-reminders.png",
+    });
+  }
+
+  // ✅ Native browser notification fallback
   if ("Notification" in window) {
     if (Notification.permission === "granted") {
       const n = new Notification("Queue Joy • It's Your Turn!", {
@@ -148,12 +159,15 @@ window.addEventListener("beforeunload", () => {
   } catch (_) {}
 });
 </script>
+
+<!-- ✅ OneSignal Web SDK -->
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
       appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06",
+      notifyButton: { enable: false },
     });
   });
 </script>
