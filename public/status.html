@@ -1,35 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Queue Joy - Your Status</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.5s ease-in; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    .fade-in { animation: fadeIn 0.45s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(18px);} to { opacity:1; transform:none; } }
+
+    /* Modal styles */
+    .modal-backdrop { background: rgba(0,0,0,0.45); }
+    .switch {
+      width: 46px; height: 26px; border-radius: 999px; position: relative; display: inline-block;
+      background: #e5e7eb; transition: background .18s ease;
     }
-    .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 1; }
-      80%, 100% { transform: scale(1.2); opacity: 0; }
+    .switch-knob {
+      width: 20px; height: 20px; border-radius: 999px; background: white; position: absolute;
+      top: 3px; left: 3px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); transition: left .18s ease, transform .18s ease;
     }
-    /* small helper for hint - hidden now because notifications moved to your_turn.html */
-    #notifyHint { display: none; }
-    #notifyHint button { font-weight:600; }
+    .switch.on { background: #6366f1; }
+    .switch.on .switch-knob { left: 23px; transform: translateX(0); }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
 
-  <!-- NOTE: Notification UI and OneSignal removed. Notifications are handled in your_turn.html -->
-
-  <!-- Main Card -->
+  <!-- Main Card (UI preserved) -->
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
     <div class="space-y-2">
       <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
@@ -90,15 +90,51 @@
     </div>
   </div>
 
-  <!-- Audio: keep local beep sound only (no notifications here) -->
+  <!-- Light beep to keep behaviour consistent -->
   <audio id="beepSound" preload="auto">
     <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
   </audio>
 
-  <!-- Firebase + Logic (no OneSignal, no notification permission prompts) -->
+  <!-- ===== Modal (switch + email input) ===== -->
+  <div id="notifyModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-11/12 max-w-md p-6 text-center">
+      <h3 class="text-lg font-semibold text-indigo-700 mb-2">How should we notify you?</h3>
+      <p class="text-sm text-gray-600 mb-4">Choose <span class="font-semibold">Email</span> to get background delivery. Choose <span class="font-semibold">Keep Screen Awake</span> to keep the page active while waiting.</p>
+
+      <div class="flex items-center justify-center gap-4 mb-4">
+        <div class="flex flex-col items-center">
+          <div id="notifySwitch" class="switch" role="switch" aria-checked="true" tabindex="0">
+            <div class="switch-knob"></div>
+          </div>
+          <div class="mt-2 text-sm">Email</div>
+        </div>
+
+        <div class="flex flex-col items-center">
+          <div class="text-xs text-gray-500">OR</div>
+        </div>
+
+        <div class="flex flex-col items-center">
+          <div class="text-sm">Keep Screen Awake</div>
+        </div>
+      </div>
+
+      <div id="emailRow" class="mb-4">
+        <input id="emailInput" type="email" placeholder="you@example.com" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      </div>
+
+      <div class="flex justify-between gap-3">
+        <button id="savePreferenceBtn" class="w-1/2 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">Save & Continue</button>
+        <button id="skipPreferenceBtn" class="w-1/2 bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition">Skip (Keep Screen Awake)</button>
+      </div>
+
+      <p id="modalNote" class="text-xs text-gray-500 mt-3">You can change this anytime in your browser (local setting).</p>
+    </div>
+  </div>
+
+  <!-- Firebase + Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -126,6 +162,14 @@
     const noAd = document.getElementById('noAd');
     const beepSound = document.getElementById('beepSound');
 
+    // Modal controls
+    const notifyModal = document.getElementById('notifyModal');
+    const notifySwitch = document.getElementById('notifySwitch');
+    const emailRow = document.getElementById('emailRow');
+    const emailInput = document.getElementById('emailInput');
+    const savePreferenceBtn = document.getElementById('savePreferenceBtn');
+    const skipPreferenceBtn = document.getElementById('skipPreferenceBtn');
+
     // State
     let queueRef = null;
     let counterRef = null;
@@ -133,48 +177,147 @@
     let adRef = null;
     let queueKey = null;
     let lastServingValue = null;
-    let pushHandled = false; // we use this to ensure single redirect+sound
+    let pushHandled = false;
+    let wakeLock = null;
+    let preferEmail = true; // default in modal (switch on)
+
+    // Helper: show modal if no pref saved for this queue
+    function getPrefKey(qk){ return `queuejoy_pref_${qk}`; }
+    function getEmailKey(qk){ return `queuejoy_email_${qk}`; }
+
+    // Wake Lock helpers
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          console.log('[WakeLock] acquired');
+          wakeLock.addEventListener('release', () => console.log('[WakeLock] released'));
+        } else {
+          console.log('[WakeLock] not supported');
+        }
+      } catch (e) {
+        console.warn('[WakeLock] request failed', e);
+      }
+    }
+    async function releaseWakeLock() {
+      try {
+        if (wakeLock) {
+          await wakeLock.release();
+          wakeLock = null;
+        }
+      } catch (e) {
+        console.warn('[WakeLock] release failed', e);
+      }
+    }
 
     function playBeep() {
       try {
-        // preferred: audio element (plays even on some mobile where WebAudio may be blocked)
         beepSound.currentTime = 0;
-        beepSound.play().catch(()=>{ /* ignore autoplay block */ });
-
-        // fallback short beep via WebAudio for browsers that support it
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = 880;
-        o.connect(g);
-        g.connect(ctx.destination);
-        g.gain.value = 0.02;
-        o.start();
-        setTimeout(()=>{ o.stop(); ctx.close(); }, 180);
-      } catch (e) {
-        // silent fail
-      }
+        beepSound.play().catch(()=>{});
+      } catch (e) {}
     }
 
     function showError(message) {
       errorMessage.querySelector('p').textContent = message;
       errorMessage.classList.remove('hidden');
-      setTimeout(() => {
-        errorMessage.classList.add('hidden');
-      }, 5000);
+      setTimeout(() => errorMessage.classList.add('hidden'), 5000);
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('✅ Status DOM Loaded');
+
+      // read queueId
       const params = new URLSearchParams(window.location.search);
       queueKey = params.get('queueId');
       if (!queueKey) {
-        console.error('No queueId provided — redirecting to index.');
+        console.error('❌ No queue data found, redirecting to index');
         window.location.href = 'index.html';
         return;
       }
 
-      // Load advertisement listener (optional)
+      // determine modal / pref
+      const savedPref = localStorage.getItem(getPrefKey(queueKey)); // values: "email" or "awake"
+      const savedEmail = localStorage.getItem(getEmailKey(queueKey));
+      if (!savedPref) {
+        // show modal
+        openModal();
+        if (savedEmail) { emailInput.value = savedEmail; }
+      } else {
+        // apply preference
+        if (savedPref === 'awake') {
+          // Try to request wake lock on load only if user previously chose awake
+          requestWakeLock().catch(()=>{});
+        }
+      }
+
+      // modal toggle UX
+      function setSwitch(on) {
+        preferEmail = !!on;
+        if (on) {
+          notifySwitch.classList.add('on');
+          notifySwitch.setAttribute('aria-checked', 'true');
+          emailRow.style.display = 'block';
+        } else {
+          notifySwitch.classList.remove('on');
+          notifySwitch.setAttribute('aria-checked', 'false');
+          emailRow.style.display = 'none';
+        }
+      }
+      setSwitch(true);
+
+      notifySwitch.addEventListener('click', () => setSwitch(!preferEmail));
+      notifySwitch.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSwitch(!preferEmail); } });
+
+      savePreferenceBtn.addEventListener('click', async () => {
+        if (preferEmail) {
+          const email = (emailInput.value || '').trim();
+          if (!email || !email.includes('@')) {
+            alert('Please enter a valid email address.');
+            return;
+          }
+          // save locally
+          localStorage.setItem(getPrefKey(queueKey), 'email');
+          localStorage.setItem(getEmailKey(queueKey), email);
+
+          // save to Firebase (queueEmails/{queueKey})
+          try {
+            await set(ref(db, `queueEmails/${queueKey}`), { email, savedAt: Date.now() });
+            console.log('[email saved] queueEmails/' + queueKey, email);
+          } catch (e) {
+            console.warn('Failed to save email to DB', e);
+          }
+
+          // release any wake lock just in case
+          releaseWakeLock().catch(()=>{});
+        } else {
+          // user switched off but clicked Save (rare), treat as awake
+          localStorage.setItem(getPrefKey(queueKey), 'awake');
+          // try to request wake lock
+          await requestWakeLock();
+        }
+        closeModal();
+      });
+
+      skipPreferenceBtn.addEventListener('click', async () => {
+        // skip = choose awake method
+        localStorage.setItem(getPrefKey(queueKey), 'awake');
+        localStorage.removeItem(getEmailKey(queueKey));
+        await requestWakeLock();
+        closeModal();
+      });
+
+      function openModal() {
+        notifyModal.classList.remove('hidden');
+        notifyModal.classList.add('flex');
+        // default to email ON
+        setSwitch(true);
+      }
+      function closeModal() {
+        notifyModal.classList.add('hidden');
+        notifyModal.classList.remove('flex');
+      }
+
+      // Advertisement listener
       adRef = ref(db, 'settings/adImage');
       onValue(adRef, (snap) => {
         if (snap.exists() && snap.val()) {
@@ -196,10 +339,8 @@
           return;
         }
 
-        const q = snap.val() || {};
-        const counterId = q.counterId || q.counterAssigned || q.counter || null;
-        const queueId = q.queueId || q.ticketNumber || q.id || q.number || '--';
-        yourNumber.textContent = queueId;
+        const { counterId, queueId } = snap.val();
+        yourNumber.textContent = queueId || '--';
 
         if (!counterRef && counterId) {
           counterRef = ref(db, `settings/counters/${counterId}`);
@@ -208,18 +349,17 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || 'Counter';
 
-            const prefix = counterData.prefix || (String(queueId).match(/^[A-Za-z]+/)?.[0] || '');
-            const yourNumberNum = parseInt(String(queueId).replace(prefix, ""), 10) || 0;
+            const prefix = counterData.prefix || (queueId && (queueId.match(/^[A-Za-z]+/)?.[0]) ) || '';
+            const yourNumberNum = parseInt(String(queueId || '').replace(prefix, ""), 10) || 0;
 
             // Now Serving listener
             servingRef = ref(db, `counters/${counterId}/nowServing`);
             onValue(servingRef, (nowSnap) => {
               const currentServing = nowSnap.val() || 0;
-              nowServing.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
+              nowServing.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
 
               if (lastServingValue === null) lastServingValue = currentServing;
               if (currentServing !== lastServingValue) {
-                // reset pushHandled so we can handle new "turn" events (no push here — only sound+redirect)
                 pushHandled = false;
                 lastServingValue = currentServing;
               }
@@ -228,42 +368,19 @@
               peopleAhead.textContent = ahead;
               estimatedWait.textContent = ahead > 0 ? `${ahead * 2} min` : 'Soon';
 
-              // Visual status indicator + actions when it's very close / turn
               if (ahead === 0) {
-                // Animate indicator and navigate to your_turn after short delay
                 statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
                 if (!pushHandled) {
                   pushHandled = true;
-                  // play sound and redirect to the dedicated your_turn page
+                  // Try to play beep then navigate to your_turn
                   try { playBeep(); } catch (_) {}
-                  setTimeout(() => {
-                    window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
-                  }, 1600);
+                  // if user chose email, we still redirect to your_turn for final UI
+                  setTimeout(() => { window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey); }, 1400);
                 }
               } else if (ahead <= 2) {
                 statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
-                // optional gentle nudge sound once when very close (non-intrusive)
-                if (!pushHandled && ahead === 2) {
-                  // play a softer beep once (don't redirect)
-                  pushHandled = true;
-                  try {
-                    // softer short beep
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const o = ctx.createOscillator();
-                    const g = ctx.createGain();
-                    o.type = 'sine';
-                    o.frequency.value = 660;
-                    o.connect(g);
-                    g.connect(ctx.destination);
-                    g.gain.value = 0.01;
-                    o.start();
-                    setTimeout(()=>{ o.stop(); ctx.close(); }, 120);
-                  } catch (_) {}
-                }
               } else {
                 statusIndicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
-                // reset pushHandled so the next important event can trigger sound+redirect
-                // (handled above by comparing lastServingValue)
               }
             });
           });
@@ -273,7 +390,15 @@
         showError('Failed to read queue status. Please refresh.');
       });
 
-      // Clean up on unload
+      // Cleanup / release wake lock on page hide/unload
+      document.addEventListener('visibilitychange', () => {
+        // if page hidden and user chose awake, try to re-request on visibilitychange when visible
+        if (document.visibilityState === 'visible') {
+          const pref = localStorage.getItem(getPrefKey(queueKey));
+          if (pref === 'awake') requestWakeLock().catch(()=>{});
+        }
+      });
+      window.addEventListener('pagehide', () => { releaseWakeLock().catch(()=>{}); });
       window.addEventListener('beforeunload', () => {
         try {
           if (queueRef) off(queueRef);
@@ -281,6 +406,7 @@
           if (servingRef) off(servingRef);
           if (adRef) off(adRef);
         } catch (_) {}
+        releaseWakeLock().catch(()=>{});
       });
 
       // Game button
