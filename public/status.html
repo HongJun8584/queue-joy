@@ -1,449 +1,391 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queue Joy - Your Status</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Queue Joy — Status</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.5s ease-in; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 1; }
-      80%, 100% { transform: scale(1.2); opacity: 0; }
-    }
-    #notifyHint {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      background: rgba(255,255,255,0.9);
-      border: 1px solid #e5e7eb;
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-size: 13px;
-      display: none;
-      z-index: 60;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-    }
-    #notifyHint button { font-weight:600; }
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .fade-in{animation:fadeIn .45s ease-out}.qj-backdrop{background:rgba(15,23,42,0.6);position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .hidden{display:none}
+    .monos { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace; font-size:13px }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
 
-  <!-- Non-invasive hint -->
-  <div id="notifyHint">
-    <span>Enable notifications to get alerted when it's your turn.</span>
-    <button id="askNotifyBtn" class="ml-3 text-indigo-600">Enable</button>
-  </div>
+  <!-- NAMEPLACER: SERVER / SECRET CONFIG (DO NOT PUT SECRETS IN CLIENT)
+       If you want to keep a single place to remember where your server keys live,
+       place them in your serverless function / backend, not here.
+       Example (server-side only):
+         TELEGRAM_BOT_TOKEN = '<INSERT_BOT_TOKEN_HERE>'
+         TELEGRAM_API_ID    = '<INSERT_API_ID_HERE>'
+         TELEGRAM_API_HASH  = '<INSERT_API_HASH_HERE>'
+  -->
 
-  <!-- Main Card -->
-  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
-    <div class="space-y-2">
-      <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+  <!-- MAIN -->
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 text-center fade-in">
+    <div class="mb-4">
+      <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full mx-auto grid place-items-center text-white mb-2">
+        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
       <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
-      <p id="counterName" class="text-sm text-gray-600">--</p>
+      <p id="counterName" class="text-sm text-gray-600 mt-1">--</p>
     </div>
 
-    <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
-      <p class="text-sm text-purple-600 font-medium">Your Number</p>
-      <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
+    <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200 mb-4">
+      <div class="text-sm text-purple-600 font-medium">Your Number</div>
+      <div id="yourNumber" class="mt-2 text-4xl font-bold text-purple-800">--</div>
     </div>
 
-    <div class="space-y-4">
+    <div class="grid grid-cols-1 gap-3 mb-2">
       <div class="bg-gray-50 rounded-xl p-4">
         <div class="flex justify-between items-center mb-2">
           <span class="text-sm text-gray-600">Now Serving</span>
           <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
         </div>
-        <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
+        <div id="nowServing" class="text-2xl font-bold text-indigo-600">--</div>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
-        <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-sm text-gray-600">People Ahead</p>
-          <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div class="text-sm text-gray-600">People Ahead</div>
+          <div id="peopleAhead" class="text-xl font-bold">--</div>
         </div>
-        <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-sm text-gray-600">Est. Wait</p>
-          <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div class="text-sm text-gray-600">Est. Wait</div>
+          <div id="estimatedWait" class="text-xl font-bold">--</div>
         </div>
       </div>
     </div>
 
-    <button id="gameBtn"
-      class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300">
-      🎮 Play While Waiting
-    </button>
+    <div class="text-xs text-gray-400" id="fbStatus">Connecting to Firebase…</div>
+  </div>
 
-    <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-red-600 text-sm text-center"></p>
+  <!-- Telegram Connect Modal -->
+  <div id="telegramModal" class="qj-backdrop hidden">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-lg font-bold text-indigo-800">Connect Telegram Bot</h3>
+      <p class="text-sm text-gray-600 mt-2">
+        Two ways to connect:
+        <ol class="text-xs text-gray-500 mt-1 list-decimal list-inside">
+          <li>One-click: generate a secure token and press "Open Bot" → tap Start in Telegram (recommended).</li>
+          <li>Manual: paste your Telegram chat id and save (trusted deployments only).</li>
+        </ol>
+      </p>
+
+      <div class="mt-4 space-y-3">
+        <label class="text-xs text-gray-600">Bot username (without @)</label>
+        <input id="tgBot" type="text" placeholder="your_bot_username" class="w-full border rounded px-3 py-2" />
+
+        <div class="flex gap-2">
+          <button id="tgGenerate" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">Generate Start Token</button>
+          <button id="tgOpen" class="px-4 py-2 border rounded-lg">Open Telegram</button>
+        </div>
+
+        <div class="pt-2 border-t"></div>
+
+        <label class="text-xs text-gray-600">Or enter chat id / @username</label>
+        <input id="tgChat" type="text" placeholder="@yourusername or chat_id" class="w-full border rounded px-3 py-2" />
+        <div class="flex gap-2 mt-2">
+          <button id="tgSaveChat" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Save Chat ID</button>
+          <button id="tgDismiss" class="px-4 py-2 text-sm text-gray-600">Dismiss</button>
+        </div>
+
+        <div id="tgNote" class="text-xs text-gray-500 mt-2 monos">Tip: One-click Start token will let your bot/server link your Telegram account automatically when you press Start in Telegram.</div>
+      </div>
     </div>
   </div>
 
-  <!-- Advertisement -->
-  <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
-    <div class="bg-white rounded-xl shadow-lg p-3">
-      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <img id="adPanel" src="" alt="Advertisement"
-           class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-      <div id="noAd" class="text-center text-gray-400 text-sm py-4">
-        No advertisement available
-      </div>
-    </div>
-  </div>
-
-  <!-- Firebase + Logic -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getDatabase, ref, onValue, off, get, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
+    /* ---------- CONFIG ---------- */
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasedestorage.app",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    // IMPORTANT: keep bot token & api_hash on server-side only. DO NOT place secrets here.
+    // NAMEPLACER: server-side placeholders (for your record)
+    // TELEGRAM_BOT_TOKEN = '<INSERT_BOT_TOKEN_ON_SERVER>'
+    // TELEGRAM_API_ID = '<INSERT_API_ID_ON_SERVER>'
+    // TELEGRAM_API_HASH = '<INSERT_API_HASH_ON_SERVER>'
+    // SERVER_ENDPOINT (example): '/.netlify/functions/linkTelegram'  <-- server reads pending token and links chatId
 
-    // Elements
-    const yourNumber = document.getElementById('yourNumber');
+    /* ---------- DOM ---------- */
+    const yourNumberEl = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
-    const nowServing = document.getElementById('nowServing');
-    const peopleAhead = document.getElementById('peopleAhead');
-    const estimatedWait = document.getElementById('estimatedWait');
+    const nowServingEl = document.getElementById('nowServing');
+    const peopleAheadEl = document.getElementById('peopleAhead');
+    const estimatedWaitEl = document.getElementById('estimatedWait');
+    const fbStatusEl = document.getElementById('fbStatus');
     const statusIndicator = document.getElementById('statusIndicator');
-    const gameBtn = document.getElementById('gameBtn');
-    const errorMessage = document.getElementById('errorMessage');
-    const adPanelEl = document.getElementById('adPanel');
-    const noAd = document.getElementById('noAd');
-    const notifyHint = document.getElementById('notifyHint');
-    const askNotifyBtn = document.getElementById('askNotifyBtn');
 
-    // State
-    let queueRef, counterRef, servingRef, adRef;
+    const telegramModal = document.getElementById('telegramModal');
+    const tgBotInput = document.getElementById('tgBot');
+    const tgGenerateBtn = document.getElementById('tgGenerate');
+    const tgOpenBtn = document.getElementById('tgOpen');
+    const tgChatInput = document.getElementById('tgChat');
+    const tgSaveChatBtn = document.getElementById('tgSaveChat');
+    const tgDismissBtn = document.getElementById('tgDismiss');
+
+    /* ---------- STATE ---------- */
+    let app, db;
     let queueKey = null;
-    let pushSent = false;
-    let lastServingValue = null;
+    let queueRef = null;
+    let counterRef = null;
+    let servingRef = null;
+    let yourNumberRaw = null;
+    let wakeLock = null;
+    let wakePreferred = localStorage.getItem('qj_wake_pref') === 'true';
+    let fallbackIntervalHandle = null;
 
-    function playBeep() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = 880;
-        o.connect(g);
-        g.connect(ctx.destination);
-        g.gain.value = 0.02;
-        o.start();
-        setTimeout(()=>{ o.stop(); ctx.close(); }, 220);
-      } catch (e) {}
+    /* ---------- INIT FIREBASE ---------- */
+    try {
+      app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      fbStatusEl.textContent = 'Connected to Firebase';
+    } catch (e) {
+      fbStatusEl.textContent = 'Firebase init failed';
+      console.error(e);
     }
 
-    function showError(message) {
-      errorMessage.querySelector('p').textContent = message;
-      errorMessage.classList.remove('hidden');
-      setTimeout(() => {
-        errorMessage.classList.add('hidden');
-      }, 5000);
-    }
-
-    function updateNotifyHint() {
-      if ('Notification' in window) {
-        if (Notification.permission === 'default') {
-          notifyHint.style.display = 'block';
-        } else {
-          notifyHint.style.display = 'none';
-        }
-      } else {
-        notifyHint.style.display = 'none';
-      }
-    }
-
-    async function requestNotificationPermission() {
-      if (!('Notification' in window)) return;
-      try {
-        const perm = await Notification.requestPermission();
-        console.log('[status] Notification permission:', perm);
-        updateNotifyHint();
-      } catch (e) {
-        console.warn('Notification permission request failed', e);
-      }
-    }
-
-    function sendLocalNotification(title, options = {}) {
-      try {
-        if (!('Notification' in window)) return false;
-        if (Notification.permission !== 'granted') return false;
-
-        const n = new Notification(title, options);
-        n.onclick = function(ev) {
-          try { window.focus(); } catch (_) {}
-          if (queueKey) {
-            window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
-          }
-          n.close();
-        };
-        return true;
-      } catch (err) {
-        console.error('sendLocalNotification error', err);
-        return false;
-      }
-    }
-
-    // OneSignal helper: save subscriberId mapping for backend usage
-    async function saveSubscriberForQueue(playerId, qKey) {
-      if (!playerId || !qKey) return;
-      try {
-        await set(ref(db, `subscribers/${playerId}`), {
-          subscribedAt: Date.now(),
-          queueKey: qKey
-        });
-        await set(ref(db, `queueSubscriptions/${qKey}`), playerId);
-        console.log('[saveSubscriberForQueue] saved', playerId, 'for', qKey);
-      } catch (err) {
-        console.error('[saveSubscriberForQueue] error:', err);
-      }
-    }
-    // Make the helper available globally so non-module scripts can call it
-    window.saveSubscriberForQueue = saveSubscriberForQueue;
-
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('✅ Status DOM Loaded (background-notify ready)');
-
-      const params = new URLSearchParams(window.location.search);
-      queueKey = params.get('queueId');
-      if (!queueKey) {
-        console.error('❌ No queue data found, redirecting to index');
-        window.location.href = 'index.html';
-        return;
-      }
-
-      yourNumber.textContent = '--';
+    // get queueKey
+    const usp = new URLSearchParams(window.location.search);
+    queueKey = usp.get('queueId') || usp.get('qid') || usp.get('id');
+    if (!queueKey) {
+      fbStatusEl.textContent = 'Missing queueId in URL';
+      yourNumberEl.textContent = '--';
       counterNameEl.textContent = '--';
+      throw new Error('Missing queueId');
+    }
 
-      updateNotifyHint();
+    /* ---------- Telegram modal logic ---------- */
+    function showTelegramModalIfNeeded() {
+      const hidden = localStorage.getItem('qj_tg_dontshow') === 'true';
+      const connected = !!localStorage.getItem('qj_tg_connected_' + queueKey);
+      if (!hidden && !connected) telegramModal.classList.remove('hidden');
+    }
 
-      askNotifyBtn.addEventListener('click', requestNotificationPermission);
+    // load saved bot username & chat
+    tgBotInput.value = localStorage.getItem('qj_tg_bot') || '';
+    tgChatInput.value = localStorage.getItem('qj_tg_chat') || '';
 
-      // Load advertisement listener
-      adRef = ref(db, 'settings/adImage');
-      onValue(adRef, (snap) => {
-        if (snap.exists() && snap.val()) {
-          adPanelEl.src = snap.val();
-          adPanelEl.classList.remove('hidden');
-          noAd.classList.add('hidden');
-        } else {
-          adPanelEl.classList.add('hidden');
-          noAd.classList.remove('hidden');
+    // Option A: generate start token stored in Firebase and open t.me/<bot>?start=<token>
+    tgGenerateBtn.addEventListener('click', async () => {
+      const bot = (tgBotInput.value || localStorage.getItem('qj_tg_bot') || '').trim();
+      if (!bot) { alert('Enter bot username first (without @).'); return; }
+
+      // generate secure random token (URL-safe)
+      const token = generateToken(20);
+      try {
+        // write a short-lived pending mapping in Firebase: telegramPending/{token} -> { queueKey, createdAt }
+        await set(ref(db, `telegramPending/${token}`), { queueKey, createdAt: Date.now() });
+        localStorage.setItem('qj_tg_bot', bot);
+        // open Telegram bot start link
+        const url = `https://t.me/${encodeURIComponent(bot)}?start=${encodeURIComponent(token)}`;
+        window.open(url, '_blank');
+        alert('Bot opened. Tap Start in Telegram to complete link.');
+      } catch (e) {
+        console.error('failed to write pending token', e);
+        alert('Could not create start token. Try again.');
+      }
+    });
+
+    // Option B: manual chat id write (client writes chat id to queue entry)
+    tgSaveChatBtn.addEventListener('click', async () => {
+      const chat = (tgChatInput.value || '').trim();
+      if (!chat) { alert('Paste chat id or @username'); return; }
+      try {
+        // Save locally and write to queue entry (server should validate in production)
+        localStorage.setItem('qj_tg_chat', chat);
+        await set(ref(db, `queue/${queueKey}/telegramChatId`), chat);
+        localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
+        telegramModal.classList.add('hidden');
+        alert('Chat id saved for this queue. Server may verify before sending messages.');
+      } catch (e) {
+        console.error('save chat failed', e);
+        alert('Failed to save chat id. Check console.');
+      }
+    });
+
+    tgOpenBtn.addEventListener('click', () => {
+      const bot = (tgBotInput.value || localStorage.getItem('qj_tg_bot') || '').trim();
+      if (!bot) { alert('Enter bot username first (without @).'); return; }
+      window.open(`https://t.me/${encodeURIComponent(bot)}`, '_blank');
+    });
+    tgDismissBtn.addEventListener('click', () => telegramModal.classList.add('hidden'));
+
+    // small helper: secure random token
+    function generateToken(length = 24) {
+      const bytes = new Uint8Array(length);
+      crypto.getRandomValues(bytes);
+      // base36-ish URL safe
+      return Array.from(bytes).map(b => ('0' + (b % 36).toString(36)).slice(-1)).join('');
+    }
+
+    // show modal if not connected
+    showTelegramModalIfNeeded();
+
+    /* ---------- Wake Lock (keeps screen awake while visible) ---------- */
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          localStorage.setItem('qj_wake_pref', 'true');
+          wakePreferred = true;
+          console.log('[wake] acquired');
+          wakeLock.addEventListener('release', () => {
+            console.log('[wake] released');
+            if (wakePreferred) tryReacquireWake();
+          });
+          document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && wakePreferred && !wakeLock) {
+              try { wakeLock = await navigator.wakeLock.request('screen'); console.log('[wake] reacquired'); } catch(e){ console.warn(e); }
+            }
+          });
         }
-      });
+      } catch (e) { console.warn('Wake request failed', e); }
+    }
+    async function releaseWakeLock() {
+      try { if (wakeLock) { await wakeLock.release(); wakeLock = null; localStorage.setItem('qj_wake_pref','false'); wakePreferred = false; } } catch(e){ console.warn(e); }
+    }
+    async function tryReacquireWake() {
+      if (wakePreferred && 'wakeLock' in navigator && !wakeLock) {
+        try { wakeLock = await navigator.wakeLock.request('screen'); console.log('[wake] reacquired'); } catch(e){ console.warn(e); }
+      }
+    }
+    if (wakePreferred) tryReacquireWake();
+    // quick toggle: double click to toggle wake lock
+    document.addEventListener('dblclick', async () => { if (wakeLock) await releaseWakeLock(); else await requestWakeLock(); });
 
-      // Main queue listener
+    /* ---------- Firebase listeners & fallback polling ---------- */
+    function parseTicketNum(ticket) {
+      if (!ticket) return NaN;
+      const s = String(ticket);
+      const letters = s.match(/^[A-Za-z]+/);
+      const numPart = letters ? s.slice(letters[0].length) : s;
+      return parseInt(numPart, 10) || 0;
+    }
+
+    function attachQueueListener() {
       queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, (snap) => {
+      onValue(queueRef, snap => {
         if (!snap.exists()) {
-          showError('Your queue entry was not found.');
-          setTimeout(() => window.location.href = 'index.html', 2000);
+          yourNumberEl.textContent = '--'; counterNameEl.textContent = '--'; fbStatusEl.textContent = 'Queue not found';
           return;
         }
+        const q = snap.val() || {};
+        const ticket = q.queueId || q.ticketNumber || q.id || q.number || q.queueNo || q.ticket || '--';
+        yourNumberEl.textContent = ticket;
+        yourNumberRaw = ticket;
 
-        const { counterId, queueId } = snap.val();
-        yourNumber.textContent = queueId;
+        const counterId = q.counterAssigned || q.counterId || q.counter || null;
+        if (counterId) attachCounterListeners(counterId, ticket);
+      }, err => { console.warn('queue read err', err); fbStatusEl.textContent = 'Failed to read queue'; });
+    }
 
-        if (!counterRef) {
-          counterRef = ref(db, `settings/counters/${counterId}`);
-          onValue(counterRef, (counterSnap) => {
-            if (!counterSnap.exists()) return;
-            const counterData = counterSnap.val();
-            counterNameEl.textContent = counterData.name || 'Counter';
+    function attachCounterListeners(counterId) {
+      counterRef = ref(db, `settings/counters/${counterId}`);
+      onValue(counterRef, cSnap => {
+        if (!cSnap.exists()) return;
+        const cData = cSnap.val() || {};
+        counterNameEl.textContent = cData.name || `Counter ${counterId}`;
+      });
 
-            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || '');
-            const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
+      servingRef = ref(db, `counters/${counterId}/nowServing`);
+      onValue(servingRef, nowSnap => {
+        const current = nowSnap.exists() ? nowSnap.val() : 0;
+        nowServingEl.textContent = String(current);
+        evaluateAheadAndMaybeRedirect(current, counterId);
+      });
+    }
 
-            // Now Serving listener
-            servingRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(servingRef, async (nowSnap) => {
-              const currentServing = nowSnap.val() || 0;
-              nowServing.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
-
-              if (lastServingValue === null) lastServingValue = currentServing;
-              if (currentServing !== lastServingValue) {
-                pushSent = false;
-                lastServingValue = currentServing;
-              }
-
-              const ahead = Math.max(0, yourNumberNum - currentServing);
-              peopleAhead.textContent = ahead;
-              estimatedWait.textContent = ahead > 0 ? `${ahead * 2} min` : 'Soon';
-
-              if (ahead === 0) {
-                statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-
-                setTimeout(() => {
-                  window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
-                }, 2000);
-
-                if (!pushSent) {
-                  pushSent = true;
-
-                  if ('Notification' in window && Notification.permission === 'granted') {
-                    const title = "Queue Joy — It's your turn";
-                    const body = `Now serving ${prefix}${String(currentServing).padStart(3, "0")} at ${counterData.name || 'the counter'}.`;
-                    const icon = counterData.iconUrl || "/favicon.ico";
-                    const shown = sendLocalNotification(title, { body, icon });
-                    if (shown) {
-                      playBeep();
-                      console.log('[status] Local notification sent');
-                    } else {
-                      console.warn('[status] Local notification not shown (permission or support issue)');
-                    }
-                  } else {
-                    updateNotifyHint();
-                    console.log('[status] Notification permission not granted (skipped local notify)');
-                  }
-                }
-              } else if (ahead <= 2) {
-                statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
-              } else {
-                statusIndicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
-              }
-            });
-          });
+    async function periodicFallback(counterId) {
+      if (!counterId) return;
+      try {
+        const sRef = ref(db, `counters/${counterId}/nowServing`);
+        const snap = await get(sRef);
+        if (snap.exists()) {
+          const current = snap.val();
+          nowServingEl.textContent = String(current);
+          evaluateAheadAndMaybeRedirect(current, counterId);
         }
-      });
+      } catch (e) { console.warn('periodic get failed', e); }
+    }
+    function startPeriodicFallback(counterId) { if (fallbackIntervalHandle) clearInterval(fallbackIntervalHandle); fallbackIntervalHandle = setInterval(()=> periodicFallback(counterId), 8000); }
+    function stopPeriodicFallback() { if (fallbackIntervalHandle) clearInterval(fallbackIntervalHandle); }
 
-      window.addEventListener('beforeunload', () => {
-        try {
-          if (queueRef) off(queueRef);
-          if (counterRef) off(counterRef);
-          if (servingRef) off(servingRef);
-          if (adRef) off(adRef);
-        } catch (_) {}
-      });
+    function evaluateAheadAndMaybeRedirect(currentServingValue, counterId) {
+      const ticket = yourNumberRaw;
+      if (!ticket) return;
+      const prefixMatch = String(ticket).match(/^[A-Za-z]+/);
+      const prefix = prefixMatch ? prefixMatch[0] : '';
+      const ticketNum = parseTicketNum(ticket);
+      const currentNum = parseTicketNum(prefix ? (String(currentServingValue).replace(prefix, '')) : currentServingValue);
+      const ahead = Math.max(0, ticketNum - currentNum);
+      peopleAheadEl.textContent = ahead;
+      estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : 'Now';
 
-      gameBtn.addEventListener('click', () => {
-        fetch('game.html', { method: 'HEAD' })
-          .then(res => {
-            if (res.ok) {
-              window.location.href = 'game.html';
-            } else {
-              alert('Game is currently unavailable. Please wait or enjoy our ad!');
-            }
-          })
-          .catch(() => {
-            alert('Game could not be loaded. Please try again later.');
-          });
-      });
-    });
-  </script>
-
-  <!-- ✅ OneSignal SDK (v16) -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-  <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function(OneSignal) {
-      console.log("✅ OneSignal SDK Loaded (status.html)");
-
-      try {
-        await OneSignal.init({
-          appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06" // your App ID
-        });
-      } catch (e) {
-        console.warn("❌ OneSignal init failed", e);
-        return;
-      }
-
-      // show gentle slidedown prompt (non-blocking)
-      try {
-        OneSignal.Slidedown.promptPush();
-      } catch (e) {
-        console.warn("⚠️ Slidedown prompt failed", e);
-      }
-
-      const queueId = new URLSearchParams(window.location.search).get("queueId");
-
-      // Save mapping: use the v16 property for subscription id
-      async function saveMapping() {
-        try {
-          // v16 exposes subscription state on OneSignal.User.PushSubscription
-          const playerId = (OneSignal && OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) || null;
-
-          if (playerId) {
-            console.log("✅ Got OneSignal Player ID:", playerId);
-            if (window.saveSubscriberForQueue && typeof window.saveSubscriberForQueue === 'function') {
-              try {
-                await window.saveSubscriberForQueue(playerId, queueId);
-                console.log("✅ Saved mapping:", { playerId, queueId });
-              } catch (err) {
-                console.warn("⚠️ saveSubscriberForQueue failed", err);
-              }
-            }
-          } else {
-            // If no id yet, listen for subscription change (v16 PushSubscription 'change' event)
-            try {
-              // listener will receive an object with `id` when subscription becomes active
-              OneSignal.User.PushSubscription.addEventListener('change', async (state) => {
-                try {
-                  const newId = state && state.id ? state.id : null;
-                  if (newId) {
-                    console.log("✅ Player ID (after subscription):", newId);
-                    if (window.saveSubscriberForQueue && typeof window.saveSubscriberForQueue === 'function') {
-                      try {
-                        await window.saveSubscriberForQueue(newId, queueId);
-                        console.log("✅ Saved mapping after change:", { newId, queueId });
-                      } catch (err) {
-                        console.warn("⚠️ saveSubscriberForQueue failed (change)", err);
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.warn("⚠️ subscription change handler error", e);
-                }
-              });
-            } catch (e) {
-              console.warn("⚠️ PushSubscription change listener failed", e);
-            }
-          }
-        } catch (err) {
-          console.warn('❌ OneSignal playerId fetch failed', err);
+      if (ahead === 0) {
+        statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+        const redirectKey = `qj_redirected_${queueKey}`;
+        if (!localStorage.getItem(redirectKey)) {
+          localStorage.setItem(redirectKey, 'true');
+          // redirect user to your_turn page silently
+          window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}`;
         }
+      } else if (ahead <= 2) {
+        statusIndicator.className = 'w-3 h-3 bg-yellow-400 rounded-full';
+      } else {
+        statusIndicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
       }
 
-      // run immediately and also rely on listener if not immediately available
-      await saveMapping();
+      // start fallback once we know counterId
+      if (counterId) startPeriodicFallback(counterId);
+    }
 
-      // Debugging hooks (keeps useful logs)
-      try {
-        OneSignal.Notifications.addEventListener("permissionChange", (e) => {
-          console.log("🔔 Permission changed:", e);
-        });
-      } catch (_) {}
+    // initial attach
+    attachQueueListener();
 
+    // attempt to find counterId (then start fallback)
+    const counterFinder = setInterval(async () => {
       try {
-        OneSignal.Notifications.addEventListener("click", (event) => {
-          console.log("📩 Notification clicked:", event);
-        });
-      } catch (_) {}
+        const qRef = ref(db, `queue/${queueKey}`);
+        const qSnap = await get(qRef);
+        if (qSnap.exists()) {
+          const q = qSnap.val() || {};
+          const counterId = q.counterAssigned || q.counterId || q.counter || null;
+          if (counterId) { startPeriodicFallback(counterId); clearInterval(counterFinder); }
+        }
+      } catch(e){ console.warn(e); }
+    }, 1000);
+
+    // visibility handling: reattach listeners and try reacquire wake lock
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        tryReacquireWake();
+        try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); if (servingRef) off(servingRef); } catch(_) {}
+        attachQueueListener();
+      }
     });
+
+    // cleanup
+    window.addEventListener('beforeunload', () => {
+      try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); if (servingRef) off(servingRef); stopPeriodicFallback(); } catch(_) {}
+    });
+
+    // end of module
   </script>
 </body>
 </html>
