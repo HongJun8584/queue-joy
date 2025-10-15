@@ -7,32 +7,22 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .center-card{max-width:720px}
-    .turn-overlay{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(14,165,233,0.06),rgba(124,58,237,0.06));z-index:9999}
     .hidden{display:none}
-    .monos{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace}
+    .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,0.55);z-index:9999}
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 flex items-center justify-center p-6">
 
-  <!-- NAMEPLACER: Server secrets MUST NOT be placed in this file.
-       Keep TELEGRAM_BOT_TOKEN, API_ID, API_HASH on your serverless function or backend.
-       Example (server only):
-         TELEGRAM_BOT_TOKEN = '<INSERT_BOT_TOKEN_HERE>'
-         SERVER_ENDPOINT_LINK = '/.netlify/functions/linkTelegram'  <-- server checks telegramPending tokens
-         SERVER_ENDPOINT_SEND = '/.netlify/functions/sendTelegram'  <-- server sends messages
-  -->
-
-  <div class="w-full center-card bg-white rounded-xl shadow p-6 text-center">
-    <h1 class="text-2xl font-bold text-gray-800 mb-2">It’s Your Turn</h1>
+  <div class="w-full max-w-md bg-white rounded-xl shadow p-6 text-center">
+    <h1 class="text-2xl font-bold text-gray-800 mb-3">It’s Your Turn</h1>
 
     <div class="mb-6">
       <div class="text-sm text-gray-500">Your Queue Number</div>
       <div id="yourNumber" class="mt-2 text-6xl font-extrabold text-indigo-700">—</div>
-      <div id="tgBadge" class="mt-2 text-xs text-green-600 monos hidden">Connected via Telegram</div>
+      <div id="tgBadge" class="mt-2 text-xs text-green-600 hidden">Connected via Telegram</div>
     </div>
 
-    <div class="mb-4">
+    <div>
       <div class="text-sm text-gray-500">Proceed To</div>
       <div id="counterName" class="mt-2 text-3xl font-bold text-purple-700">—</div>
     </div>
@@ -40,22 +30,22 @@
     <div class="mt-6 text-xs text-gray-400" id="fbStatus">Connecting to Firebase…</div>
   </div>
 
-  <!-- Full-screen "You're Called" overlay -->
-  <div id="calledOverlay" class="turn-overlay hidden">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg text-center">
+  <!-- Called overlay -->
+  <div id="calledOverlay" class="overlay hidden">
+    <div class="bg-white rounded-2xl p-8 w-full max-w-lg text-center">
       <h2 class="text-3xl font-extrabold text-indigo-900 mb-2">🎉 It's Your Turn!</h2>
-      <div class="text-lg text-gray-700 mb-4">
-        <div id="overlayNumber" class="text-5xl font-black text-indigo-700">--</div>
-        <div id="overlayCounter" class="mt-2 text-2xl text-purple-700">--</div>
-      </div>
-      <div class="flex gap-3 justify-center mt-4">
-        <a id="openTelegramBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow inline-block" href="#" target="_blank">Open Telegram</a>
-        <button id="dismissBtn" class="px-4 py-2 border rounded-lg">OK</button>
+      <div id="overlayNumber" class="text-5xl font-black text-indigo-700 mb-1">--</div>
+      <div id="overlayCounter" class="text-2xl text-purple-700 mb-4">Proceed to the counter</div>
+
+      <div class="flex gap-3 justify-center">
+        <button id="replaySound" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Play sound</button>
+        <button id="openTelegram" class="px-4 py-2 border rounded-lg hidden" target="_blank">Open Telegram</button>
+        <button id="dismiss" class="px-4 py-2 text-sm text-gray-600">OK</button>
       </div>
     </div>
   </div>
 
-  <!-- alert sound -->
+  <!-- alert sound (short, crisp) -->
   <audio id="alertSound" preload="auto">
     <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
   </audio>
@@ -64,7 +54,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, ref, onValue, off, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-    // ---------- CONFIG ----------
+    // ===== CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -75,7 +65,7 @@
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
 
-    // ---------- DOM ----------
+    // ===== DOM =====
     const yourNumberEl = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const fbStatusEl = document.getElementById('fbStatus');
@@ -84,17 +74,17 @@
     const calledOverlay = document.getElementById('calledOverlay');
     const overlayNumber = document.getElementById('overlayNumber');
     const overlayCounter = document.getElementById('overlayCounter');
-    const openTelegramBtn = document.getElementById('openTelegramBtn');
-    const dismissBtn = document.getElementById('dismissBtn');
+    const replayBtn = document.getElementById('replaySound');
+    const openTgBtn = document.getElementById('openTelegram');
+    const dismissBtn = document.getElementById('dismiss');
     const alertSound = document.getElementById('alertSound');
 
-    // ---------- STATE ----------
+    // ===== STATE =====
     let app, db, queueRef, counterRef;
     let queueKey = null;
     let lastTicket = null;
-    let alertedKey = null; // localStorage key to avoid duplicate alert per queue
+    const alertedKeyPrefix = 'qj_alerted_';
 
-    // ---------- INIT ----------
     try {
       app = initializeApp(firebaseConfig);
       db = getDatabase(app);
@@ -104,131 +94,113 @@
       console.error(e);
     }
 
-    function getParam(keys){
+    // get queueKey
+    function getParam(keys) {
       const usp = new URLSearchParams(window.location.search);
-      for (const k of keys){
-        const v = usp.get(k);
-        if (v) return v;
-      }
+      for (const k of keys) { const v = usp.get(k); if (v) return v; }
       return null;
     }
-
     queueKey = getParam(['queueId','queueid','qid','id']);
     if (!queueKey) {
-      fbStatusEl.textContent = 'Missing queueId in URL';
-      yourNumberEl.textContent = '—';
-      counterNameEl.textContent = '—';
+      fbStatusEl.textContent = 'Missing queueId';
       throw new Error('Missing queueId');
     }
-    alertedKey = `qj_alerted_${queueKey}`;
+    const alertedKey = alertedKeyPrefix + queueKey;
 
-    // ---------- Helpers ----------
-    function parseTicketNum(ticket){
+    // tokenized helper to parse numeric suffix
+    function parseTicketNum(ticket) {
       if (!ticket) return NaN;
       const s = String(ticket);
       const letters = s.match(/^[A-Za-z]+/);
       const numPart = letters ? s.slice(letters[0].length) : s;
-      return parseInt(numPart, 10) || 0;
+      return parseInt(numPart, 10) || NaN;
     }
 
-    function showCalledUI(ticket, counterName, telegramBot){
-      // single-alert guard
+    // show overlay + attempt to play & vibrate
+    async function alertUser(ticket, counterName, telegramBot) {
+      // prevent duplicates across reloads
       if (localStorage.getItem(alertedKey)) return;
       localStorage.setItem(alertedKey, 'true');
 
       overlayNumber.textContent = ticket;
-      overlayCounter.textContent = `Proceed to ${counterName || 'the counter'}`;
+      overlayCounter.textContent = counterName ? `Proceed to ${counterName}` : 'Proceed to the counter';
+
+      // show Telegram button when bot username known
+      const bot = telegramBot || localStorage.getItem('qj_tg_bot') || null;
+      if (bot) {
+        openTgBtn.href = `https://t.me/${encodeURIComponent(bot)}`;
+        openTgBtn.classList.remove('hidden');
+      } else {
+        openTgBtn.classList.add('hidden');
+      }
+
       calledOverlay.classList.remove('hidden');
 
       // try play sound
       try {
         alertSound.currentTime = 0;
-        alertSound.play().catch(()=> console.warn('sound autoplay blocked'));
-      } catch(e){console.warn(e);}
-
-      // vibrate if available
-      if (navigator.vibrate) try { navigator.vibrate([250,120,250]); } catch(e){}
-
-      // show native notification if permission granted
-      if ('Notification' in window && Notification.permission === 'granted') {
-        const n = new Notification("Queue Joy — It's Your Turn", { body: `Ticket ${ticket} → ${counterName || 'Counter'}` });
-        setTimeout(()=> n.close(), 8000);
+        await alertSound.play().catch(()=>{ /* autoplay blocked */ });
+      } catch (e) {
+        console.warn('sound play failed', e);
       }
 
-      // open Telegram quick-link if bot set
-      if (telegramBot) {
-        openTelegramBtn.href = `https://t.me/${encodeURIComponent(telegramBot)}`;
-        openTelegramBtn.classList.remove('hidden');
-      } else {
-        openTelegramBtn.classList.add('hidden');
-      }
+      // vibrate if supported
+      try { if (navigator.vibrate) navigator.vibrate([250,120,250]); } catch (e) {}
+
+      // focus the window to increase chance of user seeing it
+      try { window.focus(); } catch(_) {}
     }
 
-    function hideCalledUI(){
+    function hideAlertUI() {
       calledOverlay.classList.add('hidden');
     }
 
-    dismissBtn.addEventListener('click', () => hideCalledUI());
-
-    // Optional: allow prompt for Notification permission on user gesture (if they want)
-    // We only request if not denied and user clicks dismiss area (keeps UX minimal)
-    document.addEventListener('click', (e) => {
-      if (Notification && Notification.permission === 'default') {
-        // do not spam request; only on intentional click near page
-        // you can enable this behavior if you want to prompt users explicitly
-      }
+    // replay and dismiss handlers
+    replayBtn.addEventListener('click', async () => {
+      try { alertSound.currentTime = 0; await alertSound.play(); } catch (e) { console.warn('replay blocked', e); }
+      try { if (navigator.vibrate) navigator.vibrate(200); } catch(_) {}
     });
+    dismissBtn.addEventListener('click', () => hideAlertUI());
 
-    // ---------- Firebase listeners ----------
-    function attachListeners(){
+    // Firebase listeners
+    function attachListeners() {
       queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, async (snap) => {
-        if (!snap.exists()){
-          yourNumberEl.textContent = '—';
-          counterNameEl.textContent = '—';
+      onValue(queueRef, (snap) => {
+        if (!snap.exists()) {
           fbStatusEl.textContent = 'Queue not found';
+          yourNumberEl.textContent = '--';
+          counterNameEl.textContent = '--';
           return;
         }
         const q = snap.val() || {};
-        const ticket = q.ticketNumber || q.queueId || q.id || q.number || q.queueNo || q.ticket || '—';
+        const ticket = q.ticketNumber || q.queueId || q.id || q.number || q.queueNo || q.ticket || '--';
         lastTicket = ticket;
         yourNumberEl.textContent = ticket;
 
-        // telegram badge
-        if (q.telegramChatId) {
-          tgBadge.classList.remove('hidden');
-        } else {
-          tgBadge.classList.add('hidden');
-        }
+        // show telegram badge if server already linked chat
+        if (q.telegramChatId) tgBadge.classList.remove('hidden');
+        else tgBadge.classList.add('hidden');
 
-        // direct-called flag from server (preferred)
+        // prefer explicit called flag from server
         if (q.called === true || q.notifiedAt || q.calledAt) {
-          // server probably wrote this when sending telegram or when detecting match
-          const counterName = (q.counterAssignedName || q.counterName) || (q.counterAssigned || q.counterId) || 'the counter';
-          showCalledUI(ticket, counterName, q.telegramBotUsername || localStorage.getItem('qj_tg_bot') || null);
+          const counterName = q.counterAssignedName || q.counterName || q.counterAssigned || null;
+          alertUser(ticket, counterName, q.telegramBotUsername || null);
           return;
         }
 
-        // if not explicit called flag, check nowServing on counter (attach counter listener)
-        const counterId = q.counterAssigned || q.counterId || q.counter || null;
-        if (counterId) {
-          // attach counter if not yet
-          attachCounter(counterId);
-        } else {
-          counterNameEl.textContent = 'Not assigned';
-        }
-
-        fbStatusEl.textContent = 'Live';
+        // otherwise watch counter
+        const counterId = q.counterId || q.counterAssigned || q.counter || null;
+        if (counterId) attachCounter(counterId);
       }, (err) => {
         console.error('queue read error', err);
-        fbStatusEl.textContent = 'Failed to read queue';
+        fbStatusEl.textContent = 'Read error';
       });
     }
 
-    let counterAttachedId = null;
-    function attachCounter(counterId){
-      if (counterAttachedId === counterId) return;
-      counterAttachedId = counterId;
+    let attachedCounterId = null;
+    function attachCounter(counterId) {
+      if (attachedCounterId === counterId) return;
+      attachedCounterId = counterId;
       if (counterRef) try { off(counterRef); } catch(_) {}
       counterRef = ref(db, `counters/${counterId}`);
       onValue(counterRef, (cSnap) => {
@@ -236,13 +208,10 @@
         const c = cSnap.val() || {};
         counterNameEl.textContent = c.name || `Counter ${counterId}`;
 
-        // nowServing could be under this counter node or a separate node under counters/{id}/nowServing
-        const nowServingVal = c.nowServing ?? null;
-        if (nowServingVal !== null) {
-          // If the counter object contains nowServing
-          evaluateNowServing(nowServingVal, c.name, c.botUsername);
+        // prefer c.nowServing or fallback to counters/{id}/nowServing path
+        if (c.nowServing !== undefined && c.nowServing !== null) {
+          evaluateNowServing(c.nowServing, c.name, c.botUsername);
         } else {
-          // check counters/{id}/nowServing path explicitly
           const nsRef = ref(db, `counters/${counterId}/nowServing`);
           onValue(nsRef, (nsSnap) => {
             const val = nsSnap.exists() ? nsSnap.val() : null;
@@ -253,47 +222,29 @@
     }
 
     function evaluateNowServing(nowServingValue, counterName, botUsername) {
-      // normalize both to numeric where possible
-      const ticket = lastTicket;
-      if (!ticket) return;
-      const tNum = parseTicketNum(ticket);
+      if (!lastTicket) return;
+      // support prefixed tickets like "A012"
+      const ticketNum = parseTicketNum(lastTicket);
       const currentNum = parseTicketNum(nowServingValue);
-      if (isNaN(tNum) || isNaN(currentNum)) {
-        // string compare fallback (handles prefixes)
-        if (String(nowServingValue) === String(ticket)) {
-          showCalledUI(ticket, counterName, botUsername || localStorage.getItem('qj_tg_bot') || null);
+      if (isNaN(ticketNum) || isNaN(currentNum)) {
+        // fallback string compare
+        if (String(nowServingValue) === String(lastTicket)) {
+          alertUser(lastTicket, counterName, botUsername || null);
         }
         return;
       }
-      if (currentNum >= tNum) {
-        showCalledUI(ticket, counterName, botUsername || localStorage.getItem('qj_tg_bot') || null);
+      if (currentNum >= ticketNum) {
+        alertUser(lastTicket, counterName, botUsername || null);
       }
     }
 
-    // initial attach
+    // start
     attachListeners();
 
-    // cleanup before unload
+    // cleanup when leaving
     window.addEventListener('beforeunload', () => {
       try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); } catch(_) {}
     });
-
-    // small utility: parse numeric part of ticket (strip letters)
-    function stripPrefixNum(s){
-      if (s == null) return NaN;
-      const m = String(s).match(/[0-9]+/g);
-      return m ? parseInt(m.join(''),10) : NaN;
-    }
-    function parseTicketNum(ticket){
-      if (ticket == null) return NaN;
-      // try simple numeric parts
-      const s = String(ticket);
-      // remove non-digits at start
-      const num = s.replace(/^[^0-9]*/,'').replace(/[^0-9].*$/,'');
-      return num ? parseInt(num,10) : NaN;
-    }
-
-    // End of script
   </script>
 </body>
 </html>
