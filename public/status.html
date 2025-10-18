@@ -11,64 +11,142 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     .fade-in { animation: fadeIn 0.5s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
-    @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 80%, 100% { transform: scale(1.2); opacity: 0; } }
-
-    /* Notify hint */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 1; }
+      80%, 100% { transform: scale(1.2); opacity: 0; }
+    }
+    /* Redesigned Telegram Connect Popup */
+    #tgBubble {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      transform: translateY(0);
+      background: linear-gradient(135deg, #6b46c1, #a3bffa);
+      border-radius: 16px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: none;
+      z-index: 70;
+      animation: floatIn 0.3s ease-out;
+      max-width: 300px;
+    }
+    @keyframes floatIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #tgBubble.show { display: block; }
+    #tgBubble .telegram-icon {
+      width: 24px;
+      height: 24px;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffffff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-7c0-.28.22-.5.5-.5h1c.28 0 .5.22.5.5v6c0 .28-.22.5-.5.5h-1c-.28 0-.5-.22-.5-.5zm2-12c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>') no-repeat center;
+      background-size: contain;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    #tgBubble h3 { color: #ffffff; font-size: 14px; font-weight: 600; margin: 0; display: inline-block; vertical-align: middle; }
+    #tgBubble p { color: #e5e7eb; font-size: 12px; margin: 4px 0 8px; }
+    #tgBubble button {
+      background: #ffffff;
+      color: #6b46c1;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #tgBubble button:hover { background: #f3f4f6; }
+    #tgBubble #successSection { text-align: center; padding-top: 8px; }
+    #tgBubble #successSection p { color: #ffffff; font-size: 12px; }
+    #tgBubble #successSection .close-btn { background: #d1d5db; color: #6b46c1; }
+    #tgBubble #successSection .close-btn:hover { background: #b3b7c1; }
+    /* Original styles (unchanged) */
     #notifyHint {
       position: fixed;
-      top: 12px;
-      right: 12px;
-      background: rgba(255,255,255,0.95);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.9);
       border: 1px solid #e5e7eb;
-      padding: 8px 12px;
+      padding: 16px 24px;
       border-radius: 10px;
-      font-size: 13px;
+      font-size: 16px;
       display: none;
       z-index: 60;
       box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+      animation: popIn 0.5s ease-out;
+      text-align: center;
     }
-    #notifyHint button { font-weight:600; }
-
-    /* Telegram modal backdrop */
-    .qj-backdrop { background: rgba(15,23,42,0.6); position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; z-index:70; }
-
-    /* small inline success bubble */
-    .qj-success {
-      position: fixed;
-      top: 18px;
-      right: 18px;
-      background: #10b981;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-      z-index: 80;
-      font-size: 13px;
-      display: none;
+    @keyframes popIn {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+    .qj-backdrop { background: rgba(15,23,42,0.6); position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 70; }
+    .bounce { animation: bounce 0.5s; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
 
-  <!-- Non-invasive hint -->
+  <!-- Popup box with switch -->
   <div id="notifyHint">
-    <span>Want Telegram notifications when it's your turn?</span>
-    <button id="askNotifyBtn" class="ml-3 text-indigo-600">Connect</button>
-    <button id="optOutBtn" class="ml-2 text-gray-600">No thanks</button>
+    <p class="mb-2">Telegram Notifications (ON) or Keep Screen Awake (OFF)?</p>
+    <label class="switch">
+      <input type="checkbox" id="notifySwitch">
+      <span class="slider"></span>
+    </label>
   </div>
 
-  <!-- small success bubble -->
-  <div id="connectSuccess" class="qj-success">Connected — closing in 3s</div>
-
-  <!-- Main Card -->
+  <!-- Main Card (unchanged UI) -->
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
     <div class="space-y-2">
       <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
       </div>
       <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
@@ -123,46 +201,33 @@
     </div>
   </div>
 
-  <!-- Telegram Connect Modal (keeps advanced options if user wants them) -->
-  <div id="tgModal" class="qj-backdrop hidden">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
-      <h3 class="text-lg font-bold text-indigo-800">Connect Telegram</h3>
-      <p class="text-sm text-gray-600 mt-2">Optional: complete this if you want Telegram messages when called.</p>
-
-      <div class="mt-4 space-y-3">
-        <label class="text-xs text-gray-600">Bot username (without @)</label>
-        <input id="tgBot" type="text" placeholder="your_bot_username" class="w-full border rounded px-3 py-2" />
-
-        <div class="flex gap-2">
-          <button id="tgGenerate" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">Connect Now</button>
-          <button id="tgOpen" class="px-4 py-2 border rounded-lg">Open Bot</button>
-        </div>
-
-        <div class="pt-2 border-t"></div>
-
-        <label class="text-xs text-gray-600">Or enter chat id / @username</label>
-        <input id="tgChat" type="text" placeholder="@yourusername or chat_id" class="w-full border rounded px-3 py-2" />
-        <div class="flex gap-2 mt-2">
-          <button id="tgSaveChat" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Save Chat ID</button>
-          <button id="tgClose" class="px-4 py-2 text-sm text-gray-600">Close</button>
-        </div>
-
-        <div id="tgNote" class="text-xs text-gray-500 mt-2 monos">Tip: If you use "Connect Now" and provided a bot username it will open the bot for you.</div>
-      </div>
+  <!-- Redesigned Telegram Connect Bubble -->
+  <div id="tgBubble">
+    <div id="connectSection">
+      <span class="telegram-icon"></span>
+      <h3>Get Telegram Alerts</h3>
+      <p>Stay updated when it’s your turn!</p>
+      <button id="tgConnectWeb">Open Web</button>
+      <button id="tgConnectApp">Open App</button>
+    </div>
+    <div id="successSection" class="hidden">
+      <p>✅ Connected!</p>
+      <p>We’ll notify you soon.</p>
+      <button class="close-btn" id="tgCloseSuccess">Close</button>
     </div>
   </div>
 
   <!-- Firebase + Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasedestorage.app",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
@@ -182,29 +247,45 @@
     const adPanelEl = document.getElementById('adPanel');
     const noAd = document.getElementById('noAd');
 
-    // telegram UI refs
+    // Telegram UI refs
     const notifyHint = document.getElementById('notifyHint');
-    const askNotifyBtn = document.getElementById('askNotifyBtn');
-    const optOutBtn = document.getElementById('optOutBtn');
-    const tgModal = document.getElementById('tgModal');
-    const tgBotInput = document.getElementById('tgBot');
-    const tgGenerateBtn = document.getElementById('tgGenerate');
-    const tgOpenBtn = document.getElementById('tgOpen');
-    const tgChatInput = document.getElementById('tgChat');
-    const tgSaveChatBtn = document.getElementById('tgSaveChat');
-    const tgCloseBtn = document.getElementById('tgClose');
-    const connectSuccess = document.getElementById('connectSuccess');
+    const notifySwitch = document.getElementById('notifySwitch');
+    const tgBubble = document.getElementById('tgBubble');
+    const tgConnectWeb = document.getElementById('tgConnectWeb');
+    const tgConnectApp = document.getElementById('tgConnectApp');
+    const connectSection = document.getElementById('connectSection');
+    const successSection = document.getElementById('successSection');
+    const tgCloseSuccess = document.getElementById('tgCloseSuccess');
 
     // State
     let queueRef, counterRef, servingRef, adRef;
     let queueKey = null;
     let pushSent = false;
     let lastServingValue = null;
+    let isConnecting = false;
+    let wakeLock = null;
+
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 880;
+        o.connect(g);
+        g.connect(ctx.destination);
+        g.gain.value = 0.02;
+        o.start();
+        setTimeout(() => { o.stop(); ctx.close(); }, 220);
+      } catch (e) {}
+    }
 
     function showError(message) {
       errorMessage.querySelector('p').textContent = message;
       errorMessage.classList.remove('hidden');
-      setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+      setTimeout(() => {
+        errorMessage.classList.add('hidden');
+      }, 5000);
     }
 
     // Telegram helpers
@@ -214,48 +295,67 @@
       return Array.from(bytes).map(b => ('0' + (b % 36).toString(36)).slice(-1)).join('');
     }
 
-    function showTelegramModal() { tgModal.classList.remove('hidden'); }
-    function hideTelegramModal() { tgModal.classList.add('hidden'); }
-
-    function setNotifyPreference(value) {
-      localStorage.setItem('qj_notify_opt_in', value ? 'true' : 'false');
-      notifyHint.style.display = 'none';
+    function showTelegramBubble() {
+      tgBubble.classList.add('show');
+    }
+    function hideTelegramBubble() {
+      tgBubble.classList.remove('show');
     }
 
-    function showQuickConnected() {
-      connectSuccess.style.display = 'block';
-      setTimeout(() => {
-        connectSuccess.style.display = 'none';
-      }, 3000);
+    // Wake Lock
+    const requestWakeLock = async () => {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          console.log('Wake Lock released');
+        });
+      } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+      }
+    };
+
+    const releaseWakeLock = () => {
+      if (wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    });
+
+    // Show notify hint always
+    function initNotifyHint() {
+      notifyHint.style.display = 'block';
     }
 
-    // create start token and open bot (still used if user provides bot name)
-    async function createStartTokenAndOpen(botUsername) {
+    async function handleConnect(isApp) {
       const token = generateToken(24);
+      const botUsername = 'QueueJoyBot';
       try {
         await set(ref(db, `telegramPending/${token}`), { queueKey, createdAt: Date.now(), expiresAt: Date.now() + 10*60*1000 });
-        localStorage.setItem('qj_tg_bot', botUsername);
-        localStorage.setItem('qj_tg_pending_' + queueKey, token);
-        window.open(`https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(token)}`, '_blank');
-        console.log('[tg] start token created and bot opened', token);
+        const url = `https://t.me/${botUsername}?start=${token}`;
+        if (isApp) {
+          window.open(`tg://resolve?domain=${botUsername}&start=${token}`, '_blank');
+        } else {
+          window.open(url, '_blank');
+        }
+        tgConnectWeb.disabled = true;
+        tgConnectApp.disabled = true;
+        tgConnectWeb.textContent = 'Connecting...';
+        tgConnectApp.textContent = 'Connecting...';
+        isConnecting = true;
       } catch (e) {
-        console.error('failed to create start token', e);
-        throw e;
-      }
-    }
-
-    async function saveManualChatId(chat) {
-      if (!chat) { alert('Paste chat id or @username'); return; }
-      try {
-        await set(ref(db, `queue/${queueKey}/telegramChatId`), chat);
-        localStorage.setItem('qj_tg_chat', chat);
-        localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
-        setNotifyPreference(true);
-        hideTelegramModal();
-        alert('Chat ID saved. You should receive messages when your number is called (server-side required).');
-      } catch (e) {
-        console.error('save chat failed', e);
-        alert('Failed to save chat id. Check console.');
+        console.error('Failed to create start token', e);
+        alert('Could not connect. Try again.');
+        tgConnectWeb.disabled = false;
+        tgConnectApp.disabled = false;
+        tgConnectWeb.textContent = 'Open Web';
+        tgConnectApp.textContent = 'Open App';
+        isConnecting = false;
       }
     }
 
@@ -273,75 +373,40 @@
       yourNumber.textContent = '--';
       counterNameEl.textContent = '--';
 
-      // show hint if preference not set
-      const pref = localStorage.getItem('qj_notify_opt_in');
-      if (pref === null) notifyHint.style.display = 'block';
+      initNotifyHint();
 
-      // QUICK CONNECT: clicking Connect on hint does a simple "connect" (easy flow)
-      askNotifyBtn.addEventListener('click', async () => {
-        try {
-          // mark opted-in and connected locally
-          setNotifyPreference(true);
-          localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
-          console.log('[tg quick connect] marked connected locally for', queueKey);
-
-          // show success and auto-hide hint/modal after 3s
-          showQuickConnected();
-          // close the modal if open
-          hideTelegramModal();
-          setTimeout(() => {
-            notifyHint.style.display = 'none';
-          }, 3000);
-        } catch (e) {
-          console.warn('[tg quick connect] failed', e);
-          alert('Could not connect. Try again.');
+      // Wire switch
+      notifySwitch.addEventListener('change', () => {
+        if (notifySwitch.checked) {
+          // ON: Connect Telegram
+          showTelegramBubble();
+          releaseWakeLock();
+        } else {
+          // OFF: Keep screen awake
+          requestWakeLock();
         }
+        notifyHint.style.display = 'none';
+        localStorage.setItem('qj_notify_choice', notifySwitch.checked ? 'telegram' : 'awake');
       });
 
-      // opt-out button
-      optOutBtn.addEventListener('click', () => {
-        setNotifyPreference(false);
-        alert('Okay — notifications disabled. Keep your phone awake to hear the sound.');
-      });
+      // Check previous choice
+      const choice = localStorage.getItem('qj_notify_choice');
+      if (choice === 'telegram') {
+        notifySwitch.checked = true;
+        notifyHint.style.display = 'none';
+        // Assume connected, or prompt if not
+      } else if (choice === 'awake') {
+        notifySwitch.checked = false;
+        notifyHint.style.display = 'none';
+        requestWakeLock();
+      }
 
-      // tgGenerate (Connect Now) - if bot provided, create token & open bot, then show success and close
-      tgGenerateBtn.addEventListener('click', async () => {
-        const bot = (tgBotInput.value || localStorage.getItem('qj_tg_bot') || '').trim();
-        try {
-          if (bot) {
-            await createStartTokenAndOpen(bot);
-            // mark opted in locally (still requires user to press Start in Telegram)
-            setNotifyPreference(true);
-            localStorage.setItem('qj_tg_pending_' + queueKey, localStorage.getItem('qj_tg_pending_' + queueKey));
-          } else {
-            // fallback quick connect if no bot entered
-            setNotifyPreference(true);
-            localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
-            console.log('[tg] quick connected without bot');
-          }
-          // show success and close modal/hint
-          showQuickConnected();
-          setTimeout(() => {
-            hideTelegramModal();
-            notifyHint.style.display = 'none';
-          }, 3000);
-        } catch (e) {
-          console.error('[tgGenerate] error', e);
-          alert('Could not start connect. Check console.');
-        }
-      });
+      tgConnectWeb.addEventListener('click', () => handleConnect(false));
+      tgConnectApp.addEventListener('click', () => handleConnect(true));
 
-      tgOpenBtn.addEventListener('click', () => {
-        const bot = (tgBotInput.value || localStorage.getItem('qj_tg_bot') || '').trim();
-        if (!bot) { alert('Enter bot username first (without @).'); return; }
-        window.open(`https://t.me/${encodeURIComponent(bot)}`, '_blank');
+      tgCloseSuccess.addEventListener('click', () => {
+        hideTelegramBubble();
       });
-
-      tgSaveChatBtn.addEventListener('click', async () => {
-        await saveManualChatId((tgChatInput.value || '').trim());
-      });
-
-      tgCloseBtn.addEventListener('click', () => { hideTelegramModal(); });
 
       // Load advertisement listener
       adRef = ref(db, 'settings/adImage');
@@ -370,6 +435,17 @@
         const queueId = q.queueId || q.ticketNumber || q.id || q.number || q.queueNo || '--';
         yourNumber.textContent = queueId;
 
+        // Check for connection success
+        if (isConnecting && q.telegramConnected) {
+          isConnecting = false;
+          connectSection.classList.add('hidden');
+          successSection.classList.remove('hidden');
+          localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
+          setTimeout(() => {
+            hideTelegramBubble();
+          }, 3000);
+        }
+
         if (!counterRef && counterId) {
           counterRef = ref(db, `settings/counters/${counterId}`);
           onValue(counterRef, (counterSnap) => {
@@ -377,11 +453,23 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || 'Counter';
 
-            const prefix = counterData.prefix || (String(queueId).match(/^[A-Za-z]+/)?.[0] || '');
-            const yourNumberNum = parseInt(String(queueId).replace(prefix, ""), 10) || 0;
+            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || '');
+            const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
 
-            // Now Serving listener
-            servingRef = ref(db, `counters/${counterId}/nowServing`);
+            // Updated servingRef listener
+            async function sendTelegramNotification(queueKey, queueId) {
+              try {
+                const response = await fetch('/.netlify/functions/sendTelegram', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ queueKey, queueId })
+                });
+                if (response.ok) console.log('Notification sent');
+              } catch (e) {
+                console.error('Notification error:', e);
+              }
+            }
+
             onValue(servingRef, async (nowSnap) => {
               const currentServing = nowSnap.val() || 0;
               nowServing.textContent = `${prefix}${String(currentServing).padStart(3, "0")}`;
@@ -398,22 +486,21 @@
 
               if (ahead === 0) {
                 statusIndicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-
                 setTimeout(() => {
                   window.location.href = "/your_turn.html?queueId=" + encodeURIComponent(queueKey);
                 }, 2000);
 
                 if (!pushSent) {
                   pushSent = true;
+                  const connectedLocal = localStorage.getItem('qj_tg_connected_' + queueKey) === 'true';
+                  const hasChat = (q && (q.telegramChatId || q.telegramConnected)) ? true : false;
+
                   playBeep();
 
-                  // if user opted-in but not connected yet, gently open modal (we keep this)
-                  const opted = localStorage.getItem('qj_notify_opt_in') === 'true';
-                  const connectedLocal = localStorage.getItem('qj_tg_connected_' + queueKey) === 'true';
-                  const hasChat = (q && (q.telegramChatId || q.telegramChatId === 0)) ? true : false;
-
-                  if (opted && !connectedLocal && !hasChat) {
-                    showTelegramModal();
+                  if (connectedLocal || hasChat) {
+                    sendTelegramNotification(queueKey, queueId); // Trigger Netlify Function
+                  } else {
+                    showTelegramBubble();
                   }
                 }
               } else if (ahead <= 2) {
@@ -427,15 +514,27 @@
       });
 
       window.addEventListener('beforeunload', () => {
-        try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); if (servingRef) off(servingRef); if (adRef) off(adRef); } catch (_) {}
+        try {
+          if (queueRef) off(queueRef);
+          if (counterRef) off(counterRef);
+          if (servingRef) off(servingRef);
+          if (adRef) off(adRef);
+          releaseWakeLock();
+        } catch (_) {}
       });
 
       gameBtn.addEventListener('click', () => {
         fetch('game.html', { method: 'HEAD' })
           .then(res => {
-            if (res.ok) { window.location.href = 'game.html'; } else { alert('Game is currently unavailable.'); }
+            if (res.ok) {
+              window.location.href = 'game.html';
+            } else {
+              alert('Game is currently unavailable. Please wait or enjoy our ad!');
+            }
           })
-          .catch(() => { alert('Game could not be loaded.'); });
+          .catch(() => {
+            alert('Game could not be loaded. Please try again later.');
+          });
       });
     });
   </script>
