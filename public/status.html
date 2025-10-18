@@ -36,6 +36,13 @@
     #notifyHint button { font-weight:600; }
     /* Telegram modal */
     .qj-backdrop { background: rgba(15,23,42,0.6); position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; z-index:70; }
+    .qj-hidden { display: none; }
+    .jiggle { animation: jiggle .9s ease; }
+    @keyframes jiggle {
+      0% { transform: scale(.98); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
@@ -108,18 +115,18 @@
     </div>
   </div>
 
-  <!-- Telegram Connect Modal -->
-  <div id="tgModal" class="qj-backdrop hidden">
+  <!-- Telegram Connect Modal (UI unchanged) -->
+  <div id="tgModal" class="qj-backdrop qj-hidden">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
       <h3 class="text-lg font-bold text-indigo-800">Connect Telegram</h3>
-      <p class="text-sm text-gray-600 mt-2">Choose one method below to receive Telegram messages when it's your turn.</p>
+      <p id="tgExplain" class="text-sm text-gray-600 mt-2">Choose one method below to receive Telegram messages when it's your turn.</p>
 
       <div class="mt-4 space-y-3">
         <label class="text-xs text-gray-600">Bot username (without @)</label>
         <input id="tgBot" type="text" placeholder="your_bot_username" class="w-full border rounded px-3 py-2" />
 
         <div class="flex gap-2">
-          <button id="tgGenerate" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">Generate Start Token</button>
+          <button id="tgGenerate" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">Connect via Telegram</button>
           <button id="tgOpen" class="px-4 py-2 border rounded-lg">Open Bot</button>
         </div>
 
@@ -132,7 +139,7 @@
           <button id="tgClose" class="px-4 py-2 text-sm text-gray-600">Close</button>
         </div>
 
-        <div id="tgNote" class="text-xs text-gray-500 mt-2 monos">Tip: After you press "Generate Start Token", open the bot and tap Start. The bot will link your Telegram account automatically.</div>
+        <div id="tgNote" class="text-xs text-gray-500 mt-2 monos">Tip: Tap "Connect via Telegram" and then press Start in the Telegram app. We'll link you automatically — no typing required.</div>
       </div>
     </div>
   </div>
@@ -140,8 +147,9 @@
   <!-- Firebase + Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // ====== FIREBASE CONFIG (unchanged) ======
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -151,11 +159,25 @@
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Elements
+    // ====== ELEMENTS ======
+    const notifyHint = document.getElementById('notifyHint');
+    const askNotifyBtn = document.getElementById('askNotifyBtn');
+    const optOutBtn = document.getElementById('optOutBtn');
+
+    const tgModal = document.getElementById('tgModal');
+    const tgBotInput = document.getElementById('tgBot');
+    const tgGenerateBtn = document.getElementById('tgGenerate');
+    const tgOpenBtn = document.getElementById('tgOpen');
+    const tgChatInput = document.getElementById('tgChat');
+    const tgSaveChatBtn = document.getElementById('tgSaveChat');
+    const tgCloseBtn = document.getElementById('tgClose');
+    const tgNote = document.getElementById('tgNote');
+    const tgExplain = document.getElementById('tgExplain');
+
+    // queue elements (unchanged UI)
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServing = document.getElementById('nowServing');
@@ -167,95 +189,57 @@
     const adPanelEl = document.getElementById('adPanel');
     const noAd = document.getElementById('noAd');
 
-    // telegram UI refs
-    const notifyHint = document.getElementById('notifyHint');
-    const askNotifyBtn = document.getElementById('askNotifyBtn');
-    const optOutBtn = document.getElementById('optOutBtn');
-    const tgModal = document.getElementById('tgModal');
-    const tgBotInput = document.getElementById('tgBot');
-    const tgGenerateBtn = document.getElementById('tgGenerate');
-    const tgOpenBtn = document.getElementById('tgOpen');
-    const tgChatInput = document.getElementById('tgChat');
-    const tgSaveChatBtn = document.getElementById('tgSaveChat');
-    const tgCloseBtn = document.getElementById('tgClose');
-
-    // State
-    let queueRef, counterRef, servingRef, adRef;
+    // state
     let queueKey = null;
-    let pushSent = false;
+    let queueRef = null;
+    let counterRef = null;
+    let servingRef = null;
+    let adRef = null;
     let lastServingValue = null;
+    let pushSent = false;
+    let tokenWatchHandle = null;
 
-    function playBeep() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.value = 880;
-        o.connect(g);
-        g.connect(ctx.destination);
-        g.gain.value = 0.02;
-        o.start();
-        setTimeout(()=>{ o.stop(); ctx.close(); }, 220);
-      } catch (e) {}
+    // small utilities
+    function show(el) { el.style.display = ''; }
+    function hide(el) { el.style.display = 'none'; }
+    function setNotifyPreference(value) {
+      localStorage.setItem('qj_notify_opt_in', value ? 'true' : 'false');
+      // hide prompt if decided
+      hide(notifyHint);
     }
 
-    function showError(message) {
-      errorMessage.querySelector('p').textContent = message;
-      errorMessage.classList.remove('hidden');
-      setTimeout(() => {
-        errorMessage.classList.add('hidden');
-      }, 5000);
+    // init hint visibility
+    function initNotifyHint() {
+      const pref = localStorage.getItem('qj_notify_opt_in');
+      const never = localStorage.getItem('qj_notify_no_popup') === 'true';
+      if (pref === null && !never) {
+        // show after a short delay (per your flow)
+        setTimeout(() => { show(notifyHint); }, 5000);
+      } else {
+        hide(notifyHint);
+      }
     }
 
-    // Telegram helpers
-    function generateToken(length = 20) {
+    // friendly helpers for UI messages
+    function showTemporaryMessage(text, timeout = 3000) {
+      const prev = tgNote.textContent;
+      tgNote.textContent = text;
+      tgNote.classList.add('jiggle');
+      setTimeout(() => { tgNote.classList.remove('jiggle'); tgNote.textContent = prev; }, timeout);
+    }
+
+    // generate a cryptographically-strong token
+    function generateToken(length = 24) {
       const bytes = new Uint8Array(length);
       crypto.getRandomValues(bytes);
       return Array.from(bytes).map(b => ('0' + (b % 36).toString(36)).slice(-1)).join('');
     }
 
-    function showTelegramModal() {
-      tgModal.classList.remove('hidden');
-    }
-    function hideTelegramModal() {
-      tgModal.classList.add('hidden');
-    }
+    // show/hide modal
+    function openModal() { tgModal.classList.remove('qj-hidden'); }
+    function closeModal() { tgModal.classList.add('qj-hidden'); }
 
-    // save preference: opt-in or opt-out
-    function setNotifyPreference(value) {
-      localStorage.setItem('qj_notify_opt_in', value ? 'true' : 'false');
-      // hide hint if user decided
-      notifyHint.style.display = 'none';
-    }
-
-    // show notify hint if user hasn't chosen
-    function initNotifyHint() {
-      const pref = localStorage.getItem('qj_notify_opt_in');
-      if (pref === null) {
-        notifyHint.style.display = 'block';
-      } else {
-        notifyHint.style.display = 'none';
-      }
-    }
-
-    // write pending token and open bot link
-    async function createStartTokenAndOpen(botUsername) {
-      const token = generateToken(24);
-      try {
-        await set(ref(db, `telegramPending/${token}`), { queueKey, createdAt: Date.now(), expiresAt: Date.now() + 10*60*1000 });
-        localStorage.setItem('qj_tg_bot', botUsername);
-        localStorage.setItem('qj_tg_pending_' + queueKey, token);
-        // open bot link
-        window.open(`https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(token)}`, '_blank');
-        alert('Bot opened. Tap Start in Telegram to complete linking.');
-      } catch (e) {
-        console.error('failed to create start token', e);
-        alert('Could not create start token. Try again.');
-      }
-    }
-
-    // manual chat id save
+    // save manual chat id into queue record (for server to use)
     async function saveManualChatId(chat) {
       if (!chat) { alert('Paste chat id or @username'); return; }
       try {
@@ -263,44 +247,134 @@
         localStorage.setItem('qj_tg_chat', chat);
         localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
         setNotifyPreference(true);
-        hideTelegramModal();
-        alert('Chat ID saved. You should receive messages when your number is called (server-side required).');
+        closeModal();
+        showTemporaryMessage('Saved — you will be notified when it’s your turn.');
       } catch (e) {
         console.error('save chat failed', e);
         alert('Failed to save chat id. Check console.');
       }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('✅ Status DOM Loaded (Telegram-ready)');
+    // create a pending token and open bot link
+    async function createStartTokenAndOpen(botUsername) {
+      const token = generateToken(24);
+      const pendingRef = ref(db, `telegramPending/${token}`);
+      try {
+        await set(pendingRef, {
+          queueKey,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
+        });
+        // persist bot username & pending token locally to show friendly UX
+        localStorage.setItem('qj_tg_bot', botUsername);
+        localStorage.setItem('qj_tg_pending_' + queueKey, token);
+        localStorage.setItem('qj_notify_opt_in', 'true');
 
+        // open Telegram bot link
+        window.open(`https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(token)}`, '_blank');
+
+        // change small text to feedback
+        tgNote.textContent = 'Opening Telegram... tap Start in the bot to finish linking.';
+        // wait a short time then show "Connected!" if backend links quickly
+        waitForTelegramLink(token);
+      } catch (e) {
+        console.error('failed to create start token', e);
+        alert('Could not create start token. Try again.');
+      }
+    }
+
+    // watch queue record to see if backend/bot wrote telegramChatId (connected)
+    function onQueueChange(snap) {
+      if (!snap.exists()) return;
+      const q = snap.val() || {};
+      // update visible queue info (no UI change)
+      const queueId = q.queueId || q.ticketNumber || q.id || q.number || q.queueNo || '--';
+      yourNumber.textContent = queueId;
+
+      // if backend set telegramChatId for this queue -> connected
+      if (q.telegramChatId) {
+        localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
+        // friendly success animation / message
+        tgNote.textContent = '✅ Connected! We’ll message you when it’s your turn.';
+        // auto-close modal after a short delay
+        setTimeout(() => {
+          try { closeModal(); } catch (_) {}
+        }, 2500);
+      }
+    }
+
+    // polling fallback (watch pending token mapping if needed) - not strictly necessary but robust
+    function waitForTelegramLink(token) {
+      // if there's a token watch already, clear
+      if (tokenWatchHandle) clearInterval(tokenWatchHandle);
+
+      // We will check the queue record every 1.5s for a short while to detect telegramChatId
+      let attempts = 0;
+      tokenWatchHandle = setInterval(async () => {
+        attempts++;
+        try {
+          const qSnap = await get(ref(db, `queue/${queueKey}`));
+          if (qSnap.exists()) {
+            const q = qSnap.val();
+            if (q.telegramChatId) {
+              localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
+              tgNote.textContent = '✅ Connected! We’ll message you when it’s your turn.';
+              setTimeout(() => closeModal(), 2200);
+              clearInterval(tokenWatchHandle);
+              tokenWatchHandle = null;
+              return;
+            }
+          }
+          // optional: also check pending tokens cleanup (if bot removes it, means linked)
+          const pendingToken = localStorage.getItem('qj_tg_pending_' + queueKey);
+          if (pendingToken) {
+            const pendingSnap = await get(ref(db, `telegramPending/${pendingToken}`));
+            if (!pendingSnap.exists()) {
+              // removed by server -> likely linked; check queue again next cycle
+            }
+          }
+        } catch (e) { console.warn('waitForTelegramLink failed', e); }
+        // stop after ~30s
+        if (attempts > 20) {
+          clearInterval(tokenWatchHandle);
+          tokenWatchHandle = null;
+          tgNote.textContent = 'Still not connected? Open Telegram and tap Start for our bot.';
+          // keep modal open for user to retry or paste chat id
+        }
+      }, 1500);
+    }
+
+    // DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // read queueKey
       const params = new URLSearchParams(window.location.search);
       queueKey = params.get('queueId');
       if (!queueKey) {
-        console.error('❌ No queue data found, redirecting to index');
+        console.error('No queueId found — redirecting to index');
         window.location.href = 'index.html';
         return;
       }
 
-      yourNumber.textContent = '--';
-      counterNameEl.textContent = '--';
-
+      // init notify hint (shows after 5s if user hasn't chosen)
       initNotifyHint();
 
-      // wire Telegram UI
+      // wire hint buttons
       askNotifyBtn.addEventListener('click', () => {
-        showTelegramModal();
+        tgBotInput.value = localStorage.getItem('qj_tg_bot') || '';
+        openModal();
       });
       optOutBtn.addEventListener('click', () => {
+        localStorage.setItem('qj_notify_no_popup', 'true');
         setNotifyPreference(false);
       });
 
+      // modal buttons
       tgGenerateBtn.addEventListener('click', async () => {
         const bot = (tgBotInput.value || localStorage.getItem('qj_tg_bot') || '').trim();
         if (!bot) { alert('Enter bot username first (without @).'); return; }
+        // friendly UI
+        tgNote.textContent = 'Creating secure link and opening Telegram...';
         await createStartTokenAndOpen(bot);
-        // mark user as opted-in (they still must press Start in Telegram)
-        setNotifyPreference(true);
       });
 
       tgOpenBtn.addEventListener('click', () => {
@@ -310,12 +384,16 @@
       });
 
       tgSaveChatBtn.addEventListener('click', async () => {
-        await saveManualChatId((tgChatInput.value || '').trim());
+        const chat = (tgChatInput.value || '').trim();
+        if (!chat) { alert('Paste chat id or @username'); return; }
+        await saveManualChatId(chat);
       });
 
-      tgCloseBtn.addEventListener('click', () => { hideTelegramModal(); });
+      tgCloseBtn.addEventListener('click', () => {
+        closeModal();
+      });
 
-      // Load advertisement listener
+      // advertisement listener
       adRef = ref(db, 'settings/adImage');
       onValue(adRef, (snap) => {
         if (snap.exists() && snap.val()) {
@@ -328,7 +406,7 @@
         }
       });
 
-      // Main queue listener
+      // main queue listener (keeps original behavior)
       queueRef = ref(db, `queue/${queueKey}`);
       onValue(queueRef, (snap) => {
         if (!snap.exists()) {
@@ -341,6 +419,9 @@
         const counterId = q.counterId || q.counterAssigned || q.counter || null;
         const queueId = q.queueId || q.ticketNumber || q.id || q.number || q.queueNo || '--';
         yourNumber.textContent = queueId;
+
+        // also listen for telegramChatId written by the bot
+        onQueueChange(snap);
 
         if (!counterRef && counterId) {
           counterRef = ref(db, `settings/counters/${counterId}`);
@@ -378,20 +459,27 @@
                 if (!pushSent) {
                   pushSent = true;
 
-                  // If user opted-in and has connected via Telegram (bot flow completed),
-                  // server will deliver Telegram push. Client does NOT call Telegram API directly.
+                  // local beep to draw attention
+                  try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.type = 'sine';
+                    o.frequency.value = 880;
+                    o.connect(g);
+                    g.connect(ctx.destination);
+                    g.gain.value = 0.02;
+                    o.start();
+                    setTimeout(()=>{ o.stop(); ctx.close(); }, 220);
+                  } catch (e) {}
+
+                  // if user opted-in but not connected yet, gently open modal to finish linking
                   const opted = localStorage.getItem('qj_notify_opt_in') === 'true';
                   const connectedLocal = localStorage.getItem('qj_tg_connected_' + queueKey) === 'true';
-                  // also check queue record for telegramChatId (server/bot may have written it)
                   const hasChat = (q && (q.telegramChatId || q.telegramChatId === 0)) ? true : false;
-
-                  // play beep locally to draw attention (client-side only)
-                  playBeep();
-
-                  // if user opted-in but not connected yet, gently open modal
                   if (opted && !connectedLocal && !hasChat) {
-                    // prompt the user to complete Telegram link
-                    showTelegramModal();
+                    openModal();
+                    tgNote.textContent = 'You asked for Telegram alerts — finish connecting so we can message you.';
                   }
                 }
               } else if (ahead <= 2) {
@@ -404,15 +492,18 @@
         }
       });
 
+      // cleanup
       window.addEventListener('beforeunload', () => {
         try {
           if (queueRef) off(queueRef);
           if (counterRef) off(counterRef);
           if (servingRef) off(servingRef);
           if (adRef) off(adRef);
+          if (tokenWatchHandle) clearInterval(tokenWatchHandle);
         } catch (_) {}
       });
 
+      // game button behavior (unchanged)
       gameBtn.addEventListener('click', () => {
         fetch('game.html', { method: 'HEAD' })
           .then(res => {
@@ -426,7 +517,7 @@
             alert('Game could not be loaded. Please try again later.');
           });
       });
-    });
+    }); // DOMContentLoaded
   </script>
 </body>
 </html>

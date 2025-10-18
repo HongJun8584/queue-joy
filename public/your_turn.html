@@ -7,8 +7,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .hidden{display:none}
-    .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,0.55);z-index:9999}
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -30,29 +28,9 @@
     <div class="mt-6 text-xs text-gray-400" id="fbStatus">Connecting to Firebase…</div>
   </div>
 
-  <!-- Called overlay -->
-  <div id="calledOverlay" class="overlay hidden">
-    <div class="bg-white rounded-2xl p-8 w-full max-w-lg text-center">
-      <h2 class="text-3xl font-extrabold text-indigo-900 mb-2">🎉 It's Your Turn!</h2>
-      <div id="overlayNumber" class="text-5xl font-black text-indigo-700 mb-1">--</div>
-      <div id="overlayCounter" class="text-2xl text-purple-700 mb-4">Proceed to the counter</div>
-
-      <div class="flex gap-3 justify-center">
-        <button id="replaySound" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Play sound</button>
-        <button id="openTelegram" class="px-4 py-2 border rounded-lg hidden" target="_blank">Open Telegram</button>
-        <button id="dismiss" class="px-4 py-2 text-sm text-gray-600">OK</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- alert sound (short, crisp) -->
-  <audio id="alertSound" preload="auto">
-    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
-  </audio>
-
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getDatabase, ref, onValue, off, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
     // ===== CONFIG =====
     const firebaseConfig = {
@@ -70,14 +48,6 @@
     const counterNameEl = document.getElementById('counterName');
     const fbStatusEl = document.getElementById('fbStatus');
     const tgBadge = document.getElementById('tgBadge');
-
-    const calledOverlay = document.getElementById('calledOverlay');
-    const overlayNumber = document.getElementById('overlayNumber');
-    const overlayCounter = document.getElementById('overlayCounter');
-    const replayBtn = document.getElementById('replaySound');
-    const openTgBtn = document.getElementById('openTelegram');
-    const dismissBtn = document.getElementById('dismiss');
-    const alertSound = document.getElementById('alertSound');
 
     // ===== STATE =====
     let app, db, queueRef, counterRef;
@@ -116,51 +86,65 @@
       return parseInt(numPart, 10) || NaN;
     }
 
-    // show overlay + attempt to play & vibrate
+    // Soft chime using Web Audio API (no external file, lower volume)
+    function playSoftChime() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return; // no audio API
+        const ctx = new Ctx();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+
+        o.type = 'sine';
+        o.frequency.value = 880; // gentle high-ish tone
+        g.gain.value = 0.0001; // start almost silent
+
+        o.connect(g);
+        g.connect(ctx.destination);
+
+        const now = ctx.currentTime;
+        // quick fade-in to a low volume, then decay
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.06, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+
+        o.start(now);
+        o.stop(now + 0.85);
+
+        // close context after done to free resources
+        setTimeout(() => {
+          try { ctx.close(); } catch (_) {}
+        }, 1000);
+      } catch (e) {
+        console.warn('playSoftChime failed', e);
+      }
+    }
+
+    // show subtle UI feedback (title blink) and attempt to play & vibrate
     async function alertUser(ticket, counterName, telegramBot) {
       // prevent duplicates across reloads
       if (localStorage.getItem(alertedKey)) return;
       localStorage.setItem(alertedKey, 'true');
 
-      overlayNumber.textContent = ticket;
-      overlayCounter.textContent = counterName ? `Proceed to ${counterName}` : 'Proceed to the counter';
+      // update visible fields (no popup)
+      // keep the main page showing the ticket & counter so user sees it
+      if (ticket) yourNumberEl.textContent = ticket;
+      if (counterName) counterNameEl.textContent = counterName;
 
-      // show Telegram button when bot username known
-      const bot = telegramBot || localStorage.getItem('qj_tg_bot') || null;
-      if (bot) {
-        openTgBtn.href = `https://t.me/${encodeURIComponent(bot)}`;
-        openTgBtn.classList.remove('hidden');
-      } else {
-        openTgBtn.classList.add('hidden');
-      }
-
-      calledOverlay.classList.remove('hidden');
-
-      // try play sound
-      try {
-        alertSound.currentTime = 0;
-        await alertSound.play().catch(()=>{ /* autoplay blocked */ });
-      } catch (e) {
-        console.warn('sound play failed', e);
-      }
+      // play soft chime
+      playSoftChime();
 
       // vibrate if supported
-      try { if (navigator.vibrate) navigator.vibrate([250,120,250]); } catch (e) {}
+      try { if (navigator.vibrate) navigator.vibrate([180,80,180]); } catch (e) {}
+
+      // briefly change document title to attract attention
+      const originalTitle = document.title;
+      document.title = `▶ Your Turn — ${ticket || ''}`;
+      setTimeout(() => { document.title = originalTitle; }, 2500);
 
       // focus the window to increase chance of user seeing it
       try { window.focus(); } catch(_) {}
     }
-
-    function hideAlertUI() {
-      calledOverlay.classList.add('hidden');
-    }
-
-    // replay and dismiss handlers
-    replayBtn.addEventListener('click', async () => {
-      try { alertSound.currentTime = 0; await alertSound.play(); } catch (e) { console.warn('replay blocked', e); }
-      try { if (navigator.vibrate) navigator.vibrate(200); } catch(_) {}
-    });
-    dismissBtn.addEventListener('click', () => hideAlertUI());
 
     // Firebase listeners
     function attachListeners() {
