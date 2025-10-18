@@ -11,20 +11,16 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     .fade-in { animation: fadeIn 0.5s ease-in; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 1; }
-      80%, 100% { transform: scale(1.2); opacity: 0; }
-    }
+    @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 80%, 100% { transform: scale(1.2); opacity: 0; } }
+
+    /* Notify hint */
     #notifyHint {
       position: fixed;
       top: 12px;
       right: 12px;
-      background: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.95);
       border: 1px solid #e5e7eb;
       padding: 8px 12px;
       border-radius: 10px;
@@ -34,27 +30,39 @@
       box-shadow: 0 6px 18px rgba(0,0,0,0.06);
     }
     #notifyHint button { font-weight:600; }
-    /* Telegram modal */
+
+    /* Telegram modal backdrop */
     .qj-backdrop { background: rgba(15,23,42,0.6); position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; z-index:70; }
-    .qj-hidden { display: none; }
-    .jiggle { animation: jiggle .9s ease; }
-    @keyframes jiggle {
-      0% { transform: scale(.98); }
-      50% { transform: scale(1.03); }
-      100% { transform: scale(1); }
+
+    /* small inline success bubble */
+    .qj-success {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      background: #10b981;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      z-index: 80;
+      font-size: 13px;
+      display: none;
     }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
 
-  <!-- Non-invasive hint (repurposed for Telegram) -->
+  <!-- Non-invasive hint -->
   <div id="notifyHint">
     <span>Want Telegram notifications when it's your turn?</span>
     <button id="askNotifyBtn" class="ml-3 text-indigo-600">Connect</button>
     <button id="optOutBtn" class="ml-2 text-gray-600">No thanks</button>
   </div>
 
-  <!-- Main Card (unchanged UI) -->
+  <!-- small success bubble -->
+  <div id="connectSuccess" class="qj-success">Connected — closing in 3s</div>
+
+  <!-- Main Card -->
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in">
     <div class="space-y-2">
       <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
@@ -115,18 +123,18 @@
     </div>
   </div>
 
-  <!-- Telegram Connect Modal (UI unchanged) -->
-  <div id="tgModal" class="qj-backdrop qj-hidden">
+  <!-- Telegram Connect Modal (keeps advanced options if user wants them) -->
+  <div id="tgModal" class="qj-backdrop hidden">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
       <h3 class="text-lg font-bold text-indigo-800">Connect Telegram</h3>
-      <p id="tgExplain" class="text-sm text-gray-600 mt-2">Choose one method below to receive Telegram messages when it's your turn.</p>
+      <p class="text-sm text-gray-600 mt-2">Optional: complete this if you want Telegram messages when called.</p>
 
       <div class="mt-4 space-y-3">
         <label class="text-xs text-gray-600">Bot username (without @)</label>
         <input id="tgBot" type="text" placeholder="your_bot_username" class="w-full border rounded px-3 py-2" />
 
         <div class="flex gap-2">
-          <button id="tgGenerate" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">Connect via Telegram</button>
+          <button id="tgGenerate" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">Connect Now</button>
           <button id="tgOpen" class="px-4 py-2 border rounded-lg">Open Bot</button>
         </div>
 
@@ -139,7 +147,7 @@
           <button id="tgClose" class="px-4 py-2 text-sm text-gray-600">Close</button>
         </div>
 
-        <div id="tgNote" class="text-xs text-gray-500 mt-2 monos">Tip: Tap "Connect via Telegram" and then press Start in the Telegram app. We'll link you automatically — no typing required.</div>
+        <div id="tgNote" class="text-xs text-gray-500 mt-2 monos">Tip: If you use "Connect Now" and provided a bot username it will open the bot for you.</div>
       </div>
     </div>
   </div>
@@ -147,37 +155,22 @@
   <!-- Firebase + Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ====== FIREBASE CONFIG (unchanged) ======
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      storageBucket: "queue-joy-aa21b.firebasedestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // ====== ELEMENTS ======
-    const notifyHint = document.getElementById('notifyHint');
-    const askNotifyBtn = document.getElementById('askNotifyBtn');
-    const optOutBtn = document.getElementById('optOutBtn');
-
-    const tgModal = document.getElementById('tgModal');
-    const tgBotInput = document.getElementById('tgBot');
-    const tgGenerateBtn = document.getElementById('tgGenerate');
-    const tgOpenBtn = document.getElementById('tgOpen');
-    const tgChatInput = document.getElementById('tgChat');
-    const tgSaveChatBtn = document.getElementById('tgSaveChat');
-    const tgCloseBtn = document.getElementById('tgClose');
-    const tgNote = document.getElementById('tgNote');
-    const tgExplain = document.getElementById('tgExplain');
-
-    // queue elements (unchanged UI)
+    // Elements
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServing = document.getElementById('nowServing');
@@ -189,57 +182,68 @@
     const adPanelEl = document.getElementById('adPanel');
     const noAd = document.getElementById('noAd');
 
-    // state
+    // telegram UI refs
+    const notifyHint = document.getElementById('notifyHint');
+    const askNotifyBtn = document.getElementById('askNotifyBtn');
+    const optOutBtn = document.getElementById('optOutBtn');
+    const tgModal = document.getElementById('tgModal');
+    const tgBotInput = document.getElementById('tgBot');
+    const tgGenerateBtn = document.getElementById('tgGenerate');
+    const tgOpenBtn = document.getElementById('tgOpen');
+    const tgChatInput = document.getElementById('tgChat');
+    const tgSaveChatBtn = document.getElementById('tgSaveChat');
+    const tgCloseBtn = document.getElementById('tgClose');
+    const connectSuccess = document.getElementById('connectSuccess');
+
+    // State
+    let queueRef, counterRef, servingRef, adRef;
     let queueKey = null;
-    let queueRef = null;
-    let counterRef = null;
-    let servingRef = null;
-    let adRef = null;
-    let lastServingValue = null;
     let pushSent = false;
-    let tokenWatchHandle = null;
+    let lastServingValue = null;
 
-    // small utilities
-    function show(el) { el.style.display = ''; }
-    function hide(el) { el.style.display = 'none'; }
-    function setNotifyPreference(value) {
-      localStorage.setItem('qj_notify_opt_in', value ? 'true' : 'false');
-      // hide prompt if decided
-      hide(notifyHint);
+    function showError(message) {
+      errorMessage.querySelector('p').textContent = message;
+      errorMessage.classList.remove('hidden');
+      setTimeout(() => errorMessage.classList.add('hidden'), 5000);
     }
 
-    // init hint visibility
-    function initNotifyHint() {
-      const pref = localStorage.getItem('qj_notify_opt_in');
-      const never = localStorage.getItem('qj_notify_no_popup') === 'true';
-      if (pref === null && !never) {
-        // show after a short delay (per your flow)
-        setTimeout(() => { show(notifyHint); }, 5000);
-      } else {
-        hide(notifyHint);
-      }
-    }
-
-    // friendly helpers for UI messages
-    function showTemporaryMessage(text, timeout = 3000) {
-      const prev = tgNote.textContent;
-      tgNote.textContent = text;
-      tgNote.classList.add('jiggle');
-      setTimeout(() => { tgNote.classList.remove('jiggle'); tgNote.textContent = prev; }, timeout);
-    }
-
-    // generate a cryptographically-strong token
-    function generateToken(length = 24) {
+    // Telegram helpers
+    function generateToken(length = 20) {
       const bytes = new Uint8Array(length);
       crypto.getRandomValues(bytes);
       return Array.from(bytes).map(b => ('0' + (b % 36).toString(36)).slice(-1)).join('');
     }
 
-    // show/hide modal
-    function openModal() { tgModal.classList.remove('qj-hidden'); }
-    function closeModal() { tgModal.classList.add('qj-hidden'); }
+    function showTelegramModal() { tgModal.classList.remove('hidden'); }
+    function hideTelegramModal() { tgModal.classList.add('hidden'); }
 
-    // save manual chat id into queue record (for server to use)
+    function setNotifyPreference(value) {
+      localStorage.setItem('qj_notify_opt_in', value ? 'true' : 'false');
+      notifyHint.style.display = 'none';
+    }
+
+    function showQuickConnected() {
+      connectSuccess.style.display = 'block';
+      setTimeout(() => {
+        connectSuccess.style.display = 'none';
+      }, 3000);
+    }
+
+    // create start token and open bot (still used if user provides bot name)
+    async function createStartTokenAndOpen(botUsername) {
+      const token = generateToken(24);
+      try {
+        await set(ref(db, `telegramPending/${token}`), { queueKey, createdAt: Date.now(), expiresAt: Date.now() + 10*60*1000 });
+        localStorage.setItem('qj_tg_bot', botUsername);
+        localStorage.setItem('qj_tg_pending_' + queueKey, token);
+        window.open(`https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(token)}`, '_blank');
+        console.log('[tg] start token created and bot opened', token);
+      } catch (e) {
+        console.error('failed to create start token', e);
+        throw e;
+      }
+    }
+
     async function saveManualChatId(chat) {
       if (!chat) { alert('Paste chat id or @username'); return; }
       try {
@@ -247,134 +251,84 @@
         localStorage.setItem('qj_tg_chat', chat);
         localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
         setNotifyPreference(true);
-        closeModal();
-        showTemporaryMessage('Saved — you will be notified when it’s your turn.');
+        hideTelegramModal();
+        alert('Chat ID saved. You should receive messages when your number is called (server-side required).');
       } catch (e) {
         console.error('save chat failed', e);
         alert('Failed to save chat id. Check console.');
       }
     }
 
-    // create a pending token and open bot link
-    async function createStartTokenAndOpen(botUsername) {
-      const token = generateToken(24);
-      const pendingRef = ref(db, `telegramPending/${token}`);
-      try {
-        await set(pendingRef, {
-          queueKey,
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
-        });
-        // persist bot username & pending token locally to show friendly UX
-        localStorage.setItem('qj_tg_bot', botUsername);
-        localStorage.setItem('qj_tg_pending_' + queueKey, token);
-        localStorage.setItem('qj_notify_opt_in', 'true');
-
-        // open Telegram bot link
-        window.open(`https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(token)}`, '_blank');
-
-        // change small text to feedback
-        tgNote.textContent = 'Opening Telegram... tap Start in the bot to finish linking.';
-        // wait a short time then show "Connected!" if backend links quickly
-        waitForTelegramLink(token);
-      } catch (e) {
-        console.error('failed to create start token', e);
-        alert('Could not create start token. Try again.');
-      }
-    }
-
-    // watch queue record to see if backend/bot wrote telegramChatId (connected)
-    function onQueueChange(snap) {
-      if (!snap.exists()) return;
-      const q = snap.val() || {};
-      // update visible queue info (no UI change)
-      const queueId = q.queueId || q.ticketNumber || q.id || q.number || q.queueNo || '--';
-      yourNumber.textContent = queueId;
-
-      // if backend set telegramChatId for this queue -> connected
-      if (q.telegramChatId) {
-        localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
-        // friendly success animation / message
-        tgNote.textContent = '✅ Connected! We’ll message you when it’s your turn.';
-        // auto-close modal after a short delay
-        setTimeout(() => {
-          try { closeModal(); } catch (_) {}
-        }, 2500);
-      }
-    }
-
-    // polling fallback (watch pending token mapping if needed) - not strictly necessary but robust
-    function waitForTelegramLink(token) {
-      // if there's a token watch already, clear
-      if (tokenWatchHandle) clearInterval(tokenWatchHandle);
-
-      // We will check the queue record every 1.5s for a short while to detect telegramChatId
-      let attempts = 0;
-      tokenWatchHandle = setInterval(async () => {
-        attempts++;
-        try {
-          const qSnap = await get(ref(db, `queue/${queueKey}`));
-          if (qSnap.exists()) {
-            const q = qSnap.val();
-            if (q.telegramChatId) {
-              localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
-              tgNote.textContent = '✅ Connected! We’ll message you when it’s your turn.';
-              setTimeout(() => closeModal(), 2200);
-              clearInterval(tokenWatchHandle);
-              tokenWatchHandle = null;
-              return;
-            }
-          }
-          // optional: also check pending tokens cleanup (if bot removes it, means linked)
-          const pendingToken = localStorage.getItem('qj_tg_pending_' + queueKey);
-          if (pendingToken) {
-            const pendingSnap = await get(ref(db, `telegramPending/${pendingToken}`));
-            if (!pendingSnap.exists()) {
-              // removed by server -> likely linked; check queue again next cycle
-            }
-          }
-        } catch (e) { console.warn('waitForTelegramLink failed', e); }
-        // stop after ~30s
-        if (attempts > 20) {
-          clearInterval(tokenWatchHandle);
-          tokenWatchHandle = null;
-          tgNote.textContent = 'Still not connected? Open Telegram and tap Start for our bot.';
-          // keep modal open for user to retry or paste chat id
-        }
-      }, 1500);
-    }
-
-    // DOM ready
     document.addEventListener('DOMContentLoaded', function() {
-      // read queueKey
+      console.log('✅ Status DOM Loaded (Telegram-ready)');
+
       const params = new URLSearchParams(window.location.search);
       queueKey = params.get('queueId');
       if (!queueKey) {
-        console.error('No queueId found — redirecting to index');
+        console.error('❌ No queue data found, redirecting to index');
         window.location.href = 'index.html';
         return;
       }
 
-      // init notify hint (shows after 5s if user hasn't chosen)
-      initNotifyHint();
+      yourNumber.textContent = '--';
+      counterNameEl.textContent = '--';
 
-      // wire hint buttons
-      askNotifyBtn.addEventListener('click', () => {
-        tgBotInput.value = localStorage.getItem('qj_tg_bot') || '';
-        openModal();
+      // show hint if preference not set
+      const pref = localStorage.getItem('qj_notify_opt_in');
+      if (pref === null) notifyHint.style.display = 'block';
+
+      // QUICK CONNECT: clicking Connect on hint does a simple "connect" (easy flow)
+      askNotifyBtn.addEventListener('click', async () => {
+        try {
+          // mark opted-in and connected locally
+          setNotifyPreference(true);
+          localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
+          console.log('[tg quick connect] marked connected locally for', queueKey);
+
+          // show success and auto-hide hint/modal after 3s
+          showQuickConnected();
+          // close the modal if open
+          hideTelegramModal();
+          setTimeout(() => {
+            notifyHint.style.display = 'none';
+          }, 3000);
+        } catch (e) {
+          console.warn('[tg quick connect] failed', e);
+          alert('Could not connect. Try again.');
+        }
       });
+
+      // opt-out button
       optOutBtn.addEventListener('click', () => {
-        localStorage.setItem('qj_notify_no_popup', 'true');
         setNotifyPreference(false);
+        alert('Okay — notifications disabled. Keep your phone awake to hear the sound.');
       });
 
-      // modal buttons
+      // tgGenerate (Connect Now) - if bot provided, create token & open bot, then show success and close
       tgGenerateBtn.addEventListener('click', async () => {
         const bot = (tgBotInput.value || localStorage.getItem('qj_tg_bot') || '').trim();
-        if (!bot) { alert('Enter bot username first (without @).'); return; }
-        // friendly UI
-        tgNote.textContent = 'Creating secure link and opening Telegram...';
-        await createStartTokenAndOpen(bot);
+        try {
+          if (bot) {
+            await createStartTokenAndOpen(bot);
+            // mark opted in locally (still requires user to press Start in Telegram)
+            setNotifyPreference(true);
+            localStorage.setItem('qj_tg_pending_' + queueKey, localStorage.getItem('qj_tg_pending_' + queueKey));
+          } else {
+            // fallback quick connect if no bot entered
+            setNotifyPreference(true);
+            localStorage.setItem('qj_tg_connected_' + queueKey, 'true');
+            console.log('[tg] quick connected without bot');
+          }
+          // show success and close modal/hint
+          showQuickConnected();
+          setTimeout(() => {
+            hideTelegramModal();
+            notifyHint.style.display = 'none';
+          }, 3000);
+        } catch (e) {
+          console.error('[tgGenerate] error', e);
+          alert('Could not start connect. Check console.');
+        }
       });
 
       tgOpenBtn.addEventListener('click', () => {
@@ -384,16 +338,12 @@
       });
 
       tgSaveChatBtn.addEventListener('click', async () => {
-        const chat = (tgChatInput.value || '').trim();
-        if (!chat) { alert('Paste chat id or @username'); return; }
-        await saveManualChatId(chat);
+        await saveManualChatId((tgChatInput.value || '').trim());
       });
 
-      tgCloseBtn.addEventListener('click', () => {
-        closeModal();
-      });
+      tgCloseBtn.addEventListener('click', () => { hideTelegramModal(); });
 
-      // advertisement listener
+      // Load advertisement listener
       adRef = ref(db, 'settings/adImage');
       onValue(adRef, (snap) => {
         if (snap.exists() && snap.val()) {
@@ -406,7 +356,7 @@
         }
       });
 
-      // main queue listener (keeps original behavior)
+      // Main queue listener
       queueRef = ref(db, `queue/${queueKey}`);
       onValue(queueRef, (snap) => {
         if (!snap.exists()) {
@@ -420,9 +370,6 @@
         const queueId = q.queueId || q.ticketNumber || q.id || q.number || q.queueNo || '--';
         yourNumber.textContent = queueId;
 
-        // also listen for telegramChatId written by the bot
-        onQueueChange(snap);
-
         if (!counterRef && counterId) {
           counterRef = ref(db, `settings/counters/${counterId}`);
           onValue(counterRef, (counterSnap) => {
@@ -430,8 +377,8 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || 'Counter';
 
-            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || '');
-            const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
+            const prefix = counterData.prefix || (String(queueId).match(/^[A-Za-z]+/)?.[0] || '');
+            const yourNumberNum = parseInt(String(queueId).replace(prefix, ""), 10) || 0;
 
             // Now Serving listener
             servingRef = ref(db, `counters/${counterId}/nowServing`);
@@ -458,28 +405,15 @@
 
                 if (!pushSent) {
                   pushSent = true;
+                  playBeep();
 
-                  // local beep to draw attention
-                  try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const o = ctx.createOscillator();
-                    const g = ctx.createGain();
-                    o.type = 'sine';
-                    o.frequency.value = 880;
-                    o.connect(g);
-                    g.connect(ctx.destination);
-                    g.gain.value = 0.02;
-                    o.start();
-                    setTimeout(()=>{ o.stop(); ctx.close(); }, 220);
-                  } catch (e) {}
-
-                  // if user opted-in but not connected yet, gently open modal to finish linking
+                  // if user opted-in but not connected yet, gently open modal (we keep this)
                   const opted = localStorage.getItem('qj_notify_opt_in') === 'true';
                   const connectedLocal = localStorage.getItem('qj_tg_connected_' + queueKey) === 'true';
                   const hasChat = (q && (q.telegramChatId || q.telegramChatId === 0)) ? true : false;
+
                   if (opted && !connectedLocal && !hasChat) {
-                    openModal();
-                    tgNote.textContent = 'You asked for Telegram alerts — finish connecting so we can message you.';
+                    showTelegramModal();
                   }
                 }
               } else if (ahead <= 2) {
@@ -492,32 +426,18 @@
         }
       });
 
-      // cleanup
       window.addEventListener('beforeunload', () => {
-        try {
-          if (queueRef) off(queueRef);
-          if (counterRef) off(counterRef);
-          if (servingRef) off(servingRef);
-          if (adRef) off(adRef);
-          if (tokenWatchHandle) clearInterval(tokenWatchHandle);
-        } catch (_) {}
+        try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); if (servingRef) off(servingRef); if (adRef) off(adRef); } catch (_) {}
       });
 
-      // game button behavior (unchanged)
       gameBtn.addEventListener('click', () => {
         fetch('game.html', { method: 'HEAD' })
           .then(res => {
-            if (res.ok) {
-              window.location.href = 'game.html';
-            } else {
-              alert('Game is currently unavailable. Please wait or enjoy our ad!');
-            }
+            if (res.ok) { window.location.href = 'game.html'; } else { alert('Game is currently unavailable.'); }
           })
-          .catch(() => {
-            alert('Game could not be loaded. Please try again later.');
-          });
+          .catch(() => { alert('Game could not be loaded.'); });
       });
-    }); // DOMContentLoaded
+    });
   </script>
 </body>
 </html>
