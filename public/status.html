@@ -35,7 +35,6 @@
       box-shadow: 0 6px 18px rgba(0,0,0,0.06);
     }
     #notifyHint button { font-weight:600; }
-    .fade-in-popup { animation: fadeIn 0.3s ease-in; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
@@ -100,17 +99,6 @@
     </div>
   </div>
 
-  <!-- Telegram Popup -->
-  <div id="telegramPopup" class="hidden fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 backdrop-blur-sm">
-    <div class="bg-white rounded-lg p-6 max-w-sm w-full relative fade-in-popup">
-      <button id="closePopup" class="absolute top-2 right-2 text-gray-500 text-xl hover:text-gray-700">×</button>
-      <div id="popupContent" class="text-center">
-        <p class="text-lg font-semibold mb-4">📲 Connect Telegram to get instant updates</p>
-        <a id="connectBtn" href="#" class="inline-block py-2 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Connect Now</a>
-      </div>
-    </div>
-  </div>
-
   <!-- Advertisement -->
   <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
@@ -133,7 +121,7 @@
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.appspot.com",
+      storageBucket: "queue-joy-aa21b.firebasedestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
@@ -154,10 +142,6 @@
     const noAd = document.getElementById('noAd');
     const notifyHint = document.getElementById('notifyHint');
     const askNotifyBtn = document.getElementById('askNotifyBtn');
-    const telegramPopup = document.getElementById('telegramPopup');
-    const closePopup = document.getElementById('closePopup');
-    const popupContent = document.getElementById('popupContent');
-    const connectBtn = document.getElementById('connectBtn');
 
     // State
     let queueRef, counterRef, servingRef, adRef;
@@ -284,12 +268,6 @@
 
       askNotifyBtn.addEventListener('click', requestNotificationPermission);
 
-      connectBtn.href = `https://t.me/QueueJoyBot?start=${encodeURIComponent(queueKey)}`;
-
-      closePopup.addEventListener('click', () => {
-        telegramPopup.classList.add('hidden');
-      });
-
       // Load advertisement listener
       adRef = ref(db, 'settings/adImage');
       onValue(adRef, (snap) => {
@@ -312,16 +290,8 @@
           return;
         }
 
-        const { counterId, queueId, telegramConnected = false } = snap.val();
+        const { counterId, queueId } = snap.val();
         yourNumber.textContent = queueId;
-
-        if (telegramConnected) {
-          if (!telegramPopup.classList.contains('hidden')) {
-            popupContent.innerHTML = '<p class="text-green-600 font-semibold text-lg">✅ Telegram connected successfully!</p>';
-          }
-        } else {
-          telegramPopup.classList.remove('hidden');
-        }
 
         if (!counterRef) {
           counterRef = ref(db, `settings/counters/${counterId}`);
