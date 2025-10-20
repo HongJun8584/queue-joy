@@ -5,7 +5,6 @@
        Queue Joy - Index Page
        ========================= -->
 
-  <meta charset="UTF-8">
   <!-- Firebase SDK -->
   <script type="module">
     import { 
@@ -41,13 +40,14 @@
 
     console.log("✅ Firebase initialized successfully.");
   </script>
+
   <!-- Meta and Styles -->
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Queue Joy - Digital Queue System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- Custom Styles -->
@@ -254,54 +254,83 @@
         }
       }
 
-      // Get new queue number
-      async function getQueueNumber() {
-        try {
-          setLoading(true);
-          errorMessage.classList.add("hidden");
-          successMessage.classList.add("hidden");
+// === Get new queue number (Round Robin) ===
+async function getQueueNumber() {
+  try {
+    setLoading(true);
+    errorMessage.classList.add("hidden");
+    successMessage.classList.add("hidden");
 
-          const snapshot = await get(child(ref(db), "counters"));
-          if (!snapshot.exists()) return showError("No counters available.");
+    // Get counters snapshot
+    const snapshot = await get(child(ref(db), "counters"));
+    if (!snapshot.exists()) return showError("No counters available.");
 
-          const counters = snapshot.val();
-          const counterIds = Object.keys(counters);
-          if (counterIds.length === 0) return showError("No counters available.");
+    const counters = snapshot.val();
+    const counterIds = Object.keys(counters).filter(
+      (id) => counters[id].active === true
+    );
 
-          let counterId, counter, found = false;
-          for (const id of counterIds) {
-            if (counters[id].active === true) {
-              counterId = id;
-              counter = counters[id];
-              found = true;
-              break;
-            }
-          }
-          if (!found) return showError("No active counters.");
-          if (!counter.prefix) return showError("Counter misconfigured.");
+    if (counterIds.length === 0) return showError("No active counters.");
 
-          const nextNumber = (counter.lastIssued || 0) + 1;
-          const queueId = `${counter.prefix}${String(nextNumber).padStart(3, "0")}`;
+    // --- Round Robin Logic ---
+    // Remember last used counter in localStorage (per device)
+// --- Global Round Robin Logic (shared across all users) ---
+const rrIndexRef = ref(db, "settings/rrIndex");
 
-          // Update counter
-          await update(ref(db, `counters/${counterId}`), { lastIssued: nextNumber });
+// Get the current round robin index from Firebase
+let rrIndexSnap = await get(rrIndexRef);
+let rrIndex = rrIndexSnap.exists() ? rrIndexSnap.val() : 0;
 
-          // Create queue entry
-          const entry = { counterId, queueId, timestamp: Date.now(), status: "waiting" };
-          const newKey = push(child(ref(db), "queue")).key;
-          await set(ref(db, `queue/${newKey}`), entry);
+// Reset if overflow
+if (rrIndex >= counterIds.length) rrIndex = 0;
 
-          sessionStorage.setItem("lastQueueId", newKey);
-          showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
-          await new Promise(r => setTimeout(r, 1500));
-          window.location.href = `status.html?queueId=${newKey}`;
-        } catch (err) {
-          showError("Failed to get queue number.");
-          console.error("❌ getQueueNumber error:", err);
-        } finally {
-          setLoading(false);
-        }
-      }
+// Select counter based on global rotation
+const counterId = counterIds[rrIndex];
+const counter = counters[counterId];
+if (!counter.prefix) return showError("Counter misconfigured.");
+
+// Compute next global index
+const nextIndex = (rrIndex + 1) % counterIds.length;
+
+// Save next index globally in Firebase for next user
+await update(ref(db), { "settings/rrIndex": nextIndex });
+
+    // Compute next number
+    const nextNumber = (counter.lastIssued || 0) + 1;
+    const queueId = `${counter.prefix}${String(nextNumber).padStart(3, "0")}`;
+
+    // Prepare new queue entry
+    const entry = {
+      counterId,
+      queueId,
+      timestamp: Date.now(),
+      status: "waiting",
+    };
+
+    // Write all updates atomically
+    const newKey = push(child(ref(db), "queue")).key;
+    const updates = {};
+    updates[`queue/${newKey}`] = entry;
+    updates[`counters/${counterId}/lastIssued`] = nextNumber;
+    updates[`settings/counters/${counterId}/lastIssued`] = nextNumber;
+
+    await update(ref(db), updates);
+
+    // Save last queue in session
+    sessionStorage.setItem("lastQueueId", newKey);
+
+    // Feedback and redirect
+    showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
+    await new Promise((r) => setTimeout(r, 1500));
+    window.location.href = `status.html?queueId=${newKey}`;
+  } catch (err) {
+    showError("Failed to get queue number.");
+    console.error("❌ getQueueNumber error:", err);
+  } finally {
+    setLoading(false);
+  }
+}
+
 
       // Add listeners
       getNumberBtn.addEventListener("click", e => {
@@ -315,20 +344,5 @@
       autoRedirectIfActiveQueue();
     });
   </script>
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "0bf8e638-a283-4b94-85dd-59a04fb48b06",
-      notifyButton: { enable: true } // shows small bell widget
-    });
-
-    // ask permission immediately
-    OneSignal.Notifications.requestPermission().then((permission) => {
-      console.log("Notification permission:", permission);
-    });
-  });
-</script>
 </body>
 </html>

@@ -1058,48 +1058,58 @@ case 'skip': {
             }
 
 // Start listening to central queue and assign to free counters (FIFO)
-function listenAndAssignQueue() {
-    const queueRef = ref(database, 'queue');
+            function listenAndAssignQueue() {
+            const queueRef = ref(database, "queue");
 
-    onValue(queueRef, (snapshot) => {
-        const queue = snapshot.val() || {};
+            // Keep track of which counter served last (for Round Robin)
+            let rrIndex = 0;
 
-        // Sort waiting tickets by timestamp
-        const waitingList = Object.entries(queue)
-            .filter(([id, data]) => data.status === 'waiting')
-            .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            onValue(queueRef, (snapshot) => {
+                const queue = snapshot.val() || {};
 
-        // Assign tickets to counters
-        for (const [counterId, counter] of Object.entries(activeCounters)) {
-            if (!counter.active) continue;
+                // Sort waiting tickets FIFO
+                const waitingList = Object.entries(queue)
+                .filter(([id, data]) => data.status === "waiting")
+                .sort((a, b) => a[1].timestamp - b[1].timestamp);
 
-            const currentServing = Number(counter.nowServing || 0);
-            const lastIssued = Number(counter.lastIssued || 0);
+                const counterEntries = Object.entries(activeCounters).filter(
+                ([, c]) => c.active
+                );
 
-            // If counter is idle and queue has waiting tickets
-            if (currentServing === 0 && waitingList.length > 0) {
+                if (counterEntries.length === 0 || waitingList.length === 0) return;
+
+                // Round robin start counter index
+                rrIndex = rrIndex % counterEntries.length;
+
+                // Process all waiting tickets
+                while (waitingList.length > 0) {
                 const [ticketId, ticketData] = waitingList.shift();
-                const nextNumber = parseInt(ticketId.replace(/[^\d]/g, ''), 10);
+
+                // Select counter by Round Robin
+                const [counterId, counter] = counterEntries[rrIndex];
+                rrIndex = (rrIndex + 1) % counterEntries.length;
+
+                const nextNumber = parseInt(ticketId.replace(/[^\d]/g, ""), 10);
 
                 const updates = {};
-
-                // Update both settings tree and live counters tree
                 updates[`settings/counters/${counterId}/lastIssued`] = nextNumber;
                 updates[`settings/counters/${counterId}/nowServing`] = nextNumber;
                 updates[`counters/${counterId}/lastIssued`] = nextNumber;
                 updates[`counters/${counterId}/nowServing`] = nextNumber;
 
-                // Update queue ticket
-                updates[`queue/${ticketId}/status`] = 'serving';
+                // Assign queue ticket
+                updates[`queue/${ticketId}/status`] = "serving";
                 updates[`queue/${ticketId}/counterId`] = counterId;
 
                 update(ref(database), updates)
-                    .then(() => console.log(`🎫 ${ticketId} assigned to ${counterId}`))
-                    .catch(err => console.error('❌ Queue assignment error:', err));
+                    .then(() => console.log(`🎯 ${ticketId} → ${counterId}`))
+                    .catch((err) =>
+                    console.error("❌ Round Robin assignment error:", err)
+                    );
+                }
+            });
             }
-        }
-    });
-}
+
 
 
             // Settings handlers
