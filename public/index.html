@@ -13,6 +13,9 @@
     import { 
       getDatabase, ref, set, get, child, update, push, onValue 
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { 
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -266,40 +269,29 @@ async function getQueueNumber() {
     if (!snapshot.exists()) return showError("No counters available.");
 
     const counters = snapshot.val();
-    const counterIds = Object.keys(counters).filter(
-      (id) => counters[id].active === true
-    );
-
+    const counterIds = Object.keys(counters).filter(id => counters[id].active);
     if (counterIds.length === 0) return showError("No active counters.");
 
-    // --- Round Robin Logic ---
-    // Remember last used counter in localStorage (per device)
-// --- Global Round Robin Logic (shared across all users) ---
-const rrIndexRef = ref(db, "settings/rrIndex");
+    // --- Safe Round Robin Logic (multi-user / Netlify friendly) ---
+    const rrIndexRef = ref(db, "settings/rrIndex");
+    let rrIndex = 0;
 
-// Get the current round robin index from Firebase
-let rrIndexSnap = await get(rrIndexRef);
-let rrIndex = rrIndexSnap.exists() ? rrIndexSnap.val() : 0;
+    await runTransaction(rrIndexRef, (currentIndex) => {
+      const cur = currentIndex ?? 0;
+      rrIndex = cur >= counterIds.length ? 0 : cur;
+      return (rrIndex + 1) % counterIds.length;
+    });
 
-// Reset if overflow
-if (rrIndex >= counterIds.length) rrIndex = 0;
-
-// Select counter based on global rotation
-const counterId = counterIds[rrIndex];
-const counter = counters[counterId];
-if (!counter.prefix) return showError("Counter misconfigured.");
-
-// Compute next global index
-const nextIndex = (rrIndex + 1) % counterIds.length;
-
-// Save next index globally in Firebase for next user
-await update(ref(db), { "settings/rrIndex": nextIndex });
+    // Select counter
+    const counterId = counterIds[rrIndex];
+    const counter = counters[counterId];
+    if (!counter?.prefix) return showError("Counter misconfigured.");
 
     // Compute next number
     const nextNumber = (counter.lastIssued || 0) + 1;
     const queueId = `${counter.prefix}${String(nextNumber).padStart(3, "0")}`;
 
-    // Prepare new queue entry
+    // Prepare queue entry
     const entry = {
       counterId,
       queueId,
@@ -307,7 +299,7 @@ await update(ref(db), { "settings/rrIndex": nextIndex });
       status: "waiting",
     };
 
-    // Write all updates atomically
+    // Write updates atomically
     const newKey = push(child(ref(db), "queue")).key;
     const updates = {};
     updates[`queue/${newKey}`] = entry;
@@ -321,7 +313,7 @@ await update(ref(db), { "settings/rrIndex": nextIndex });
 
     // Feedback and redirect
     showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1500));
     window.location.href = `status.html?queueId=${newKey}`;
   } catch (err) {
     showError("Failed to get queue number.");
@@ -331,18 +323,12 @@ await update(ref(db), { "settings/rrIndex": nextIndex });
   }
 }
 
-
-      // Add listeners
-      getNumberBtn.addEventListener("click", e => {
-        e.preventDefault();
-        getQueueNumber();
-      });
-
-      // Init
-      setupAdListener();
-      setupIntroTextListener();
-      autoRedirectIfActiveQueue();
-    });
-  </script>
+// Add listener
+getNumberBtn.addEventListener("click", e => {
+  e.preventDefault();
+  getQueueNumber();
+});
+}); // <-- Make sure this closes DOMContentLoaded function
+</script>
 </body>
 </html>
