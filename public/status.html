@@ -224,51 +224,5 @@
         });
     });
   </script>
-<script type="module">
-  import { ref, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  // 🔥 Use the existing db instance (already initialized above)
-  document.addEventListener("DOMContentLoaded", async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const queueId = urlParams.get("queueId");
-    const popup = document.getElementById("queuePopup");
-    const popupQueueId = document.getElementById("popupQueueId");
-    const okBtn = document.getElementById("popupOkBtn");
-
-    if (!queueId || !window.db) {
-      console.warn("⚠️ Missing queueId or db instance.");
-      return;
-    }
-
-    try {
-      const snap = await get(child(ref(db), `queue/${queueId}`));
-      if (snap.exists()) {
-        const data = snap.val();
-        popupQueueId.textContent = `Your queue number: ${data.queueId}`;
-        popup.classList.remove("hidden");
-
-        // ✅ Notify Telegram (optional)
-        try {
-          await fetch("./sendTelegram.js", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: `🎫 New queue joined: ${data.queueId}`
-            })
-          });
-          console.log("✅ Telegram notified:", data.queueId);
-        } catch (telegramErr) {
-          console.warn("⚠️ Telegram notification failed:", telegramErr);
-        }
-      }
-    } catch (err) {
-      console.error("❌ Popup fetch error:", err);
-    }
-
-    okBtn.addEventListener("click", () => {
-      popup.classList.add("hidden");
-    });
-  });
-</script>
 </body>
 </html>
