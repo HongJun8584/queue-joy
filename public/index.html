@@ -1,20 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- =========================
-       Queue Joy - Index Page
-       Round-robin ready for public hosting (Netlify)
-       - Uses Firebase Realtime Database transactions
-       - Deterministic counter ordering (sorted by key)
-       - Defensive checks + retries for transactions
-       - Minimal dependencies (still using Tailwind CDN for dev)
-       ========================= -->
-
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Queue Joy - Digital Queue System</title>
 
-  <!-- Firebase SDK (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -23,7 +13,6 @@
       set,
       get,
       child,
-      update,
       push,
       onValue,
       runTransaction
@@ -39,24 +28,13 @@
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Expose for debugging if needed
-    window.db = db;
-    window.ref = ref;
-    window.get = get;
-    window.push = push;
-    window.update = update;
-    window.onValue = onValue;
-    window.runTransaction = runTransaction;
+    // expose small helpers for debugging if needed
+    window._db = db;
 
-    console.log('✅ Firebase initialized');
-
-    // Wait until DOM is ready before wiring UI
     document.addEventListener('DOMContentLoaded', () => {
-      // UI elements
       const getNumberBtn = document.getElementById('getNumberBtn');
       const btnText = document.getElementById('btnText');
       const btnSpinner = document.getElementById('btnSpinner');
@@ -71,22 +49,20 @@
         errorMessage.querySelector('p').textContent = msg;
         errorMessage.classList.remove('hidden');
         successMessage.classList.add('hidden');
-        setTimeout(() => errorMessage.classList.add('hidden'), 4000);
+        setTimeout(() => errorMessage.classList.add('hidden'), 5000);
       }
-
       function showSuccess(msg) {
         successMessage.querySelector('p').textContent = msg;
         successMessage.classList.remove('hidden');
         errorMessage.classList.add('hidden');
       }
-
       function setLoading(flag) {
         getNumberBtn.disabled = flag;
         btnText.classList.toggle('hidden', flag);
         btnSpinner.classList.toggle('hidden', !flag);
       }
 
-      // Ad and intro listeners
+      // setup ad and intro listeners (unchanged logic)
       (function setupListeners() {
         const adRef = ref(db, 'settings/adImage');
         onValue(adRef, snap => {
@@ -106,7 +82,7 @@
         });
       })();
 
-      // Auto-redirect if user has active waiting queue
+      // auto redirect if lastQueueId still waiting
       (async function autoRedirectIfActiveQueue() {
         try {
           const lastQueueId = sessionStorage.getItem('lastQueueId');
@@ -120,64 +96,123 @@
         }
       })();
 
-      // Helper: fetch active counters preserving keys and deterministically ordering them
+      // fetch counters - preserve keys, sort deterministically (try numeric when possible)
       async function fetchActiveCounters() {
         const countersSnap = await get(ref(db, 'counters'));
         if (!countersSnap.exists()) return [];
 
         const items = [];
         countersSnap.forEach(s => {
-          const val = s.val();
-          // keep the original key to reference later
-          items.push({ id: s.key, ...val });
+          items.push({ id: s.key, ...s.val() });
         });
 
-        // Deterministic ordering: sort by key (lexicographic). Adjust if you want different order.
-        items.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
-        // filter actives
-        return items.filter(c => c.active);
+        // sort: prefer numeric sort when id looks numeric, otherwise lexicographic
+        items.sort((a, b) => {
+          const ai = a.id, bi = b.id;
+          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) {
+            return Number(ai) - Number(bi);
+          }
+          return String(ai).localeCompare(String(bi), undefined, { numeric: true });
+        });
+
+        return items.filter(c => c && c.active);
       }
 
-      // Robust getQueueNumber with retries for the rr transaction
+      // helper: sleep
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+      // robust runTransaction wrapper with exponential backoff
+      async function runTransactionWithRetries(path, updater, maxRetries = 6) {
+        const refPath = ref(db, path);
+        let lastErr = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.debug(`[tx] attempt #${attempt} on`, path);
+            const result = await runTransaction(refPath, updater, { applyLocally: false });
+            // result may be { committed: boolean, snapshot: DataSnapshot }
+            if (result && result.committed) {
+              console.debug(`[tx] success on ${path} value=`, result.snapshot.val());
+              return result;
+            }
+            // not committed -> treat as retryable
+            lastErr = new Error(`Transaction not committed on ${path} (attempt ${attempt})`);
+            console.warn(lastErr);
+          } catch (txErr) {
+            lastErr = txErr;
+            console.warn(`[tx] error on ${path} attempt ${attempt}`, txErr);
+          }
+          // exponential backoff (min 100ms -> grows)
+          const backoff = 100 * Math.pow(2, attempt - 1);
+          await sleep(backoff + Math.floor(Math.random() * 60));
+        }
+        throw lastErr || new Error(`Transaction failed on ${path} after ${maxRetries} attempts`);
+      }
+
+      // Main function to get queue number
       async function getQueueNumber() {
         setLoading(true);
         try {
           // 1) load active counters
           const counters = await fetchActiveCounters();
-          if (!counters || counters.length === 0) return showError('No active counters.');
-
-          // 2) increment global round-robin counter (with retry)
-          const rrRef = ref(db, 'settings/lastCounterIndex');
-          let rrResult = null;
-          const maxRetries = 3;
-          for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-              rrResult = await runTransaction(rrRef, current => (current || 0) + 1);
-              if (rrResult.committed) break; // success
-            } catch (txErr) {
-              console.warn(`rr transaction attempt ${attempt} failed`, txErr);
-            }
-            // small backoff before retry
-            await new Promise(r => setTimeout(r, 50 * attempt));
+          console.debug('Active counters:', counters);
+          if (!counters || counters.length === 0) {
+            setLoading(false);
+            return showError('No active counters available right now.');
           }
-          if (!rrResult || !rrResult.committed) throw new Error('Round-robin transaction failed after retries');
 
-          // 3) derive index from the transaction value
-          const globalCounter = rrResult.snapshot.val();
-          const index = Number(globalCounter) % counters.length;
+          // 2) Determine which global-counter path to use. Some deployments use different keys.
+          const globalCounterCandidates = [
+            'settings/lastCounterIndex',
+            'lastAssignedCounter',
+            'system/lastAssignedCounter'
+          ];
+
+          let rrResult = null;
+          let usedPath = null;
+          for (const p of globalCounterCandidates) {
+            try {
+              // updater increments and returns new value
+              rrResult = await runTransactionWithRetries(p, current => (current || 0) + 1, 6);
+              if (rrResult && rrResult.committed) {
+                usedPath = p;
+                break;
+              }
+            } catch (err) {
+              console.warn(`Global counter attempt failed for ${p}:`, err.message || err);
+              // try next candidate
+            }
+          }
+
+          if (!rrResult || !rrResult.committed) {
+            throw new Error('Round-robin transaction failed for all candidate paths');
+          }
+
+          // 3) compute index (zero-based cycle)
+          const globalCounter = Number(rrResult.snapshot.val());
+          if (!Number.isFinite(globalCounter)) throw new Error('Global counter returned invalid value');
+          // Use (globalCounter - 1) so the first increment chooses index 0
+          const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
           const counter = counters[index];
-          if (!counter || !counter.id) throw new Error('Selected counter not found');
+          if (!counter || !counter.id) {
+            console.error('Invalid counter selected', index, counters);
+            throw new Error('Selected counter not found');
+          }
+          console.debug(`Selected counter (index ${index}) id=${counter.id}`);
 
-          // 4) atomically increment selected counter's lastIssued
-          const lastIssuedRef = ref(db, `counters/${counter.id}/lastIssued`);
-          const lastIssuedResult = await runTransaction(lastIssuedRef, current => (current || 0) + 1);
-          if (!lastIssuedResult.committed) throw new Error('Failed to increment counter lastIssued');
+          // 4) increment selected counter's lastIssued with retries
+          const lastIssuedPath = `counters/${counter.id}/lastIssued`;
+          const lastIssuedResult = await runTransactionWithRetries(lastIssuedPath, current => (current || 0) + 1, 6);
+          if (!lastIssuedResult || !lastIssuedResult.committed) {
+            throw new Error('Failed to increment selected counter lastIssued');
+          }
 
-          const nextNumber = lastIssuedResult.snapshot.val();
-          const prefix = counter.prefix || 'Q';
+          const nextNumber = Number(lastIssuedResult.snapshot.val());
+          if (!Number.isFinite(nextNumber)) throw new Error('Invalid lastIssued value after increment');
+
+          const prefix = (counter.prefix && String(counter.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // 5) push new queue entry (atomic write for the entry itself)
+          // 5) push new queue entry
           const newRef = push(ref(db, 'queue'));
           const entry = {
             counterId: counter.id,
@@ -185,23 +220,26 @@
             timestamp: Date.now(),
             status: 'waiting'
           };
+
           await set(newRef, entry);
 
-          // Save for redirect
-          sessionStorage.setItem('lastQueueId', newRef.key);
+          // Save lastQueueId for redirect
+          try { sessionStorage.setItem('lastQueueId', newRef.key); } catch (e) { /* ignore */ }
 
           showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
-          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 1200);
+          console.info('Queue entry created', newRef.key, entry);
+          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
 
         } catch (err) {
           console.error('getQueueNumber error', err);
-          showError('Failed to get queue number. Try again.');
+          const msg = (err && err.message) ? err.message : 'Failed to get queue number. Try again.';
+          showError(msg);
         } finally {
           setLoading(false);
         }
       }
 
-      // Attach UI handler
+      // attach UI handler
       getNumberBtn.addEventListener('click', e => {
         e.preventDefault();
         getQueueNumber();
@@ -210,7 +248,7 @@
     });
   </script>
 
-  <!-- Tailwind CDN for dev (replace with a built version in production) -->
+  <!-- Tailwind for dev -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -220,7 +258,6 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
-
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
     <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
@@ -239,10 +276,6 @@
 
     <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg"><p class="text-red-600 text-sm"></p></div>
     <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
-
-    <div id="menuDropdown" class="hidden fixed bg-white shadow-xl rounded-xl p-4 w-48 z-40 space-y-3 fade-in border border-gray-100">
-      <button id="counterPanelBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-purple-600 transition-colors p-2 rounded-lg hover:bg-purple-50"><span class="text-xl">⚙️</span><span>Counter Panel</span></button>
-    </div>
   </div>
 
   <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
