@@ -13,7 +13,6 @@
         .transition-all { transition: all 0.3s ease; }
         .modal-backdrop {
             background: rgba(0, 0, 0, 0.5);
-            -webkit-backdrop-filter: blur(4px);
             backdrop-filter: blur(4px);
         }
         .slide-up {
@@ -61,7 +60,6 @@
                         type="button"
                         id="togglePin"
                         class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="Show or hide PIN"
                     >
                         <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -275,7 +273,7 @@
         <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4 slide-up max-h-96 overflow-y-auto">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-indigo-600">How It Works</h3>
-                <button id="closeHelp" class="text-gray-400 hover:text-gray-600" title="Close Help">
+                <button id="closeHelp" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -1058,58 +1056,48 @@ case 'skip': {
             }
 
 // Start listening to central queue and assign to free counters (FIFO)
-            function listenAndAssignQueue() {
-            const queueRef = ref(database, "queue");
+function listenAndAssignQueue() {
+    const queueRef = ref(database, 'queue');
 
-            // Keep track of which counter served last (for Round Robin)
-            let rrIndex = 0;
+    onValue(queueRef, (snapshot) => {
+        const queue = snapshot.val() || {};
 
-            onValue(queueRef, (snapshot) => {
-                const queue = snapshot.val() || {};
+        // Sort waiting tickets by timestamp
+        const waitingList = Object.entries(queue)
+            .filter(([id, data]) => data.status === 'waiting')
+            .sort((a, b) => a[1].timestamp - b[1].timestamp);
 
-                // Sort waiting tickets FIFO
-                const waitingList = Object.entries(queue)
-                .filter(([id, data]) => data.status === "waiting")
-                .sort((a, b) => a[1].timestamp - b[1].timestamp);
+        // Assign tickets to counters
+        for (const [counterId, counter] of Object.entries(activeCounters)) {
+            if (!counter.active) continue;
 
-                const counterEntries = Object.entries(activeCounters).filter(
-                ([, c]) => c.active
-                );
+            const currentServing = Number(counter.nowServing || 0);
+            const lastIssued = Number(counter.lastIssued || 0);
 
-                if (counterEntries.length === 0 || waitingList.length === 0) return;
-
-                // Round robin start counter index
-                rrIndex = rrIndex % counterEntries.length;
-
-                // Process all waiting tickets
-                while (waitingList.length > 0) {
+            // If counter is idle and queue has waiting tickets
+            if (currentServing === 0 && waitingList.length > 0) {
                 const [ticketId, ticketData] = waitingList.shift();
-
-                // Select counter by Round Robin
-                const [counterId, counter] = counterEntries[rrIndex];
-                rrIndex = (rrIndex + 1) % counterEntries.length;
-
-                const nextNumber = parseInt(ticketId.replace(/[^\d]/g, ""), 10);
+                const nextNumber = parseInt(ticketId.replace(/[^\d]/g, ''), 10);
 
                 const updates = {};
+
+                // Update both settings tree and live counters tree
                 updates[`settings/counters/${counterId}/lastIssued`] = nextNumber;
                 updates[`settings/counters/${counterId}/nowServing`] = nextNumber;
                 updates[`counters/${counterId}/lastIssued`] = nextNumber;
                 updates[`counters/${counterId}/nowServing`] = nextNumber;
 
-                // Assign queue ticket
-                updates[`queue/${ticketId}/status`] = "serving";
+                // Update queue ticket
+                updates[`queue/${ticketId}/status`] = 'serving';
                 updates[`queue/${ticketId}/counterId`] = counterId;
 
                 update(ref(database), updates)
-                    .then(() => console.log(`🎯 ${ticketId} → ${counterId}`))
-                    .catch((err) =>
-                    console.error("❌ Round Robin assignment error:", err)
-                    );
-                }
-            });
+                    .then(() => console.log(`🎫 ${ticketId} assigned to ${counterId}`))
+                    .catch(err => console.error('❌ Queue assignment error:', err));
             }
-
+        }
+    });
+}
 
 
             // Settings handlers
