@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Queue Joy - Digital Queue System</title>
 
+  <!-- Firebase SDK (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -17,24 +18,56 @@
       onValue,
       runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import {
+      getAuth,
+      signInAnonymously,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.appspot.com",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
 
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const auth = getAuth();
 
-    // expose small helpers for debugging if needed
-    window._db = db;
+    // Expose for quick debugging (optional)
+    window.db = db;
+    window.auth = auth;
 
+    // Attempt anonymous sign-in immediately
+    signInAnonymously(auth).catch(err => {
+      console.warn('Anonymous sign-in failed (can still work if user already authenticated):', err);
+    });
+
+    // Small helper to wait for authentication (rejects on timeout)
+    function ensureAuth(timeoutMs = 5000) {
+      return new Promise((resolve, reject) => {
+        if (auth.currentUser) return resolve(auth.currentUser);
+        const unsub = onAuthStateChanged(auth, user => {
+          if (user) {
+            unsub();
+            return resolve(user);
+          }
+        });
+        setTimeout(() => {
+          unsub();
+          reject(new Error('Auth timeout'));
+        }, timeoutMs);
+      });
+    }
+
+    // Wait until DOM is ready before wiring UI
     document.addEventListener('DOMContentLoaded', () => {
+      // UI elements
       const getNumberBtn = document.getElementById('getNumberBtn');
       const btnText = document.getElementById('btnText');
       const btnSpinner = document.getElementById('btnSpinner');
@@ -51,18 +84,24 @@
         successMessage.classList.add('hidden');
         setTimeout(() => errorMessage.classList.add('hidden'), 5000);
       }
+
       function showSuccess(msg) {
         successMessage.querySelector('p').textContent = msg;
         successMessage.classList.remove('hidden');
         errorMessage.classList.add('hidden');
       }
+
       function setLoading(flag) {
         getNumberBtn.disabled = flag;
         btnText.classList.toggle('hidden', flag);
         btnSpinner.classList.toggle('hidden', !flag);
       }
 
-      // setup ad and intro listeners (unchanged logic)
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      // Ad and intro listeners
       (function setupListeners() {
         const adRef = ref(db, 'settings/adImage');
         onValue(adRef, snap => {
@@ -82,7 +121,7 @@
         });
       })();
 
-      // auto redirect if lastQueueId still waiting
+      // Auto-redirect if user has active waiting queue
       (async function autoRedirectIfActiveQueue() {
         try {
           const lastQueueId = sessionStorage.getItem('lastQueueId');
@@ -96,159 +135,176 @@
         }
       })();
 
-      // fetch counters - preserve keys, sort deterministically (try numeric when possible)
       async function fetchActiveCounters() {
         const countersSnap = await get(ref(db, 'counters'));
         if (!countersSnap.exists()) return [];
-
         const items = [];
         countersSnap.forEach(s => {
-          items.push({ id: s.key, ...s.val() });
+          const val = s.val();
+          items.push({ id: s.key, ...val });
         });
-
-        // sort: prefer numeric sort when id looks numeric, otherwise lexicographic
-        items.sort((a, b) => {
-          const ai = a.id, bi = b.id;
-          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) {
-            return Number(ai) - Number(bi);
-          }
-          return String(ai).localeCompare(String(bi), undefined, { numeric: true });
-        });
-
-        return items.filter(c => c && c.active);
+        items.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+        return items.filter(c => c.active);
       }
 
-      // helper: sleep
-      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-      // robust runTransaction wrapper with exponential backoff
-      async function runTransactionWithRetries(path, updater, maxRetries = 6) {
-        const refPath = ref(db, path);
-        let lastErr = null;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.debug(`[tx] attempt #${attempt} on`, path);
-            const result = await runTransaction(refPath, updater, { applyLocally: false });
-            // result may be { committed: boolean, snapshot: DataSnapshot }
-            if (result && result.committed) {
-              console.debug(`[tx] success on ${path} value=`, result.snapshot.val());
-              return result;
-            }
-            // not committed -> treat as retryable
-            lastErr = new Error(`Transaction not committed on ${path} (attempt ${attempt})`);
-            console.warn(lastErr);
-          } catch (txErr) {
-            lastErr = txErr;
-            console.warn(`[tx] error on ${path} attempt ${attempt}`, txErr);
-          }
-          // exponential backoff (min 100ms -> grows)
-          const backoff = 100 * Math.pow(2, attempt - 1);
-          await sleep(backoff + Math.floor(Math.random() * 60));
-        }
-        throw lastErr || new Error(`Transaction failed on ${path} after ${maxRetries} attempts`);
-      }
-
-      // Main function to get queue number
+      /*
+        Round-robin assignment:
+        - Ensure client is authenticated.
+        - Increment lastAssignedCounter (transaction).
+        - Compute index = lastAssignedCounter % activeCount.
+        - Try to mark selected counter.busy = true transactionally.
+        - If marking busy fails, pointer stays advanced (true cycling).
+      */
       async function getQueueNumber() {
         setLoading(true);
         try {
-          // 1) load active counters
-          const counters = await fetchActiveCounters();
-          console.debug('Active counters:', counters);
-          if (!counters || counters.length === 0) {
+          // ensure we have auth before doing transactions
+          try {
+            await ensureAuth(5000);
+          } catch (authErr) {
+            showError('Authentication required. Please refresh the page or check Firebase Auth settings.');
             setLoading(false);
-            return showError('No active counters available right now.');
+            return;
           }
 
-          // 2) Determine which global-counter path to use. Some deployments use different keys.
-          const globalCounterCandidates = [
-            'settings/lastCounterIndex',
-            'lastAssignedCounter',
-            'system/lastAssignedCounter'
-          ];
-
-          let rrResult = null;
-          let usedPath = null;
-          for (const p of globalCounterCandidates) {
-            try {
-              // updater increments and returns new value
-              rrResult = await runTransactionWithRetries(p, current => (current || 0) + 1, 6);
-              if (rrResult && rrResult.committed) {
-                usedPath = p;
-                break;
-              }
-            } catch (err) {
-              console.warn(`Global counter attempt failed for ${p}:`, err.message || err);
-              // try next candidate
+          const maxAttempts = 8;
+          let assigned = false;
+          for (let attempt = 1; attempt <= maxAttempts && !assigned; attempt++) {
+            // get active counters fresh
+            const counters = await fetchActiveCounters();
+            if (counters.length === 0) {
+              showError('No active counters available.');
+              return;
             }
+
+            // advance global pointer (transaction)
+            const rrRef = ref(db, 'lastAssignedCounter');
+            let rrResult;
+            try {
+              rrResult = await runTransaction(rrRef, current => (current || 0) + 1);
+            } catch (txErr) {
+              // usually permission_denied or transient network error
+              if (String(txErr).toLowerCase().includes('permission_denied')) {
+                showError('Permission denied. Ensure Anonymous Auth is enabled and DB rules allow authenticated writes.');
+                throw txErr;
+              }
+              console.warn('rr transaction failed, retrying', txErr);
+              await delay(100 * attempt);
+              continue;
+            }
+
+            if (!rrResult.committed) {
+              await delay(100 * attempt);
+              continue;
+            }
+
+            const globalCounter = rrResult.snapshot.val();
+            const index = Number(globalCounter) % counters.length;
+            const counter = counters[index];
+
+            // try mark busy
+            const counterRef = ref(db, `counters/${counter.id}`);
+            let busyResult;
+            try {
+              busyResult = await runTransaction(counterRef, current => {
+                if (!current || current.busy) return; // abort
+                return { ...current, busy: true };
+              });
+            } catch (txErr) {
+              if (String(txErr).toLowerCase().includes('permission_denied')) {
+                showError('Permission denied. Ensure Anonymous Auth is enabled and DB rules allow authenticated writes.');
+                throw txErr;
+              }
+              console.warn('mark-busy transaction failed, retrying', txErr);
+              await delay(100 * attempt);
+              continue;
+            }
+
+            if (!busyResult.committed) {
+              // someone else grabbed it or node missing — pointer already advanced so we just retry
+              await delay(100 * attempt);
+              continue;
+            }
+
+            // increment lastIssued for that counter
+            const lastIssuedRef = ref(db, `counters/${counter.id}/lastIssued`);
+            let lastIssuedResult;
+            try {
+              lastIssuedResult = await runTransaction(lastIssuedRef, current => (current || 0) + 1);
+            } catch (txErr) {
+              console.error('lastIssued transaction error', txErr);
+              // attempt to clear busy flag to avoid stuck counter
+              try {
+                await runTransaction(counterRef, current => {
+                  if (!current || !current.busy) return;
+                  return { ...current, busy: false };
+                });
+              } catch (cleanupErr) {
+                console.error('Failed to clear busy after lastIssued failure', cleanupErr);
+              }
+              throw new Error('Failed to increment lastIssued');
+            }
+
+            if (!lastIssuedResult.committed) {
+              // cleanup busy and retry
+              try {
+                await runTransaction(counterRef, current => {
+                  if (!current || !current.busy) return;
+                  return { ...current, busy: false };
+                });
+              } catch (cleanupErr) {
+                console.error('Failed cleanup after lastIssued not committed', cleanupErr);
+              }
+              await delay(100 * attempt);
+              continue;
+            }
+
+            // success: create queue entry
+            const nextNumber = lastIssuedResult.snapshot.val();
+            const prefix = counter.prefix || 'Q';
+            const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+            const newRef = push(ref(db, 'queue'));
+            const entry = {
+              counterId: counter.id,
+              queueId,
+              timestamp: Date.now(),
+              status: 'waiting'
+            };
+            await set(newRef, entry);
+
+            sessionStorage.setItem('lastQueueId', newRef.key);
+            showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
+            setTimeout(() => {
+              window.location.href = `status.html?queueId=${newRef.key}`;
+            }, 1200);
+
+            assigned = true;
           }
 
-          if (!rrResult || !rrResult.committed) {
-            throw new Error('Round-robin transaction failed for all candidate paths');
+          if (!assigned) {
+            showError('All counters busy. Please try again shortly.');
           }
-
-          // 3) compute index (zero-based cycle)
-          const globalCounter = Number(rrResult.snapshot.val());
-          if (!Number.isFinite(globalCounter)) throw new Error('Global counter returned invalid value');
-          // Use (globalCounter - 1) so the first increment chooses index 0
-          const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
-          const counter = counters[index];
-          if (!counter || !counter.id) {
-            console.error('Invalid counter selected', index, counters);
-            throw new Error('Selected counter not found');
-          }
-          console.debug(`Selected counter (index ${index}) id=${counter.id}`);
-
-          // 4) increment selected counter's lastIssued with retries
-          const lastIssuedPath = `counters/${counter.id}/lastIssued`;
-          const lastIssuedResult = await runTransactionWithRetries(lastIssuedPath, current => (current || 0) + 1, 6);
-          if (!lastIssuedResult || !lastIssuedResult.committed) {
-            throw new Error('Failed to increment selected counter lastIssued');
-          }
-
-          const nextNumber = Number(lastIssuedResult.snapshot.val());
-          if (!Number.isFinite(nextNumber)) throw new Error('Invalid lastIssued value after increment');
-
-          const prefix = (counter.prefix && String(counter.prefix)) || 'Q';
-          const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
-
-          // 5) push new queue entry
-          const newRef = push(ref(db, 'queue'));
-          const entry = {
-            counterId: counter.id,
-            queueId,
-            timestamp: Date.now(),
-            status: 'waiting'
-          };
-
-          await set(newRef, entry);
-
-          // Save lastQueueId for redirect
-          try { sessionStorage.setItem('lastQueueId', newRef.key); } catch (e) { /* ignore */ }
-
-          showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
-          console.info('Queue entry created', newRef.key, entry);
-          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
-
         } catch (err) {
           console.error('getQueueNumber error', err);
-          const msg = (err && err.message) ? err.message : 'Failed to get queue number. Try again.';
-          showError(msg);
+          if (String(err).toLowerCase().includes('permission_denied')) {
+            showError('Permission denied. Enable Anonymous Auth and update DB rules (see console).');
+          } else {
+            showError('Failed to get queue number. Try again.');
+          }
         } finally {
           setLoading(false);
         }
       }
 
-      // attach UI handler
+      // Attach UI handler
       getNumberBtn.addEventListener('click', e => {
         e.preventDefault();
         getQueueNumber();
       });
-
     });
   </script>
 
-  <!-- Tailwind for dev -->
+  <!-- Tailwind CDN for dev (replace with a built version in production) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -258,6 +314,7 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
+
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
     <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
@@ -276,6 +333,10 @@
 
     <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg"><p class="text-red-600 text-sm"></p></div>
     <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
+
+    <div id="menuDropdown" class="hidden fixed bg-white shadow-xl rounded-xl p-4 w-48 z-40 space-y-3 fade-in border border-gray-100">
+      <button id="counterPanelBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-purple-600 transition-colors p-2 rounded-lg hover:bg-purple-50"><span class="text-xl">⚙️</span><span>Counter Panel</span></button>
+    </div>
   </div>
 
   <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
