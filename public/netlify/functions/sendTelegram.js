@@ -1,7 +1,8 @@
+// netlify/functions/sendTelegram.js
 const TelegramBot = require('node-telegram-bot-api');
 const admin = require('firebase-admin');
 
-// ✅ Initialize Firebase once
+// ✅ Initialize Firebase only once
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -53,11 +54,8 @@ async function safeUpdate(refPath, data) {
   }
 }
 
-// ✅ Main Netlify handler
 exports.handler = async (event) => {
-  // Prevent timeout if tab is backgrounded or Netlify is cold-starting
-  context = event.context || {};
-  context.callbackWaitsForEmptyEventLoop = false;
+  console.log("🚀 telegram.js triggered");
 
   try {
     if (event.httpMethod !== "POST") {
@@ -67,9 +65,7 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const { message, queueKey, queueId } = body;
 
-    // ===================================================
-    // 1️⃣ HANDLE TELEGRAM CONNECTION (/start TOKEN)
-    // ===================================================
+    // 1️⃣ Handle Telegram connection (/start TOKEN)
     if (message && message.text && message.text.startsWith("/start ")) {
       const token = message.text.split(" ")[1];
       const chatId = message.chat.id;
@@ -80,41 +76,31 @@ exports.handler = async (event) => {
       if (!pendingData) {
         await safeSendMessage(
           chatId,
-          "❌ *Invalid or expired link.*\nPlease go back and reconnect through Queue Joy.",
+          "❌ Invalid or expired link. Please reconnect through Queue Joy.",
           { parse_mode: "Markdown" }
         );
         return { statusCode: 200, body: JSON.stringify({ message: "Invalid token" }) };
       }
 
       const { queueKey } = pendingData;
-
-      // Update user queue with Telegram info
       await safeUpdate(`queue/${queueKey}`, {
         telegramChatId: chatId,
         telegramConnected: true,
         telegramLinkedAt: Date.now(),
       });
 
-      // Remove pending token
-      try {
-        await db.ref(`telegramPending/${token}`).remove();
-      } catch (err) {
-        console.error("⚠️ Failed to delete pending token:", err);
-      }
+      await db.ref(`telegramPending/${token}`).remove();
 
-      // Send welcome
       await safeSendMessage(
         chatId,
-        "👋 *Welcome to Queue Joy!*\n\nYou’re now connected — we’ll notify you here when it’s your turn 🪄",
+        "👋 *Welcome to Queue Joy!* You’re now connected — we’ll notify you here when it’s your turn 🪄",
         { parse_mode: "Markdown" }
       );
 
       return { statusCode: 200, body: JSON.stringify({ message: "Telegram linked successfully ✅" }) };
     }
 
-    // ===================================================
-    // 2️⃣ HANDLE QUEUE NOTIFICATION
-    // ===================================================
+    // 2️⃣ Handle Queue Notification
     if (queueKey && queueId) {
       console.log(`📢 Queue call: ${queueKey} (${queueId})`);
 
@@ -127,18 +113,17 @@ exports.handler = async (event) => {
       const chatId = queueData.telegramChatId;
       const name = queueData.name || "Customer";
 
-      // Send "your turn" message
       await safeSendMessage(
         chatId,
-        `🔔 *It’s your turn, ${name}!* 🎟️\n\nQueue number *${queueId}* is now being served — please proceed to the counter.`,
+        `🔔 *It’s your turn, ${name}!* 🎟️\n\nQueue number *${queueId}* is now being served.`,
         { parse_mode: "Markdown" }
       );
 
-      // Optional follow-up reminder after 2 mins
+      // Optional: reminder after 2 mins
       setTimeout(async () => {
         await safeSendMessage(
           chatId,
-          `⏰ Reminder: Your queue number *${queueId}* was called 2 minutes ago.\nIf you’re nearby, please approach the counter.`,
+          `⏰ Reminder: Your queue number *${queueId}* was called 2 minutes ago.`,
           { parse_mode: "Markdown" }
         );
       }, 120000);
@@ -146,9 +131,7 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ message: "Notification sent ✅" }) };
     }
 
-    // ===================================================
-    // 3️⃣ INVALID REQUEST
-    // ===================================================
+    // 3️⃣ Invalid Request
     return { statusCode: 400, body: JSON.stringify({ error: "Bad request 🚫" }) };
   } catch (err) {
     console.error("💥 Handler error:", err);
