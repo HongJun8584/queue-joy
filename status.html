@@ -387,10 +387,29 @@
               // indicator styles & behavior
               if (ahead === 0) {
                 indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+              
+                // Send Telegram notification to staff/admin when it's the user's turn
+                fetch('/.netlify/functions/sendTelegram', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: `🎟 It's now the customer's turn!\nQueue ID: ${currentQueueKey}`
+                  }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                  console.log('Telegram notification sent:', data);
+                })
+                .catch(error => {
+                  console.error('Error sending Telegram message:', error);
+                });
+              
                 // redirect to your_turn after a short delay
                 setTimeout(() => {
                   window.location.href = `/public/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
                 }, 1400);
+              }
+
               } else if (ahead <= 2) {
                 indicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
                 // encourage connect: if not connected, show modal
