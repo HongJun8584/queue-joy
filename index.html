@@ -228,6 +228,20 @@
 
           showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
           console.info('Queue entry created', newRef.key, entry);
+          // --- Notify Telegram via Netlify function ---
+          try {
+            await fetch('/.netlify/functions/sendTelegram', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: `🎟️ New queue number issued!\nQueue ID: ${queueId}\nCounter: ${counter.id}`
+              })
+            });
+            console.log('Telegram notification sent.');
+          } catch (err) {
+            console.warn('Failed to send Telegram notification:', err);
+          }
+
           setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
 
         } catch (err) {
