@@ -223,21 +223,6 @@
 
           await set(newRef, entry);
 
-          // Save lastQueueId for redirect
-          try { sessionStorage.setItem('lastQueueId', newRef.key); } catch (e) { /* ignore */ }
-
-          showSuccess(`✅ Your number is ${queueId}! Redirecting...`);
-          console.info('Queue entry created', newRef.key, entry);
-          // --- Notify Telegram via Netlify function ---
-          try {
-            await fetch('/.netlify/functions/sendTelegram', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                message: `🎟️ New queue number issued!\nQueue ID: ${queueId}\nCounter: ${counter.id}`
-              })
-            });
-            console.log('Telegram notification sent.');
           } catch (err) {
             console.warn('Failed to send Telegram notification:', err);
           }
