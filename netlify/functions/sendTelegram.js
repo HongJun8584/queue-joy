@@ -1,74 +1,61 @@
 // netlify/functions/sendTelegram.js
-// Uses global fetch (no node-fetch dependency) and works on Netlify Node 18+
 
-export async function handler(event, context) {
-  // CORS + JSON headers
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  };
-
+export const handler = async (event) => {
+  // Allow only POST requests
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method Not Allowed. Use POST instead." }),
+    };
   }
 
   try {
-    const body = JSON.parse(event.body || "{}");
-    const message = body?.message || body?.text || "";
+    // Parse the request body
+    const { message } = JSON.parse(event.body || "{}");
 
     if (!message) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Message is required" }) };
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing 'message' in request body." }),
+      };
     }
 
-    // Use these env var names (set them in Netlify site settings)
-    const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = process.env.CHAT_ID || process.env.TELEGRAM_CHAT_ID;
+    // Environment variables from Netlify
+    const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-    if (!BOT_TOKEN || !CHAT_ID) {
+    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
       return {
         statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: "Missing BOT_TOKEN or CHAT_ID in environment variables" }),
+        body: JSON.stringify({ error: "Missing Telegram credentials." }),
       };
     }
 
-    const telegramURL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-    const payload = {
-      chat_id: CHAT_ID,
-      text: `📢 QueueJoy Alert:\n${message}`,
-      parse_mode: "Markdown"
-    };
-
-    // global fetch available on Netlify (Node 18+). No node-fetch required.
-    const res = await fetch(telegramURL, {
+    // Send message to Telegram (using built-in fetch)
+    const telegramURL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const response = await fetch(telegramURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+      }),
     });
 
-    const result = await res.json();
-
-    if (!res.ok || result?.ok === false) {
-      // Telegram rejected it — return error info
-      return {
-        statusCode: 502,
-        headers,
-        body: JSON.stringify({ error: "Telegram API error", details: result }),
-      };
-    }
+    const data = await response.json();
 
     return {
       statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: true, result }),
+      body: JSON.stringify({
+        success: true,
+        message: "Telegram message sent!",
+        telegramResponse: data,
+      }),
     };
-  } catch (err) {
-    console.error("sendTelegram error:", err);
+  } catch (error) {
     return {
       statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: "Internal Server Error", details: String(err) }),
+      body: JSON.stringify({ error: error.message }),
     };
   }
-}
+};
