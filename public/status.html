@@ -234,6 +234,9 @@
     let latestConnectLink = null;
     let linkGenerating = false;
 
+    // track previous telegramConnected to detect transition
+    let prevTelegramConnected = null;
+
     // Helpers
     const showError = (msg) => {
       try {
@@ -259,6 +262,23 @@
         connectTelegramBtn.textContent = 'Connect Telegram';
         connectTelegramBtn.disabled = false;
       }
+    }
+
+    // show a short connected confirmation in the modal then auto-close (3s)
+    function showConnectedConfirmationAndAutoClose() {
+      try {
+        modalSpinner.style.display = 'none';
+        modalLinkArea.style.display = 'none';
+        modalStatus.textContent = 'Connected — you will receive Telegram notifications';
+        modalConnectBtn.disabled = true;
+        modalCopyBtn.disabled = true;
+        // show modal (if not visible)
+        bootstrapModal.show();
+        // auto close after 3 seconds
+        setTimeout(() => {
+          try { bootstrapModal.hide(); } catch(e) { /* ignore */ }
+        }, 3000);
+      } catch (e) { console.warn(e); }
     }
 
     // Modal UX: show only once per queueKey by default (session) unless user asks
@@ -444,12 +464,22 @@
           return;
         }
 
+        // keep previous state
+        const prevConnected = prevTelegramConnected;
+
         currentQueueData = snap.val();
         const { counterId, queueId } = currentQueueData || {};
         yourNumber.textContent = queueId || '--';
 
         // update Telegram connection UI
         setTelegramUIConnected(!!currentQueueData.telegramConnected);
+
+        // detect connect transition and show confirmation popup auto-close
+        prevTelegramConnected = !!currentQueueData.telegramConnected;
+        if (currentQueueData.telegramConnected && !prevConnected) {
+          // user just connected
+          showConnectedConfirmationAndAutoClose();
+        }
 
         // attach counter listener if not attached or changed
         if (counterId && (!counterRef || currentCounterId !== counterId)) {
@@ -498,9 +528,10 @@
                   console.error('Error sending Telegram message:', error);
                 });
 
-                // redirect to your_turn after a short delay (keep experience fast)
+                // redirect to your_turn after a short delay
+                // NOTE: removed "/public" — Netlify serves from public/ root so URL should be "/your_turn.html"
                 setTimeout(() => {
-                  window.location.href = `/public/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
+                  window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
                 }, 1200);
 
               } else if (ahead <= 2) {
@@ -535,8 +566,6 @@
 
     // Basic safeguard: if BOT username placeholder remains, allow fallback but warn
     if (!TELEGRAM_BOT_USERNAME || TELEGRAM_BOT_USERNAME === 'QueueJoyBot') {
-      // user must replace BOT username placeholder to make fallback link pretty.
-      // We do not block functionality; just keep public fallback link in modal.
       console.warn('TELEGRAM_BOT_USERNAME is not configured. Fallback links will use the placeholder.');
     }
   </script>
