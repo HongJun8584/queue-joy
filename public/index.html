@@ -220,7 +220,8 @@
             timestamp: Date.now(),
             status: 'waiting'
           };
-
+          
+          try {
           await set(newRef, entry);
 
           } catch (err) {
