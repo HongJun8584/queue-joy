@@ -27,6 +27,20 @@
     .modal-content { border-radius: 14px; box-shadow: 0 14px 40px rgba(10,10,20,0.12); border: none; }
     .modal-header { border-bottom: none; }
     .modal-footer { border-top: none; }
+
+    /* small spinner for modal */
+    .spinner-inline {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.08);
+      border-top-color: rgba(0,0,0,0.45);
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 0.9s linear infinite;
+      margin-right: 6px;
+      vertical-align: -2px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
@@ -109,7 +123,7 @@
     </div>
   </div>
 
-  <!-- Telegram Modal (Bootstrap) -->
+  <!-- Telegram Modal (Bootstrap) - ENHANCED UX (only this popup changed) -->
   <div class="modal fade" id="telegramModal" tabindex="-1" aria-labelledby="telegramModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content text-center p-3">
@@ -119,20 +133,38 @@
         </div>
 
         <div class="modal-body">
-          <p id="modalBodyText" class="mb-3">Connect your Telegram to receive automatic notifications when it's your turn. We'll generate a secure link — open it in Telegram and press Start.</p>
+          <p id="modalBodyText" class="mb-2">Connect your Telegram to receive automatic notifications when it's your turn.</p>
 
-          <div id="modalStatus" class="mb-3 text-sm text-gray-600">Generating link...</div>
+          <div id="modalStatusRow" class="mb-2 text-sm text-gray-600">
+            <span id="modalSpinner" class="spinner-inline" style="display:none"></span>
+            <span id="modalStatus">Idle</span>
+          </div>
+
+          <div id="modalLinkArea" class="mb-2" style="display:none">
+            <div class="text-xs text-muted mb-1">Open this link in Telegram and press <strong>Start</strong>:</div>
+            <div id="modalLink" class="break-words text-sm bg-gray-100 p-2 rounded-md"></div>
+          </div>
 
           <div class="d-grid gap-2">
-            <button id="modalConnectBtn" class="btn btn-primary">Open Telegram to Connect</button>
-            <button id="modalCopyBtn" class="btn btn-outline-secondary">Copy Link</button>
+            <button id="modalConnectBtn" class="btn btn-primary">Generate & Open Link</button>
+            <button id="modalCopyBtn" class="btn btn-outline-secondary" disabled>Copy Link</button>
+          </div>
+
+          <div class="mt-3 d-flex justify-content-between align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="" id="dontShowAgainCheckbox">
+              <label class="form-check-label text-xs" for="dontShowAgainCheckbox">
+                Don't show again for this queue
+              </label>
+            </div>
+            <button id="remindLaterBtn" class="btn btn-link btn-sm">Remind me later</button>
           </div>
 
           <p id="modalFallback" class="mt-3 text-xs text-gray-500">If the link fails, open Telegram and send <code>/start &lt;TOKEN&gt;</code> to your bot manually.</p>
         </div>
 
         <div class="modal-footer justify-content-center">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" id="modalCloseBtn" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
 
       </div>
@@ -145,14 +177,14 @@
   <!-- Firebase + App logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // -------------- CONFIG (replace BOT username) --------------
-    const TELEGRAM_BOT_USERNAME = 'QueueJoyBot'; // <-- replace without @
-    // Netlify function endpoint (adjust name if you used different name)
+    // CONFIG (replace BOT username)
+    const TELEGRAM_BOT_USERNAME = 'QueueJoyBot'; // <-- replace without @ if you want public fallback
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
+    const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
 
-    // -------------- Firebase config --------------
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -188,20 +220,27 @@
     const modalConnectBtn = document.getElementById('modalConnectBtn');
     const modalCopyBtn = document.getElementById('modalCopyBtn');
     const modalStatus = document.getElementById('modalStatus');
-    const modalBodyText = document.getElementById('modalBodyText');
+    const modalSpinner = document.getElementById('modalSpinner');
+    const modalLink = document.getElementById('modalLink');
+    const modalLinkArea = document.getElementById('modalLinkArea');
+    const dontShowAgainCheckbox = document.getElementById('dontShowAgainCheckbox');
+    const remindLaterBtn = document.getElementById('remindLaterBtn');
 
     // State
-    let queueRef, counterRef, servingRef, adRef;
+    let queueRef = null, counterRef = null, servingRef = null, adRef = null;
     let currentQueueKey = null;
     let currentQueueData = null;
     let currentCounterId = null;
     let latestConnectLink = null;
+    let linkGenerating = false;
 
-    // Simple helpers
+    // Helpers
     const showError = (msg) => {
-      errorMessage.querySelector('p').textContent = msg;
-      errorMessage.classList.remove('hidden');
-      setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+      try {
+        errorMessage.querySelector('p').textContent = msg;
+        errorMessage.classList.remove('hidden');
+        setTimeout(() => errorMessage.classList.add('hidden'), 6000);
+      } catch (e) { console.warn(e); }
     };
 
     function setTelegramUIConnected(connected) {
@@ -222,70 +261,106 @@
       }
     }
 
-    // Auto popup logic: show modal to encourage connect.
-    function maybeShowConnectModal(reason) {
+    // Modal UX: show only once per queueKey by default (session) unless user asks
+    function modalShownForQueue() {
+      if (!currentQueueKey) return false;
+      return !!sessionStorage.getItem(`popupShown_${currentQueueKey}`) || !!localStorage.getItem(`popupBlocked_${currentQueueKey}`);
+    }
+
+    function markModalShownForQueue() {
+      if (!currentQueueKey) return;
+      sessionStorage.setItem(`popupShown_${currentQueueKey}`, '1');
+    }
+
+    function blockModalForQueue() {
+      if (!currentQueueKey) return;
+      localStorage.setItem(`popupBlocked_${currentQueueKey}`, '1');
+    }
+
+    function showModal(reason, autoGenerate = false) {
       try {
-        // show only once per session to avoid annoyance, unless explicitly forced
-        const key = `popupShown_${currentQueueKey}`;
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, '1');
+        // if user explicitly blocked, don't show
+        if (localStorage.getItem(`popupBlocked_${currentQueueKey}`)) return;
 
-        modalStatus.textContent = 'Preparing link…';
-        modalBodyText.textContent = reason || 'Connect your Telegram to receive automatic notifications.';
+        // show only once per session unless forced
+        if (sessionStorage.getItem(`popupShown_${currentQueueKey}`)) {
+          // if it's forced because ahead === 0 we still may show; caller can decide
+          // for normal calls, just return
+        }
+
+        modalStatus.textContent = reason || 'Connect your Telegram to receive automatic notifications.';
+        modalSpinner.style.display = 'none';
+        modalLinkArea.style.display = 'none';
+        modalLink.textContent = '';
+        latestConnectLink = null;
+        modalCopyBtn.disabled = true;
+        dontShowAgainCheckbox.checked = false;
+
         bootstrapModal.show();
+        markModalShownForQueue();
 
-        // auto-generate link right away (best UX)
-        generateAndShowLink();
+        if (autoGenerate) {
+          // generate immediately for better UX
+          triggerGenerateLink();
+        }
       } catch (e) { console.warn(e); }
     }
 
-    // Generate connect link via Netlify function
+    // Generate connect link via Netlify function (guarded)
     async function generateConnectLink() {
       if (!currentQueueKey) throw new Error('Missing queueKey');
-      try {
-        const res = await fetch(CREATE_LINK_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueKey: currentQueueKey })
-        });
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(`Server error: ${res.status} ${txt}`);
-        }
-        const j = await res.json();
-        // expect { link: 'https://t.me/bot?start=TOKEN' }
-        if (!j.link) throw new Error('No link returned from server');
-        latestConnectLink = j.link;
-        return j.link;
-      } catch (err) {
-        console.error('create link failed', err);
-        latestConnectLink = null;
-        throw err;
+      const res = await fetch(CREATE_LINK_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueKey: currentQueueKey })
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Server error: ${res.status} ${txt}`);
       }
+      const j = await res.json();
+      if (!j.link) throw new Error('No link returned from server');
+      return j.link;
     }
 
-    async function generateAndShowLink() {
+    async function triggerGenerateLink() {
+      if (linkGenerating) return;
+      linkGenerating = true;
+      modalSpinner.style.display = 'inline-block';
       modalStatus.textContent = 'Generating secure Telegram link…';
+      modalCopyBtn.disabled = true;
+      modalLinkArea.style.display = 'none';
+      latestConnectLink = null;
+
       try {
         const link = await generateConnectLink();
-        modalStatus.innerHTML = `Open Telegram and press <strong>Start</strong>. <br><small class="text-muted">${link}</small>`;
-        modalConnectBtn.disabled = false;
-        modalConnectBtn.textContent = 'Open Telegram to Connect';
+        latestConnectLink = link;
+        modalSpinner.style.display = 'none';
+        modalStatus.innerHTML = 'Link ready — open Telegram and press <strong>Start</strong>.';
+        modalLinkArea.style.display = 'block';
+        modalLink.textContent = link;
         modalCopyBtn.disabled = false;
       } catch (err) {
-        modalStatus.textContent = 'Failed to generate link. You can try copying a manual link or open Telegram and use /start <TOKEN>.';
-        modalConnectBtn.disabled = false;
-        modalConnectBtn.textContent = 'Open Telegram (fallback)';
+        modalSpinner.style.display = 'none';
+        modalStatus.textContent = 'Failed to generate link. Use fallback or try again.';
         modalCopyBtn.disabled = false;
+        modalLinkArea.style.display = 'block';
+        modalLink.textContent = `https://t.me/${TELEGRAM_BOT_USERNAME}`; // fallback shown
+      } finally {
+        linkGenerating = false;
       }
     }
 
-    // On modal Connect click: open the generated link or fallback
-    modalConnectBtn.addEventListener('click', () => {
-      if (latestConnectLink) {
-        window.open(latestConnectLink, '_blank');
-      } else {
-        // fallback to bot public link (without token)
+    // On modal Connect click: generate link if not present then open
+    modalConnectBtn.addEventListener('click', async () => {
+      try {
+        if (!latestConnectLink && !linkGenerating) {
+          await triggerGenerateLink();
+        }
+        const linkToOpen = latestConnectLink || `https://t.me/${TELEGRAM_BOT_USERNAME}`;
+        window.open(linkToOpen, '_blank');
+      } catch (e) {
+        console.warn(e);
         const fallback = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
         window.open(fallback, '_blank');
       }
@@ -297,17 +372,33 @@
         await navigator.clipboard.writeText(textToCopy);
         modalStatus.textContent = 'Link copied to clipboard — open Telegram and press Start.';
       } catch (e) {
-        modalStatus.textContent = 'Copy failed. Please long-press the link and copy manually.';
+        modalStatus.textContent = 'Copy failed. Please copy manually.';
+      }
+    });
+
+    remindLaterBtn.addEventListener('click', () => {
+      // hide modal for session and let the page continue
+      try {
+        sessionStorage.setItem(`popupShown_${currentQueueKey}`, '1');
+        bootstrapModal.hide();
+      } catch (e) { console.warn(e); }
+    });
+
+    dontShowAgainCheckbox.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        blockModalForQueue();
+      } else {
+        localStorage.removeItem(`popupBlocked_${currentQueueKey}`);
       }
     });
 
     // Top-right connect button
     connectTelegramBtn.addEventListener('click', () => {
-      maybeShowConnectModal('Connect now to receive notifications here.');
+      // explicit user action -> show modal and generate right away
+      showModal('Connect now to receive notifications here.', true);
     });
 
     refreshTelegramBtn.addEventListener('click', async () => {
-      // quick re-read queue record to refresh connection state
       if (!currentQueueKey) return;
       try {
         const snap = await get(ref(db, `queue/${currentQueueKey}`));
@@ -354,13 +445,13 @@
         }
 
         currentQueueData = snap.val();
-        const { counterId, queueId } = currentQueueData;
+        const { counterId, queueId } = currentQueueData || {};
         yourNumber.textContent = queueId || '--';
 
         // update Telegram connection UI
         setTelegramUIConnected(!!currentQueueData.telegramConnected);
 
-        // attach counter listener if not attached
+        // attach counter listener if not attached or changed
         if (counterId && (!counterRef || currentCounterId !== counterId)) {
           if (counterRef) off(counterRef);
           currentCounterId = counterId;
@@ -370,8 +461,8 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || 'Counter';
 
-            const prefix = counterData.prefix || (queueId.match(/^[A-Za-z]+/)?.[0] || "");
-            const yourNumberNum = parseInt(queueId.replace(prefix, ""), 10);
+            const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
+            const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix, ""), 10) : NaN;
 
             // Now-serving listener
             if (servingRef) off(servingRef);
@@ -380,48 +471,50 @@
               const currentServing = Number(nowSnap.val() || 0);
               nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
 
-              const ahead = Math.max(0, yourNumberNum - currentServing);
+              const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
               peopleAheadEl.textContent = ahead;
               estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : 'Soon';
 
               // indicator styles & behavior
               if (ahead === 0) {
                 indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-              
-                // Send Telegram notification to staff/admin when it's the user's turn
-                fetch('/.netlify/functions/sendTelegram', {
+
+                // If we know user's chatId, include it; otherwise fallback to staff chat (NETLIFY env CHAT_ID)
+                const body = currentQueueData && currentQueueData.chatId
+                  ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue ID: ${currentQueueKey}` }
+                  : { message: `🎟 It's now the customer's turn!\nQueue ID: ${currentQueueKey}` };
+
+                // send message (back-end will use env CHAT_ID as fallback)
+                fetch(SEND_TELEGRAM_ENDPOINT, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    message: `🎟 It's now the customer's turn!\nQueue ID: ${currentQueueKey}`
-                  }),
+                  body: JSON.stringify(body),
                 })
-                .then(response => response.json())
-                .then(data => {
-                  console.log('Telegram notification sent:', data);
+                .then(async (res) => {
+                  const json = await res.json().catch(() => ({}));
+                  console.log('Telegram notification result:', json);
                 })
                 .catch(error => {
                   console.error('Error sending Telegram message:', error);
                 });
-              
-                // redirect to your_turn after a short delay
+
+                // redirect to your_turn after a short delay (keep experience fast)
                 setTimeout(() => {
                   window.location.href = `/public/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
-                }, 1400);
-              }
+                }, 1200);
 
               } else if (ahead <= 2) {
                 indicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
-                // encourage connect: if not connected, show modal
-                if (!currentQueueData.telegramConnected) {
-                  maybeShowConnectModal('You’re almost up — connect Telegram so we can notify you instantly.');
+                // encourage connect: only for the *current* queue entry and only if not connected
+                if (!currentQueueData.telegramConnected && !modalShownForQueue()) {
+                  // show modal but don't auto-generate to avoid server churn; allow a smooth UX
+                  showModal('You’re almost up — connect Telegram so we can notify you instantly.', true);
                 }
               } else {
                 indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
-                // If not connected, show modal once on first load
-                if (!currentQueueData.telegramConnected) {
-                  // show modal one time per session (will only show first time)
-                  maybeShowConnectModal('Connect Telegram to get notified when it’s your turn.');
+                // If not connected, show modal once on first load (session only)
+                if (!currentQueueData.telegramConnected && !modalShownForQueue()) {
+                  showModal('Connect Telegram to get notified when it’s your turn.', false);
                 }
               }
             });
@@ -431,22 +524,21 @@
 
       // cleanup on unload
       window.addEventListener('beforeunload', () => {
-        if (queueRef) off(queueRef);
-        if (counterRef) off(counterRef);
-        if (servingRef) off(servingRef);
-        if (adRef) off(adRef);
+        try {
+          if (queueRef) off(queueRef);
+          if (counterRef) off(counterRef);
+          if (servingRef) off(servingRef);
+          if (adRef) off(adRef);
+        } catch (e) { /* ignore */ }
       });
     });
 
-    // If user closes modal but later wants to reconnect, they can use the Connect button
-    // Basic safeguard: disable connect button if BOT username is not configured
+    // Basic safeguard: if BOT username placeholder remains, allow fallback but warn
     if (!TELEGRAM_BOT_USERNAME || TELEGRAM_BOT_USERNAME === 'QueueJoyBot') {
-      // user must replace BOT username placeholder
-      connectTelegramBtn.addEventListener('click', () => {
-        alert('Please configure your TELEGRAM_BOT_USERNAME in the page. Replace the placeholder string with your bot username.');
-      });
+      // user must replace BOT username placeholder to make fallback link pretty.
+      // We do not block functionality; just keep public fallback link in modal.
+      console.warn('TELEGRAM_BOT_USERNAME is not configured. Fallback links will use the placeholder.');
     }
-
   </script>
 </body>
 </html>
