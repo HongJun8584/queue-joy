@@ -1,28 +1,12 @@
 // netlify/functions/sendTelegram.js
-import fetch from "node-fetch";
-
-/**
- * Expected POST body (JSON):
- * {
- *   "message": "Text to send (required)",
- *   // one of:
- *   "chatId": 123456789,                      // single recipient
- *   "chatIds": [123, 456],                    // OR multiple recipients
- *   // optional:
- *   "parseMode": "HTML" | "MarkdownV2" | "Markdown",
- *   "disableNotification": true,
- *   "replyMarkup": { /* Telegram reply_markup object */ },
- *   "copyAdmin": true                         // also send a copy to CHAT_ID if present
- * }
- */
-
+// CommonJS version — uses global fetch (Node 18+ on Netlify)
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export const handler = async (event) => {
+module.exports.handler = async function (event) {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -40,7 +24,15 @@ export const handler = async (event) => {
     };
   }
 
-  const { message, chatId, chatIds, parseMode, disableNotification, replyMarkup, copyAdmin } = payload;
+  const {
+    message,
+    chatId,
+    chatIds,
+    parseMode,
+    disableNotification,
+    replyMarkup,
+    copyAdmin,
+  } = payload;
 
   if (!message || typeof message !== "string") {
     return {
@@ -72,10 +64,11 @@ export const handler = async (event) => {
     if (ADMIN_CHAT_ID) {
       recipients = [ADMIN_CHAT_ID];
     } else {
-      // nothing to send to
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "No recipient specified and no ADMIN CHAT_ID configured" }),
+        body: JSON.stringify({
+          error: "No recipient specified and no ADMIN CHAT_ID configured",
+        }),
       };
     }
   }
@@ -86,10 +79,11 @@ export const handler = async (event) => {
   }
 
   const results = [];
+
   // Send sequentially with a small delay to be polite to Telegram API / avoid rate limits
   for (let i = 0; i < recipients.length; i++) {
     const to = recipients[i];
-    // payload for Telegram
+
     const body = {
       chat_id: to,
       text: message,
@@ -132,7 +126,7 @@ export const handler = async (event) => {
       });
     }
 
-    // small pause between requests (200ms). Adjust if you expect large batches.
+    // small pause between requests (200ms)
     if (i < recipients.length - 1) await sleep(200);
   }
 
