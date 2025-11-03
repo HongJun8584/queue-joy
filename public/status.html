@@ -21,7 +21,6 @@
     .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
     @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1;} 80%,100% { transform: scale(1.2); opacity: 0;} }
 
-    /* Modal visuals */
     .modal-content { border-radius: 16px; box-shadow: 0 20px 60px rgba(12,12,30,0.12); border: none; overflow: hidden; }
     .modal-header { border-bottom: none; }
     .modal-footer { border-top: none; }
@@ -45,6 +44,9 @@
     /* ensure clickability over ad */
     #adPanelContainer { z-index: 40; }
     .top-controls { z-index: 70; } /* top buttons stay above everything */
+
+    /* Connected modal styles */
+    .connected-hero { background: linear-gradient(90deg,#06b6d4,#7c3aed); color:white; padding:18px; text-align:center; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
@@ -140,14 +142,15 @@
     </div>
   </div>
 
-  <!-- SIMPLE BEAUTIFUL TELEGRAM POPUP -->
+  <!-- SIMPLE BEAUTIFUL TELEGRAM CONNECT POPUP (auto opens on entry) -->
   <div class="modal fade" id="simpleTelegramModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div style="background:linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%);color:white;padding:20px;text-align:center;">
           <div style="font-weight:700;font-size:18px;">🔔 Connect Telegram</div>
-          <div style="opacity:0.95;margin-top:6px;font-size:13px;">Connect to get notified when it's your turn</div>
+          <div style="opacity:0.95;margin-top:6px;font-size:13px;">This will open your Telegram app. Make sure Telegram is installed.</div>
         </div>
+
         <div style="padding:16px;text-align:center;">
           <p id="simpleModalText" class="text-gray-700 mb-4">Connect Telegram to get a notification when it's your turn.</p>
 
@@ -162,6 +165,26 @@
           </div>
 
           <p style="font-size:12px;color:#9CA3AF;margin-top:10px;">If the link fails, open Telegram and send <code>/start &lt;TOKEN&gt;</code> to your bot.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONNECTED CONFIRMATION POPUP -->
+  <div class="modal fade" id="connectedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="connected-hero">
+          <div style="font-weight:800;font-size:18px;">✅ Connected</div>
+          <div style="opacity:0.95;margin-top:6px;font-size:13px;">Notifications are enabled via Telegram</div>
+        </div>
+
+        <div style="padding:16px;text-align:center;">
+          <p class="text-gray-700 mb-3">You can leave this page and put it in the background. We'll notify you in Telegram when it's your turn. Go play a game and relax while waiting.</p>
+          <div class="d-grid gap-2">
+            <button id="connectedPlayBtn" class="w-full py-2 rounded-xl" style="background:#7c3aed;color:white;font-weight:600;">Play a Game</button>
+            <button id="connectedCloseBtn" class="w-full py-2 rounded-xl btn btn-outline-secondary">Got it</button>
+          </div>
         </div>
       </div>
     </div>
@@ -210,14 +233,18 @@
     const connectTopBtn = document.getElementById('connectTopBtn');
     const gameBtn = document.getElementById('gameBtn');
 
-    // modal elements and bootstrap instance
+    // modal elements and bootstrap instances
     const simpleModalEl = document.getElementById('simpleTelegramModal');
     const bsSimpleModal = new bootstrap.Modal(simpleModalEl, { keyboard: true });
     const simpleModalConnectBtn = document.getElementById('simpleModalConnectBtn');
     const simpleModalCloseBtn = document.getElementById('simpleModalCloseBtn');
     const simpleModalText = document.getElementById('simpleModalText');
     const simpleModalSpinnerRow = document.getElementById('simpleModalSpinnerRow');
-    const simpleModalSpinnerText = document.getElementById('simpleModalSpinnerText');
+
+    const connectedModalEl = document.getElementById('connectedModal');
+    const bsConnectedModal = new bootstrap.Modal(connectedModalEl, { keyboard: true });
+    const connectedPlayBtn = document.getElementById('connectedPlayBtn');
+    const connectedCloseBtn = document.getElementById('connectedCloseBtn');
 
     // state
     let queueRef = null, counterRef = null, servingRef = null, adRef = null;
@@ -227,6 +254,9 @@
     let latestConnectLink = null;
     let linkGenerating = false;
     let prevTelegramConnected = null;
+
+    // cache for average service seconds per counter (ttl 30s)
+    const avgCache = new Map(); // counterId => { valueSeconds, expiresAt }
 
     // helpers
     const showError = (msg) => {
@@ -251,7 +281,82 @@
       }
     }
 
-    // Create secure link via serverless function
+    // ————— Estimate average service seconds for a counter —————
+    // tries multiple strategies:
+    // 1) counters/{id}/avgServiceSeconds (number)
+    // 2) counters/{id}/servedTimestamps (map/list of timestamps) -> compute diffs
+    // 3) counters/{id}/history (map/list objects with servedAt) -> compute diffs
+    // fallback: 120 seconds
+    async function getAverageServiceSeconds(counterId) {
+      const cache = avgCache.get(counterId);
+      if (cache && cache.expiresAt > Date.now()) return cache.valueSeconds;
+
+      try {
+        // 1) try avgServiceSeconds
+        const snapAvg = await get(ref(db, `counters/${counterId}/avgServiceSeconds`));
+        if (snapAvg.exists() && typeof snapAvg.val() === 'number') {
+          const v = Number(snapAvg.val());
+          avgCache.set(counterId, { valueSeconds: v, expiresAt: Date.now() + 30000 });
+          return v;
+        }
+
+        // 2) try servedTimestamps (object of keys -> epoch milliseconds)
+        const snapT = await get(ref(db, `counters/${counterId}/servedTimestamps`));
+        if (snapT.exists()) {
+          const arr = [];
+          snapT.forEach(s => {
+            const v = s.val();
+            if (v && !isNaN(Number(v))) arr.push(Number(v));
+          });
+          if (arr.length >= 2) {
+            arr.sort((a,b)=>a-b);
+            const diffs = [];
+            for (let i=1;i<arr.length;i++) diffs.push(arr[i]-arr[i-1]);
+            const avgMs = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+            const avgSec = Math.max(10, Math.round(avgMs/1000)); // min 10s
+            avgCache.set(counterId, { valueSeconds: avgSec, expiresAt: Date.now() + 30000 });
+            return avgSec;
+          }
+        }
+
+        // 3) try history with servedAt fields
+        const snapHist = await get(ref(db, `counters/${counterId}/history`));
+        if (snapHist.exists()) {
+          const timestamps = [];
+          snapHist.forEach(s => {
+            const val = s.val();
+            const t = val && (val.servedAt || val.completedAt || val.timestamp);
+            if (t && !isNaN(Number(t))) timestamps.push(Number(t));
+          });
+          if (timestamps.length >= 2) {
+            timestamps.sort((a,b)=>a-b);
+            const diffs = [];
+            for (let i=1;i<timestamps.length;i++) diffs.push(timestamps[i]-timestamps[i-1]);
+            const avgMs = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+            const avgSec = Math.max(10, Math.round(avgMs/1000));
+            avgCache.set(counterId, { valueSeconds: avgSec, expiresAt: Date.now() + 30000 });
+            return avgSec;
+          }
+        }
+      } catch (e) {
+        console.warn('avg calc error', e);
+      }
+
+      // fallback
+      const fallback = 120;
+      avgCache.set(counterId, { valueSeconds: fallback, expiresAt: Date.now() + 30000 });
+      return fallback;
+    }
+
+    function formatSecondsHuman(seconds) {
+      if (!Number.isFinite(seconds) || seconds <= 0) return 'Soon';
+      if (seconds < 60) return '< 1 min';
+      const mins = Math.round(seconds / 60);
+      if (mins === 1) return '1 min';
+      return `${mins} min`;
+    }
+
+    // ————— Create secure link via serverless function —————
     async function generateConnectLink() {
       if (!currentQueueKey) throw new Error('Missing queueKey');
       const res = await fetch(CREATE_LINK_ENDPOINT, {
@@ -260,7 +365,7 @@
         body: JSON.stringify({ queueKey: currentQueueKey })
       });
       if (!res.ok) {
-        const txt = await res.text().catch(() => '');
+        const txt = await res.text().catch(()=>'');
         throw new Error(`Server error: ${res.status} ${txt}`);
       }
       const j = await res.json();
@@ -272,16 +377,16 @@
       if (linkGenerating) return;
       linkGenerating = true;
       simpleModalSpinnerRow.style.display = 'flex';
-      simpleModalSpinnerText.textContent = 'Generating secure link…';
       try {
         const link = await generateConnectLink();
         latestConnectLink = link;
         simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Link ready — tap Connect and then press Start in Telegram.';
+        simpleModalText.textContent = 'Link ready — tap Connect (it opens your Telegram app) and press Start.';
       } catch (err) {
+        console.warn('generate link failed', err);
         latestConnectLink = null;
         simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Failed to generate link. Use the fallback or try again.';
+        simpleModalText.textContent = 'Failed to generate link. Use fallback or try again.';
       } finally {
         linkGenerating = false;
       }
@@ -289,7 +394,7 @@
 
     // Connect button shows popup and generates link
     connectTopBtn.addEventListener('click', () => {
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn.";
+      simpleModalText.textContent = "This will open your Telegram app. Make sure Telegram is installed.";
       bsSimpleModal.show();
       triggerGenerateLink();
     });
@@ -311,9 +416,17 @@
       try { bsSimpleModal.hide(); } catch (e) {}
     });
 
-    // game button: navigate same tab to provided game URL
+    // Connected modal actions
+    connectedPlayBtn.addEventListener('click', () => {
+      // go to game in same tab
+      window.location.href = 'https://queuejoy.netlify.app/game.html';
+    });
+    connectedCloseBtn.addEventListener('click', () => {
+      try { bsConnectedModal.hide(); } catch (e) {}
+    });
+
+    // Game button: navigate same tab
     gameBtn.addEventListener('click', () => {
-      // use the exact URL you gave (same tab)
       window.location.href = 'https://queuejoy.netlify.app/game.html';
     });
 
@@ -342,8 +455,8 @@
       }
       currentQueueKey = queueKey;
 
-      // Immediately show simplified popup on page enter (user asked for immediate popup)
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn.";
+      // Immediately show simplified popup on page enter (as requested)
+      simpleModalText.textContent = "This will open your Telegram app. Make sure Telegram is installed.";
       bsSimpleModal.show();
       triggerGenerateLink();
 
@@ -356,7 +469,7 @@
           return;
         }
 
-        // detect connection transition: compare prev value before overwrite
+        // read prev before updating
         const prevConnected = prevTelegramConnected;
 
         currentQueueData = snap.val();
@@ -366,13 +479,14 @@
         // update UI
         setTelegramUIConnected(!!currentQueueData.telegramConnected);
 
-        // if user just connected, show confirmation in the popup and auto-close after 3s
+        // detect connect transition and show confirmation
         const nowConnected = !!currentQueueData.telegramConnected;
         if (nowConnected && !prevConnected) {
-          simpleModalText.textContent = 'Connected — you will receive Telegram notifications';
-          simpleModalSpinnerRow.style.display = 'none';
-          bsSimpleModal.show();
-          setTimeout(() => { try { bsSimpleModal.hide(); } catch(e){} }, 3000);
+          // show connected modal with friendly message and auto-close after 5s
+          try {
+            bsConnectedModal.show();
+            setTimeout(() => { try { bsConnectedModal.hide(); } catch(e){} }, 5000);
+          } catch (e) { console.warn(e); }
         }
         prevTelegramConnected = nowConnected;
 
@@ -389,16 +503,20 @@
             const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
             const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix, ""), 10) : NaN;
 
-            // Now-serving listener
+            // Now-serving listener (subscribe)
             if (servingRef) off(servingRef);
             servingRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(servingRef, (nowSnap) => {
+            onValue(servingRef, async (nowSnap) => {
               const currentServing = Number(nowSnap.val() || 0);
               nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
 
               const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
               peopleAheadEl.textContent = ahead;
-              estimatedWaitEl.textContent = ahead > 0 ? `${ahead * 2} min` : 'Soon';
+
+              // compute average service time for this counter
+              const avgSec = await getAverageServiceSeconds(counterId); // cached
+              const estSec = ahead * avgSec;
+              estimatedWaitEl.textContent = estSec > 0 ? formatSecondsHuman(estSec) : 'Soon';
 
               // indicator & behaviour
               if (ahead === 0) {
@@ -427,6 +545,9 @@
                   window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
                 }, 1200);
 
+              } else if (ahead <= 2) {
+                indicator.className = 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse';
+                // we don't auto-popup (user already saw initial popup); they can press top button to connect
               } else {
                 indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
               }
