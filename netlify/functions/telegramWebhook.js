@@ -1,64 +1,52 @@
-import fetch from "node-fetch";
+// netlify/functions/telegramWebhook.js
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   try {
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed. Use POST." };
+    }
+
     const body = JSON.parse(event.body || "{}");
 
-    if (!body.message || !body.message.text) {
+    if (!body.message || !body.message.chat) {
       return { statusCode: 200, body: "No message" };
     }
 
     const chatId = body.message.chat.id;
-    const text = body.message.text.trim();
+    const text = (body.message.text || "").trim();
 
     const BOT_TOKEN = process.env.BOT_TOKEN;
-    const CHAT_ID = process.env.CHAT_ID;
-
-    if (!BOT_TOKEN || !CHAT_ID) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing BOT_TOKEN or CHAT_ID in environment" }),
-      };
+    if (!BOT_TOKEN) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing BOT_TOKEN" }) };
     }
 
-    // Example — replace these with live values from your queue system later
+    // Simulate your data
     const prefix = "A";
-    const currentNumber = "104";
-    const counterName = "3";
+    const number = Math.floor(Math.random() * 100 + 1);
+    const counter = Math.floor(Math.random() * 5 + 1);
 
     if (text === "/start" || text.toLowerCase().includes("start")) {
       const message = `
-👋 **Hey!**
+👋 Hey!
+🧾 Number • ${prefix}${number}
+🪑 Counter • ${counter}
 
-🧾 **Number • ${prefix}${currentNumber}**  
-🪑 **Counter • ${counterName}**
-
-QueueJoy is now keeping your spot in line.  
-You can safely leave this browser tab running in the background — don’t close it!  
-
-Relax, grab a drink ☕, or play a quick game 🎮  
-We’ll message you right here when it’s your turn.
+QueueJoy is now keeping your spot in line.
+Leave this page open in the background (don’t close it) — relax and enjoy your time! 🎮
       `;
 
-      const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
-      await fetch(telegramUrl, {
+      await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: "Markdown",
-        }),
+        body: JSON.stringify({ chat_id: chatId, text: message }),
       });
     }
 
     return { statusCode: 200, body: "OK" };
   } catch (err) {
     console.error("Webhook error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
