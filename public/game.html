@@ -13,7 +13,6 @@
     .fade-in { animation: fadeIn 0.5s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
     canvas { border-radius: 8px; display:block; touch-action: none; }
-    .circle { border-radius: 9999px; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
@@ -66,14 +65,14 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasedatabase.app",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
@@ -123,13 +122,11 @@
     function randInt(min, max){ return Math.floor(Math.random() * (max - min)) + min; }
 
     function resizeCanvasToContainer() {
-      // canvas parent is square via padding-top trick; set canvas pixel size equal to CSS size for sharpness
       const rect = canvas.getBoundingClientRect();
       const w = Math.max(240, Math.min(480, Math.round(rect.width)));
-      const h = w;
       canvas.width = w;
-      canvas.height = h;
-      tileCount = Math.floor(w / grid);
+      canvas.height = w;
+      tileCount = Math.max(6, Math.floor(w / grid));
     }
 
     window.addEventListener('resize', resizeCanvasToContainer);
@@ -231,55 +228,63 @@
       } catch(e){ console.warn('ad init error', e); }
     }
 
-    // Watch queue entry and counters. Redirect when called.
+    // safe cleanup helper
+    function cleanupListeners() {
+      try {
+        if (adRef) { off(adRef); adRef = null; }
+        if (queueRef) { off(queueRef); queueRef = null; }
+        if (counterRef) { off(counterRef); counterRef = null; }
+      } catch (e) { console.warn('cleanup error', e); }
+    }
+
+    // attach queue + counter listeners and redirect when called
     function initQueueAndCounterListeners(dbKey) {
       if (!dbKey) return;
       // cleanup previous
-      try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); } catch(e){}
+      cleanupListeners();
 
       queueRef = ref(db, `queue/${dbKey}`);
-      onValue(queueRef, async snap => {
+      onValue(queueRef, (snap) => {
         if (!snap.exists()) return;
         const val = snap.val();
         currentQueueData = val;
-        // if staff set a 'status' flag to 'called' or 'serving', redirect immediately
+
+        // If status was explicitly set to a 'called' state by staff, redirect
         const status = (val.status || '').toLowerCase();
-        if ((status === 'called' || status === 'serving' || status === 'served') && !hasNavigated) {
+        if ((status === 'called' || status === 'serving' || status === 'called_by_staff') && !hasNavigated) {
           hasNavigated = true;
+          // cancel game and cleanup
+          if (loopId) cancelAnimationFrame(loopId);
+          cleanupListeners();
           window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
           return;
         }
 
-        // if counterId present, attach counter listener to detect nowServing hitting user's number
+        // attach counter nowServing listener if counterId exists
         const counterId = val.counterId;
-        if (counterId) {
-          // parse user's numeric part from queueId string (e.g. "A012" -> 12)
-          const qid = val.queueId || '';
-          const prefix = String(qid).match(/^[A-Za-z]*/)?.[0] || '';
-          const numeric = Number(String(qid).replace(prefix, '')) || NaN;
-
-          // attach counter nowServing
-          try {
-            if (counterRef) off(counterRef);
-            counterRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(counterRef, nowSnap => {
-              const nowVal = Number(nowSnap.val() || 0);
-              // when nowServing reaches the user's numeric ticket, redirect
-              if (!hasNavigated && Number.isFinite(numeric) && nowVal === numeric) {
-                hasNavigated = true;
-                window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
-              }
-            });
-          } catch (e) {
-            console.warn('counter listener error', e);
-          }
+        const queueIdStr = val.queueId || '';
+        const prefix = String(queueIdStr).match(/^[A-Za-z]*/)?.[0] || '';
+        const numeric = Number(String(queueIdStr).replace(prefix, ''));
+        if (counterId && Number.isFinite(numeric)) {
+          // attach counterRef if not already attached
+          if (counterRef) off(counterRef);
+          counterRef = ref(db, `counters/${counterId}/nowServing`);
+          onValue(counterRef, (nowSnap) => {
+            if (!nowSnap.exists()) return;
+            const nowVal = Number(nowSnap.val() || 0);
+            if (!hasNavigated && Number.isFinite(numeric) && nowVal === numeric) {
+              hasNavigated = true;
+              if (loopId) cancelAnimationFrame(loopId);
+              cleanupListeners();
+              window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+            }
+          });
         }
       });
     }
 
     // init on DOM ready
     document.addEventListener('DOMContentLoaded', () => {
-      // responsive setup
       resizeCanvasToContainer();
       resetGameState();
       initAd();
@@ -288,11 +293,10 @@
       const dbKey = params.get('queueId');
       currentQueueKey = dbKey || null;
 
-      // back button: always go back to status.html with same queue key if present
+      // Back button: always return to status with same queue key
       backBtn.addEventListener('click', () => {
-        try {
-          if (loopId) cancelAnimationFrame(loopId);
-        } catch (e) {}
+        try { if (loopId) cancelAnimationFrame(loopId); } catch(e){}
+        cleanupListeners();
         if (currentQueueKey) {
           window.location.href = `status.html?queueId=${encodeURIComponent(currentQueueKey)}`;
         } else {
@@ -300,7 +304,6 @@
         }
       });
 
-      // new game
       newGameBtn.addEventListener('click', () => {
         resetGameState();
       });
@@ -309,13 +312,11 @@
       if (currentQueueKey) initQueueAndCounterListeners(currentQueueKey);
     });
 
-    // cleanup
+    // cleanup before unload
     window.addEventListener('beforeunload', () => {
       try {
         if (loopId) cancelAnimationFrame(loopId);
-        if (adRef) off(adRef);
-        if (queueRef) off(queueRef);
-        if (counterRef) off(counterRef);
+        cleanupListeners();
       } catch (e) {}
     });
 
