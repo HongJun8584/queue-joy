@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Queue Joy — Admin</title>
+
+  <!-- Tailwind CDN (dev) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .card { background: white; border-radius: 14px; box-shadow: 0 14px 40px rgba(10,10,20,0.06); }
+    .small { font-size: 0.85rem; }
+    .logo-preview { width:64px; height:64px; object-fit:cover; border-radius:10px; }
+    .telegram-preview { background:#f8fefc; border-radius:12px; padding:14px; border:1px solid rgba(2,6,23,0.04); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
+
+  <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <!-- Left column: Store settings -->
+    <div class="md:col-span-2 space-y-4">
+
+      <div class="card p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-800">Store Admin — Branding & Settings</h2>
+            <p class="small text-gray-500 mt-1">No API keys. Use your Store ID to manage announcements & branding.</p>
+          </div>
+          <div class="text-right small text-gray-500">QueueJoy — Admin</div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div>
+            <label class="block text-xs text-gray-600">Store ID</label>
+            <div class="mt-1 flex gap-2">
+              <input id="storeId" class="w-full px-3 py-2 rounded-lg border border-gray-200" placeholder="e.g. cafe-abc or store123" />
+              <button id="loadStoreBtn" class="px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Load</button>
+            </div>
+            <p class="small text-gray-400 mt-1">Provide the same Store ID used when issuing numbers (or pass ?storeId= in URL).</p>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-600">Theme color</label>
+            <input id="themeColor" type="color" class="w-full h-10 p-0 rounded-lg border border-gray-200 mt-1"/>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-600">Store name</label>
+            <input id="storeName" class="w-full px-3 py-2 rounded-lg border border-gray-200 mt-1" placeholder="Queue Joy — Branch A"/>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-600">Welcome / intro text</label>
+            <input id="welcomeText" class="w-full px-3 py-2 rounded-lg border border-gray-200 mt-1" placeholder="Welcome! Scan QR or press Get My Number." />
+          </div>
+
+        </div>
+
+        <!-- logo upload -->
+        <div class="mt-4">
+          <label class="block text-xs text-gray-600">Logo (URL or upload)</label>
+          <div class="mt-2 flex gap-2 items-center">
+            <input id="logoUrl" class="flex-1 px-3 py-2 rounded-lg border border-gray-200" placeholder="https://... or leave blank" />
+            <input id="logoFile" type="file" accept="image/*" class="hidden" />
+            <button id="logoFileBtn" class="px-3 py-2 rounded-lg border border-gray-200">Choose</button>
+            <button id="saveSettingsBtn" class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold">Save</button>
+          </div>
+          <div class="mt-3 flex items-center gap-3">
+            <img id="logoPreview" class="logo-preview bg-gray-100" alt="logo preview" />
+            <div class="small text-gray-600">
+              <div id="storeNamePreview" class="font-semibold">—</div>
+              <div id="welcomePreview" class="text-gray-500">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Announcement composer -->
+      <div class="card p-6">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold text-gray-800">Announcements</h3>
+          <div class="small text-gray-500">Send messages to your store's customers</div>
+        </div>
+
+        <div class="mt-4">
+          <label class="block text-xs text-gray-600">Message (keep short — Telegram DM)</label>
+          <textarea id="announcementText" rows="4" class="w-full mt-2 px-3 py-3 border border-gray-200 rounded-lg" placeholder="20% off today! Come grab a cup ☕"></textarea>
+
+          <div class="mt-3 flex gap-2">
+            <button id="previewBtn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Preview</button>
+            <button id="sendBtn" class="px-4 py-2 rounded-lg bg-purple-600 text-white font-semibold">Send Now</button>
+            <button id="saveDraftBtn" class="px-4 py-2 rounded-lg border border-gray-200">Save Draft</button>
+          </div>
+
+          <p id="sendHint" class="small text-gray-500 mt-2">Messages will be delivered via the QueueJoy bot to customers who connected to this store.</p>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <div class="small text-gray-600">Subscribers</div>
+            <div id="subscriberCount" class="text-2xl font-bold text-gray-800 mt-2">0</div>
+            <div class="small text-gray-400 mt-2">This reads from <code>stores/&lt;storeId&gt;/subscribers</code>.</div>
+          </div>
+
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <div class="small text-gray-600">Announcement history</div>
+            <div id="historyList" class="mt-2 space-y-2 max-h-36 overflow-auto text-sm text-gray-700"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Right column: Preview + quick actions -->
+    <aside class="space-y-4">
+
+      <div class="card p-4">
+        <div class="flex items-center gap-3">
+          <img id="sideLogo" class="w-12 h-12 rounded-lg bg-gray-100" alt="logo" />
+          <div>
+            <div id="sideName" class="font-semibold text-gray-800">—</div>
+            <div id="sideIntro" class="text-sm text-gray-500">—</div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label class="small text-gray-600">Telegram preview</label>
+          <div id="telegramPreview" class="telegram-preview mt-2">
+            <div id="tgTitle" class="font-semibold text-gray-900">Hey 👋</div>
+            <div id="tgBody" class="text-gray-700 small mt-1">Sample announcement will appear here.</div>
+            <div id="tgFooter" class="text-xs text-gray-400 mt-3">QueueJoy • Instant customer messages</div>
+          </div>
+
+          <div class="mt-3 flex gap-2">
+            <button id="openPreviewInTab" class="flex-1 py-2 rounded-lg border border-gray-200">Open Preview</button>
+            <button id="downloadPreview" class="py-2 px-3 rounded-lg bg-gray-100">Download</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-4">
+        <div class="small text-gray-600">Quick tools</div>
+        <div class="mt-3 grid grid-cols-1 gap-2">
+          <button id="refreshBtn" class="py-2 rounded-lg border border-gray-200">Refresh Store Data</button>
+          <button id="openQueuesBtn" class="py-2 rounded-lg border border-gray-200">Open Queue Dashboard</button>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden px-4 py-2 rounded-lg bg-black text-white"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getDatabase, ref, onValue, set, get, push, child, update, remove
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // --- Same Firebase config as other pages ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+    authDomain: "queue-joy-aa21b.firebaseapp.com",
+    databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "queue-joy-aa21b",
+    storageBucket: "queue-joy-aa21b.appspot.com",
+    messagingSenderId: "950240394209",
+    appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // UI elements
+  const storeIdInput = document.getElementById('storeId');
+  const loadStoreBtn = document.getElementById('loadStoreBtn');
+  const storeNameInput = document.getElementById('storeName');
+  const welcomeInput = document.getElementById('welcomeText');
+  const logoUrlInput = document.getElementById('logoUrl');
+  const logoFileBtn = document.getElementById('logoFileBtn');
+  const logoFileInput = document.getElementById('logoFile');
+  const logoPreview = document.getElementById('logoPreview');
+  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  const themeColorInput = document.getElementById('themeColor');
+
+  const announcementText = document.getElementById('announcementText');
+  const previewBtn = document.getElementById('previewBtn');
+  const sendBtn = document.getElementById('sendBtn');
+  const saveDraftBtn = document.getElementById('saveDraftBtn');
+
+  const subscriberCount = document.getElementById('subscriberCount');
+  const historyList = document.getElementById('historyList');
+
+  const tgTitle = document.getElementById('tgTitle');
+  const tgBody = document.getElementById('tgBody');
+  const tgFooter = document.getElementById('tgFooter');
+  const telegramPreview = document.getElementById('telegramPreview');
+
+  const sideLogo = document.getElementById('sideLogo');
+  const sideName = document.getElementById('sideName');
+  const sideIntro = document.getElementById('sideIntro');
+
+  const refreshBtn = document.getElementById('refreshBtn');
+  const openQueuesBtn = document.getElementById('openQueuesBtn');
+
+  const toastEl = document.getElementById('toast');
+
+  // endpoint your server should implement
+  const SEND_ANNOUNCEMENT_ENDPOINT = '/.netlify/functions/sendAnnouncement'; // POST { storeId, message }
+
+  // state
+  let currentStoreId = null;
+  let subscribersUnsub = null;
+  let historyUnsub = null;
+
+  function toast(msg, ms = 3000) {
+    toastEl.textContent = msg;
+    toastEl.classList.remove('hidden');
+    setTimeout(()=> toastEl.classList.add('hidden'), ms);
+  }
+
+  // load store by id
+  async function loadStore(storeId) {
+    if (!storeId) return toast('Store ID required');
+    currentStoreId = storeId;
+    storeIdInput.value = storeId;
+
+    // read settings
+    try {
+      const sSnap = await get(ref(db, `stores/${storeId}/settings`));
+      const settings = sSnap.exists() ? sSnap.val() : {};
+      storeNameInput.value = settings.name || '';
+      welcomeInput.value = settings.welcome || '';
+      logoUrlInput.value = settings.logoUrl || '';
+      themeColorInput.value = settings.themeColor || '#7c3aed';
+      // show preview
+      applyPreview(settings);
+    } catch (e) {
+      console.error('loadStore settings failed', e);
+      toast('Failed to load settings');
+    }
+
+    // subscribe to subscribers count live
+    try {
+      if (subscribersUnsub) subscribersUnsub();
+      const subRef = ref(db, `stores/${storeId}/subscribers`);
+      onValue(subRef, (snap) => {
+        const val = snap.exists() ? snap.val() : {};
+        const count = val && typeof val === 'object' ? Object.keys(val).length : 0;
+        subscriberCount.textContent = count;
+      });
+      subscribersUnsub = () => off(subRef);
+    } catch (e) {
+      console.warn('subscribers subscribe failed', e);
+    }
+
+    // load history
+    try {
+      const hRef = ref(db, `stores/${storeId}/announcements`);
+      const hSnap = await get(hRef);
+      historyList.innerHTML = '';
+      if (hSnap.exists()) {
+        const items = hSnap.val();
+        // convert map to sorted list
+        const arr = Object.entries(items).map(([k,v])=> ({ id:k, ...v }));
+        arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
+        for (const it of arr) {
+          const el = document.createElement('div');
+          el.className = 'p-2 rounded bg-white border border-gray-100 small';
+          el.innerHTML = `<div class="font-medium text-gray-800">${escapeHtml(it.message)}</div>
+                          <div class="text-xs text-gray-400 mt-1">${new Date(it.ts||0).toLocaleString()}</div>`;
+          historyList.appendChild(el);
+        }
+      } else {
+        historyList.innerHTML = '<div class="text-sm text-gray-400">No announcements yet.</div>';
+      }
+    } catch (e) {
+      console.warn('history load failed', e);
+      historyList.innerHTML = '<div class="text-sm text-gray-400">Failed to load history.</div>';
+    }
+  }
+
+  // helper escape
+  function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, (m)=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function applyPreview(settings = {}) {
+    const name = settings.name || storeNameInput.value || '—';
+    const welcome = settings.welcome || welcomeInput.value || '—';
+    const logo = settings.logoDataUrl || settings.logoUrl || logoUrlInput.value || '';
+    sideName.textContent = name;
+    sideIntro.textContent = welcome;
+    sideLogo.src = logo || '';
+    logoPreview.src = logo || '';
+    tgTitle.textContent = `Hey 👋`;
+    tgBody.textContent = `Sample announcement will appear here.`;
+    tgFooter.textContent = `${name} • QueueJoy`;
+    telegramPreview.style.borderColor = settings.themeColor || themeColorInput.value || '#7c3aed';
+  }
+
+  // Save settings
+  saveSettingsBtn.addEventListener('click', async () => {
+    if (!currentStoreId) return toast('Load a Store ID first');
+    const payload = {
+      name: storeNameInput.value.trim(),
+      welcome: welcomeInput.value.trim(),
+      logoUrl: logoUrlInput.value.trim(),
+      themeColor: themeColorInput.value
+    };
+    // If a logoDataUrl is set on preview, write it as well
+    if (logoPreview.src && logoPreview.src.startsWith('data:')) {
+      payload.logoDataUrl = logoPreview.src;
+    }
+    try {
+      await set(ref(db, `stores/${currentStoreId}/settings`), payload);
+      toast('Settings saved');
+      applyPreview(payload);
+    } catch (e) {
+      console.error('save settings failed', e);
+      toast('Save failed');
+    }
+  });
+
+  // Logo file upload -> convert to dataURL and preview
+  logoFileBtn.addEventListener('click', () => logoFileInput.click());
+  logoFileInput.addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return toast('Select an image file');
+    const fr = new FileReader();
+    fr.onload = () => {
+      logoPreview.src = fr.result;
+      sideLogo.src = fr.result;
+    };
+    fr.readAsDataURL(f);
+  });
+
+  // when user pastes logo URL, preview it
+  logoUrlInput.addEventListener('blur', () => {
+    logoPreview.src = logoUrlInput.value || '';
+    sideLogo.src = logoUrlInput.value || '';
+  });
+
+  // Send announcement: calls serverless endpoint and writes history
+  sendBtn.addEventListener('click', async () => {
+    if (!currentStoreId) return toast('Load a Store ID first');
+    const message = announcementText.value.trim();
+    if (!message) return toast('Message is empty');
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+
+    try {
+      // call serverless function
+      const res = await fetch(SEND_ANNOUNCEMENT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId: currentStoreId, message })
+      });
+
+      const j = await res.json().catch(()=>null);
+      if (!res.ok) {
+        console.error('send failed', res.status, j);
+        toast('Send failed — check server logs');
+      } else {
+        toast('Announcement queued to server');
+        // write history record
+        const recRef = push(ref(db, `stores/${currentStoreId}/announcements`));
+        await set(recRef, { message, ts: Date.now() });
+        // update local UI history immediately
+        const el = document.createElement('div');
+        el.className = 'p-2 rounded bg-white border border-gray-100 small';
+        el.innerHTML = `<div class="font-medium text-gray-800">${escapeHtml(message)}</div>
+                        <div class="text-xs text-gray-400 mt-1">${new Date().toLocaleString()}</div>`;
+        historyList.prepend(el);
+      }
+    } catch (e) {
+      console.error('send error', e);
+      toast('Send failed — network error');
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send Now';
+    }
+  });
+
+  // Preview announcement locally
+  previewBtn.addEventListener('click', () => {
+    const msg = announcementText.value.trim() || 'Your announcement preview';
+    tgTitle.textContent = 'Hey 👋';
+    tgBody.textContent = msg;
+    tgFooter.textContent = `${storeNameInput.value || 'Store'} • QueueJoy`;
+    // open preview drawer focus
+    telegramPreview.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Save draft locally in localStorage
+  saveDraftBtn.addEventListener('click', () => {
+    const key = `jq_draft_${currentStoreId||'global'}`;
+    localStorage.setItem(key, announcementText.value || '');
+    toast('Draft saved locally');
+  });
+
+  // Load saved draft if present when loadStore
+  async function loadDraft() {
+    const key = `jq_draft_${currentStoreId||'global'}`;
+    const v = localStorage.getItem(key) || '';
+    if (v) announcementText.value = v;
+  }
+
+  // Load/store events
+  loadStoreBtn.addEventListener('click', () => {
+    const id = storeIdInput.value.trim();
+    if (!id) return toast('Enter Store ID');
+    loadStore(id).then(loadDraft);
+  });
+
+  // quick refresh
+  refreshBtn.addEventListener('click', () => {
+    if (!currentStoreId) return toast('Load Store first');
+    loadStore(currentStoreId);
+    toast('Refreshed');
+  });
+
+  // open queues / management (assume admin path)
+  openQueuesBtn.addEventListener('click', () => {
+    if (!currentStoreId) return toast('Load Store first');
+    window.open(`admin-counters.html?storeId=${encodeURIComponent(currentStoreId)}`, '_blank');
+  });
+
+  // auto-load if ?storeId= present
+  (function autoLoadFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('storeId');
+    if (id) {
+      loadStore(id).then(loadDraft);
+    }
+  })();
+
+  // small cleanup to unsubscribe refs (not exhaustive)
+  window.addEventListener('beforeunload', () => {
+    try { if (subscribersUnsub) subscribersUnsub(); if (historyUnsub) historyUnsub(); } catch(_) {}
+  });
+</script>
+</body>
+</html>
