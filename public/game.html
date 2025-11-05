@@ -9,22 +9,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-    .fade-in {
-      animation: fadeIn 0.5s ease-in;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    canvas { border: 1px solid #4B5EAA; touch-action: none; }
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
+    canvas { border-radius: 8px; display:block; touch-action: none; }
+    .circle { border-radius: 9999px; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 fade-in">
-    <!-- Header -->
     <div class="text-center space-y-2">
       <div class="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,9 +25,9 @@
         </svg>
       </div>
       <h1 class="text-xl font-bold text-indigo-800">Snake Game</h1>
-      <p class="text-xs text-gray-500 italic">No worries, the system will call you even if you are playing!</p>
+      <p class="text-xs text-gray-500 italic">Play while you wait — we’ll call you when your number is up.</p>
     </div>
-    <!-- Game Stats -->
+
     <div class="grid grid-cols-2 gap-2 text-center">
       <div class="bg-gray-50 rounded-lg p-2">
         <p class="text-xs text-gray-600">Score</p>
@@ -45,28 +38,24 @@
         <p id="highScore" class="text-sm font-bold text-gray-800">0</p>
       </div>
     </div>
-    <!-- Game Board -->
-    <div id="gameBoard" class="relative aspect-square">
-      <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full" width="320" height="320"></canvas>
+
+    <div id="gameBoard" class="relative w-full" style="padding-top:100%; position:relative;">
+      <canvas id="gameCanvas" style="position:absolute; left:0; top:0; width:100%; height:100%"></canvas>
     </div>
-    <!-- Game Complete -->
+
     <div id="gameOver" class="hidden bg-red-50 border-2 border-red-200 rounded-xl p-3 text-center">
       <div class="text-2xl mb-1">😢</div>
       <p class="text-red-800 font-bold">Game Over!</p>
       <div id="finalStats" class="text-red-700 text-xs"></div>
     </div>
-    <!-- Actions -->
+
     <div class="space-y-2">
-      <button id="newGameBtn" class="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-xl shadow hover:scale-105 transition-all duration-300">
-        🎮 New Game
-      </button>
-      <button id="backBtn" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-        ← Back to Status
-      </button>
+      <button id="newGameBtn" class="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-semibold rounded-xl shadow hover:scale-105 transition-all duration-300">🎮 New Game</button>
+      <button id="backBtn" class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">← Back to Status</button>
       <div id="inlineError" class="hidden text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded-lg p-2"></div>
     </div>
   </div>
-  <!-- Ad Panel -->
+
   <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
@@ -74,31 +63,24 @@
       <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
     </div>
   </div>
-  <!-- Firebase and Game Script -->
+
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      storageBucket: "queue-joy-aa21b.firebasedatabase.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    let app, database;
-    try {
-      app = initializeApp(firebaseConfig);
-      database = getDatabase(app);
-    } catch (e) {
-      console.error('Firebase initialization failed:', e);
-    }
-
-    // --- UI refs ---
-    const queueInfoEl = document.getElementById('queueInfo');
+    // UI refs
     const scoreEl = document.getElementById('score');
     const highScoreEl = document.getElementById('highScore');
     const gameOverEl = document.getElementById('gameOver');
@@ -109,192 +91,234 @@
     const noAd = document.getElementById('noAd');
     const inlineError = document.getElementById('inlineError');
 
-    const gameCanvas = document.getElementById('gameCanvas');
-    const ctx = gameCanvas.getContext('2d');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // game variables
     const grid = 16;
-    const tileCount = 20; // 320 / 16 = 20
-    let count = 0;
+    let tileCount = 20; // will adapt with resize
     let score = 0;
     let highScore = 0;
-    let gameLoop = null;
-    let hasNavigated = false;
+    let loopId = null;
+    let count = 0;
+
+    let snake = { x: 160, y:160, dx: grid, dy:0, cells: [], maxCells: 4 };
+    let apple = { x: 256, y: 256 };
+
+    // DB listeners
     let adRef = null;
     let queueRef = null;
     let counterRef = null;
 
-    let snake = {
-      x: 160,
-      y: 160,
-      dx: grid,
-      dy: 0,
-      cells: [],
-      maxCells: 4
-    };
-    let apple = {
-      x: 256,
-      y: 256
-    };
+    let hasNavigated = false;
+    let currentQueueKey = null;
+    let currentQueueData = null;
 
     function showError(msg) {
       inlineError.textContent = msg;
       inlineError.classList.remove('hidden');
+      setTimeout(()=> inlineError.classList.add('hidden'), 5000);
     }
 
-    function getRandomInt(min, max) {
-      return Math.floor(Math.random() * (max - min)) + min;
+    function randInt(min, max){ return Math.floor(Math.random() * (max - min)) + min; }
+
+    function resizeCanvasToContainer() {
+      // canvas parent is square via padding-top trick; set canvas pixel size equal to CSS size for sharpness
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.max(240, Math.min(480, Math.round(rect.width)));
+      const h = w;
+      canvas.width = w;
+      canvas.height = h;
+      tileCount = Math.floor(w / grid);
     }
 
-    function loop() {
-      gameLoop = requestAnimationFrame(loop);
+    window.addEventListener('resize', resizeCanvasToContainer);
+
+    function resetGameState() {
+      resizeCanvasToContainer();
+      const mid = Math.floor(canvas.width / 2 / grid) * grid;
+      snake = { x: mid, y: mid, dx: grid, dy: 0, cells: [], maxCells: 4 };
+      apple = { x: (randInt(0, tileCount) * grid), y: (randInt(0, tileCount) * grid) };
+      score = 0;
+      count = 0;
+      scoreEl.textContent = score;
+      gameOverEl.classList.add('hidden');
+      if (loopId) cancelAnimationFrame(loopId);
+      loopId = requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      if (loopId) cancelAnimationFrame(loopId);
+      loopId = null;
+      finalStatsEl.innerText = `Final Score: ${score}`;
+      gameOverEl.classList.remove('hidden');
+    }
+
+    function gameLoop() {
+      loopId = requestAnimationFrame(gameLoop);
       if (++count < 4) return;
       count = 0;
+
       ctx.fillStyle = '#F3F4F6';
-      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+      ctx.fillRect(0,0,canvas.width,canvas.height);
 
       snake.x += snake.dx;
       snake.y += snake.dy;
 
-      if (snake.x < 0 || snake.x >= gameCanvas.width || snake.y < 0 || snake.y >= gameCanvas.height) {
-        endGame();
-        return;
+      // wall collision -> end
+      if (snake.x < 0 || snake.x >= canvas.width || snake.y < 0 || snake.y >= canvas.height) {
+        endGame(); return;
       }
 
-      snake.cells.unshift({x: snake.x, y: snake.y});
-      if (snake.cells.length > snake.maxCells) {
-        snake.cells.pop();
-      }
+      snake.cells.unshift({ x: snake.x, y: snake.y });
+      if (snake.cells.length > snake.maxCells) snake.cells.pop();
 
+      // draw apple
       ctx.fillStyle = 'red';
-      ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
+      ctx.fillRect(apple.x, apple.y, grid - 1, grid - 1);
 
+      // draw snake
       ctx.fillStyle = 'green';
-      snake.cells.forEach(function(cell, index) {
-        ctx.fillRect(cell.x, cell.y, grid-1, grid-1);
-        if (cell.x === apple.x && cell.y === apple.y) {
+      for (let i=0;i<snake.cells.length;i++){
+        const cell = snake.cells[i];
+        ctx.fillRect(cell.x, cell.y, grid - 1, grid - 1);
+
+        // apple eaten
+        if (cell.x === apple.x && cell.y === apple.y){
           score += 10;
           snake.maxCells++;
           scoreEl.textContent = score;
-          if (score > highScore) {
-            highScore = score;
-            highScoreEl.textContent = highScore;
-          }
-          apple.x = getRandomInt(0, tileCount) * grid;
-          apple.y = getRandomInt(0, tileCount) * grid;
+          if (score > highScore){ highScore = score; highScoreEl.textContent = highScore; }
+          apple.x = randInt(0, tileCount) * grid;
+          apple.y = randInt(0, tileCount) * grid;
         }
-        for (var i = index + 1; i < snake.cells.length; i++) {
-          if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
-            endGame();
-            return;
-          }
+
+        // collision with self
+        for (let j=i+1;j<snake.cells.length;j++){
+          if (cell.x === snake.cells[j].x && cell.y === snake.cells[j].y) { endGame(); return; }
         }
-      });
+      }
     }
 
-    function endGame() {
-      if (gameLoop) cancelAnimationFrame(gameLoop);
-      gameLoop = null;
-      finalStatsEl.innerHTML = `Final Score: ${score}`;
-      gameOverEl.classList.remove('hidden');
-    }
-
-    function initializeGame() {
-      snake = {
-        x: 160,
-        y: 160,
-        dx: grid,
-        dy: 0,
-        cells: [],
-        maxCells: 4
-      };
-      apple = {
-        x: 256,
-        y: 256
-      };
-      score = 0;
-      scoreEl.textContent = score;
-      count = 0;
-      gameOverEl.classList.add('hidden');
-      if (gameLoop) cancelAnimationFrame(gameLoop);
-      gameLoop = requestAnimationFrame(loop);
-    }
-
-    // --- Tap / Click Controls ---
-    gameCanvas.addEventListener('click', (e) => {
-      if (!gameLoop) return;
-      const rect = gameCanvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      const headX = snake.x + grid / 2;
-      const headY = snake.y + grid / 2;
-      const diffX = clickX - headX;
-      const diffY = clickY - headY;
-      if (Math.abs(diffX) > Math.abs(diffY)) {
-        if (diffX > 0 && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
-        else if (diffX < 0 && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
+    // touch / click controls map to direction change
+    canvas.addEventListener('click', (e) => {
+      if (!loopId) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const headX = snake.x + grid/2;
+      const headY = snake.y + grid/2;
+      const dx = cx - headX;
+      const dy = cy - headY;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0 && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
+        else if (dx < 0 && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
       } else {
-        if (diffY > 0 && snake.dy === 0) { snake.dx = 0; snake.dy = grid; }
-        else if (diffY < 0 && snake.dy === 0) { snake.dx = 0; snake.dy = -grid; }
+        if (dy > 0 && snake.dy === 0) { snake.dx = 0; snake.dy = grid; }
+        else if (dy < 0 && snake.dy === 0) { snake.dx = 0; snake.dy = -grid; }
       }
     });
 
-    // --- Firebase Listeners ---
-    function initAdListener() {
-      if (!database) return;
-      adRef = ref(database, 'settings/adImage');
-      onValue(adRef, (snap) => {
-        try {
-          const val = snap.exists() ? snap.val() : '';
-          if (val) {
-            adPanel.src = val;
-            adPanel.classList.remove('hidden');
-            noAd.classList.add('hidden');
-          } else {
-            adPanel.classList.add('hidden');
-            noAd.classList.remove('hidden');
+    // --- Firebase listeners ---
+    function initAd() {
+      try {
+        adRef = ref(db, 'settings/adImage');
+        onValue(adRef, snap => {
+          const v = snap.exists() ? snap.val() : '';
+          if (v) { adPanel.src = v; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
+          else { adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
+        });
+      } catch(e){ console.warn('ad init error', e); }
+    }
+
+    // Watch queue entry and counters. Redirect when called.
+    function initQueueAndCounterListeners(dbKey) {
+      if (!dbKey) return;
+      // cleanup previous
+      try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); } catch(e){}
+
+      queueRef = ref(db, `queue/${dbKey}`);
+      onValue(queueRef, async snap => {
+        if (!snap.exists()) return;
+        const val = snap.val();
+        currentQueueData = val;
+        // if staff set a 'status' flag to 'called' or 'serving', redirect immediately
+        const status = (val.status || '').toLowerCase();
+        if ((status === 'called' || status === 'serving' || status === 'served') && !hasNavigated) {
+          hasNavigated = true;
+          window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+          return;
+        }
+
+        // if counterId present, attach counter listener to detect nowServing hitting user's number
+        const counterId = val.counterId;
+        if (counterId) {
+          // parse user's numeric part from queueId string (e.g. "A012" -> 12)
+          const qid = val.queueId || '';
+          const prefix = String(qid).match(/^[A-Za-z]*/)?.[0] || '';
+          const numeric = Number(String(qid).replace(prefix, '')) || NaN;
+
+          // attach counter nowServing
+          try {
+            if (counterRef) off(counterRef);
+            counterRef = ref(db, `counters/${counterId}/nowServing`);
+            onValue(counterRef, nowSnap => {
+              const nowVal = Number(nowSnap.val() || 0);
+              // when nowServing reaches the user's numeric ticket, redirect
+              if (!hasNavigated && Number.isFinite(numeric) && nowVal === numeric) {
+                hasNavigated = true;
+                window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+              }
+            });
+          } catch (e) {
+            console.warn('counter listener error', e);
           }
-        } catch (e) {
-          console.error('Ad listener error:', e);
         }
       });
     }
 
-    function initQueueListener(queueId) {
-  if (!database || !queueId) return;
-  queueRef = ref(database, `queues/${queueId}/status`);
-  onValue(queueRef, (snap) => {
-    if (!snap.exists()) return;
-    const status = snap.val();
-    if (status === 'called' && !hasNavigated) {
-      hasNavigated = true;
-      // Redirect to your_turn.html
-      window.location.href = `public/your_turn.html?queueId=${encodeURIComponent(queueId)}`;
-    }
-  });
-}
-
+    // init on DOM ready
     document.addEventListener('DOMContentLoaded', () => {
-      initializeGame();
-      initAdListener();
+      // responsive setup
+      resizeCanvasToContainer();
+      resetGameState();
+      initAd();
+
       const params = new URLSearchParams(window.location.search);
-      const queueId = params.get('queueId');
-      backBtn.onclick = () => {
-        if (gameLoop) cancelAnimationFrame(gameLoop);
-        window.location.href = queueId ? `status.html?queueId=${encodeURIComponent(queueId)}` : 'index.html';
-      };
-      initQueueListener(queueId);
+      const dbKey = params.get('queueId');
+      currentQueueKey = dbKey || null;
+
+      // back button: always go back to status.html with same queue key if present
+      backBtn.addEventListener('click', () => {
+        try {
+          if (loopId) cancelAnimationFrame(loopId);
+        } catch (e) {}
+        if (currentQueueKey) {
+          window.location.href = `status.html?queueId=${encodeURIComponent(currentQueueKey)}`;
+        } else {
+          window.location.href = 'index.html';
+        }
+      });
+
+      // new game
+      newGameBtn.addEventListener('click', () => {
+        resetGameState();
+      });
+
+      // attach DB listener to redirect when called
+      if (currentQueueKey) initQueueAndCounterListeners(currentQueueKey);
     });
 
+    // cleanup
     window.addEventListener('beforeunload', () => {
       try {
+        if (loopId) cancelAnimationFrame(loopId);
         if (adRef) off(adRef);
         if (queueRef) off(queueRef);
         if (counterRef) off(counterRef);
-        if (gameLoop) cancelAnimationFrame(gameLoop);
-      } catch (_) {}
+      } catch (e) {}
     });
 
-    newGameBtn.addEventListener('click', initializeGame);
   </script>
-  <script src="index.js"></script>
 </body>
 </html>
