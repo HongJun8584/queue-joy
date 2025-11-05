@@ -117,10 +117,13 @@
       <div class="modal-content">
         <div style="background:linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%);color:white;padding:18px;text-align:center;">
           <div style="font-weight:700;font-size:18px;">🔔 Connect Telegram</div>
-          <div style="opacity:0.95;margin-top:6px;font-size:13px;">Only the Telegram *app* receives background notifications — open Telegram after connecting</div>
+          <div style="opacity:0.95;margin-top:6px;font-size:13px;">Only the Telegram <strong>app</strong> receives background notifications — open Telegram after connecting</div>
         </div>
         <div style="padding:16px;text-align:center;">
-          <p id="simpleModalText" class="text-gray-700 mb-3">Connect Telegram to receive a DM when it's your turn. After connecting, you can leave this browser in the background.</p>
+          <p id="simpleModalText" class="text-gray-700 mb-3">
+            Tap <strong>Connect via Telegram</strong> (opens Telegram). <br />
+            In Telegram app: press <strong>START</strong> to finish linking your number.
+          </p>
 
           <div id="simpleModalSpinnerRow" style="display:none;align-items:center;justify-content:center;margin-bottom:12px;">
             <span class="spinner-inline" style="border-top-color:#7c3aed"></span>
@@ -129,12 +132,12 @@
 
           <div class="d-grid gap-2">
             <button id="simpleModalConnectBtn" class="w-full py-2 rounded-xl" style="background:linear-gradient(90deg,#7c3aed,#06b6d4); color:white; font-weight:600;">
-              Connect via Telegram
+              Connect via Telegram (opens new tab)
             </button>
             <button id="simpleModalCloseBtn" class="w-full py-2 rounded-xl btn btn-outline-secondary">Close</button>
           </div>
 
-          <p style="font-size:12px;color:#9CA3AF;margin-top:10px;">If link fails, open Telegram and send <code>/start &lt;TOKEN&gt;</code> to the bot.</p>
+          <p style="font-size:12px;color:#9CA3AF;margin-top:10px;">If link fails, open the Telegram app and send <code>/start &lt;TOKEN&gt;</code> to the bot (token found in the status page link).</p>
         </div>
       </div>
     </div>
@@ -157,7 +160,7 @@
   <!-- Firebase + logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     // CONFIG - keep your working endpoints & bot username
     const TELEGRAM_BOT_USERNAME = 'QueueJoyBot'; // fallback only
@@ -236,7 +239,7 @@
         telegramStatus.classList.remove('text-green-700','font-semibold');
         telegramStatus.classList.add('text-gray-800');
         telegramIcon.classList.remove('bg-green-100');
-        connectionBannerText.textContent = 'Not connected — you must keep this page open to get live updates and automatic redirect.';
+        connectionBannerText.textContent = 'Not connected — tap Connect and press START in the Telegram app. Keep this page open until you see "Connected".';
       }
     }
 
@@ -262,39 +265,34 @@
       linkGenerating = true;
       simpleModalSpinnerRow.style.display = 'flex';
       simpleModalSpinnerText.textContent = 'Generating secure link…';
-      simpleModalText.textContent = 'Please open Telegram and press Start after connecting.';
+      simpleModalText.innerHTML = 'Please open Telegram (new tab) and press <strong>START</strong> to finish linking.';
       latestConnectLink = null;
       try {
         const link = await generateConnectLink();
         latestConnectLink = link;
         simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Link ready — Tap Connect then open Telegram app and press Start.';
+        simpleModalText.innerHTML = 'Link ready — Tap <strong>Connect via Telegram</strong> (opens new tab). Then press <strong>START</strong> in the Telegram app.';
       } catch (err) {
         latestConnectLink = null;
         simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Failed to generate link. Use fallback or try again.';
+        simpleModalText.innerHTML = 'Failed to generate link. Tap Connect to open the bot in Telegram and then type <code>/start &lt;TOKEN&gt;</code>.';
       } finally {
         linkGenerating = false;
       }
     }
 
-    // top connect opens modal and generate link
-    connectTopBtn.addEventListener('click', () => {
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn.";
-      bsSimpleModal.show();
-      triggerGenerateLink();
-    });
-
-    // Connect button in modal: MUST open in NEW TAB (user requested)
+    // open connect in new tab and instruct user to press START
     simpleModalConnectBtn.addEventListener('click', async () => {
       try {
         if (!latestConnectLink && !linkGenerating) await triggerGenerateLink();
         const linkToOpen = latestConnectLink || `https://t.me/${TELEGRAM_BOT_USERNAME}`;
-        // open in NEW tab
+        // open in NEW tab (user requested) — keep modal open and update instruction
         window.open(linkToOpen, '_blank', 'noopener,noreferrer');
+        simpleModalText.innerHTML = 'Telegram opened in a new tab. In the Telegram app press <strong>START</strong> to finish linking. Keep this page open until you see "Connected".';
       } catch (e) {
         console.warn(e);
         window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}`, '_blank', 'noopener,noreferrer');
+        simpleModalText.innerHTML = 'Telegram opened. Press <strong>START</strong> in the Telegram app to finish linking.';
       }
     });
 
@@ -302,9 +300,20 @@
       try { bsSimpleModal.hide(); } catch(e) {}
     });
 
+    // top connect opens modal and generate link
+    connectTopBtn.addEventListener('click', () => {
+      simpleModalText.innerHTML = "Tap <strong>Connect via Telegram</strong> then press <strong>START</strong> in the Telegram app to link your number.";
+      bsSimpleModal.show();
+      triggerGenerateLink();
+    });
+
     // game button: same tab navigation
     gameBtn.addEventListener('click', () => {
-      window.location.href = 'https://queuejoy.netlify.app/game.html';
+      // keep the queueId in querystring
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('queueId');
+      const url = q ? `game.html?queueId=${encodeURIComponent(q)}` : `game.html`;
+      window.location.href = url;
     });
 
     // listen ads
@@ -323,6 +332,18 @@
       return `${ahead} person${ahead>1?'s':''} — approx ${est} min`;
     }
 
+    // helper: show small connected confirmation
+    function handleConnectedUI(queueIdFriendly, counterLabel) {
+      // hide connect modal if open
+      try { bsSimpleModal.hide(); } catch(e){}
+      // show connected confirm modal briefly
+      connectedDetails.innerHTML = `🧾 Number • ${queueIdFriendly || 'TBD'} &nbsp; • &nbsp; 🪑 Counter • ${counterLabel || 'TBD'}`;
+      try { bsConnectedConfirm.show(); } catch(e){}
+      setTimeout(()=>{ try { bsConnectedConfirm.hide(); } catch(e){} }, 3000);
+      // update banner & notifications UI
+      setTelegramUIConnected(true);
+    }
+
     // load queue & counter listeners
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
@@ -334,8 +355,8 @@
       }
       currentQueueKey = queueKey;
 
-      // show modal immediately on page load (user asked)
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn. Only Telegram app receives background notifications.";
+      // show modal immediately on page load
+      simpleModalText.innerHTML = "Tap <strong>Connect via Telegram</strong> (opens new tab). Then press <strong>START</strong> in the Telegram app to link your number.";
       bsSimpleModal.show();
       triggerGenerateLink();
 
@@ -359,13 +380,13 @@
         // detect transition: newly connected
         const nowConnected = !!currentQueueData.telegramConnected;
         if (nowConnected && !prevConnected) {
-          // show connected confirmation modal briefly
-          // include a short message telling they can background and relax
+          // friendly queueId and counterName
           const prefix = String(queueId||'').match(/^[A-Za-z]*/)?.[0]||'';
           const numberOnly = String(queueId||'').replace(prefix,'') || '';
-          connectedDetails.innerHTML = `🧾 Number • ${prefix}${numberOnly} &nbsp; • &nbsp; 🪑 Counter • ${counterId || 'TBD'}`;
-          try { bsConnectedConfirm.show(); } catch(e) {}
-          setTimeout(()=> { try { bsConnectedConfirm.hide(); } catch(e){} }, 3000);
+          const queueFriendly = `${prefix}${numberOnly}`;
+          // read counter name (if already in db snapshot)
+          const counterLabel = currentQueueData.counterName || counterId || 'TBD';
+          handleConnectedUI(queueFriendly, counterLabel);
         }
 
         // attach counter details listener
@@ -413,13 +434,16 @@
               if (ahead === 0) {
                 indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
 
-                // If chatId known in db, server-side webhook expected to DM user when connected.
-                // Here we still trigger sendTelegram as fallback (admin CHAT_ID will also get a copy if set up server-side).
-                const body = currentQueueData && currentQueueData.chatId
-                  ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` }
-                  : { message: `🎟 It's now the customer's turn!\nQueue: ${currentQueueKey}` };
+                // Prefer server-side webhook to DM user. As a client-side fallback, send structured friendly fields
+                // so the sendTelegram function can craft a proper message (no internal push ID).
+                const friendlyQueueNumber = queueId || null;
+                const friendlyCounterName = (counterData && counterData.name) || counterId || null;
 
-                // fire-and-forget notify
+                const body = currentQueueData && currentQueueData.chatId
+                  ? { chatId: currentQueueData.chatId, queueNumber: friendlyQueueNumber, counterName: friendlyCounterName, copyAdmin: true }
+                  : { message: `🎟 It's now the customer's turn!`, copyAdmin: true };
+
+                // fire-and-forget notify (no blocking)
                 fetch(SEND_TELEGRAM_ENDPOINT, {
                   method:'POST',
                   headers:{ 'Content-Type':'application/json' },
@@ -429,7 +453,7 @@
                 // redirect client to your_turn page after short delay — only works if page is open
                 setTimeout(()=> {
                   try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
-                }, 1200);
+                }, 900);
 
               } else {
                 indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
