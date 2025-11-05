@@ -1,455 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy — Admin</title>
-
-  <!-- Tailwind CDN (dev) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .card { background: white; border-radius: 14px; box-shadow: 0 14px 40px rgba(10,10,20,0.06); }
-    .small { font-size: 0.85rem; }
-    .logo-preview { width:64px; height:64px; object-fit:cover; border-radius:10px; }
-    .telegram-preview { background:#f8fefc; border-radius:12px; padding:14px; border:1px solid rgba(2,6,23,0.04); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QueueJoy - Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .accent-blue { color: #0099ff; }
+    </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
+<body class="min-h-screen bg-gray-50 p-4 md:p-8">
+    <!-- Header Bar -->
+    <header class="flex items-center justify-between bg-white rounded-lg shadow p-4 mb-8">
+        <div class="text-xl font-bold accent-blue">QueueJoy</div>
+        <h1 class="text-xl font-semibold text-gray-800">Admin Panel</h1>
+        <div id="storeIdDisplay" class="text-gray-600">Store ID: Loading...</div>
+    </header>
 
-  <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-
-    <!-- Left column: Store settings -->
-    <div class="md:col-span-2 space-y-4">
-
-      <div class="card p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-800">Store Admin — Branding & Settings</h2>
-            <p class="small text-gray-500 mt-1">No API keys. Use your Store ID to manage announcements & branding.</p>
-          </div>
-          <div class="text-right small text-gray-500">QueueJoy — Admin</div>
-        </div>
-
-        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          <div>
-            <label class="block text-xs text-gray-600">Store ID</label>
-            <div class="mt-1 flex gap-2">
-              <input id="storeId" class="w-full px-3 py-2 rounded-lg border border-gray-200" placeholder="e.g. cafe-abc or store123" />
-              <button id="loadStoreBtn" class="px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Load</button>
-            </div>
-            <p class="small text-gray-400 mt-1">Provide the same Store ID used when issuing numbers (or pass ?storeId= in URL).</p>
-          </div>
-
-          <div>
-            <label class="block text-xs text-gray-600">Theme color</label>
-            <input id="themeColor" type="color" class="w-full h-10 p-0 rounded-lg border border-gray-200 mt-1"/>
-          </div>
-
-          <div>
-            <label class="block text-xs text-gray-600">Store name</label>
-            <input id="storeName" class="w-full px-3 py-2 rounded-lg border border-gray-200 mt-1" placeholder="Queue Joy — Branch A"/>
-          </div>
-
-          <div>
-            <label class="block text-xs text-gray-600">Welcome / intro text</label>
-            <input id="welcomeText" class="w-full px-3 py-2 rounded-lg border border-gray-200 mt-1" placeholder="Welcome! Scan QR or press Get My Number." />
-          </div>
-
-        </div>
-
-        <!-- logo upload -->
-        <div class="mt-4">
-          <label class="block text-xs text-gray-600">Logo (URL or upload)</label>
-          <div class="mt-2 flex gap-2 items-center">
-            <input id="logoUrl" class="flex-1 px-3 py-2 rounded-lg border border-gray-200" placeholder="https://... or leave blank" />
-            <input id="logoFile" type="file" accept="image/*" class="hidden" />
-            <button id="logoFileBtn" class="px-3 py-2 rounded-lg border border-gray-200">Choose</button>
-            <button id="saveSettingsBtn" class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold">Save</button>
-          </div>
-          <div class="mt-3 flex items-center gap-3">
-            <img id="logoPreview" class="logo-preview bg-gray-100" alt="logo preview" />
-            <div class="small text-gray-600">
-              <div id="storeNamePreview" class="font-semibold">—</div>
-              <div id="welcomePreview" class="text-gray-500">—</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Announcement composer -->
-      <div class="card p-6">
-        <div class="flex items-center justify-between">
-          <h3 class="font-semibold text-gray-800">Announcements</h3>
-          <div class="small text-gray-500">Send messages to your store's customers</div>
-        </div>
-
-        <div class="mt-4">
-          <label class="block text-xs text-gray-600">Message (keep short — Telegram DM)</label>
-          <textarea id="announcementText" rows="4" class="w-full mt-2 px-3 py-3 border border-gray-200 rounded-lg" placeholder="20% off today! Come grab a cup ☕"></textarea>
-
-          <div class="mt-3 flex gap-2">
-            <button id="previewBtn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Preview</button>
-            <button id="sendBtn" class="px-4 py-2 rounded-lg bg-purple-600 text-white font-semibold">Send Now</button>
-            <button id="saveDraftBtn" class="px-4 py-2 rounded-lg border border-gray-200">Save Draft</button>
-          </div>
-
-          <p id="sendHint" class="small text-gray-500 mt-2">Messages will be delivered via the QueueJoy bot to customers who connected to this store.</p>
-        </div>
-
-        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="p-4 bg-gray-50 rounded-lg">
-            <div class="small text-gray-600">Subscribers</div>
-            <div id="subscriberCount" class="text-2xl font-bold text-gray-800 mt-2">0</div>
-            <div class="small text-gray-400 mt-2">This reads from <code>stores/&lt;storeId&gt;/subscribers</code>.</div>
-          </div>
-
-          <div class="p-4 bg-gray-50 rounded-lg">
-            <div class="small text-gray-600">Announcement history</div>
-            <div id="historyList" class="mt-2 space-y-2 max-h-36 overflow-auto text-sm text-gray-700"></div>
-          </div>
-        </div>
-
-      </div>
-
+    <div id="noStoreWarning" class="hidden bg-yellow-100 border-yellow-400 text-yellow-700 p-4 rounded-lg mb-8">
+        ⚠️ No store ID found. Please access through your assigned QueueJoy link.
     </div>
 
-    <!-- Right column: Preview + quick actions -->
-    <aside class="space-y-4">
+    <main class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <!-- Left Column: Form & Preview -->
+        <div class="space-y-8">
+            <!-- Customization Form -->
+            <div class="bg-white rounded-2xl shadow p-6">
+                <form id="customForm" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">System Name</label>
+                        <input id="systemName" type="text" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400" placeholder="Padini Express">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Welcome Message</label>
+                        <textarea id="introText" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400" placeholder="Welcome to our queue system!"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Logo</label>
+                        <input id="logoUrl" type="text" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 mb-2" placeholder="https://example.com/logo.png">
+                        <input id="logoUpload" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
+                        <div id="logoPreview" class="mt-4 hidden">
+                            <img id="logoImg" src="" alt="Logo Preview" class="max-h-32 rounded-lg shadow">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 flex items-center justify-center gap-2">
+                        <span>✅ Save Changes</span>
+                    </button>
+                </form>
+                <p class="text-sm text-gray-500 mt-4">Your changes apply instantly to your queue system.</p>
+            </div>
 
-      <div class="card p-4">
-        <div class="flex items-center gap-3">
-          <img id="sideLogo" class="w-12 h-12 rounded-lg bg-gray-100" alt="logo" />
-          <div>
-            <div id="sideName" class="font-semibold text-gray-800">—</div>
-            <div id="sideIntro" class="text-sm text-gray-500">—</div>
-          </div>
+            <!-- Live Preview -->
+            <div class="bg-white rounded-2xl shadow p-6">
+                <h2 class="text-lg font-medium text-gray-800 mb-4">Live Preview</h2>
+                <div id="previewBox" class="border border-gray-200 rounded-lg p-4 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <img id="previewLogo" src="" alt="Logo" class="h-16 hidden">
+                        <h3 id="previewName" class="text-xl font-bold accent-blue">System Name</h3>
+                    </div>
+                    <p id="previewIntro" class="text-gray-600">Welcome message here.</p>
+                </div>
+            </div>
         </div>
 
-        <div class="mt-4">
-          <label class="small text-gray-600">Telegram preview</label>
-          <div id="telegramPreview" class="telegram-preview mt-2">
-            <div id="tgTitle" class="font-semibold text-gray-900">Hey 👋</div>
-            <div id="tgBody" class="text-gray-700 small mt-1">Sample announcement will appear here.</div>
-            <div id="tgFooter" class="text-xs text-gray-400 mt-3">QueueJoy • Instant customer messages</div>
-          </div>
-
-          <div class="mt-3 flex gap-2">
-            <button id="openPreviewInTab" class="flex-1 py-2 rounded-lg border border-gray-200">Open Preview</button>
-            <button id="downloadPreview" class="py-2 px-3 rounded-lg bg-gray-100">Download</button>
-          </div>
+        <!-- Right Column: Ads -->
+        <div class="bg-white rounded-2xl shadow p-6">
+            <h2 class="text-lg font-medium text-gray-800 mb-4">QueueJoy Updates & Upgrades</h2>
+            <div id="adsList" class="space-y-6"></div>
         </div>
-      </div>
+    </main>
 
-      <div class="card p-4">
-        <div class="small text-gray-600">Quick tools</div>
-        <div class="mt-3 grid grid-cols-1 gap-2">
-          <button id="refreshBtn" class="py-2 rounded-lg border border-gray-200">Refresh Store Data</button>
-          <button id="openQueuesBtn" class="py-2 rounded-lg border border-gray-200">Open Queue Dashboard</button>
-        </div>
-      </div>
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-sm text-gray-500">
+        Powered by QueueJoy • v1.0.0 • <a href="mailto:support@queuejoy.io" class="accent-blue hover:underline">Support</a>
+    </footer>
 
-    </aside>
-  </div>
+    <div id="saveToast" class="hidden fixed bottom-8 right-8 bg-green-500 text-white p-4 rounded-lg shadow-lg">✅ Settings saved successfully.</div>
 
-  <!-- Toast -->
-  <div id="toast" class="fixed bottom-6 right-6 hidden px-4 py-2 rounded-lg bg-black text-white"></div>
+    <!-- Firebase Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getDatabase, ref, onValue, set, get, push, child, update, remove
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+            authDomain: "queue-joy-aa21b.firebaseapp.com",
+            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "queue-joy-aa21b",
+            storageBucket: "queue-joy-aa21b.appspot.com",
+            messagingSenderId: "950240394209",
+            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+        };
 
-  // --- Same Firebase config as other pages ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-    authDomain: "queue-joy-aa21b.firebaseapp.com",
-    databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "queue-joy-aa21b",
-    storageBucket: "queue-joy-aa21b.appspot.com",
-    messagingSenderId: "950240394209",
-    appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-  };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const storage = getStorage(app);
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+        const urlParams = new URLSearchParams(window.location.search);
+        const storeId = urlParams.get('store');
 
-  // UI elements
-  const storeIdInput = document.getElementById('storeId');
-  const loadStoreBtn = document.getElementById('loadStoreBtn');
-  const storeNameInput = document.getElementById('storeName');
-  const welcomeInput = document.getElementById('welcomeText');
-  const logoUrlInput = document.getElementById('logoUrl');
-  const logoFileBtn = document.getElementById('logoFileBtn');
-  const logoFileInput = document.getElementById('logoFile');
-  const logoPreview = document.getElementById('logoPreview');
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-  const themeColorInput = document.getElementById('themeColor');
-
-  const announcementText = document.getElementById('announcementText');
-  const previewBtn = document.getElementById('previewBtn');
-  const sendBtn = document.getElementById('sendBtn');
-  const saveDraftBtn = document.getElementById('saveDraftBtn');
-
-  const subscriberCount = document.getElementById('subscriberCount');
-  const historyList = document.getElementById('historyList');
-
-  const tgTitle = document.getElementById('tgTitle');
-  const tgBody = document.getElementById('tgBody');
-  const tgFooter = document.getElementById('tgFooter');
-  const telegramPreview = document.getElementById('telegramPreview');
-
-  const sideLogo = document.getElementById('sideLogo');
-  const sideName = document.getElementById('sideName');
-  const sideIntro = document.getElementById('sideIntro');
-
-  const refreshBtn = document.getElementById('refreshBtn');
-  const openQueuesBtn = document.getElementById('openQueuesBtn');
-
-  const toastEl = document.getElementById('toast');
-
-  // endpoint your server should implement
-  const SEND_ANNOUNCEMENT_ENDPOINT = '/.netlify/functions/sendAnnouncement'; // POST { storeId, message }
-
-  // state
-  let currentStoreId = null;
-  let subscribersUnsub = null;
-  let historyUnsub = null;
-
-  function toast(msg, ms = 3000) {
-    toastEl.textContent = msg;
-    toastEl.classList.remove('hidden');
-    setTimeout(()=> toastEl.classList.add('hidden'), ms);
-  }
-
-  // load store by id
-  async function loadStore(storeId) {
-    if (!storeId) return toast('Store ID required');
-    currentStoreId = storeId;
-    storeIdInput.value = storeId;
-
-    // read settings
-    try {
-      const sSnap = await get(ref(db, `stores/${storeId}/settings`));
-      const settings = sSnap.exists() ? sSnap.val() : {};
-      storeNameInput.value = settings.name || '';
-      welcomeInput.value = settings.welcome || '';
-      logoUrlInput.value = settings.logoUrl || '';
-      themeColorInput.value = settings.themeColor || '#7c3aed';
-      // show preview
-      applyPreview(settings);
-    } catch (e) {
-      console.error('loadStore settings failed', e);
-      toast('Failed to load settings');
-    }
-
-    // subscribe to subscribers count live
-    try {
-      if (subscribersUnsub) subscribersUnsub();
-      const subRef = ref(db, `stores/${storeId}/subscribers`);
-      onValue(subRef, (snap) => {
-        const val = snap.exists() ? snap.val() : {};
-        const count = val && typeof val === 'object' ? Object.keys(val).length : 0;
-        subscriberCount.textContent = count;
-      });
-      subscribersUnsub = () => off(subRef);
-    } catch (e) {
-      console.warn('subscribers subscribe failed', e);
-    }
-
-    // load history
-    try {
-      const hRef = ref(db, `stores/${storeId}/announcements`);
-      const hSnap = await get(hRef);
-      historyList.innerHTML = '';
-      if (hSnap.exists()) {
-        const items = hSnap.val();
-        // convert map to sorted list
-        const arr = Object.entries(items).map(([k,v])=> ({ id:k, ...v }));
-        arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
-        for (const it of arr) {
-          const el = document.createElement('div');
-          el.className = 'p-2 rounded bg-white border border-gray-100 small';
-          el.innerHTML = `<div class="font-medium text-gray-800">${escapeHtml(it.message)}</div>
-                          <div class="text-xs text-gray-400 mt-1">${new Date(it.ts||0).toLocaleString()}</div>`;
-          historyList.appendChild(el);
+        if (!storeId) {
+            document.getElementById('noStoreWarning').classList.remove('hidden');
+            return;
         }
-      } else {
-        historyList.innerHTML = '<div class="text-sm text-gray-400">No announcements yet.</div>';
-      }
-    } catch (e) {
-      console.warn('history load failed', e);
-      historyList.innerHTML = '<div class="text-sm text-gray-400">Failed to load history.</div>';
-    }
-  }
 
-  // helper escape
-  function escapeHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/[&<>"']/g, (m)=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  }
+        document.getElementById('storeIdDisplay').textContent = `Store ID: ${storeId}`;
 
-  function applyPreview(settings = {}) {
-    const name = settings.name || storeNameInput.value || '—';
-    const welcome = settings.welcome || welcomeInput.value || '—';
-    const logo = settings.logoDataUrl || settings.logoUrl || logoUrlInput.value || '';
-    sideName.textContent = name;
-    sideIntro.textContent = welcome;
-    sideLogo.src = logo || '';
-    logoPreview.src = logo || '';
-    tgTitle.textContent = `Hey 👋`;
-    tgBody.textContent = `Sample announcement will appear here.`;
-    tgFooter.textContent = `${name} • QueueJoy`;
-    telegramPreview.style.borderColor = settings.themeColor || themeColorInput.value || '#7c3aed';
-  }
+        const settingsRef = ref(db, `stores/${storeId}/settings`);
+        const adsRef = ref(db, 'ads/active');
 
-  // Save settings
-  saveSettingsBtn.addEventListener('click', async () => {
-    if (!currentStoreId) return toast('Load a Store ID first');
-    const payload = {
-      name: storeNameInput.value.trim(),
-      welcome: welcomeInput.value.trim(),
-      logoUrl: logoUrlInput.value.trim(),
-      themeColor: themeColorInput.value
-    };
-    // If a logoDataUrl is set on preview, write it as well
-    if (logoPreview.src && logoPreview.src.startsWith('data:')) {
-      payload.logoDataUrl = logoPreview.src;
-    }
-    try {
-      await set(ref(db, `stores/${currentStoreId}/settings`), payload);
-      toast('Settings saved');
-      applyPreview(payload);
-    } catch (e) {
-      console.error('save settings failed', e);
-      toast('Save failed');
-    }
-  });
+        // Load settings
+        get(settingsRef).then(snap => {
+            if (snap.exists()) {
+                const data = snap.val();
+                document.getElementById('systemName').value = data.systemName || '';
+                document.getElementById('introText').value = data.introText || '';
+                document.getElementById('logoUrl').value = data.logoUrl || '';
+                updatePreview(data);
+            }
+        });
 
-  // Logo file upload -> convert to dataURL and preview
-  logoFileBtn.addEventListener('click', () => logoFileInput.click());
-  logoFileInput.addEventListener('change', async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (!f.type.startsWith('image/')) return toast('Select an image file');
-    const fr = new FileReader();
-    fr.onload = () => {
-      logoPreview.src = fr.result;
-      sideLogo.src = fr.result;
-    };
-    fr.readAsDataURL(f);
-  });
+        // Load ads
+        get(adsRef).then(snap => {
+            if (snap.exists()) {
+                const ads = snap.val();
+                const adsList = document.getElementById('adsList');
+                ads.forEach(ad => {
+                    const adDiv = document.createElement('div');
+                    adDiv.className = 'space-y-2 border-b pb-4 last:border-0';
+                    adDiv.innerHTML = `
+                        <img src="${ad.image}" alt="${ad.title}" class="w-full rounded-lg">
+                        <h3 class="font-semibold">${ad.title}</h3>
+                        <p class="text-sm text-gray-600">${ad.message}</p>
+                        <a href="${ad.link}" class="inline-block py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Upgrade Now</a>
+                    `;
+                    adsList.appendChild(adDiv);
+                });
+            }
+        });
 
-  // when user pastes logo URL, preview it
-  logoUrlInput.addEventListener('blur', () => {
-    logoPreview.src = logoUrlInput.value || '';
-    sideLogo.src = logoUrlInput.value || '';
-  });
+        // Form submit
+        document.getElementById('customForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const systemName = document.getElementById('systemName').value.trim();
+            const introText = document.getElementById('introText').value.trim();
+            let logoUrl = document.getElementById('logoUrl').value.trim();
 
-  // Send announcement: calls serverless endpoint and writes history
-  sendBtn.addEventListener('click', async () => {
-    if (!currentStoreId) return toast('Load a Store ID first');
-    const message = announcementText.value.trim();
-    if (!message) return toast('Message is empty');
+            if (!systemName || !introText) return alert('Please fill required fields.');
 
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
+            if (document.getElementById('logoUpload').files[0]) {
+                const file = document.getElementById('logoUpload').files[0];
+                const logoRef = sRef(storage, `stores/${storeId}/logo_${Date.now()}`);
+                await uploadBytes(logoRef, file);
+                logoUrl = await getDownloadURL(logoRef);
+            }
 
-    try {
-      // call serverless function
-      const res = await fetch(SEND_ANNOUNCEMENT_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId: currentStoreId, message })
-      });
+            const updates = { systemName, introText, logoUrl, updatedAt: Date.now() };
+            await update(settingsRef, updates);
+            updatePreview(updates);
+            showToast();
+        });
 
-      const j = await res.json().catch(()=>null);
-      if (!res.ok) {
-        console.error('send failed', res.status, j);
-        toast('Send failed — check server logs');
-      } else {
-        toast('Announcement queued to server');
-        // write history record
-        const recRef = push(ref(db, `stores/${currentStoreId}/announcements`));
-        await set(recRef, { message, ts: Date.now() });
-        // update local UI history immediately
-        const el = document.createElement('div');
-        el.className = 'p-2 rounded bg-white border border-gray-100 small';
-        el.innerHTML = `<div class="font-medium text-gray-800">${escapeHtml(message)}</div>
-                        <div class="text-xs text-gray-400 mt-1">${new Date().toLocaleString()}</div>`;
-        historyList.prepend(el);
-      }
-    } catch (e) {
-      console.error('send error', e);
-      toast('Send failed — network error');
-    } finally {
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send Now';
-    }
-  });
+        function updatePreview(data) {
+            document.getElementById('previewName').textContent = data.systemName || 'System Name';
+            document.getElementById('previewIntro').textContent = data.introText || 'Welcome message here.';
+            const previewLogo = document.getElementById('previewLogo');
+            if (data.logoUrl) {
+                previewLogo.src = data.logoUrl;
+                previewLogo.classList.remove('hidden');
+            } else {
+                previewLogo.classList.add('hidden');
+            }
+            const logoImg = document.getElementById('logoImg');
+            if (data.logoUrl) {
+                logoImg.src = data.logoUrl;
+                document.getElementById('logoPreview').classList.remove('hidden');
+            }
+        }
 
-  // Preview announcement locally
-  previewBtn.addEventListener('click', () => {
-    const msg = announcementText.value.trim() || 'Your announcement preview';
-    tgTitle.textContent = 'Hey 👋';
-    tgBody.textContent = msg;
-    tgFooter.textContent = `${storeNameInput.value || 'Store'} • QueueJoy`;
-    // open preview drawer focus
-    telegramPreview.scrollIntoView({ behavior: 'smooth' });
-  });
-
-  // Save draft locally in localStorage
-  saveDraftBtn.addEventListener('click', () => {
-    const key = `jq_draft_${currentStoreId||'global'}`;
-    localStorage.setItem(key, announcementText.value || '');
-    toast('Draft saved locally');
-  });
-
-  // Load saved draft if present when loadStore
-  async function loadDraft() {
-    const key = `jq_draft_${currentStoreId||'global'}`;
-    const v = localStorage.getItem(key) || '';
-    if (v) announcementText.value = v;
-  }
-
-  // Load/store events
-  loadStoreBtn.addEventListener('click', () => {
-    const id = storeIdInput.value.trim();
-    if (!id) return toast('Enter Store ID');
-    loadStore(id).then(loadDraft);
-  });
-
-  // quick refresh
-  refreshBtn.addEventListener('click', () => {
-    if (!currentStoreId) return toast('Load Store first');
-    loadStore(currentStoreId);
-    toast('Refreshed');
-  });
-
-  // open queues / management (assume admin path)
-  openQueuesBtn.addEventListener('click', () => {
-    if (!currentStoreId) return toast('Load Store first');
-    window.open(`admin-counters.html?storeId=${encodeURIComponent(currentStoreId)}`, '_blank');
-  });
-
-  // auto-load if ?storeId= present
-  (function autoLoadFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('storeId');
-    if (id) {
-      loadStore(id).then(loadDraft);
-    }
-  })();
-
-  // small cleanup to unsubscribe refs (not exhaustive)
-  window.addEventListener('beforeunload', () => {
-    try { if (subscribersUnsub) subscribersUnsub(); if (historyUnsub) historyUnsub(); } catch(_) {}
-  });
-</script>
+        function showToast() {
+            const toast = document.getElementById('saveToast');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+    </script>
 </body>
 </html>
