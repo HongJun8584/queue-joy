@@ -1,193 +1,469 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QueueJoy - Admin Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .accent-blue { color: #0099ff; }
-    </style>
-</head>
-<body class="min-h-screen bg-gray-50 p-4 md:p-8">
-    <!-- Header Bar -->
-    <header class="flex items-center justify-between bg-white rounded-lg shadow p-4 mb-8">
-        <div class="text-xl font-bold accent-blue">QueueJoy</div>
-        <h1 class="text-xl font-semibold text-gray-800">Admin Panel</h1>
-        <div id="storeIdDisplay" class="text-gray-600">Store ID: Loading...</div>
-    </header>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QueueJoy — Admin</title>
 
-    <div id="noStoreWarning" class="hidden bg-yellow-100 border-yellow-400 text-yellow-700 p-4 rounded-lg mb-8">
-        ⚠️ No store ID found. Please access through your assigned QueueJoy link.
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .card { border-radius: 12px; box-shadow: 0 12px 40px rgba(10,10,30,0.06); background:white; }
+    .small-muted { font-size:13px; color:#6b7280; }
+    .hidden { display:none; }
+    img.preview { max-height:80px; object-fit:cover; border-radius:8px; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
+  <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- left: admin form -->
+    <div class="card p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-2">Store Admin</h2>
+      <p class="small-muted mb-4">Customize your store page (live updates). All changes are saved to QueueJoy and reflect immediately on your public URL.</p>
+
+      <div id="alert" class="hidden p-3 rounded-md mb-4"></div>
+
+      <div class="space-y-4">
+        <!-- slug / info -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Store slug (URL)</label>
+          <div class="mt-1 flex gap-2">
+            <input id="slugInput" class="w-full px-3 py-2 border rounded-md" />
+            <button id="saveSlugBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md">Save</button>
+          </div>
+          <p class="small-muted mt-1">Public URL: <span id="publicUrl" class="font-medium text-indigo-600"></span></p>
+        </div>
+
+        <!-- Business name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Business name</label>
+          <input id="businessName" class="mt-1 block w-full px-3 py-2 border rounded-md" placeholder="e.g. Coffee Lab" />
+        </div>
+
+        <!-- Welcome text -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Welcome message (intro)</label>
+          <textarea id="welcomeText" rows="3" class="mt-1 block w-full px-3 py-2 border rounded-md" placeholder="Welcome to our shop!"></textarea>
+        </div>
+
+        <!-- Logo upload -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Logo</label>
+          <div class="mt-2 flex items-center gap-3">
+            <img id="logoPreview" alt="logo" class="preview border" src="" />
+            <div class="flex-1">
+              <input id="logoFile" type="file" accept="image/*" />
+              <p class="small-muted mt-1">PNG/JPG recommended. Will upload to Firebase Storage and saved to settings.logo</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ads image -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Ad image</label>
+          <div class="mt-2 flex items-center gap-3">
+            <img id="adPreview" alt="ad" class="preview border" src="" />
+            <div class="flex-1">
+              <input id="adFile" type="file" accept="image/*" />
+              <p class="small-muted mt-1">Optional: shown in the ad panel on the public page. Upload an image to replace current ad.</p>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="block text-sm font-medium text-gray-700">Ad text (optional)</label>
+            <input id="adText" class="mt-1 block w-full px-3 py-2 border rounded-md" placeholder="Advertisement or promo text" />
+          </div>
+        </div>
+
+        <!-- Save settings -->
+        <div class="flex gap-2">
+          <button id="saveBtn" class="px-5 py-2 bg-green-600 text-white rounded-md font-semibold">Save Settings</button>
+          <button id="resetBtn" class="px-4 py-2 border rounded-md">Reset (reload)</button>
+        </div>
+
+        <hr />
+
+        <!-- Telegram announcement -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-800 mb-2">Telegram Announcement</h3>
+          <p class="small-muted mb-2">Send a message to your customers. This triggers a server-side broadcast — the client does not store or record Telegram customer IDs.</p>
+          <textarea id="announceMessage" rows="4" class="w-full px-3 py-2 border rounded-md" placeholder="Type your announcement..."></textarea>
+          <div class="flex items-center gap-2 mt-3">
+            <label class="inline-flex items-center">
+              <input id="sendModeChannel" type="radio" name="target" class="mr-2" checked />
+              <span class="small-muted">Post to store channel/group (chat)</span>
+            </label>
+            <label class="inline-flex items-center ml-4">
+              <input id="sendModeRegistered" type="radio" name="target" class="mr-2" />
+              <span class="small-muted">Send to registered customers (server-side list)</span>
+            </label>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <button id="sendAnnounceBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md">Send Announcement</button>
+            <button id="previewBtn" class="px-4 py-2 border rounded-md">Preview</button>
+            <div id="announceSpinner" class="hidden"><span class="small-muted"> Sending…</span></div>
+          </div>
+          <p id="announceResult" class="mt-2 small-muted"></p>
+        </div>
+      </div>
     </div>
 
-    <main class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
-        <!-- Left Column: Form & Preview -->
-        <div class="space-y-8">
-            <!-- Customization Form -->
-            <div class="bg-white rounded-2xl shadow p-6">
-                <form id="customForm" class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">System Name</label>
-                        <input id="systemName" type="text" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400" placeholder="Padini Express">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Welcome Message</label>
-                        <textarea id="introText" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400" placeholder="Welcome to our queue system!"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Logo</label>
-                        <input id="logoUrl" type="text" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 mb-2" placeholder="https://example.com/logo.png">
-                        <input id="logoUpload" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
-                        <div id="logoPreview" class="mt-4 hidden">
-                            <img id="logoImg" src="" alt="Logo Preview" class="max-h-32 rounded-lg shadow">
-                        </div>
-                    </div>
-                    <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700 flex items-center justify-center gap-2">
-                        <span>✅ Save Changes</span>
-                    </button>
-                </form>
-                <p class="text-sm text-gray-500 mt-4">Your changes apply instantly to your queue system.</p>
-            </div>
+    <!-- right: live preview -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800">Live Preview</h2>
+          <p class="small-muted">This mirrors what your customers see on the public page.</p>
+        </div>
+        <div>
+          <a id="openPublicBtn" target="_blank" class="px-3 py-2 bg-indigo-600 text-white rounded-md">Open Public</a>
+        </div>
+      </div>
 
-            <!-- Live Preview -->
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h2 class="text-lg font-medium text-gray-800 mb-4">Live Preview</h2>
-                <div id="previewBox" class="border border-gray-200 rounded-lg p-4 space-y-4">
-                    <div class="flex items-center gap-4">
-                        <img id="previewLogo" src="" alt="Logo" class="h-16 hidden">
-                        <h3 id="previewName" class="text-xl font-bold accent-blue">System Name</h3>
-                    </div>
-                    <p id="previewIntro" class="text-gray-600">Welcome message here.</p>
-                </div>
-            </div>
+      <div class="border rounded-lg p-4 bg-gray-50">
+        <div class="flex items-center gap-4">
+          <img id="pvLogo" class="w-16 h-16 rounded-lg object-cover border" src="" alt="logo" />
+          <div>
+            <div id="pvName" class="text-xl font-bold text-gray-800">—</div>
+            <div id="pvIntro" class="small-muted">—</div>
+          </div>
         </div>
 
-        <!-- Right Column: Ads -->
-        <div class="bg-white rounded-2xl shadow p-6">
-            <h2 class="text-lg font-medium text-gray-800 mb-4">QueueJoy Updates & Upgrades</h2>
-            <div id="adsList" class="space-y-6"></div>
+        <div class="mt-4">
+          <div class="bg-white rounded-md p-4">
+            <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-md">🎫 Get My Number</button>
+            <p class="small-muted mt-2">This button is only a preview. The real page allows customers to join the queue.</p>
+          </div>
+
+          <div class="mt-3">
+            <p class="small-muted mb-2">Advertisement</p>
+            <div class="bg-white rounded-md p-3 flex items-center gap-3">
+              <img id="pvAd" class="w-24 h-16 object-cover rounded-md border" src="" alt="ad preview" />
+              <div>
+                <div id="pvAdText" class="font-medium text-gray-800">No ad</div>
+              </div>
+            </div>
+          </div>
         </div>
-    </main>
+      </div>
 
-    <!-- Footer -->
-    <footer class="mt-8 text-center text-sm text-gray-500">
-        Powered by QueueJoy • v1.0.0 • <a href="mailto:support@queuejoy.io" class="accent-blue hover:underline">Support</a>
-    </footer>
+      <div class="mt-6 small-muted">
+        <strong>Note:</strong> When you press <em>Send Announcement</em>, the frontend calls your centralized server function to broadcast messages for this store. The frontend does not collect or store Telegram chat IDs.
+      </div>
+    </div>
+  </div>
 
-    <div id="saveToast" class="hidden fixed bottom-8 right-8 bg-green-500 text-white p-4 rounded-lg shadow-lg">✅ Settings saved successfully.</div>
+  <!-- Firebase + logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getDatabase, ref as dbRef, set, get, onValue, child
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import {
+      getStorage, ref as storageRef, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-    <!-- Firebase Script -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-        import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+    // Firebase config (same as your index.html)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.appspot.com",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-            authDomain: "queue-joy-aa21b.firebaseapp.com",
-            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "queue-joy-aa21b",
-            storageBucket: "queue-joy-aa21b.appspot.com",
-            messagingSenderId: "950240394209",
-            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const storage = getStorage(app);
+
+    // endpoints
+    const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram'; // centralized function
+
+    // DOM
+    const slugInput = document.getElementById('slugInput');
+    const saveSlugBtn = document.getElementById('saveSlugBtn');
+    const publicUrlEl = document.getElementById('publicUrl');
+
+    const businessNameEl = document.getElementById('businessName');
+    const welcomeTextEl = document.getElementById('welcomeText');
+
+    const logoFileEl = document.getElementById('logoFile');
+    const logoPreview = document.getElementById('logoPreview');
+
+    const adFileEl = document.getElementById('adFile');
+    const adPreview = document.getElementById('adPreview');
+    const adTextEl = document.getElementById('adText');
+
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const alertBox = document.getElementById('alert');
+
+    const pvLogo = document.getElementById('pvLogo');
+    const pvName = document.getElementById('pvName');
+    const pvIntro = document.getElementById('pvIntro');
+    const pvAd = document.getElementById('pvAd');
+    const pvAdText = document.getElementById('pvAdText');
+    const openPublicBtn = document.getElementById('openPublicBtn');
+
+    const announceMessageEl = document.getElementById('announceMessage');
+    const sendAnnounceBtn = document.getElementById('sendAnnounceBtn');
+    const announceSpinner = document.getElementById('announceSpinner');
+    const announceResult = document.getElementById('announceResult');
+    const previewBtn = document.getElementById('previewBtn');
+
+    const sendModeChannel = document.getElementById('sendModeChannel'); // post to chat
+    const sendModeRegistered = document.getElementById('sendModeRegistered'); // server-side customers
+
+    // util
+    function showAlert(msg, type = 'success') {
+      alertBox.classList.remove('hidden');
+      alertBox.textContent = msg;
+      alertBox.style.background = (type === 'error') ? '#fee2e2' : '#ecfdf5';
+      alertBox.style.color = (type === 'error') ? '#b91c1c' : '#065f46';
+      setTimeout(() => alertBox.classList.add('hidden'), 4000);
+    }
+
+    function q(sel) { return document.querySelector(sel); }
+
+    // get slug from querystring, fallback to input
+    const params = new URLSearchParams(window.location.search);
+    let slug = (params.get('business') || params.get('slug') || '').trim();
+
+    if (!slug) {
+      // allow quick default for testing
+      slug = '';
+    }
+
+    slugInput.value = slug;
+    setPublicUrl();
+
+    // helper: build DB paths namespaced by slug
+    function pathFor(key) {
+      if (!slug) {
+        // fallback global settings when no slug provided
+        return `settings/${key}`;
+      }
+      return `businesses/${slug}/settings/${key}`;
+    }
+
+    // set public url display
+    function setPublicUrl() {
+      publicUrlEl.textContent = slug ? `${location.origin}/${slug}` : 'Not set — choose slug and save';
+      openPublicBtn.href = slug ? `${location.origin}/${slug}` : '#';
+    }
+
+    // load current settings (realtime)
+    function attachRealtimeListeners() {
+      // name
+      const nameRef = dbRef(db, pathFor('name'));
+      onValue(nameRef, snap => {
+        if (snap.exists()) {
+          const v = snap.val();
+          businessNameEl.value = v;
+          pvName.textContent = v;
+        } else {
+          pvName.textContent = '—';
+        }
+      });
+
+      // welcome / intro text
+      const introRef = dbRef(db, pathFor('introText'));
+      onValue(introRef, snap => {
+        const v = snap.exists() ? snap.val() : '';
+        welcomeTextEl.value = v;
+        pvIntro.textContent = v || 'Real-time queueing system. Mobile-friendly. No app needed.';
+      });
+
+      // logo
+      const logoRef = dbRef(db, pathFor('logo'));
+      onValue(logoRef, snap => {
+        const v = snap.exists() ? snap.val() : '';
+        logoPreview.src = v || '';
+        pvLogo.src = v || '';
+        if (!v) { logoPreview.style.display = 'none'; pvLogo.style.display = 'none'; }
+        else { logoPreview.style.display = 'block'; pvLogo.style.display = 'block'; }
+      });
+
+      // ad image
+      const adRef = dbRef(db, pathFor('adImage'));
+      onValue(adRef, snap => {
+        const v = snap.exists() ? snap.val() : '';
+        adPreview.src = v || '';
+        pvAd.src = v || '';
+        if (!v) { adPreview.style.display = 'none'; pvAd.style.display = 'none'; }
+        else { adPreview.style.display = 'block'; pvAd.style.display = 'block'; }
+      });
+
+      // ad text
+      const adTextRef = dbRef(db, pathFor('adText'));
+      onValue(adTextRef, snap => {
+        const v = snap.exists() ? snap.val() : '';
+        adTextEl.value = v || '';
+        pvAdText.textContent = v || 'No ad';
+      });
+    }
+
+    attachRealtimeListeners();
+
+    // Save slug button behavior
+    saveSlugBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const newSlug = (slugInput.value || '').trim().toLowerCase().replace(/[^a-z0-9\-]/g, '-');
+      if (!newSlug) return showAlert('Slug cannot be empty', 'error');
+      slug = newSlug;
+      setPublicUrl();
+      showAlert('Slug set. Now press Save Settings to create or update store.');
+    });
+
+    // upload helper: returns public URL
+    async function uploadImageAndGetUrl(file, destPath) {
+      if (!file) return null;
+      const storageReference = storageRef(storage, destPath);
+      const ba = await file.arrayBuffer();
+      const arr = new Uint8Array(ba);
+      await uploadBytes(storageReference, arr, { contentType: file.type });
+      const url = await getDownloadURL(storageReference);
+      return url;
+    }
+
+    // Save settings
+    saveBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!slug) return showAlert('Choose slug first', 'error');
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      try {
+        // 1) if logo file selected, upload
+        const logoFile = logoFileEl.files && logoFileEl.files[0];
+        if (logoFile) {
+          const dest = `logos/${slug}-${Date.now()}-${logoFile.name}`;
+          const url = await uploadImageAndGetUrl(logoFile, dest);
+          if (url) await set(dbRef(db, pathFor('logo')), url);
+        }
+
+        // 2) if ad file selected, upload
+        const adFile = adFileEl.files && adFileEl.files[0];
+        if (adFile) {
+          const dest = `ads/${slug}-${Date.now()}-${adFile.name}`;
+          const url = await uploadImageAndGetUrl(adFile, dest);
+          if (url) await set(dbRef(db, pathFor('adImage')), url);
+        }
+
+        // 3) write simple fields
+        await set(dbRef(db, pathFor('name')), businessNameEl.value || '');
+        await set(dbRef(db, pathFor('introText')), welcomeTextEl.value || '');
+        await set(dbRef(db, pathFor('adText')), adTextEl.value || '');
+
+        showAlert('Settings saved');
+      } catch (err) {
+        console.error(err);
+        showAlert('Save failed: ' + (err && err.message ? err.message : ''), 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Settings';
+      }
+    });
+
+    resetBtn.addEventListener('click', () => location.reload());
+
+    // Preview button
+    previewBtn.addEventListener('click', () => {
+      pvName.textContent = businessNameEl.value || pvName.textContent;
+      pvIntro.textContent = welcomeTextEl.value || pvIntro.textContent;
+      pvAdText.textContent = adTextEl.value || pvAdText.textContent;
+      // if user selected new images but hasn't saved, show them locally
+      const lf = logoFileEl.files && logoFileEl.files[0];
+      if (lf) {
+        const url = URL.createObjectURL(lf);
+        logoPreview.src = url; logoPreview.style.display = 'block'; pvLogo.src = url; pvLogo.style.display = 'block';
+      }
+      const af = adFileEl.files && adFileEl.files[0];
+      if (af) {
+        const url = URL.createObjectURL(af);
+        adPreview.src = url; adPreview.style.display = 'block'; pvAd.src = url; pvAd.style.display = 'block';
+      }
+      showAlert('Preview updated (not yet saved)');
+    });
+
+    // Send announcement
+    sendAnnounceBtn.addEventListener('click', async () => {
+      const message = (announceMessageEl.value || '').trim();
+      if (!message) {
+        announceResult.textContent = 'Message cannot be empty';
+        announceResult.style.color = '#b91c1c';
+        return;
+      }
+      if (!slug) {
+        announceResult.textContent = 'Set slug first';
+        announceResult.style.color = '#b91c1c';
+        return;
+      }
+
+      announceSpinner.classList.remove('hidden');
+      sendAnnounceBtn.disabled = true;
+      announceResult.textContent = '';
+
+      const mode = sendModeRegistered.checked ? 'registered' : 'channel';
+
+      try {
+        const payload = {
+          business: slug,
+          message,
+          mode // backend decides how to deliver
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const storage = getStorage(app);
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const storeId = urlParams.get('store');
-
-        if (!storeId) {
-            document.getElementById('noStoreWarning').classList.remove('hidden');
-            return;
-        }
-
-        document.getElementById('storeIdDisplay').textContent = `Store ID: ${storeId}`;
-
-        const settingsRef = ref(db, `stores/${storeId}/settings`);
-        const adsRef = ref(db, 'ads/active');
-
-        // Load settings
-        get(settingsRef).then(snap => {
-            if (snap.exists()) {
-                const data = snap.val();
-                document.getElementById('systemName').value = data.systemName || '';
-                document.getElementById('introText').value = data.introText || '';
-                document.getElementById('logoUrl').value = data.logoUrl || '';
-                updatePreview(data);
-            }
+        const res = await fetch(SEND_TELEGRAM_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
 
-        // Load ads
-        get(adsRef).then(snap => {
-            if (snap.exists()) {
-                const ads = snap.val();
-                const adsList = document.getElementById('adsList');
-                ads.forEach(ad => {
-                    const adDiv = document.createElement('div');
-                    adDiv.className = 'space-y-2 border-b pb-4 last:border-0';
-                    adDiv.innerHTML = `
-                        <img src="${ad.image}" alt="${ad.title}" class="w-full rounded-lg">
-                        <h3 class="font-semibold">${ad.title}</h3>
-                        <p class="text-sm text-gray-600">${ad.message}</p>
-                        <a href="${ad.link}" class="inline-block py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Upgrade Now</a>
-                    `;
-                    adsList.appendChild(adDiv);
-                });
-            }
-        });
+        const j = await res.json().catch(()=>({ ok:false }));
 
-        // Form submit
-        document.getElementById('customForm').addEventListener('submit', async e => {
-            e.preventDefault();
-            const systemName = document.getElementById('systemName').value.trim();
-            const introText = document.getElementById('introText').value.trim();
-            let logoUrl = document.getElementById('logoUrl').value.trim();
-
-            if (!systemName || !introText) return alert('Please fill required fields.');
-
-            if (document.getElementById('logoUpload').files[0]) {
-                const file = document.getElementById('logoUpload').files[0];
-                const logoRef = sRef(storage, `stores/${storeId}/logo_${Date.now()}`);
-                await uploadBytes(logoRef, file);
-                logoUrl = await getDownloadURL(logoRef);
-            }
-
-            const updates = { systemName, introText, logoUrl, updatedAt: Date.now() };
-            await update(settingsRef, updates);
-            updatePreview(updates);
-            showToast();
-        });
-
-        function updatePreview(data) {
-            document.getElementById('previewName').textContent = data.systemName || 'System Name';
-            document.getElementById('previewIntro').textContent = data.introText || 'Welcome message here.';
-            const previewLogo = document.getElementById('previewLogo');
-            if (data.logoUrl) {
-                previewLogo.src = data.logoUrl;
-                previewLogo.classList.remove('hidden');
-            } else {
-                previewLogo.classList.add('hidden');
-            }
-            const logoImg = document.getElementById('logoImg');
-            if (data.logoUrl) {
-                logoImg.src = data.logoUrl;
-                document.getElementById('logoPreview').classList.remove('hidden');
-            }
+        if (res.ok) {
+          announceResult.style.color = '#065f46';
+          announceResult.textContent = (j && j.message) ? j.message : 'Announcement queued/sent';
+        } else {
+          announceResult.style.color = '#b91c1c';
+          announceResult.textContent = (j && j.error) ? (j.error) : `Send failed (${res.status})`;
         }
+      } catch (err) {
+        console.error(err);
+        announceResult.style.color = '#b91c1c';
+        announceResult.textContent = 'Network error sending announcement';
+      } finally {
+        announceSpinner.classList.add('hidden');
+        sendAnnounceBtn.disabled = false;
+      }
+    });
 
-        function showToast() {
-            const toast = document.getElementById('saveToast');
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
-    </script>
+    // small UX: show filename previews for chosen files
+    logoFileEl.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) { logoPreview.src = URL.createObjectURL(f); logoPreview.style.display = 'block'; }
+    });
+    adFileEl.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) { adPreview.src = URL.createObjectURL(f); adPreview.style.display = 'block'; }
+    });
+
+    // On load: if slug present, set and attach listeners (already attached). If no slug, keep input open.
+    (async function init() {
+      if (slug) {
+        slugInput.value = slug;
+        setPublicUrl();
+        showAlert('Editing: ' + slug);
+      } else {
+        showAlert('No slug chosen — set slug then Save Settings to activate store', 'error');
+      }
+    })();
+
+  </script>
 </body>
 </html>
