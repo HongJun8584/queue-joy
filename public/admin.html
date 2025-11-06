@@ -2,170 +2,194 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>QueueJoy — Admin</title>
 
-  <!-- Tailwind -->
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .card { border-radius: 12px; box-shadow: 0 12px 40px rgba(10,10,30,0.06); background:white; }
-    .small-muted { font-size:13px; color:#6b7280; }
+    :root {
+      --muted: #6b7280;
+      --accent-from: #7c3aed;
+      --accent-to: #06b6d4;
+    }
+    html,body { height:100%; }
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: linear-gradient(180deg,#f0f9ff 0,#f5f3ff 100%); -webkit-font-smoothing:antialiased; }
+    .card { background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(10,10,30,0.06); }
+    .small { font-size:13px; color:var(--muted); }
     .hidden { display:none; }
-    img.preview { max-height:80px; object-fit:cover; border-radius:8px; }
+    .safe-pad { padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+    input[type=file] { display:block; }
+    .btn-primary { background: linear-gradient(90deg,var(--accent-from),var(--accent-to)); color:#fff; }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
-  <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- left: admin form -->
-    <div class="card p-6">
-      <h2 class="text-xl font-semibold text-gray-800 mb-2">Store Admin</h2>
-      <p class="small-muted mb-4">Customize your store page (live updates). All changes are saved to QueueJoy and reflect immediately on your public URL.</p>
+<body class="safe-pad p-4">
+  <div class="max-w-3xl mx-auto space-y-4">
 
-      <div id="alert" class="hidden p-3 rounded-md mb-4"></div>
-
-      <div class="space-y-4">
-        <!-- slug / info -->
+    <!-- Header -->
+    <header class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
         <div>
-          <label class="block text-sm font-medium text-gray-700">Store slug (URL)</label>
-          <div class="mt-1 flex gap-2">
-            <input id="slugInput" class="w-full px-3 py-2 border rounded-md" />
-            <button id="saveSlugBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md">Save</button>
+          <div class="text-lg font-semibold text-slate-900">QueueJoy — Admin</div>
+          <div class="small">Store settings · Live preview · Announce to customers</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a id="openPublic" href="#" target="_blank" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg btn-primary shadow-sm text-sm">
+          Open public
+        </a>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- Controls (left) -->
+      <section class="card p-4 space-y-4">
+
+        <!-- Slug -->
+        <div>
+          <label class="text-xs text-slate-600">Store slug (public URL)</label>
+          <div class="mt-2 flex gap-2">
+            <input id="slugInput" class="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm" placeholder="your-store" />
+            <button id="applySlugBtn" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm">Apply</button>
           </div>
-          <p class="small-muted mt-1">Public URL: <span id="publicUrl" class="font-medium text-indigo-600"></span></p>
+          <p class="small mt-1">Public: <span id="publicUrl" class="font-medium text-indigo-600">—</span></p>
         </div>
 
-        <!-- Business name -->
+        <!-- Name -->
         <div>
-          <label class="block text-sm font-medium text-gray-700">Business name</label>
-          <input id="businessName" class="mt-1 block w-full px-3 py-2 border rounded-md" placeholder="e.g. Coffee Lab" />
+          <label class="text-xs text-slate-600">Business name</label>
+          <input id="businessName" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm" placeholder="Coffee Lab" />
         </div>
 
         <!-- Welcome text -->
         <div>
-          <label class="block text-sm font-medium text-gray-700">Welcome message (intro)</label>
-          <textarea id="welcomeText" rows="3" class="mt-1 block w-full px-3 py-2 border rounded-md" placeholder="Welcome to our shop!"></textarea>
+          <label class="text-xs text-slate-600">Welcome / intro text</label>
+          <input id="introText" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm" placeholder="Welcome… (appears on public page)" />
         </div>
 
-        <!-- Logo upload -->
+        <!-- Logo -->
         <div>
-          <label class="block text-sm font-medium text-gray-700">Logo</label>
+          <label class="text-xs text-slate-600">Logo</label>
           <div class="mt-2 flex items-center gap-3">
-            <img id="logoPreview" alt="logo" class="preview border" src="" />
+            <img id="logoPreview" class="w-16 h-16 rounded-md object-cover border hidden" src="" alt="logo preview" />
             <div class="flex-1">
-              <input id="logoFile" type="file" accept="image/*" />
-              <p class="small-muted mt-1">PNG/JPG recommended. Will upload to Firebase Storage and saved to settings.logo</p>
+              <input id="logoUpload" type="file" accept="image/*" class="text-sm text-slate-600" />
+              <p class="small mt-1">PNG/JPG recommended. Saved as base64 to DB for instant preview compatibility.</p>
             </div>
           </div>
         </div>
 
-        <!-- Ads image -->
+        <!-- Advertisement -->
         <div>
-          <label class="block text-sm font-medium text-gray-700">Ad image</label>
-          <div class="mt-2 flex items-center gap-3">
-            <img id="adPreview" alt="ad" class="preview border" src="" />
+          <label class="text-xs text-slate-600">Advertisement image</label>
+          <div class="mt-2 flex items-start gap-3">
+            <img id="adPreview" class="w-28 h-16 rounded-md object-cover border hidden" src="" alt="ad preview" />
             <div class="flex-1">
-              <input id="adFile" type="file" accept="image/*" />
-              <p class="small-muted mt-1">Optional: shown in the ad panel on the public page. Upload an image to replace current ad.</p>
+              <input id="adUpload" type="file" accept="image/*" class="text-sm text-slate-600" />
+              <textarea id="adText" rows="2" class="mt-2 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" placeholder="Ad copy (optional)"></textarea>
+              <p class="small mt-1">Shown in ad panel on public page. Leave blank to hide.</p>
             </div>
-          </div>
-          <div class="mt-2">
-            <label class="block text-sm font-medium text-gray-700">Ad text (optional)</label>
-            <input id="adText" class="mt-1 block w-full px-3 py-2 border rounded-md" placeholder="Advertisement or promo text" />
           </div>
         </div>
 
-        <!-- Save settings -->
+        <!-- Save controls -->
         <div class="flex gap-2">
-          <button id="saveBtn" class="px-5 py-2 bg-green-600 text-white rounded-md font-semibold">Save Settings</button>
-          <button id="resetBtn" class="px-4 py-2 border rounded-md">Reset (reload)</button>
+          <button id="saveBtn" class="flex-1 px-4 py-3 rounded-lg bg-emerald-600 text-white font-semibold">Save Settings</button>
+          <button id="resetBtn" class="px-4 py-3 rounded-lg border border-gray-200">Reset</button>
         </div>
+
+        <div id="toast" class="hidden rounded-lg p-3 text-sm"></div>
 
         <hr />
 
-        <!-- Telegram announcement -->
-        <div>
-          <h3 class="text-sm font-semibold text-gray-800 mb-2">Telegram Announcement</h3>
-          <p class="small-muted mb-2">Send a message to your customers. This triggers a server-side broadcast — the client does not store or record Telegram customer IDs.</p>
-          <textarea id="announceMessage" rows="4" class="w-full px-3 py-2 border rounded-md" placeholder="Type your announcement..."></textarea>
-          <div class="flex items-center gap-2 mt-3">
-            <label class="inline-flex items-center">
-              <input id="sendModeChannel" type="radio" name="target" class="mr-2" checked />
-              <span class="small-muted">Post to store channel/group (chat)</span>
-            </label>
-            <label class="inline-flex items-center ml-4">
-              <input id="sendModeRegistered" type="radio" name="target" class="mr-2" />
-              <span class="small-muted">Send to registered customers (server-side list)</span>
-            </label>
-          </div>
-          <div class="mt-3 flex gap-2">
-            <button id="sendAnnounceBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md">Send Announcement</button>
-            <button id="previewBtn" class="px-4 py-2 border rounded-md">Preview</button>
-            <div id="announceSpinner" class="hidden"><span class="small-muted"> Sending…</span></div>
-          </div>
-          <p id="announceResult" class="mt-2 small-muted"></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- right: live preview -->
-    <div class="card p-6">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-800">Live Preview</h2>
-          <p class="small-muted">This mirrors what your customers see on the public page.</p>
-        </div>
-        <div>
-          <a id="openPublicBtn" target="_blank" class="px-3 py-2 bg-indigo-600 text-white rounded-md">Open Public</a>
-        </div>
-      </div>
-
-      <div class="border rounded-lg p-4 bg-gray-50">
-        <div class="flex items-center gap-4">
-          <img id="pvLogo" class="w-16 h-16 rounded-lg object-cover border" src="" alt="logo" />
+        <!-- Registered customers count -->
+        <div class="flex items-center justify-between">
           <div>
-            <div id="pvName" class="text-xl font-bold text-gray-800">—</div>
-            <div id="pvIntro" class="small-muted">—</div>
+            <div class="text-sm font-medium text-slate-800">Registered customers</div>
+            <div class="small">Customers who connected via Telegram for this store</div>
+          </div>
+          <div class="text-right">
+            <div id="customersCount" class="text-lg font-semibold text-indigo-700">0</div>
+            <div class="small text-gray-500">live</div>
+          </div>
+        </div>
+
+        <!-- Announcement -->
+        <div>
+          <label class="text-sm font-medium text-slate-800">Send Telegram announcement</label>
+          <textarea id="announceMessage" rows="4" class="mt-2 w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" placeholder="Type message to customers..."></textarea>
+
+          <div class="mt-2 flex items-center gap-3">
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="announceTarget" id="modeChannel" checked />
+              <span class="small">Post to store channel/group</span>
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm ml-4">
+              <input type="radio" name="announceTarget" id="modeRegistered" />
+              <span class="small">Send to registered customers</span>
+            </label>
+          </div>
+
+          <div class="mt-3 flex gap-2">
+            <button id="sendAnnounceBtn" class="flex-1 px-4 py-3 rounded-lg bg-indigo-600 text-white font-semibold">Send Announcement</button>
+            <button id="previewBtn" class="px-4 py-3 rounded-lg border border-gray-200">Preview</button>
+          </div>
+
+          <p id="announceStatus" class="small mt-2"></p>
+        </div>
+
+      </section>
+
+      <!-- Preview (right) -->
+      <aside class="card p-4">
+        <div class="flex items-center gap-4">
+          <div id="pvLogoWrap" class="w-14 h-14 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
+          <div class="flex-1">
+            <div id="pvName" class="text-lg font-semibold text-slate-900">Your store</div>
+            <div id="pvIntro" class="small">Real-time queueing system. Mobile-friendly. No app needed.</div>
           </div>
         </div>
 
         <div class="mt-4">
-          <div class="bg-white rounded-md p-4">
-            <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-md">🎫 Get My Number</button>
-            <p class="small-muted mt-2">This button is only a preview. The real page allows customers to join the queue.</p>
+          <div class="bg-white rounded-xl p-3 text-center">
+            <button class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold">🎫 Get My Number</button>
+            <p class="small mt-2 text-slate-600">This is a preview of the public page button.</p>
           </div>
 
-          <div class="mt-3">
-            <p class="small-muted mb-2">Advertisement</p>
-            <div class="bg-white rounded-md p-3 flex items-center gap-3">
-              <img id="pvAd" class="w-24 h-16 object-cover rounded-md border" src="" alt="ad preview" />
+          <div class="mt-3 bg-white rounded-xl p-3">
+            <div class="flex items-center gap-3">
+              <img id="pvAdImg" class="w-24 h-12 object-cover rounded-md border hidden" src="" alt="ad" />
               <div>
-                <div id="pvAdText" class="font-medium text-gray-800">No ad</div>
+                <div id="pvAdText" class="font-medium text-slate-800">No ad</div>
+                <div class="small mt-1 text-slate-500">Shown on public page</div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="mt-6 small-muted">
-        <strong>Note:</strong> When you press <em>Send Announcement</em>, the frontend calls your centralized server function to broadcast messages for this store. The frontend does not collect or store Telegram chat IDs.
-      </div>
-    </div>
+          <div class="mt-4 small text-slate-500">Open public page to test: <button id="openPublicBtn" class="text-indigo-600 underline">Open</button></div>
+        </div>
+      </aside>
+
+    </main>
+
+    <footer class="text-center small text-slate-500 mt-2">
+      Note: announcements call your centralized server function. Registered customer chat IDs are stored server-side under <code>businesses/&lt;slug&gt;/customers</code>.
+    </footer>
   </div>
 
-  <!-- Firebase + logic -->
+  <!-- Firebase + Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getDatabase, ref as dbRef, set, get, onValue, child
+      getDatabase, ref as dbRef, set, get, onValue, child, remove
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-    import {
-      getStorage, ref as storageRef, uploadBytes, getDownloadURL
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-    // Firebase config (same as your index.html)
+    // your firebase config (same as index.html)
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -178,291 +202,289 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const storage = getStorage(app);
 
-    // endpoints
-    const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram'; // centralized function
+    // server endpoint (centralized) - your Netlify function
+    const SEND_ENDPOINT = '/.netlify/functions/sendTelegram';
 
-    // DOM
+    // DOM refs
     const slugInput = document.getElementById('slugInput');
-    const saveSlugBtn = document.getElementById('saveSlugBtn');
+    const applySlugBtn = document.getElementById('applySlugBtn');
     const publicUrlEl = document.getElementById('publicUrl');
+    const openPublic = document.getElementById('openPublic');
+    const openPublicBtn = document.getElementById('openPublicBtn');
 
     const businessNameEl = document.getElementById('businessName');
-    const welcomeTextEl = document.getElementById('welcomeText');
+    const introTextEl = document.getElementById('introText');
 
-    const logoFileEl = document.getElementById('logoFile');
-    const logoPreview = document.getElementById('logoPreview');
+    const logoUploadEl = document.getElementById('logoUpload');
+    const logoPreviewEl = document.getElementById('logoPreview');
 
-    const adFileEl = document.getElementById('adFile');
-    const adPreview = document.getElementById('adPreview');
+    const adUploadEl = document.getElementById('adUpload');
+    const adPreviewEl = document.getElementById('adPreview');
     const adTextEl = document.getElementById('adText');
 
     const saveBtn = document.getElementById('saveBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const alertBox = document.getElementById('alert');
+    const toast = document.getElementById('toast');
 
-    const pvLogo = document.getElementById('pvLogo');
     const pvName = document.getElementById('pvName');
     const pvIntro = document.getElementById('pvIntro');
-    const pvAd = document.getElementById('pvAd');
+    const pvLogoWrap = document.getElementById('pvLogoWrap');
+    const pvAdImg = document.getElementById('pvAdImg');
     const pvAdText = document.getElementById('pvAdText');
-    const openPublicBtn = document.getElementById('openPublicBtn');
+
+    const customersCountEl = document.getElementById('customersCount');
 
     const announceMessageEl = document.getElementById('announceMessage');
     const sendAnnounceBtn = document.getElementById('sendAnnounceBtn');
-    const announceSpinner = document.getElementById('announceSpinner');
-    const announceResult = document.getElementById('announceResult');
-    const previewBtn = document.getElementById('previewBtn');
+    const previewBtnEl = document.getElementById('previewBtn');
+    const announceStatusEl = document.getElementById('announceStatus');
 
-    const sendModeChannel = document.getElementById('sendModeChannel'); // post to chat
-    const sendModeRegistered = document.getElementById('sendModeRegistered'); // server-side customers
-
-    // util
-    function showAlert(msg, type = 'success') {
-      alertBox.classList.remove('hidden');
-      alertBox.textContent = msg;
-      alertBox.style.background = (type === 'error') ? '#fee2e2' : '#ecfdf5';
-      alertBox.style.color = (type === 'error') ? '#b91c1c' : '#065f46';
-      setTimeout(() => alertBox.classList.add('hidden'), 4000);
+    // helpers
+    function showToast(msg, type='success') {
+      toast.classList.remove('hidden');
+      toast.textContent = msg;
+      toast.style.background = type === 'error' ? '#fee2e2' : '#ecfdf5';
+      toast.style.color = type === 'error' ? '#991b1b' : '#065f46';
+      setTimeout(() => toast.classList.add('hidden'), 3500);
     }
 
-    function q(sel) { return document.querySelector(sel); }
-
-    // get slug from querystring, fallback to input
-    const params = new URLSearchParams(window.location.search);
-    let slug = (params.get('business') || params.get('slug') || '').trim();
-
-    if (!slug) {
-      // allow quick default for testing
-      slug = '';
-    }
-
-    slugInput.value = slug;
-    setPublicUrl();
-
-    // helper: build DB paths namespaced by slug
     function pathFor(key) {
-      if (!slug) {
-        // fallback global settings when no slug provided
-        return `settings/${key}`;
-      }
+      if (!slug) return `settings/${key}`;
       return `businesses/${slug}/settings/${key}`;
     }
-
-    // set public url display
-    function setPublicUrl() {
-      publicUrlEl.textContent = slug ? `${location.origin}/${slug}` : 'Not set — choose slug and save';
-      openPublicBtn.href = slug ? `${location.origin}/${slug}` : '#';
+    function customersPath() {
+      if (!slug) return `customers`; // fallback global customers
+      return `businesses/${slug}/customers`;
     }
 
-    // load current settings (realtime)
-    function attachRealtimeListeners() {
-      // name
-      const nameRef = dbRef(db, pathFor('name'));
-      onValue(nameRef, snap => {
-        if (snap.exists()) {
-          const v = snap.val();
-          businessNameEl.value = v;
-          pvName.textContent = v;
-        } else {
-          pvName.textContent = '—';
-        }
-      });
+    // read slug from querystring
+    const params = new URLSearchParams(window.location.search);
+    let slug = (params.get('business') || '').trim().toLowerCase();
+    slugInput.value = slug || '';
 
-      // welcome / intro text
-      const introRef = dbRef(db, pathFor('introText'));
-      onValue(introRef, snap => {
+    // set public url and open links
+    function updatePublicLinks() {
+      const url = slug ? `${location.origin}/${slug}` : `${location.origin}/`;
+      publicUrlEl.textContent = slug ? url : 'Not set — choose a slug';
+      openPublic.href = slug ? url : '#';
+      openPublicBtn.onclick = () => { if (slug) window.open(url, '_blank'); else showToast('Set slug first', 'error'); };
+    }
+    updatePublicLinks();
+
+    // realtime listeners for settings & customers
+    let settingsListenersAttached = false;
+    function attachListeners() {
+      if (!slug) return;
+      // name
+      onValue(dbRef(db, pathFor('name')), snap => {
         const v = snap.exists() ? snap.val() : '';
-        welcomeTextEl.value = v;
+        businessNameEl.value = v;
+        pvName.textContent = v || 'Your store';
+      });
+      // intro
+      onValue(dbRef(db, pathFor('introText')), snap => {
+        const v = snap.exists() ? snap.val() : '';
+        introTextEl.value = v;
         pvIntro.textContent = v || 'Real-time queueing system. Mobile-friendly. No app needed.';
       });
-
       // logo
-      const logoRef = dbRef(db, pathFor('logo'));
-      onValue(logoRef, snap => {
+      onValue(dbRef(db, pathFor('logo')), snap => {
         const v = snap.exists() ? snap.val() : '';
-        logoPreview.src = v || '';
-        pvLogo.src = v || '';
-        if (!v) { logoPreview.style.display = 'none'; pvLogo.style.display = 'none'; }
-        else { logoPreview.style.display = 'block'; pvLogo.style.display = 'block'; }
+        if (v) {
+          logoPreviewEl.src = v; logoPreviewEl.classList.remove('hidden');
+          pvLogoWrap.innerHTML = `<img src="${v}" class="w-full h-full object-cover rounded-lg" alt="logo">`;
+        } else {
+          logoPreviewEl.classList.add('hidden');
+          pvLogoWrap.style.background = 'linear-gradient(90deg,#7c3aed,#06b6d4)';
+          pvLogoWrap.textContent = 'QJ';
+        }
       });
-
       // ad image
-      const adRef = dbRef(db, pathFor('adImage'));
-      onValue(adRef, snap => {
+      onValue(dbRef(db, pathFor('adImage')), snap => {
         const v = snap.exists() ? snap.val() : '';
-        adPreview.src = v || '';
-        pvAd.src = v || '';
-        if (!v) { adPreview.style.display = 'none'; pvAd.style.display = 'none'; }
-        else { adPreview.style.display = 'block'; pvAd.style.display = 'block'; }
+        if (v) {
+          adPreviewEl.src = v; adPreviewEl.classList.remove('hidden');
+          pvAdImg.src = v; pvAdImg.classList.remove('hidden');
+        } else {
+          adPreviewEl.classList.add('hidden');
+          pvAdImg.classList.add('hidden');
+        }
       });
-
       // ad text
-      const adTextRef = dbRef(db, pathFor('adText'));
-      onValue(adTextRef, snap => {
+      onValue(dbRef(db, pathFor('adText')), snap => {
         const v = snap.exists() ? snap.val() : '';
-        adTextEl.value = v || '';
+        adTextEl.value = v;
         pvAdText.textContent = v || 'No ad';
       });
+
+      // customers count
+      onValue(dbRef(db, customersPath()), snap => {
+        if (!snap.exists()) {
+          customersCountEl.textContent = '0';
+          return;
+        }
+        const count = Object.keys(snap.val() || {}).length;
+        customersCountEl.textContent = String(count);
+      });
+
+      settingsListenersAttached = true;
     }
 
-    attachRealtimeListeners();
-
-    // Save slug button behavior
-    saveSlugBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const newSlug = (slugInput.value || '').trim().toLowerCase().replace(/[^a-z0-9\-]/g, '-');
-      if (!newSlug) return showAlert('Slug cannot be empty', 'error');
-      slug = newSlug;
-      setPublicUrl();
-      showAlert('Slug set. Now press Save Settings to create or update store.');
+    // apply slug button
+    applySlugBtn.addEventListener('click', () => {
+      const raw = (slugInput.value || '').trim().toLowerCase();
+      if (!raw) return showToast('Enter a slug (letters/numbers/hyphen)', 'error');
+      slug = raw.replace(/[^a-z0-9\-]/g, '-');
+      slugInput.value = slug;
+      updatePublicLinks();
+      attachListeners();
+      showToast('Slug applied — press Save to persist settings', 'success');
     });
 
-    // upload helper: returns public URL
-    async function uploadImageAndGetUrl(file, destPath) {
-      if (!file) return null;
-      const storageReference = storageRef(storage, destPath);
-      const ba = await file.arrayBuffer();
-      const arr = new Uint8Array(ba);
-      await uploadBytes(storageReference, arr, { contentType: file.type });
-      const url = await getDownloadURL(storageReference);
-      return url;
+    // file -> base64 util
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('File read failed'));
+        r.onload = () => resolve(r.result);
+        r.readAsDataURL(file);
+      });
     }
 
-    // Save settings
-    saveBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      if (!slug) return showAlert('Choose slug first', 'error');
-
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
-
+    // local previews on file select
+    logoUploadEl.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
       try {
-        // 1) if logo file selected, upload
-        const logoFile = logoFileEl.files && logoFileEl.files[0];
-        if (logoFile) {
-          const dest = `logos/${slug}-${Date.now()}-${logoFile.name}`;
-          const url = await uploadImageAndGetUrl(logoFile, dest);
-          if (url) await set(dbRef(db, pathFor('logo')), url);
-        }
-
-        // 2) if ad file selected, upload
-        const adFile = adFileEl.files && adFileEl.files[0];
-        if (adFile) {
-          const dest = `ads/${slug}-${Date.now()}-${adFile.name}`;
-          const url = await uploadImageAndGetUrl(adFile, dest);
-          if (url) await set(dbRef(db, pathFor('adImage')), url);
-        }
-
-        // 3) write simple fields
-        await set(dbRef(db, pathFor('name')), businessNameEl.value || '');
-        await set(dbRef(db, pathFor('introText')), welcomeTextEl.value || '');
-        await set(dbRef(db, pathFor('adText')), adTextEl.value || '');
-
-        showAlert('Settings saved');
+        const data = await fileToDataUrl(f);
+        logoPreviewEl.src = data; logoPreviewEl.classList.remove('hidden');
+        pvLogoWrap.innerHTML = `<img src="${data}" class="w-full h-full object-cover rounded-lg" alt="logo">`;
       } catch (err) {
         console.error(err);
-        showAlert('Save failed: ' + (err && err.message ? err.message : ''), 'error');
+        showToast('Logo load failed', 'error');
+      }
+    });
+    adUploadEl.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const data = await fileToDataUrl(f);
+        adPreviewEl.src = data; adPreviewEl.classList.remove('hidden');
+        pvAdImg.src = data; pvAdImg.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        showToast('Ad load failed', 'error');
+      }
+    });
+
+    // Save settings (writes to Realtime DB)
+    saveBtn.addEventListener('click', async () => {
+      if (!slug) return showToast('Set slug first', 'error');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      try {
+        await set(dbRef(db, pathFor('name')), businessNameEl.value || '');
+        await set(dbRef(db, pathFor('introText')), introTextEl.value || '');
+        await set(dbRef(db, pathFor('adText')), adTextEl.value || '');
+
+        // upload base64 images if present in preview and data URL (not an external URL)
+        if (logoPreviewEl.src && logoPreviewEl.src.startsWith('data:')) {
+          await set(dbRef(db, pathFor('logo')), logoPreviewEl.src);
+        }
+        if (adPreviewEl.src && adPreviewEl.src.startsWith('data:')) {
+          await set(dbRef(db, pathFor('adImage')), adPreviewEl.src);
+        }
+
+        showToast('Settings saved', 'success');
+        updatePublicLinks();
+      } catch (err) {
+        console.error(err);
+        showToast('Save failed', 'error');
       } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Settings';
       }
     });
 
-    resetBtn.addEventListener('click', () => location.reload());
+    // Reset button
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Reload saved settings? Unsaved changes will be lost.')) return;
+      location.reload();
+    });
 
-    // Preview button
-    previewBtn.addEventListener('click', () => {
-      pvName.textContent = businessNameEl.value || pvName.textContent;
-      pvIntro.textContent = welcomeTextEl.value || pvIntro.textContent;
-      pvAdText.textContent = adTextEl.value || pvAdText.textContent;
-      // if user selected new images but hasn't saved, show them locally
-      const lf = logoFileEl.files && logoFileEl.files[0];
-      if (lf) {
-        const url = URL.createObjectURL(lf);
-        logoPreview.src = url; logoPreview.style.display = 'block'; pvLogo.src = url; pvLogo.style.display = 'block';
-      }
-      const af = adFileEl.files && adFileEl.files[0];
-      if (af) {
-        const url = URL.createObjectURL(af);
-        adPreview.src = url; adPreview.style.display = 'block'; pvAd.src = url; pvAd.style.display = 'block';
-      }
-      showAlert('Preview updated (not yet saved)');
+    // Announcement preview
+    previewBtnEl.addEventListener('click', () => {
+      const txt = (announceMessageEl.value || '').trim();
+      if (!txt) return showToast('Type message to preview', 'error');
+      alert('Preview:\n\n' + txt);
     });
 
     // Send announcement
     sendAnnounceBtn.addEventListener('click', async () => {
       const message = (announceMessageEl.value || '').trim();
-      if (!message) {
-        announceResult.textContent = 'Message cannot be empty';
-        announceResult.style.color = '#b91c1c';
-        return;
-      }
-      if (!slug) {
-        announceResult.textContent = 'Set slug first';
-        announceResult.style.color = '#b91c1c';
-        return;
+      if (!message) return showToast('Type announcement', 'error');
+      if (!slug) return showToast('Set slug first', 'error');
+
+      // confirm when sending to registered customers (dangerous)
+      const targetMode = document.getElementById('modeRegistered').checked ? 'registered' : 'channel';
+      if (targetMode === 'registered') {
+        const cnt = Number(customersCountEl.textContent || 0);
+        if (cnt === 0) {
+          announceStatusEl.textContent = 'No registered customers to send to.';
+          announceStatusEl.style.color = '#b91c1c';
+          return;
+        }
+        if (!confirm(`Send message to ${cnt} registered customers of "${slug}"?`)) return;
       }
 
-      announceSpinner.classList.remove('hidden');
       sendAnnounceBtn.disabled = true;
-      announceResult.textContent = '';
-
-      const mode = sendModeRegistered.checked ? 'registered' : 'channel';
+      sendAnnounceBtn.textContent = 'Sending…';
+      announceStatusEl.textContent = '';
 
       try {
-        const payload = {
-          business: slug,
-          message,
-          mode // backend decides how to deliver
-        };
-
-        const res = await fetch(SEND_TELEGRAM_ENDPOINT, {
+        const payload = { business: slug, message, mode: targetMode };
+        const res = await fetch(SEND_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-
         const j = await res.json().catch(()=>({ ok:false }));
 
         if (res.ok) {
-          announceResult.style.color = '#065f46';
-          announceResult.textContent = (j && j.message) ? j.message : 'Announcement queued/sent';
+          announceStatusEl.textContent = j.message || 'Announcement sent/queued';
+          announceStatusEl.style.color = '#065f46';
+          showToast('Announcement sent', 'success');
         } else {
-          announceResult.style.color = '#b91c1c';
-          announceResult.textContent = (j && j.error) ? (j.error) : `Send failed (${res.status})`;
+          announceStatusEl.textContent = (j && j.error) ? j.error : `Failed (${res.status})`;
+          announceStatusEl.style.color = '#b91c1c';
+          showToast('Announcement failed', 'error');
         }
       } catch (err) {
         console.error(err);
-        announceResult.style.color = '#b91c1c';
-        announceResult.textContent = 'Network error sending announcement';
+        announceStatusEl.textContent = 'Network error';
+        announceStatusEl.style.color = '#b91c1c';
+        showToast('Network error', 'error');
       } finally {
-        announceSpinner.classList.add('hidden');
         sendAnnounceBtn.disabled = false;
+        sendAnnounceBtn.textContent = 'Send Announcement';
       }
     });
 
-    // small UX: show filename previews for chosen files
-    logoFileEl.addEventListener('change', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) { logoPreview.src = URL.createObjectURL(f); logoPreview.style.display = 'block'; }
-    });
-    adFileEl.addEventListener('change', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) { adPreview.src = URL.createObjectURL(f); adPreview.style.display = 'block'; }
-    });
+    // initialize listeners if slug present from query param
+    if (slug) {
+      updatePublicLinks();
+      attachListeners();
+      showToast('Editing store: ' + slug, 'success');
+    } else {
+      // allow user to type slug and apply
+      showToast('No slug selected — enter slug and press Apply', 'error');
+    }
 
-    // On load: if slug present, set and attach listeners (already attached). If no slug, keep input open.
-    (async function init() {
-      if (slug) {
-        slugInput.value = slug;
-        setPublicUrl();
-        showAlert('Editing: ' + slug);
-      } else {
-        showAlert('No slug chosen — set slug then Save Settings to activate store', 'error');
-      }
-    })();
+    // small UX: open public
+    openPublic.addEventListener('click', (e) => {
+      if (!slug) { e.preventDefault(); showToast('Set slug first','error'); }
+    });
 
   </script>
 </body>
