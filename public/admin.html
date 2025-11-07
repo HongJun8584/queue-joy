@@ -2,642 +2,552 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy — Admin</title>
-
-  <!-- Firebase SDKs (same version as index.html) -->
-  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
-
-  <!-- Tailwind & Inter (same as index) -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>QueueJoy Admin — Real-Time Queue Management</title>
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.45s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    /* small tweaks */
-    .overlay { background: rgba(0,0,0,0.35); }
+    :root {
+      --primary: 264 83% 62%;
+      --accent: 197 92% 44%;
+      --muted: 220 14% 56%;
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(10, 10, 30, 0.08);
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid hsl(var(--primary));
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-start justify-center p-4 pb-24">
-
-  <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
-    <!-- header gradient circle (same as index) -->
-    <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-      <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
-    </div>
-
-    <div class="space-y-2">
-      <h1 class="text-2xl font-bold text-gray-800">Admin — Queue Joy</h1>
-      <p class="text-sm text-gray-600">Edit store identity, ad, and send announcements. Changes save to serverless functions and update in real-time.</p>
-    </div>
-
-    <!-- MASTER KEY input (temporary) -->
-    <div id="masterKeyBanner" class="text-left">
-      <label class="text-xs font-semibold text-gray-700">Master API Key (paste for mutating actions)</label>
-      <div class="flex gap-2 mt-2">
-        <input id="masterKeyInput" type="password" class="flex-1 px-3 py-2 border rounded-lg text-sm" placeholder="Paste x-master-key (temporary)">
-        <button id="masterKeySaveBtn" class="px-3 py-2 bg-gray-100 rounded-lg text-sm">Use</button>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4 pb-20">
+  
+  <div class="max-w-6xl mx-auto space-y-6 fade-in">
+    
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div class="flex items-center gap-3">
+        <div id="headerLogo" class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+          QJ
+        </div>
+        <div>
+          <h1 id="headerName" class="text-2xl font-bold text-gray-800">Queue Joy Admin</h1>
+          <p class="text-sm text-gray-600">Real-time management dashboard</p>
+        </div>
       </div>
-      <p id="masterKeyWarning" class="text-xs text-red-600 mt-2">Do NOT hard-code MASTER_API_KEY in client. This input is temporary for local/admin use only.</p>
-    </div>
+      <button id="saveAllBtn" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all duration-300">
+        💾 Save All Changes
+      </button>
+    </header>
 
-    <!-- Slug input / load -->
-    <div class="space-y-2 text-left">
-      <label class="text-sm font-medium text-gray-700">Store slug</label>
-      <div class="flex gap-2">
-        <input id="storeSlugInput" class="flex-1 px-3 py-3 border rounded-2xl text-sm" placeholder="example: mycafe">
-        <button id="loadBtn" class="px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-400 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-transform">Load</button>
-      </div>
-      <p id="slugHelp" class="text-xs text-gray-500">Open via <code>?slug=mycafe</code> or paste slug and press Load.</p>
-    </div>
-
-    <!-- Admin form -->
-    <div class="space-y-4 text-left">
-      <!-- store name -->
-      <label class="text-sm font-medium text-gray-700">Store display name</label>
-      <input id="storeNameInput" class="w-full px-3 py-3 border rounded-2xl text-sm" placeholder="My Cafe">
-
-      <!-- logo -->
-      <div>
-        <label class="text-sm font-medium text-gray-700">Logo</label>
-        <div class="flex items-center gap-3 mt-2">
-          <img id="storeLogoPreview" src="" alt="Logo preview" class="w-16 h-16 rounded-lg object-cover border">
-          <div class="flex-1">
-            <input id="storeLogoInput" type="file" accept="image/*" class="text-sm">
-            <p class="text-xs text-gray-500 mt-1">PNG/JPG (will be saved as data: URI).</p>
-            <div id="logoStatus" class="text-xs text-gray-500 mt-1"></div>
+    <!-- Analytics Panel -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="card p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm text-gray-600 mb-2">Total Queues</p>
+            <p id="totalQueues" class="text-3xl font-bold text-gray-800">0</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xl">
+            📊
           </div>
         </div>
       </div>
-
-      <!-- intro/welcome -->
-      <label class="text-sm font-medium text-gray-700">Welcome / Intro text</label>
-      <input id="introTextInput" class="w-full px-3 py-3 border rounded-2xl text-sm" placeholder="Welcome to My Cafe">
-
-      <!-- ad panel controls -->
-      <div>
-        <label class="text-sm font-medium text-gray-700">Advertisement</label>
-        <div class="flex gap-3 mt-2 items-start">
-          <img id="adImagePreview" src="" alt="Ad preview" class="w-24 h-20 rounded-lg object-cover border">
-          <div class="flex-1 space-y-2">
-            <input id="adUpload" type="file" accept="image/*" class="text-sm">
-            <input id="adLinkInput" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="https://...">
-            <input id="adTextInput" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ad caption (short)">
-            <div id="adStatus" class="text-xs text-gray-500"></div>
+      
+      <div class="card p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm text-gray-600 mb-2">Active Queues</p>
+            <p id="activeQueues" class="text-3xl font-bold text-gray-800">0</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xl">
+            🎫
           </div>
         </div>
       </div>
-
-      <!-- chatId (for channel) -->
-      <label class="text-sm font-medium text-gray-700">Store chatId (channel)</label>
-      <input id="chatIdInput" class="w-full px-3 py-3 border rounded-2xl text-sm" placeholder="-100123456789">
-
-      <!-- controls -->
-      <div class="flex gap-3">
-        <button id="saveBtn" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-purple-400 text-white font-semibold rounded-2xl shadow-lg">Save</button>
-        <button id="resetBtn" class="flex-1 py-3 bg-white border rounded-2xl">Reset</button>
+      
+      <div class="card p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm text-gray-600 mb-2">Today's Queues</p>
+            <p id="todayQueues" class="text-3xl font-bold text-gray-800">0</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xl">
+            📈
+          </div>
+        </div>
       </div>
-    </div>
-
-    <!-- Announcement composer -->
-    <div class="mt-2 space-y-2 text-left">
-      <label class="text-sm font-medium text-gray-700">Announcement</label>
-      <textarea id="announcementInput" rows="4" class="w-full px-3 py-3 border rounded-2xl text-sm" placeholder="Write announcement (supports Markdown/HTML)"></textarea>
-
-      <div class="flex gap-2">
-        <select id="announceModeSelect" class="flex-1 px-3 py-3 border rounded-2xl text-sm">
-          <option value="registered">registered</option>
-          <option value="channel">channel</option>
-        </select>
-
-        <button id="sendAnnouncementBtn" class="px-4 py-3 bg-gradient-to-r from-green-500 to-green-400 text-white font-semibold rounded-2xl shadow-lg">Send</button>
-      </div>
-      <div id="announceStatus" class="text-xs text-gray-500"></div>
-      <div class="flex gap-2 mt-2">
-        <button id="testNotifyBtn" class="flex-1 py-2 bg-yellow-100 rounded-lg">Send test</button>
-      </div>
-    </div>
-
-    <!-- status & toasts -->
-    <div id="toastArea" class="text-left"></div>
-
-    <!-- Preview card (live) -->
-    <div class="mt-4 text-left">
-      <p class="text-xs text-gray-500 mb-2">Live preview</p>
-      <div id="previewCard" class="w-full bg-white border rounded-xl p-4 text-center">
-        <div class="flex flex-col items-center gap-2">
-          <img id="previewLogo" src="" alt="logo" class="w-16 h-16 rounded-lg object-cover border">
-          <h3 id="previewName" class="text-lg font-bold text-gray-800">Store name</h3>
-          <p id="previewIntro" class="text-sm text-gray-600">Intro text</p>
+      
+      <div class="card p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm text-gray-600 mb-2">Active Counters</p>
+            <p id="activeCounters" class="text-3xl font-bold text-gray-800">0</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-xl">
+            🏪
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Persistent adPanel identical id to index.html -->
-    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
-      <div class="bg-white rounded-xl shadow-lg p-3">
-        <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-        <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-        <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Business Settings Card -->
+      <div class="card p-6 space-y-5">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">⚙️ Business Settings</h2>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
+          <input 
+            id="businessName" 
+            type="text" 
+            placeholder="Your Business Name"
+            class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+          />
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Welcome Message</label>
+          <textarea 
+            id="welcomeMessage" 
+            rows="3"
+            placeholder="Real-time queueing system. Mobile-friendly. No app needed."
+            class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+          ></textarea>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Logo Image</label>
+          <div class="flex items-center gap-3">
+            <img id="logoPreview" src="" alt="Logo" class="w-16 h-16 rounded-lg object-cover border-2 border-gray-200 hidden" />
+            <div class="flex-1">
+              <input 
+                id="logoFile" 
+                type="file" 
+                accept="image/*"
+                class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Banner</label>
+          <div class="space-y-3">
+            <div class="flex items-start gap-3">
+              <img id="adPreview" src="" alt="Ad" class="w-32 h-20 rounded-lg object-cover border-2 border-gray-200 hidden" />
+              <div class="flex-1">
+                <input 
+                  id="adFile" 
+                  type="file" 
+                  accept="image/*"
+                  class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"
+                />
+              </div>
+            </div>
+            <textarea 
+              id="adText" 
+              rows="2"
+              placeholder="Advertisement text (optional)"
+              class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+            ></textarea>
+          </div>
+        </div>
+        
+        <button id="updateSettingsBtn" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all duration-300">
+          <span id="updateBtnText">✨ Update Settings</span>
+          <span id="updateBtnSpinner" class="hidden">
+            <span class="spinner"></span> Updating...
+          </span>
+        </button>
+      </div>
+
+      <!-- Announcement Panel -->
+      <div class="space-y-6">
+        <div class="card p-6">
+          <h2 class="text-xl font-bold text-gray-800 mb-4">📢 Telegram Announcement</h2>
+          
+          <div class="space-y-4">
+            <textarea 
+              id="announcementMessage" 
+              rows="5"
+              placeholder="Type your announcement message here..."
+              class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+            ></textarea>
+            
+            <button id="sendAnnouncementBtn" class="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all duration-300">
+              <span id="sendBtnText">📱 Send to Telegram</span>
+              <span id="sendBtnSpinner" class="hidden">
+                <span class="spinner"></span> Sending...
+              </span>
+            </button>
+            
+            <div id="announcementResult" class="hidden p-3 rounded-lg text-sm"></div>
+          </div>
+        </div>
+
+        <!-- Live Preview Card -->
+        <div class="card p-6">
+          <h2 class="text-xl font-bold text-gray-800 mb-4">👁️ Live Preview</h2>
+          
+          <div class="space-y-4">
+            <div class="flex items-center gap-4">
+              <div id="previewLogo" class="w-14 h-14 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">
+                QJ
+              </div>
+              <div class="flex-1">
+                <p id="previewName" class="text-lg font-bold text-gray-800">Your Business</p>
+                <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 rounded-xl p-4">
+              <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
+              <div class="flex items-center gap-3">
+                <img id="previewAd" src="" alt="Ad" class="w-24 h-16 rounded-lg object-cover border hidden" />
+                <p id="previewAdText" class="text-sm text-gray-700">No advertisement</p>
+              </div>
+            </div>
+            
+            <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl opacity-75 cursor-not-allowed">
+              🎫 Get My Number
+            </button>
+            <p class="text-xs text-center text-gray-500">This is how customers see your page</p>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-sm text-gray-500 mt-8">
+      <p>Real-time sync powered by Firebase • <span id="slugDisplay" class="font-mono text-purple-600"></span></p>
+    </footer>
   </div>
 
-  <!-- announce confirmation modal -->
-  <div id="confirmModal" class="fixed inset-0 hidden items-center justify-center z-40">
-    <div class="absolute inset-0 overlay"></div>
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-11/12 max-w-md z-50">
-      <h3 class="text-lg font-bold">Confirm Announcement</h3>
-      <p id="confirmSummary" class="text-sm text-gray-600 mt-2"></p>
-      <div class="mt-4 flex gap-2">
-        <button id="confirmSendBtn" class="flex-1 py-2 bg-gradient-to-r from-green-500 to-green-400 text-white rounded-2xl">Confirm & Send</button>
-        <button id="confirmCancelBtn" class="flex-1 py-2 bg-white border rounded-2xl">Cancel</button>
-      </div>
-    </div>
-  </div>
+  <!-- Firebase & App Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-  <!-- error modal -->
-  <div id="errorModal" class="fixed inset-0 hidden items-center justify-center z-40">
-    <div class="absolute inset-0 overlay"></div>
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-11/12 max-w-md z-50">
-      <h3 class="text-lg font-bold text-red-600">Error</h3>
-      <pre id="errorJson" class="text-xs text-left mt-2 bg-gray-50 p-3 rounded-md max-h-56 overflow-auto"></pre>
-      <div class="mt-4 flex gap-2">
-        <button id="copyErrorBtn" class="flex-1 py-2 bg-gray-100 rounded-2xl">Copy</button>
-        <button id="closeErrorBtn" class="flex-1 py-2 bg-white border rounded-2xl">Close</button>
-      </div>
-    </div>
-  </div>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  // Try to import firebaseConfig from public/firebase-config.js (recommended)
-  // If that file doesn't export, you can define firebaseConfig globally in that file.
-  let firebaseConfig = null;
-  try {
-    // attempt dynamic import (works if firebase-config.js exports `firebaseConfig`)
-    // eslint-disable-next-line no-undef
-    const mod = await import('./firebase-config.js');
-    firebaseConfig = mod.firebaseConfig || window.firebaseConfig || window.FIREBASE_CONFIG || null;
-  } catch (e) {
-    // fallback: try global
-    firebaseConfig = window.firebaseConfig || window.FIREBASE_CONFIG || null;
-  }
-
-  if (!firebaseConfig) {
-    console.warn('firebaseConfig not found in ./firebase-config.js. Please ensure public/firebase-config.js exports firebaseConfig or sets window.firebaseConfig.');
-  }
-
-  const app = initializeApp(firebaseConfig || {});
-  const db = getDatabase(app);
-
-  // DOM refs
-  const storeSlugInput = document.getElementById('storeSlugInput');
-  const loadBtn = document.getElementById('loadBtn');
-  const storeNameInput = document.getElementById('storeNameInput');
-  const storeLogoInput = document.getElementById('storeLogoInput');
-  const storeLogoPreview = document.getElementById('storeLogoPreview');
-  const introTextInput = document.getElementById('introTextInput');
-  const adUpload = document.getElementById('adUpload');
-  const adImagePreview = document.getElementById('adImagePreview');
-  const adLinkInput = document.getElementById('adLinkInput');
-  const adTextInput = document.getElementById('adTextInput');
-  const chatIdInput = document.getElementById('chatIdInput');
-  const saveBtn = document.getElementById('saveBtn');
-  const resetBtn = document.getElementById('resetBtn');
-  const previewCard = document.getElementById('previewCard');
-  const previewLogo = document.getElementById('previewLogo');
-  const previewName = document.getElementById('previewName');
-  const previewIntro = document.getElementById('previewIntro');
-  const adPanel = document.getElementById('adPanel');
-  const noAd = document.getElementById('noAd');
-
-  const announcementInput = document.getElementById('announcementInput');
-  const announceModeSelect = document.getElementById('announceModeSelect');
-  const sendAnnouncementBtn = document.getElementById('sendAnnouncementBtn');
-  const announceStatus = document.getElementById('announceStatus');
-  const testNotifyBtn = document.getElementById('testNotifyBtn');
-
-  const masterKeyInput = document.getElementById('masterKeyInput');
-  const masterKeySaveBtn = document.getElementById('masterKeySaveBtn');
-  const masterKeyWarning = document.getElementById('masterKeyWarning');
-  const masterKeyBanner = document.getElementById('masterKeyBanner');
-
-  const logoStatus = document.getElementById('logoStatus');
-  const adStatus = document.getElementById('adStatus');
-
-  const toastArea = document.getElementById('toastArea');
-
-  // modal refs
-  const confirmModal = document.getElementById('confirmModal');
-  const confirmSummary = document.getElementById('confirmSummary');
-  const confirmSendBtn = document.getElementById('confirmSendBtn');
-  const confirmCancelBtn = document.getElementById('confirmCancelBtn');
-
-  const errorModal = document.getElementById('errorModal');
-  const errorJson = document.getElementById('errorJson');
-  const copyErrorBtn = document.getElementById('copyErrorBtn');
-  const closeErrorBtn = document.getElementById('closeErrorBtn');
-
-  // runtime state
-  let currentSlug = null;
-  let currentSettings = {};
-  let dbListenerUnsubscribe = null;
-  let MASTER_KEY = ''; // only stored in memory (temporary)
-
-  // read slug from query param
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.has('slug')) {
-    const qslug = urlParams.get('slug');
-    storeSlugInput.value = qslug;
-    storeSlugInput.readOnly = true;
-    currentSlug = qslug;
-    // auto load
-    setTimeout(() => loadBusiness(qslug), 0);
-  }
-
-  masterKeySaveBtn.addEventListener('click', () => {
-    MASTER_KEY = masterKeyInput.value.trim();
-    if (!MASTER_KEY) {
-      showToast('Master key cleared — writes disabled', 'yellow');
-    } else {
-      showToast('Master key set (temporary)', 'green');
-    }
-  });
-
-  // helpers
-  function showToast(msg, tone='blue') {
-    const id = `t${Date.now()}`;
-    const el = document.createElement('div');
-    el.id = id;
-    el.className = `p-3 rounded-lg mb-2 text-sm ${tone === 'green' ? 'bg-green-50 text-green-700 border border-green-100' : tone === 'red' ? 'bg-red-50 text-red-700 border border-red-100' : tone === 'yellow' ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`;
-    el.textContent = msg;
-    toastArea.prepend(el);
-    setTimeout(() => {
-      try { el.remove(); } catch(e){}
-    }, 3000);
-  }
-
-  function openErrorModal(obj) {
-    errorJson.textContent = JSON.stringify(obj, null, 2);
-    errorModal.classList.remove('hidden');
-    errorModal.classList.add('flex');
-  }
-  copyErrorBtn.addEventListener('click', async () => {
-    await navigator.clipboard.writeText(errorJson.textContent || '');
-    showToast('Copied error JSON', 'green');
-  });
-  closeErrorBtn.addEventListener('click', () => {
-    errorModal.classList.add('hidden');
-    errorModal.classList.remove('flex');
-  });
-
-  // load button handler
-  loadBtn.addEventListener('click', () => {
-    const slug = (storeSlugInput.value || '').trim();
-    if (!slug) return showToast('Please enter store slug', 'red');
-    storeSlugInput.readOnly = true;
-    currentSlug = slug;
-    loadBusiness(slug);
-    // push query param
-    const u = new URL(window.location.href);
-    u.searchParams.set('slug', slug);
-    history.replaceState({}, '', u.toString());
-  });
-
-  // fetch settings via serverless
-  async function loadBusiness(slug) {
-    setLoading(true);
-    try {
-      const res = await fetch(`/.netlify/functions/getBusiness?slug=${encodeURIComponent(slug)}`);
-      if (res.status === 404) {
-        setLoading(false);
-        showToast('Business not found. You can create it using Save (requires master key).', 'yellow');
-        subscribeToDB(slug); // still subscribe to DB path to reflect any external changes
-        return;
-      }
-      const json = await res.json();
-      if (!json.ok) {
-        openErrorModal(json);
-        setLoading(false);
-        return;
-      }
-      currentSettings = json.data || {};
-      populateFields(currentSettings);
-      showToast('Loaded settings', 'green');
-      subscribeToDB(slug);
-    } catch (err) {
-      console.error('loadBusiness', err);
-      showToast('Network error while loading business', 'red');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function populateFields(data) {
-    storeNameInput.value = data.name || '';
-    introTextInput.value = data.introText || '';
-    chatIdInput.value = data.chatId || '';
-    storeLogoPreview.src = data.logo || '';
-    previewLogo.src = data.logo || '';
-    previewName.textContent = data.name || 'Store name';
-    previewIntro.textContent = data.introText || 'Intro text';
-
-    // ad
-    adImagePreview.src = data.adImage || '';
-    adPanel.src = data.adImage || '';
-    if (data.adImage) {
-      adPanel.classList.remove('hidden');
-      noAd.classList.add('hidden');
-    } else {
-      adPanel.classList.add('hidden');
-      noAd.classList.remove('hidden');
-    }
-    adTextInput.value = data.adText || '';
-    adLinkInput.value = data.adLink || '';
-  }
-
-  // subscribe to firebase realtime path businesses/<slug>/settings
-  function subscribeToDB(slug) {
-    // unsubscribe previous if any
-    if (dbListenerUnsubscribe) {
-      try { dbListenerUnsubscribe(); } catch(e) {}
-      dbListenerUnsubscribe = null;
-    }
-    if (!slug) return;
-    try {
-      const settingsRef = ref(db, `businesses/${slug}/settings`);
-      const callback = snap => {
-        if (!snap.exists()) {
-          return;
-        }
-        const value = snap.val();
-        // merge into currentSettings and update UI
-        currentSettings = { ...currentSettings, ...value };
-        populateFields(currentSettings);
-      };
-      onValue(settingsRef, callback);
-      // store unsubscribe fn (simple wrapper)
-      dbListenerUnsubscribe = () => { /* can't easily remove onValue without token in v9+, but reinitialization is ok */ };
-    } catch (err) {
-      console.warn('subscribeToDB failed', err);
-    }
-  }
-
-  // set loading states for Save / Load / Send buttons
-  function setLoading(flag) {
-    loadBtn.disabled = flag;
-    saveBtn.disabled = flag;
-    sendAnnouncementBtn.disabled = flag;
-    testNotifyBtn.disabled = flag;
-  }
-
-  // Autosave on blur for name and intro (single-field update)
-  storeNameInput.addEventListener('blur', () => {
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    const v = storeNameInput.value.trim();
-    if (v === currentSettings.name) return;
-    updateBusinessFields({ name: v });
-  });
-  introTextInput.addEventListener('blur', () => {
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    const v = introTextInput.value.trim();
-    if (v === currentSettings.introText) return;
-    updateBusinessFields({ introText: v });
-  });
-
-  // Save (explicit)
-  saveBtn.addEventListener('click', async () => {
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    const data = {
-      name: storeNameInput.value.trim(),
-      introText: introTextInput.value.trim(),
-      adText: adTextInput.value.trim(),
-      adLink: adLinkInput.value.trim(),
-      chatId: chatIdInput.value.trim()
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.appspot.com",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
-    // If ad image or logo previews exist, keep them too
-    if (storeLogoPreview.src) data.logo = storeLogoPreview.src;
-    if (adImagePreview.src) data.adImage = adImagePreview.src;
-    await updateBusinessFields(data);
-  });
 
-  // Reset button
-  resetBtn.addEventListener('click', () => {
-    if (!currentSettings) return;
-    populateFields(currentSettings);
-    showToast('Reset to DB values', 'blue');
-  });
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  // File uploads: logo
-  storeLogoInput.addEventListener('change', async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    logoStatus.textContent = 'Uploading...';
-    try {
-      const dataUrl = await fileToDataUrl(f);
-      storeLogoPreview.src = dataUrl;
-      previewLogo.src = dataUrl;
-      await updateBusinessFields({ logo: dataUrl });
-      logoStatus.textContent = 'Uploaded ✓';
-      setTimeout(()=> logoStatus.textContent = '', 2500);
-    } catch (err) {
-      console.error('logo upload', err);
-      logoStatus.textContent = 'Upload failed';
-      showToast('Logo upload failed', 'red');
-    }
-  });
+    // Auto-detect slug from URL
+    const pathname = window.location.pathname;
+    const pathParts = pathname.split('/').filter(p => p);
+    const slug = pathParts.length > 0 && pathParts[0] !== 'admin.html' ? pathParts[0] : '';
+    
+    document.getElementById('slugDisplay').textContent = slug ? `businesses/${slug}` : 'global settings';
 
-  // File uploads: ad
-  adUpload.addEventListener('change', async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    adStatus.textContent = 'Uploading...';
-    try {
-      const dataUrl = await fileToDataUrl(f);
-      adImagePreview.src = dataUrl;
-      adPanel.src = dataUrl;
-      adPanel.classList.remove('hidden');
-      noAd.classList.add('hidden');
-      await updateBusinessFields({ adImage: dataUrl });
-      adStatus.textContent = 'Uploaded ✓';
-      setTimeout(()=> adStatus.textContent = '', 2500);
-    } catch (err) {
-      console.error('ad upload', err);
-      adStatus.textContent = 'Upload failed';
-      showToast('Ad upload failed', 'red');
-    }
-  });
+    // Helper to get Firebase path
+    const getPath = (key) => {
+      if (slug) return `businesses/${slug}/settings/${key}`;
+      return `settings/${key}`;
+    };
 
-  // Utility: file to data URL
-  function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(file);
+    // Toast notification
+    const showToast = (message, type = 'success') => {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+      toast.textContent = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    };
+
+    // File to Base64
+    const fileToBase64 = (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    };
+
+    // DOM Elements
+    const businessName = document.getElementById('businessName');
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    const logoFile = document.getElementById('logoFile');
+    const logoPreview = document.getElementById('logoPreview');
+    const adFile = document.getElementById('adFile');
+    const adPreview = document.getElementById('adPreview');
+    const adText = document.getElementById('adText');
+    const updateSettingsBtn = document.getElementById('updateSettingsBtn');
+    const updateBtnText = document.getElementById('updateBtnText');
+    const updateBtnSpinner = document.getElementById('updateBtnSpinner');
+    const saveAllBtn = document.getElementById('saveAllBtn');
+    
+    const previewName = document.getElementById('previewName');
+    const previewIntro = document.getElementById('previewIntro');
+    const previewLogo = document.getElementById('previewLogo');
+    const previewAd = document.getElementById('previewAd');
+    const previewAdText = document.getElementById('previewAdText');
+    const headerLogo = document.getElementById('headerLogo');
+    const headerName = document.getElementById('headerName');
+    
+    const announcementMessage = document.getElementById('announcementMessage');
+    const sendAnnouncementBtn = document.getElementById('sendAnnouncementBtn');
+    const sendBtnText = document.getElementById('sendBtnText');
+    const sendBtnSpinner = document.getElementById('sendBtnSpinner');
+    const announcementResult = document.getElementById('announcementResult');
+
+    // Real-time Analytics
+    const totalQueuesEl = document.getElementById('totalQueues');
+    const activeQueuesEl = document.getElementById('activeQueues');
+    const todayQueuesEl = document.getElementById('todayQueues');
+    const activeCountersEl = document.getElementById('activeCounters');
+
+    onValue(ref(db, 'queue'), (snapshot) => {
+      if (snapshot.exists()) {
+        const queues = Object.values(snapshot.val());
+        totalQueuesEl.textContent = queues.length;
+        activeQueuesEl.textContent = queues.filter(q => q.status === 'waiting').length;
+        
+        const today = new Date().setHours(0, 0, 0, 0);
+        const todayCount = queues.filter(q => {
+          const queueDate = new Date(q.timestamp).setHours(0, 0, 0, 0);
+          return queueDate === today;
+        }).length;
+        todayQueuesEl.textContent = todayCount;
+      } else {
+        totalQueuesEl.textContent = '0';
+        activeQueuesEl.textContent = '0';
+        todayQueuesEl.textContent = '0';
+      }
     });
-  }
 
-  // updateBusinessFields -> calls /.netlify/functions/updateBusiness with header x-master-key
-  async function updateBusinessFields(data) {
-    setLoading(true);
-    try {
-      if (!MASTER_KEY) {
-        showToast('MASTER_API_KEY not set — writes disabled. Paste key in Master API Key field to enable.', 'yellow');
+    onValue(ref(db, 'counters'), (snapshot) => {
+      if (snapshot.exists()) {
+        const counters = Object.values(snapshot.val());
+        activeCountersEl.textContent = counters.filter(c => c.active).length;
+      } else {
+        activeCountersEl.textContent = '0';
+      }
+    });
+
+    // Real-time Settings Sync
+    onValue(ref(db, getPath('name')), (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        businessName.value = val;
+        previewName.textContent = val;
+        headerName.textContent = val;
+      }
+    });
+
+    onValue(ref(db, getPath('introText')), (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        welcomeMessage.value = val;
+        previewIntro.textContent = val;
+      }
+    });
+
+    onValue(ref(db, getPath('logo')), (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        logoPreview.src = val;
+        logoPreview.classList.remove('hidden');
+        previewLogo.innerHTML = `<img src="${val}" class="w-full h-full rounded-xl object-cover" />`;
+        headerLogo.innerHTML = `<img src="${val}" class="w-full h-full rounded-xl object-cover" />`;
+      }
+    });
+
+    onValue(ref(db, getPath('adImage')), (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        adPreview.src = val;
+        adPreview.classList.remove('hidden');
+        previewAd.src = val;
+        previewAd.classList.remove('hidden');
+      } else {
+        adPreview.classList.add('hidden');
+        previewAd.classList.add('hidden');
+      }
+    });
+
+    onValue(ref(db, getPath('adText')), (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        adText.value = val;
+        previewAdText.textContent = val || 'No advertisement';
+      }
+    });
+
+    // File Upload Handlers
+    logoFile.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        try {
+          const base64 = await fileToBase64(file);
+          logoPreview.src = base64;
+          logoPreview.classList.remove('hidden');
+          previewLogo.innerHTML = `<img src="${base64}" class="w-full h-full rounded-xl object-cover" />`;
+          headerLogo.innerHTML = `<img src="${base64}" class="w-full h-full rounded-xl object-cover" />`;
+        } catch (err) {
+          showToast('Failed to process logo image', 'error');
+        }
+      }
+    });
+
+    adFile.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        try {
+          const base64 = await fileToBase64(file);
+          adPreview.src = base64;
+          adPreview.classList.remove('hidden');
+          previewAd.src = base64;
+          previewAd.classList.remove('hidden');
+        } catch (err) {
+          showToast('Failed to process ad image', 'error');
+        }
+      }
+    });
+
+    // Update Settings
+    const updateSettings = async () => {
+      updateBtnText.classList.add('hidden');
+      updateBtnSpinner.classList.remove('hidden');
+      updateSettingsBtn.disabled = true;
+
+      try {
+        const updates = [];
+        
+        if (businessName.value) {
+          updates.push(set(ref(db, getPath('name')), businessName.value));
+        }
+        
+        if (welcomeMessage.value) {
+          updates.push(set(ref(db, getPath('introText')), welcomeMessage.value));
+        }
+        
+        if (adText.value) {
+          updates.push(set(ref(db, getPath('adText')), adText.value));
+        }
+        
+        if (logoPreview.src && logoPreview.src.startsWith('data:')) {
+          updates.push(set(ref(db, getPath('logo')), logoPreview.src));
+        }
+        
+        if (adPreview.src && adPreview.src.startsWith('data:')) {
+          updates.push(set(ref(db, getPath('adImage')), adPreview.src));
+        }
+
+        await Promise.all(updates);
+        showToast('Settings updated successfully!', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to update settings', 'error');
+      } finally {
+        updateBtnText.classList.remove('hidden');
+        updateBtnSpinner.classList.add('hidden');
+        updateSettingsBtn.disabled = false;
+      }
+    };
+
+    updateSettingsBtn.addEventListener('click', updateSettings);
+    saveAllBtn.addEventListener('click', updateSettings);
+
+    // Send Telegram Announcement
+    sendAnnouncementBtn.addEventListener('click', async () => {
+      const message = announcementMessage.value.trim();
+      
+      if (!message) {
+        announcementResult.textContent = '⚠️ Please enter a message';
+        announcementResult.className = 'p-3 rounded-lg text-sm bg-yellow-50 border border-yellow-200 text-yellow-800';
+        announcementResult.classList.remove('hidden');
         return;
       }
-      const body = { slug: currentSlug, data };
-      const res = await fetch('/.netlify/functions/updateBusiness', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-master-key': MASTER_KEY
-        },
-        body: JSON.stringify(body)
-      });
-      const j = await res.json();
-      if (!j.ok) {
-        openErrorModal(j);
-        return;
+
+      sendBtnText.classList.add('hidden');
+      sendBtnSpinner.classList.remove('hidden');
+      sendAnnouncementBtn.disabled = true;
+
+      try {
+        const response = await fetch('/.netlify/functions/announce', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+
+        if (response.ok) {
+          announcementResult.textContent = '✅ Announcement sent successfully!';
+          announcementResult.className = 'p-3 rounded-lg text-sm bg-green-50 border border-green-200 text-green-800';
+          announcementMessage.value = '';
+          showToast('Announcement sent!', 'success');
+        } else {
+          throw new Error('Failed to send announcement');
+        }
+      } catch (err) {
+        console.error(err);
+        announcementResult.textContent = '⚠️ Failed to send announcement. Please try again.';
+        announcementResult.className = 'p-3 rounded-lg text-sm bg-red-50 border border-red-200 text-red-800';
+        showToast('Failed to send announcement', 'error');
+      } finally {
+        announcementResult.classList.remove('hidden');
+        sendBtnText.classList.remove('hidden');
+        sendBtnSpinner.classList.add('hidden');
+        sendAnnouncementBtn.disabled = false;
+        
+        setTimeout(() => {
+          announcementResult.classList.add('hidden');
+        }, 5000);
       }
-      // merge updates into currentSettings and update preview
-      currentSettings = { ...currentSettings, ...(j.updated || data) };
-      populateFields(currentSettings);
-      showToast('Saved', 'green');
-    } catch (err) {
-      console.error('updateBusinessFields', err);
-      showToast('Network error while saving', 'red');
-    } finally {
-      setLoading(false);
-    }
-  }
+    });
 
-  // Announcement flow
-  sendAnnouncementBtn.addEventListener('click', () => {
-    const msg = (announcementInput.value || '').trim();
-    if (msg.length < 3) return showToast('Message too short', 'red');
-    if (msg.length > 4000) return showToast('Message too long (max 4000)', 'red');
-    // show confirmation modal
-    confirmSummary.textContent = `Mode: ${announceModeSelect.value}. Message preview: ${msg.slice(0,200)}${msg.length>200?'…':''}`;
-    confirmModal.classList.remove('hidden');
-    confirmModal.classList.add('flex', 'items-center', 'justify-center');
-  });
-
-  confirmCancelBtn.addEventListener('click', () => {
-    confirmModal.classList.add('hidden');
-    confirmModal.classList.remove('flex', 'items-center', 'justify-center');
-  });
-
-  confirmSendBtn.addEventListener('click', async () => {
-    confirmModal.classList.add('hidden');
-    confirmModal.classList.remove('flex', 'items-center', 'justify-center');
-    await performAnnounce();
-  });
-
-  async function performAnnounce() {
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    if (!MASTER_KEY) {
-      showToast('MASTER_API_KEY not set — cannot announce.', 'red');
-      return;
-    }
-    setLoading(true);
-    sendAnnouncementBtn.disabled = true;
-    announceStatus.textContent = 'Sending...';
-    try {
-      const body = {
-        business: currentSlug,
-        message: announcementInput.value,
-        mode: announceModeSelect.value
-      };
-      const res = await fetch('/.netlify/functions/announce', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-master-key': MASTER_KEY
-        },
-        body: JSON.stringify(body)
-      });
-      const j = await res.json();
-      if (!j || !j.ok) {
-        announceStatus.textContent = 'Error';
-        openErrorModal(j || {error: 'Unknown'});
-        return;
-      }
-      announceStatus.textContent = `Sent: ${j.sent || 0} (attempted ${j.attempted || 0})`;
-      showToast('Announcement sent', 'green');
-    } catch (err) {
-      console.error('announce error', err);
-      announceStatus.textContent = 'Network error';
-      showToast('Network error while announcing', 'red');
-    } finally {
-      setLoading(false);
-      sendAnnouncementBtn.disabled = false;
-    }
-  }
-
-  // quick test notify (sends tiny message to chatId via announce mode=channel)
-  testNotifyBtn.addEventListener('click', async () => {
-    if (!currentSlug) return showToast('Set slug first', 'red');
-    if (!MASTER_KEY) return showToast('MASTER_API_KEY missing', 'red');
-    const testMsg = `Test notification from admin — ${new Date().toLocaleString()}`;
-    setLoading(true);
-    try {
-      const body = { business: currentSlug, message: testMsg, mode: 'channel' };
-      const res = await fetch('/.netlify/functions/announce', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-master-key': MASTER_KEY },
-        body: JSON.stringify(body)
-      });
-      const j = await res.json();
-      if (!j.ok) {
-        openErrorModal(j);
-        return;
-      }
-      showToast('Test sent', 'green');
-    } catch (err) {
-      console.error('testNotify', err);
-      showToast('Test failed', 'red');
-    } finally {
-      setLoading(false);
-    }
-  });
-
-  // small util to show banner if master key not set in env (we can't detect Netlify env from client).
-  function checkMasterKeyWarning() {
-    // If user hasn't entered a key, show warning
-    if (!MASTER_KEY) {
-      masterKeyWarning.textContent = 'MASTER_API_KEY not set — writes are disabled. Paste key above to enable admin writes (temporary only).';
-      masterKeyWarning.classList.remove('hidden');
-    } else {
-      masterKeyWarning.classList.add('hidden');
-    }
-  }
-  setInterval(checkMasterKeyWarning, 1500);
-
-  // keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      saveBtn.click();
-    }
-  });
-
-  // Accessibility: aria-live region for announceStatus
-  announceStatus.setAttribute('role', 'status');
-  announceStatus.setAttribute('aria-live', 'polite');
-
-  // When DB updates, preview updates via populateFields called in onValue callback
-
-  // Utility: show friendly message when page first loaded
-  showToast('Admin UI ready — paste MASTER API KEY to allow writes', 'blue');
-
-</script>
+  </script>
 </body>
 </html>
