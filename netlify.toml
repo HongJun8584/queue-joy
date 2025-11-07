@@ -1,7 +1,15 @@
+# Netlify configuration file
+# This disables the site build so only your serverless functions deploy.
+
 [build]
-  command = "" # disable site build
+  command = ""                # skip npm run build
   functions = "netlify/functions"
-  publish = "."
+  publish = "public"          # optional, can be "." if you have no frontend
 
 [functions]
+  directory = "netlify/functions"
   node_bundler = "esbuild"
+  included_files = ["netlify/functions/**"]
+
+[dev]
+  functions = "netlify/functions"
