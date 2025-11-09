@@ -247,6 +247,9 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ queueKey: currentQueueKey })
+          queueId: currentQueueData?.queueId || yourNumber.textContent || currentQueueKey,
+          counterId: currentQueueData?.counterId || null
+        })
       });
       if (!res.ok) {
         const txt = await res.text().catch(()=>'');
