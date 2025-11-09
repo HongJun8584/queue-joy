@@ -40,7 +40,6 @@
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center p-4">
-    <!-- PIN Modal -->
     <div id="pinModal" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50">
         <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 slide-up">
             <div class="text-center space-y-2">
@@ -75,7 +74,7 @@
                 </div>
 
                 <div id="pinError" class="hidden">
-                    <p class="text-sm text-red-500 text-center">❌ Incorrect PIN</p>
+                    <p class="text-sm text-red-500 text-center">Incorrect PIN</p>
                 </div>
 
                 <button
@@ -93,12 +92,10 @@
         </div>
     </div>
 
-    <!-- Main Counter Panel -->
     <div id="counterPanel" class="hidden w-full max-w-md">
-        <!-- Type Selection -->
         <div id="typeStep" class="relative bg-white rounded-2xl shadow-xl p-6 space-y-6 fade-in">
             <button id="typeMenuBtn" class="absolute top-4 right-4 p-2 text-xl text-gray-600 hover:text-gray-800 transition-colors z-10">☰</button>
-            
+
             <div class="text-center space-y-2">
                 <div class="w-16 h-16 bg-gradient-to-r from-indigo-600 to-purple-500 rounded-full flex items-center justify-center mx-auto">
                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,10 +137,9 @@
             </div>
         </div>
 
-        <!-- Setup Mode -->
         <div id="setupMode" class="hidden relative bg-white rounded-2xl shadow-xl p-6 space-y-6 fade-in">
             <button id="setupMenuBtn" class="absolute top-4 right-4 p-2 text-xl text-gray-600 hover:text-gray-800 transition-colors z-10">☰</button>
-            
+
             <div class="text-center space-y-2">
                 <div class="w-16 h-16 bg-gradient-to-r from-green-600 to-blue-500 rounded-full flex items-center justify-center mx-auto">
                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +170,7 @@
                         value="Service Counter"
                     />
                 </div>
-                
+
                 <div class="space-y-2">
                     <label class="text-sm font-medium text-gray-700">Counter Prefix</label>
                     <input
@@ -188,7 +184,7 @@
                 </div>
 
                 <div id="singleError" class="hidden">
-                    <p class="text-sm text-red-500 text-center">❌ Please fill in all fields correctly</p>
+                    <p class="text-sm text-red-500 text-center">Please fill in all fields correctly</p>
                 </div>
             </div>
 
@@ -205,11 +201,10 @@
             </button>
         </div>
 
-        <!-- Dashboard Mode -->
         <div id="dashboardMode" class="hidden relative bg-white rounded-2xl shadow-xl p-6 space-y-6 fade-in">
             <button id="dashboardMenuBtn" class="absolute top-4 right-12 p-2 text-xl text-gray-600 hover:text-gray-800 transition-colors z-10">☰</button>
             <button id="helpBtn" class="absolute top-4 right-4 p-2 text-xl text-blue-600 hover:text-blue-800 transition-colors z-10">❓</button>
-            
+
             <div class="text-center space-y-2">
                 <h2 class="text-lg font-medium text-indigo-600">Counter Dashboard</h2>
                 <p id="activeCountersText" class="text-sm text-gray-600">0 active counters</p>
@@ -231,7 +226,6 @@
         </div>
     </div>
 
-    <!-- Edit Counter Modal -->
     <div id="editModal" class="hidden edit-modal modal-backdrop">
         <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 slide-up">
             <div class="flex items-center justify-between">
@@ -253,7 +247,7 @@
                         placeholder="Counter Name"
                     />
                 </div>
-                
+
                 <div class="space-y-2">
                     <label class="text-sm font-medium text-gray-700">Counter Prefix</label>
                     <input
@@ -267,7 +261,7 @@
                 </div>
 
                 <div id="editError" class="hidden">
-                    <p class="text-sm text-red-500 text-center">❌ Invalid input</p>
+                    <p class="text-sm text-red-500 text-center">Invalid input</p>
                 </div>
             </div>
 
@@ -293,7 +287,6 @@
         </div>
     </div>
 
-    <!-- Help Modal -->
     <div id="helpModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50">
         <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4 slide-up max-h-96 overflow-y-auto">
             <div class="flex items-center justify-between">
@@ -306,34 +299,33 @@
             </div>
             <div class="space-y-4 text-sm text-gray-700">
                 <div>
-                    <h4 class="font-medium text-gray-800">🔐 PIN Login</h4>
+                    <h4 class="font-medium text-gray-800">PIN Login</h4>
                     <p>Enter PIN (0108) to access the counter panel securely.</p>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-800">✏️ Edit Counter</h4>
+                    <h4 class="font-medium text-gray-800">Edit Counter</h4>
                     <p>Click Edit button to change counter name or prefix. Changes sync instantly across all devices.</p>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-800">📞 Call Next</h4>
+                    <h4 class="font-medium text-gray-800">Call Next</h4>
                     <p>Issues a new number and updates "Now Serving". Server sends Telegram notification to the customer.</p>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-800">⏭️ Skip</h4>
+                    <h4 class="font-medium text-gray-800">Skip</h4>
                     <p>Moves to next number without issuing a new one.</p>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-800">🔄 Reset</h4>
+                    <h4 class="font-medium text-gray-800">Reset</h4>
                     <p>Resets serving and issued numbers to 1.</p>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-800">🔔 Server Notifications</h4>
+                    <h4 class="font-medium text-gray-800">Server Notifications</h4>
                     <p>Telegram notifications are sent by the server when a number is called, even if customer closed their browser.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Menu Dropdown -->
     <div id="menuDropdown" class="hidden fixed bg-white shadow-xl rounded-xl p-4 w-48 z-40 space-y-3 slide-up border border-gray-100" style="top: 70px; right: 20px;">
         <button id="logoutBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
             <span class="text-xl">🚪</span>
@@ -371,7 +363,6 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        // Retry helper with exponential backoff
         async function retryOperation(operation, maxRetries = 3, baseDelay = 700) {
             for (let i = 0; i < maxRetries; i++) {
                 try {
@@ -383,12 +374,10 @@
             }
         }
 
-        // Helper: format queue ID with prefix
         function formatQueueId(prefix = '', num) {
             return `${prefix || ''}${String(Number(num) || 0).padStart(3,'0')}`;
         }
 
-        // Helper: notify matching queues for serving (server notification request)
         async function notifyMatchingQueuesForServing(counterId, prefix, number) {
             const prefixed = formatQueueId(prefix, number);
             const padded = String(number).padStart(3, '0');
@@ -441,37 +430,37 @@
             const pinBtnText = document.getElementById('pinBtnText');
             const pinSpinner = document.getElementById('pinSpinner');
             const togglePin = document.getElementById('togglePin');
-            
+
             const typeStep = document.getElementById('typeStep');
             const setupMode = document.getElementById('setupMode');
             const dashboardMode = document.getElementById('dashboardMode');
-            
+
             const multipleCounters = document.getElementById('multipleCounters');
             const singleCounter = document.getElementById('singleCounter');
-            
+
             const setupTitle = document.getElementById('setupTitle');
             const setupDescription = document.getElementById('setupDescription');
             const multipleSetup = document.getElementById('multipleSetup');
             const singleSetup = document.getElementById('singleSetup');
-            
+
             const counterList = document.getElementById('counterList');
             const counterCount = document.getElementById('counterCount');
             const singleCounterName = document.getElementById('singleCounterName');
             const singleCounterPrefix = document.getElementById('singleCounterPrefix');
             const singleError = document.getElementById('singleError');
-            
+
             const setupBtn = document.getElementById('setupBtn');
             const setupBtnText = document.getElementById('setupBtnText');
             const setupSpinner = document.getElementById('setupSpinner');
-            
+
             const countersList = document.getElementById('countersList');
             const activeCountersText = document.getElementById('activeCountersText');
             const addMoreBtn = document.getElementById('addMoreBtn');
-            
+
             const helpBtn = document.getElementById('helpBtn');
             const helpModal = document.getElementById('helpModal');
             const closeHelp = document.getElementById('closeHelp');
-            
+
             const typeMenuBtn = document.getElementById('typeMenuBtn');
             const setupMenuBtn = document.getElementById('setupMenuBtn');
             const dashboardMenuBtn = document.getElementById('dashboardMenuBtn');
@@ -495,7 +484,6 @@
             let activeListeners = [];
             let currentEditCounterId = null;
 
-            // Check auth
             if (sessionStorage.getItem('counterAccess') === 'true') {
                 pinModal.classList.add('hidden');
                 counterPanel.classList.remove('hidden');
@@ -510,16 +498,16 @@
             pinForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const pin = pinInput.value;
-                
+
                 if (pin.length !== 4) return;
-                
+
                 pinSubmit.disabled = true;
                 pinBtnText.classList.add('hidden');
                 pinSpinner.classList.remove('hidden');
                 pinError.classList.add('hidden');
-                
+
                 await new Promise(resolve => setTimeout(resolve, 1000));
-                
+
                 if (pin === '0108') {
                     sessionStorage.setItem('counterAccess', 'true');
                     pinModal.classList.add('hidden');
@@ -529,7 +517,7 @@
                     pinError.classList.remove('hidden');
                     pinInput.value = '';
                 }
-                
+
                 pinSubmit.disabled = false;
                 pinBtnText.classList.remove('hidden');
                 pinSpinner.classList.add('hidden');
@@ -539,11 +527,11 @@
                 try {
                     const countersRef = ref(database, 'settings/counters');
                     const snapshot = await get(countersRef);
-                    
+
                     if (snapshot.exists()) {
                         activeCounters = snapshot.val();
                         const hasActiveCounters = Object.keys(activeCounters).length > 0;
-                        
+
                         if (hasActiveCounters) {
                             showDashboard();
                         } else {
@@ -604,12 +592,12 @@
 
             function generateCounterList() {
                 counterList.innerHTML = '';
-                
+
                 for (let i = 1; i <= 7; i++) {
                     const counterId = `counter${i}`;
                     const counterDiv = document.createElement('div');
                     counterDiv.className = 'space-y-2';
-                    
+
                     counterDiv.innerHTML = `
                         <label class="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-all">
                             <input type="checkbox" id="${counterId}" class="w-5 h-5 text-purple-600 rounded focus:ring-purple-500" />
@@ -633,12 +621,12 @@
                             <div class="error-msg hidden text-sm text-red-500"></div>
                         </div>
                     `;
-                    
+
                     const checkbox = counterDiv.querySelector(`#${counterId}`);
                     const configDiv = counterDiv.querySelector(`#${counterId}-config`);
                     const nameInput = configDiv.querySelector('[data-field="name"]');
                     const prefixInput = configDiv.querySelector('[data-field="prefix"]');
-                    
+
                     checkbox.addEventListener('change', () => {
                         if (checkbox.checked) {
                             if (selectedCounters.length >= 7) {
@@ -658,7 +646,7 @@
                         updateCounterCount();
                         validateMultipleSetup();
                     });
-                    
+
                     nameInput.addEventListener('input', (e) => {
                         if (!prefixes[counterId]) prefixes[counterId] = {};
                         prefixes[counterId].name = e.target.value;
@@ -672,7 +660,7 @@
                         prefixes[counterId].prefix = value;
                         validateMultipleSetup();
                     });
-                    
+
                     counterList.appendChild(counterDiv);
                     validateMultipleSetup();
                 }
@@ -685,13 +673,13 @@
             function validateMultipleSetup() {
                 const errors = {};
                 const usedPrefixes = new Set();
-                
+
                 selectedCounters.forEach(counterId => {
                     const config = prefixes[counterId] || {};
                     const prefix = config.prefix || '';
                     const name = config.name || '';
                     const errorDiv = document.querySelector(`#${counterId}-config .error-msg`);
-                    
+
                     if (!name.trim()) {
                         errors[counterId] = 'Counter name required';
                     } else if (!prefix) {
@@ -703,7 +691,7 @@
                     } else {
                         usedPrefixes.add(prefix);
                     }
-                    
+
                     if (errors[counterId]) {
                         errorDiv.textContent = errors[counterId];
                         errorDiv.classList.remove('hidden');
@@ -711,26 +699,26 @@
                         errorDiv.classList.add('hidden');
                     }
                 });
-                
-                const isValid = selectedCounters.length > 0 && 
-                               selectedCounters.length <= 7 && 
+
+                const isValid = selectedCounters.length > 0 &&
+                               selectedCounters.length <= 7 &&
                                Object.keys(errors).length === 0;
-                
+
                 setupBtn.disabled = !isValid;
             }
 
             function validateSingleSetup() {
                 const name = singleCounterName.value.trim();
                 const prefix = singleCounterPrefix.value.trim().toUpperCase();
-                
+
                 const isValid = name && prefix && /^[A-Z0-9]{1,5}$/.test(prefix);
-                
+
                 if (!isValid && (name || prefix)) {
                     singleError.classList.remove('hidden');
                 } else {
                     singleError.classList.add('hidden');
                 }
-                
+
                 setupBtn.disabled = !isValid;
             }
 
@@ -744,10 +732,10 @@
                 setupBtn.disabled = true;
                 setupBtnText.classList.add('hidden');
                 setupSpinner.classList.remove('hidden');
-                
+
                 try {
                     const countersToSetup = {};
-                    
+
                     if (counterType === 'multiple') {
                         selectedCounters.forEach(counterId => {
                             const config = prefixes[counterId];
@@ -770,7 +758,7 @@
                             active: true
                         };
                     }
-                    
+
                     await retryOperation(async () => {
                         const updates = {};
                         Object.keys(countersToSetup).forEach(cid => {
@@ -787,14 +775,14 @@
                         });
                         await update(ref(database), updates);
                     });
-                    
+
                     activeCounters = countersToSetup;
                     showDashboard();
                 } catch (error) {
                     console.error('Error setting up counters:', error);
                     alert('Failed to setup counters. Please try again.');
                 }
-                
+
                 setupBtn.disabled = false;
                 setupBtnText.classList.remove('hidden');
                 setupSpinner.classList.add('hidden');
@@ -804,12 +792,12 @@
                 countersList.innerHTML = '';
                 const counterKeys = Object.keys(activeCounters);
                 activeCountersText.textContent = `${counterKeys.length} active counter${counterKeys.length !== 1 ? 's' : ''}`;
-                
+
                 counterKeys.forEach(counterId => {
                     const counter = activeCounters[counterId];
                     const counterCard = document.createElement('div');
                     counterCard.className = 'bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 space-y-3 border border-indigo-100';
-                    
+
                     counterCard.innerHTML = `
                         <div class="flex items-center justify-between">
                             <h3 class="font-semibold text-gray-800">${counter.name}</h3>
@@ -827,7 +815,7 @@
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div class="grid grid-cols-2 gap-3">
                             <div class="bg-white rounded-lg p-3 text-center">
                                 <p class="text-xs text-gray-600 mb-1">Now Serving</p>
@@ -838,36 +826,35 @@
                                 <p class="text-2xl font-bold text-gray-800" id="${counterId}-issued">${counter.prefix}${String(counter.lastNumber).padStart(3, '0')}</p>
                             </div>
                         </div>
-                        
+
                         <div class="grid grid-cols-3 gap-2">
                             <button
                                 class="py-2 bg-gradient-to-r from-green-600 to-green-400 text-white font-medium rounded-lg hover:scale-105 transition-all text-sm"
                                 data-action="call"
                                 data-counter="${counterId}"
                             >
-                                📞 Call
+                                Call
                             </button>
                             <button
                                 class="py-2 bg-gradient-to-r from-blue-600 to-blue-400 text-white font-medium rounded-lg hover:scale-105 transition-all text-sm"
                                 data-action="skip"
                                 data-counter="${counterId}"
                             >
-                                ⏭️ Skip
+                                Skip
                             </button>
                             <button
                                 class="py-2 bg-gradient-to-r from-red-600 to-red-400 text-white font-medium rounded-lg hover:scale-105 transition-all text-sm"
                                 data-action="reset"
                                 data-counter="${counterId}"
                             >
-                                🔄 Reset
+                                Reset
                             </button>
                         </div>
                     `;
-                    
+
                     countersList.appendChild(counterCard);
                 });
-                
-                // Action handlers
+
                 document.querySelectorAll('[data-action]').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const action = e.currentTarget.getAttribute('data-action');
@@ -908,9 +895,9 @@
                 const name = editCounterName.value.trim();
                 const prefix = editCounterPrefix.value.trim().toUpperCase();
                 const isValid = name && prefix && /^[A-Z0-9]{1,5}$/.test(prefix);
-                
+
                 saveEditBtn.disabled = !isValid;
-                
+
                 if (!isValid && (name || prefix)) {
                     editError.classList.remove('hidden');
                 } else {
@@ -926,10 +913,10 @@
 
             saveEditBtn.addEventListener('click', async () => {
                 if (!currentEditCounterId) return;
-                
+
                 const name = editCounterName.value.trim();
                 const prefix = editCounterPrefix.value.trim().toUpperCase();
-                
+
                 if (!name || !prefix || !/^[A-Z0-9]{1,5}$/.test(prefix)) {
                     editError.classList.remove('hidden');
                     return;
@@ -954,7 +941,6 @@
                     closeEditModalFunc();
                 } catch (error) {
                     console.error('Edit error:', error);
-                    editError.querySelector('p')?.textContent = '❌ Failed to save changes';
                     editError.classList.remove('hidden');
                 }
 
@@ -967,16 +953,16 @@
                 try {
                     const counterRef = ref(database, `settings/counters/${counterId}`);
                     const snapshot = await get(counterRef);
-                    
+
                     if (!snapshot.exists()) return;
-                    
+
                     const counter = snapshot.val();
                     const prefix = counter.prefix || '';
-                    
+
                     if (action === 'call') {
                         const newNumber = counter.lastNumber + 1;
                         const newServing = newNumber;
-                        
+
                         await retryOperation(async () => {
                             const updates = {};
                             updates[`settings/counters/${counterId}/lastNumber`] = newNumber;
@@ -986,12 +972,11 @@
                             await update(ref(database), updates);
                         });
 
-                        // Request server notification
                         await notifyMatchingQueuesForServing(counterId, prefix, newServing);
 
                     } else if (action === 'skip') {
                         const newServing = counter.nowServing + 1;
-                        
+
                         await retryOperation(async () => {
                             const updates = {};
                             updates[`settings/counters/${counterId}/nowServing`] = newServing;
@@ -1000,7 +985,6 @@
                             await update(ref(database), updates);
                         });
 
-                        // Request server notification
                         await notifyMatchingQueuesForServing(counterId, prefix, newServing);
 
                     } else if (action === 'reset') {
@@ -1014,33 +998,29 @@
                                 await update(ref(database), updates);
                             });
 
-                            // Request server notification
                             await notifyMatchingQueuesForServing(counterId, prefix, 1);
                         }
                     }
                 } catch (error) {
                     console.error('Action error:', error);
-                    
-                    // Log client error for ops inspection
+
                     try {
                         await update(ref(database), {
                             [`counters/${counterId}/lastNotifyClientError`]: error.message,
                             [`counters/${counterId}/lastNotifyClientErrorAt`]: serverTimestamp()
                         });
                     } catch (e) {}
-                    
+
                     alert('Operation failed. Please try again.');
                 }
             }
 
             function setupRealtimeListeners() {
-                // Clean up old listeners
                 activeListeners.forEach(({ ref: r }) => {
                     try { off(r); } catch (e) {}
                 });
                 activeListeners = [];
 
-                // Listen to settings/counters for realtime updates
                 const settingsCountersRef = ref(database, 'settings/counters');
                 onValue(settingsCountersRef, (snapshot) => {
                     if (snapshot.exists()) {
@@ -1050,7 +1030,6 @@
                 });
                 activeListeners.push({ ref: settingsCountersRef });
 
-                // Listen to counters/{id} for each counter
                 Object.keys(activeCounters).forEach(counterId => {
                     const counterRef = ref(database, `counters/${counterId}`);
                     onValue(counterRef, (snapshot) => {
@@ -1066,7 +1045,6 @@
                 const counterKeys = Object.keys(activeCounters);
                 activeCountersText.textContent = `${counterKeys.length} active counter${counterKeys.length !== 1 ? 's' : ''}`;
 
-                // Update counter names and prefixes in cards
                 counterKeys.forEach(counterId => {
                     const counter = activeCounters[counterId];
                     const card = document.querySelector(`[data-counter="${counterId}"]`)?.closest('.bg-gradient-to-r');
@@ -1076,7 +1054,6 @@
                         if (nameEl) nameEl.textContent = counter.name;
                         if (prefixBadge) prefixBadge.textContent = counter.prefix;
 
-                        // Update serving and issued displays
                         const servingEl = card.querySelector(`#${counterId}-serving`);
                         const issuedEl = card.querySelector(`#${counterId}-issued`);
                         if (servingEl) servingEl.textContent = formatQueueId(counter.prefix, counter.nowServing);
@@ -1112,7 +1089,6 @@
                 helpModal.classList.add('hidden');
             });
 
-            // Menu handlers
             [typeMenuBtn, setupMenuBtn, dashboardMenuBtn].forEach(btn => {
                 btn?.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1121,9 +1097,9 @@
             });
 
             document.addEventListener('click', (e) => {
-                if (!menuDropdown.contains(e.target) && 
-                    !typeMenuBtn?.contains(e.target) && 
-                    !setupMenuBtn?.contains(e.target) && 
+                if (!menuDropdown.contains(e.target) &&
+                    !typeMenuBtn?.contains(e.target) &&
+                    !setupMenuBtn?.contains(e.target) &&
                     !dashboardMenuBtn?.contains(e.target)) {
                     menuDropdown.classList.add('hidden');
                 }
@@ -1134,7 +1110,6 @@
                 window.location.reload();
             });
 
-            // Cleanup on unload
             window.addEventListener('beforeunload', () => {
                 activeListeners.forEach(({ ref: r }) => {
                     try { off(r); } catch (e) {}
