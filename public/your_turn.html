@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Queue Joy — Your Turn</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    body { font-family: Inter, system-ui, Segoe UI, Roboto, sans-serif; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-
   <div class="w-full max-w-md bg-white rounded-xl shadow p-6 text-center">
     <h1 class="text-2xl font-bold text-gray-800 mb-3">It’s Your Turn</h1>
 
@@ -30,41 +29,29 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getDatabase, ref, onValue, off } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getDatabase, ref, onValue, off, get, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-    // ===== CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
       databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      storageBucket: "queue-joy-aa21b.firebasedatabase.app",
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
 
-    // ===== DOM =====
+    // DOM
     const yourNumberEl = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const fbStatusEl = document.getElementById('fbStatus');
     const tgBadge = document.getElementById('tgBadge');
 
-    // ===== STATE =====
     let app, db, queueRef, counterRef;
     let queueKey = null;
     let lastTicket = null;
-    const alertedKeyPrefix = 'qj_alerted_';
 
-    try {
-      app = initializeApp(firebaseConfig);
-      db = getDatabase(app);
-      fbStatusEl.textContent = 'Connected to Firebase';
-    } catch (e) {
-      fbStatusEl.textContent = 'Firebase init failed';
-      console.error(e);
-    }
-
-    // get queueKey
+    // get queueKey from URL
     function getParam(keys) {
       const usp = new URLSearchParams(window.location.search);
       for (const k of keys) { const v = usp.get(k); if (v) return v; }
@@ -75,9 +62,57 @@
       fbStatusEl.textContent = 'Missing queueId';
       throw new Error('Missing queueId');
     }
-    const alertedKey = alertedKeyPrefix + queueKey;
 
-    // tokenized helper to parse numeric suffix
+    // initialize Firebase
+    try {
+      app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      fbStatusEl.textContent = 'Connected to Firebase';
+    } catch (e) {
+      fbStatusEl.textContent = 'Firebase init failed';
+      console.error(e);
+    }
+
+    // Soft chime
+    function playSoftChime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(ctx.destination);
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.06, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+        o.start(now); o.stop(now + 0.85);
+        setTimeout(() => { try { ctx.close(); } catch (_) {} }, 1000);
+      } catch (e) { console.warn('playSoftChime failed', e); }
+    }
+
+    // show turn to user
+    async function alertUser(ticket, counterName) {
+      if (ticket) yourNumberEl.textContent = ticket;
+      if (counterName) counterNameEl.textContent = counterName;
+      playSoftChime();
+      try { if (navigator.vibrate) navigator.vibrate([180,80,180]); } catch(e){}
+      const originalTitle = document.title;
+      document.title = `▶ Your Turn — ${ticket || ''}`;
+      setTimeout(()=>document.title = originalTitle, 2500);
+    }
+
+    // clear the queue number in Firebase
+    async function clearQueueNumber() {
+      try {
+        if (!queueKey) return;
+        const qRef = ref(db, `queue/${queueKey}`);
+        await update(qRef, { called: true });
+        console.log('Queue cleared for', queueKey);
+      } catch(e) { console.error('Failed to clear queue', e); }
+    }
+
+    // parse numeric suffix
     function parseTicketNum(ticket) {
       if (!ticket) return NaN;
       const s = String(ticket);
@@ -86,98 +121,32 @@
       return parseInt(numPart, 10) || NaN;
     }
 
-    // Soft chime using Web Audio API (no external file, lower volume)
-    function playSoftChime() {
-      try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return; // no audio API
-        const ctx = new Ctx();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-
-        o.type = 'sine';
-        o.frequency.value = 880; // gentle high-ish tone
-        g.gain.value = 0.0001; // start almost silent
-
-        o.connect(g);
-        g.connect(ctx.destination);
-
-        const now = ctx.currentTime;
-        // quick fade-in to a low volume, then decay
-        g.gain.setValueAtTime(0.0001, now);
-        g.gain.exponentialRampToValueAtTime(0.06, now + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-
-        o.start(now);
-        o.stop(now + 0.85);
-
-        // close context after done to free resources
-        setTimeout(() => {
-          try { ctx.close(); } catch (_) {}
-        }, 1000);
-      } catch (e) {
-        console.warn('playSoftChime failed', e);
-      }
-    }
-
-    // show subtle UI feedback (title blink) and attempt to play & vibrate
-    async function alertUser(ticket, counterName, telegramBot) {
-      // prevent duplicates across reloads
-      if (localStorage.getItem(alertedKey)) return;
-      localStorage.setItem(alertedKey, 'true');
-
-      // update visible fields (no popup)
-      // keep the main page showing the ticket & counter so user sees it
-      if (ticket) yourNumberEl.textContent = ticket;
-      if (counterName) counterNameEl.textContent = counterName;
-
-      // play soft chime
-      playSoftChime();
-
-      // vibrate if supported
-      try { if (navigator.vibrate) navigator.vibrate([180,80,180]); } catch (e) {}
-
-      // briefly change document title to attract attention
-      const originalTitle = document.title;
-      document.title = `▶ Your Turn — ${ticket || ''}`;
-      setTimeout(() => { document.title = originalTitle; }, 2500);
-
-      // focus the window to increase chance of user seeing it
-      try { window.focus(); } catch(_) {}
-    }
-
-    // Firebase listeners
+    // attach listeners to queue
     function attachListeners() {
       queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, (snap) => {
-        if (!snap.exists()) {
-          fbStatusEl.textContent = 'Queue not found';
-          yourNumberEl.textContent = '--';
-          counterNameEl.textContent = '--';
-          return;
-        }
+      onValue(queueRef, async (snap) => {
+        if (!snap.exists()) return;
         const q = snap.val() || {};
         const ticket = q.ticketNumber || q.queueId || q.id || q.number || q.queueNo || q.ticket || '--';
         lastTicket = ticket;
         yourNumberEl.textContent = ticket;
 
-        // show telegram badge if server already linked chat
+        // telegram badge
         if (q.telegramChatId) tgBadge.classList.remove('hidden');
         else tgBadge.classList.add('hidden');
 
-        // prefer explicit called flag from server
-        if (q.called === true || q.notifiedAt || q.calledAt) {
+        // turn detected via server or user redirect
+        const called = q.called === true || q.notifiedAt || q.calledAt;
+        if (called) {
           const counterName = q.counterAssignedName || q.counterName || q.counterAssigned || null;
-          alertUser(ticket, counterName, q.telegramBotUsername || null);
+          alertUser(ticket, counterName);
+          await clearQueueNumber();
           return;
         }
 
-        // otherwise watch counter
+        // attach counter listener if counterId exists
         const counterId = q.counterId || q.counterAssigned || q.counter || null;
         if (counterId) attachCounter(counterId);
-      }, (err) => {
-        console.error('queue read error', err);
-        fbStatusEl.textContent = 'Read error';
       });
     }
 
@@ -191,43 +160,37 @@
         if (!cSnap.exists()) return;
         const c = cSnap.val() || {};
         counterNameEl.textContent = c.name || `Counter ${counterId}`;
-
-        // prefer c.nowServing or fallback to counters/{id}/nowServing path
         if (c.nowServing !== undefined && c.nowServing !== null) {
-          evaluateNowServing(c.nowServing, c.name, c.botUsername);
+          evaluateNowServing(c.nowServing, c.name);
         } else {
           const nsRef = ref(db, `counters/${counterId}/nowServing`);
           onValue(nsRef, (nsSnap) => {
             const val = nsSnap.exists() ? nsSnap.val() : null;
-            if (val !== null) evaluateNowServing(val, c.name, c.botUsername);
+            if (val !== null) evaluateNowServing(val, c.name);
           });
         }
       });
     }
 
-    function evaluateNowServing(nowServingValue, counterName, botUsername) {
+    function evaluateNowServing(nowServingValue, counterName) {
       if (!lastTicket) return;
-      // support prefixed tickets like "A012"
       const ticketNum = parseTicketNum(lastTicket);
       const currentNum = parseTicketNum(nowServingValue);
-      if (isNaN(ticketNum) || isNaN(currentNum)) {
-        // fallback string compare
-        if (String(nowServingValue) === String(lastTicket)) {
-          alertUser(lastTicket, counterName, botUsername || null);
-        }
-        return;
-      }
-      if (currentNum >= ticketNum) {
-        alertUser(lastTicket, counterName, botUsername || null);
+      if (!isNaN(ticketNum) && !isNaN(currentNum) && currentNum >= ticketNum) {
+        alertUser(lastTicket, counterName);
+        clearQueueNumber();
+      } else if (String(nowServingValue) === String(lastTicket)) {
+        alertUser(lastTicket, counterName);
+        clearQueueNumber();
       }
     }
 
     // start
     attachListeners();
 
-    // cleanup when leaving
+    // cleanup on unload
     window.addEventListener('beforeunload', () => {
-      try { if (queueRef) off(queueRef); if (counterRef) off(counterRef); } catch(_) {}
+      try { if(queueRef) off(queueRef); if(counterRef) off(counterRef); } catch(_) {}
     });
   </script>
 </body>
