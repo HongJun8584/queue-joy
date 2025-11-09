@@ -29,6 +29,14 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+        .edit-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center p-4">
@@ -172,15 +180,15 @@
                     <input
                         type="text"
                         id="singleCounterPrefix"
-                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent text-center text-lg font-bold"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent text-center text-lg font-bold uppercase"
                         placeholder="A"
                         maxlength="5"
                     />
-                    <p class="text-xs text-gray-500">Example: A, B, VIP, 1, etc.</p>
+                    <p class="text-xs text-gray-500">Example: A, B, VIP, 1, etc. (A-Z, 0-9, max 5 chars)</p>
                 </div>
 
                 <div id="singleError" class="hidden">
-                    <p class="text-sm text-red-500 text-center">❌ Please fill in all fields</p>
+                    <p class="text-sm text-red-500 text-center">❌ Please fill in all fields correctly</p>
                 </div>
             </div>
 
@@ -207,7 +215,7 @@
                 <p id="activeCountersText" class="text-sm text-gray-600">0 active counters</p>
             </div>
 
-            <div id="countersList" class="space-y-4"></div>
+            <div id="countersList" class="space-y-4 max-h-[70vh] overflow-y-auto"></div>
 
             <button
                 id="addMoreBtn"
@@ -220,6 +228,68 @@
                     Add More Counters
                 </span>
             </button>
+        </div>
+    </div>
+
+    <!-- Edit Counter Modal -->
+    <div id="editModal" class="hidden edit-modal modal-backdrop">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 slide-up">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-indigo-600">Edit Counter</h3>
+                <button id="closeEditModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700">Counter Name</label>
+                    <input
+                        type="text"
+                        id="editCounterName"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        placeholder="Counter Name"
+                    />
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700">Counter Prefix</label>
+                    <input
+                        type="text"
+                        id="editCounterPrefix"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-center text-lg font-bold uppercase"
+                        placeholder="A"
+                        maxlength="5"
+                    />
+                    <p class="text-xs text-gray-500">A-Z, 0-9, max 5 characters</p>
+                </div>
+
+                <div id="editError" class="hidden">
+                    <p class="text-sm text-red-500 text-center">❌ Invalid input</p>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button
+                    id="cancelEditBtn"
+                    class="flex-1 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all"
+                >
+                    Cancel
+                </button>
+                <button
+                    id="saveEditBtn"
+                    class="flex-1 py-2 bg-gradient-to-r from-indigo-600 to-purple-500 text-white font-medium rounded-xl hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+                    disabled
+                >
+                    <span id="saveEditText">Save</span>
+                    <div id="saveEditSpinner" class="hidden flex items-center justify-center">
+                        <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Saving...
+                    </div>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -240,8 +310,12 @@
                     <p>Enter PIN (0108) to access the counter panel securely.</p>
                 </div>
                 <div>
+                    <h4 class="font-medium text-gray-800">✏️ Edit Counter</h4>
+                    <p>Click Edit button to change counter name or prefix. Changes sync instantly across all devices.</p>
+                </div>
+                <div>
                     <h4 class="font-medium text-gray-800">📞 Call Next</h4>
-                    <p>Issues a new number and updates "Now Serving".</p>
+                    <p>Issues a new number and updates "Now Serving". Server sends Telegram notification to the customer.</p>
                 </div>
                 <div>
                     <h4 class="font-medium text-gray-800">⏭️ Skip</h4>
@@ -253,7 +327,7 @@
                 </div>
                 <div>
                     <h4 class="font-medium text-gray-800">🔔 Server Notifications</h4>
-                    <p>Telegram notifications are sent by the server when a number is called.</p>
+                    <p>Telegram notifications are sent by the server when a number is called, even if customer closed their browser.</p>
                 </div>
             </div>
         </div>
@@ -281,7 +355,6 @@
             onValue,
             off,
             update,
-            runTransaction,
             serverTimestamp
         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
@@ -299,7 +372,7 @@
         const database = getDatabase(app);
 
         // Retry helper with exponential backoff
-        async function retryOperation(operation, maxRetries = 3, baseDelay = 1000) {
+        async function retryOperation(operation, maxRetries = 3, baseDelay = 700) {
             for (let i = 0; i < maxRetries; i++) {
                 try {
                     return await operation();
@@ -310,15 +383,52 @@
             }
         }
 
-        // Atomic update with server timestamp
-        async function updateCounterServing(counterId, newValue) {
-            const updates = {};
-            updates[`counters/${counterId}/nowServing`] = newValue;
-            updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
-            
-            return retryOperation(async () => {
-                await update(ref(database), updates);
-            });
+        // Helper: format queue ID with prefix
+        function formatQueueId(prefix = '', num) {
+            return `${prefix || ''}${String(Number(num) || 0).padStart(3,'0')}`;
+        }
+
+        // Helper: notify matching queues for serving (server notification request)
+        async function notifyMatchingQueuesForServing(counterId, prefix, number) {
+            const prefixed = formatQueueId(prefix, number);
+            const padded = String(number).padStart(3, '0');
+            const plain = String(number);
+
+            await retryOperation(async () => {
+                const qSnap = await get(ref(database, 'queue'));
+                if (!qSnap.exists()) return;
+
+                const updates = {};
+                let any = false;
+
+                qSnap.forEach(snap => {
+                    const q = snap.val() || {};
+                    const key = snap.key;
+                    const qid = String(q.queueId || q.ticketNumber || q.id || q.number || '').trim();
+
+                    const matches = qid === prefixed || qid === padded || qid === plain ||
+                                    (q.counterId && q.counterId === counterId && qid === prefixed);
+
+                    if (!matches) return;
+                    if (q.called === true || q.serverNotified === true || q.serverNotifyRequested === true) return;
+
+                    if (!q.chatId && !q.telegramChatId) {
+                        updates[`queue/${key}/notificationError`] = 'no-chatId';
+                        updates[`queue/${key}/notificationErrorAt`] = serverTimestamp();
+                        any = true;
+                        return;
+                    }
+
+                    updates[`queue/${key}/counterId`] = counterId;
+                    updates[`queue/${key}/status`] = 'serving';
+                    updates[`queue/${key}/serverNotifyRequested`] = true;
+                    updates[`queue/${key}/serverNotifyRequestedAt`] = serverTimestamp();
+                    updates[`queue/${key}/serverNotifyRequestedBy`] = 'counter-client';
+                    any = true;
+                });
+
+                if (any) await update(ref(database), updates);
+            }, 3, 700);
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -368,11 +478,22 @@
             const menuDropdown = document.getElementById('menuDropdown');
             const logoutBtn = document.getElementById('logoutBtn');
 
+            const editModal = document.getElementById('editModal');
+            const closeEditModal = document.getElementById('closeEditModal');
+            const editCounterName = document.getElementById('editCounterName');
+            const editCounterPrefix = document.getElementById('editCounterPrefix');
+            const editError = document.getElementById('editError');
+            const saveEditBtn = document.getElementById('saveEditBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+            const saveEditText = document.getElementById('saveEditText');
+            const saveEditSpinner = document.getElementById('saveEditSpinner');
+
             let counterType = '';
             let selectedCounters = [];
             let prefixes = {};
             let activeCounters = {};
             let activeListeners = [];
+            let currentEditCounterId = null;
 
             // Check auth
             if (sessionStorage.getItem('counterAccess') === 'true') {
@@ -505,7 +626,7 @@
                             <input
                                 type="text"
                                 placeholder="Prefix (A-Z, 0-9)"
-                                class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                                class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent uppercase"
                                 maxlength="5"
                                 data-field="prefix"
                             />
@@ -651,7 +772,20 @@
                     }
                     
                     await retryOperation(async () => {
-                        await set(ref(database, 'settings/counters'), countersToSetup);
+                        const updates = {};
+                        Object.keys(countersToSetup).forEach(cid => {
+                            const c = countersToSetup[cid];
+                            updates[`settings/counters/${cid}/name`] = c.name;
+                            updates[`settings/counters/${cid}/prefix`] = c.prefix;
+                            updates[`settings/counters/${cid}/nowServing`] = c.nowServing;
+                            updates[`settings/counters/${cid}/lastNumber`] = c.lastNumber;
+                            updates[`settings/counters/${cid}/active`] = c.active;
+                            updates[`settings/counters/${cid}/createdAt`] = serverTimestamp();
+                            updates[`counters/${cid}/nowServing`] = c.nowServing;
+                            updates[`counters/${cid}/name`] = c.name;
+                            updates[`counters/${cid}/prefix`] = c.prefix;
+                        });
+                        await update(ref(database), updates);
                     });
                     
                     activeCounters = countersToSetup;
@@ -679,7 +813,19 @@
                     counterCard.innerHTML = `
                         <div class="flex items-center justify-between">
                             <h3 class="font-semibold text-gray-800">${counter.name}</h3>
-                            <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">${counter.prefix}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">${counter.prefix}</span>
+                                <button
+                                    class="p-2 hover:bg-indigo-100 rounded-lg transition-colors"
+                                    data-action="edit"
+                                    data-counter="${counterId}"
+                                    title="Edit counter"
+                                >
+                                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="grid grid-cols-2 gap-3">
@@ -726,10 +872,96 @@
                     btn.addEventListener('click', async (e) => {
                         const action = e.currentTarget.getAttribute('data-action');
                         const counterId = e.currentTarget.getAttribute('data-counter');
-                        await handleCounterAction(action, counterId);
+                        if (action === 'edit') {
+                            openEditModal(counterId);
+                        } else {
+                            await handleCounterAction(action, counterId);
+                        }
                     });
                 });
             }
+
+            function openEditModal(counterId) {
+                currentEditCounterId = counterId;
+                const counter = activeCounters[counterId];
+                if (!counter) return;
+
+                editCounterName.value = counter.name || '';
+                editCounterPrefix.value = counter.prefix || '';
+                editError.classList.add('hidden');
+                validateEditForm();
+                editModal.classList.remove('hidden');
+            }
+
+            function closeEditModalFunc() {
+                editModal.classList.add('hidden');
+                currentEditCounterId = null;
+                editCounterName.value = '';
+                editCounterPrefix.value = '';
+                editError.classList.add('hidden');
+            }
+
+            closeEditModal.addEventListener('click', closeEditModalFunc);
+            cancelEditBtn.addEventListener('click', closeEditModalFunc);
+
+            function validateEditForm() {
+                const name = editCounterName.value.trim();
+                const prefix = editCounterPrefix.value.trim().toUpperCase();
+                const isValid = name && prefix && /^[A-Z0-9]{1,5}$/.test(prefix);
+                
+                saveEditBtn.disabled = !isValid;
+                
+                if (!isValid && (name || prefix)) {
+                    editError.classList.remove('hidden');
+                } else {
+                    editError.classList.add('hidden');
+                }
+            }
+
+            editCounterName.addEventListener('input', validateEditForm);
+            editCounterPrefix.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase();
+                validateEditForm();
+            });
+
+            saveEditBtn.addEventListener('click', async () => {
+                if (!currentEditCounterId) return;
+                
+                const name = editCounterName.value.trim();
+                const prefix = editCounterPrefix.value.trim().toUpperCase();
+                
+                if (!name || !prefix || !/^[A-Z0-9]{1,5}$/.test(prefix)) {
+                    editError.classList.remove('hidden');
+                    return;
+                }
+
+                saveEditBtn.disabled = true;
+                saveEditText.classList.add('hidden');
+                saveEditSpinner.classList.remove('hidden');
+
+                try {
+                    await retryOperation(async () => {
+                        const updates = {};
+                        updates[`settings/counters/${currentEditCounterId}/name`] = name;
+                        updates[`settings/counters/${currentEditCounterId}/prefix`] = prefix;
+                        updates[`settings/counters/${currentEditCounterId}/updatedAt`] = serverTimestamp();
+                        updates[`settings/counters/${currentEditCounterId}/updatedBy`] = 'counter-client';
+                        updates[`counters/${currentEditCounterId}/name`] = name;
+                        updates[`counters/${currentEditCounterId}/prefix`] = prefix;
+                        await update(ref(database), updates);
+                    });
+
+                    closeEditModalFunc();
+                } catch (error) {
+                    console.error('Edit error:', error);
+                    editError.querySelector('p')?.textContent = '❌ Failed to save changes';
+                    editError.classList.remove('hidden');
+                }
+
+                saveEditBtn.disabled = false;
+                saveEditText.classList.remove('hidden');
+                saveEditSpinner.classList.add('hidden');
+            });
 
             async function handleCounterAction(action, counterId) {
                 try {
@@ -739,6 +971,7 @@
                     if (!snapshot.exists()) return;
                     
                     const counter = snapshot.val();
+                    const prefix = counter.prefix || '';
                     
                     if (action === 'call') {
                         const newNumber = counter.lastNumber + 1;
@@ -752,12 +985,24 @@
                             updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
                             await update(ref(database), updates);
                         });
+
+                        // Request server notification
+                        await notifyMatchingQueuesForServing(counterId, prefix, newServing);
+
                     } else if (action === 'skip') {
                         const newServing = counter.nowServing + 1;
-                        await updateCounterServing(counterId, newServing);
+                        
                         await retryOperation(async () => {
-                            await set(ref(database, `settings/counters/${counterId}/nowServing`), newServing);
+                            const updates = {};
+                            updates[`settings/counters/${counterId}/nowServing`] = newServing;
+                            updates[`counters/${counterId}/nowServing`] = newServing;
+                            updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                            await update(ref(database), updates);
                         });
+
+                        // Request server notification
+                        await notifyMatchingQueuesForServing(counterId, prefix, newServing);
+
                     } else if (action === 'reset') {
                         if (confirm('Reset this counter to 1?')) {
                             await retryOperation(async () => {
@@ -768,71 +1013,95 @@
                                 updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
                                 await update(ref(database), updates);
                             });
+
+                            // Request server notification
+                            await notifyMatchingQueuesForServing(counterId, prefix, 1);
                         }
                     }
                 } catch (error) {
                     console.error('Action error:', error);
+                    
+                    // Log client error for ops inspection
+                    try {
+                        await update(ref(database), {
+                            [`counters/${counterId}/lastNotifyClientError`]: error.message,
+                            [`counters/${counterId}/lastNotifyClientErrorAt`]: serverTimestamp()
+                        });
+                    } catch (e) {}
+                    
                     alert('Operation failed. Please try again.');
                 }
             }
 
             function setupRealtimeListeners() {
-                activeListeners.forEach(({ ref: listenerRef }) => {
-                    try {
-                        off(listenerRef);
-                    } catch (e) {}
+                // Clean up old listeners
+                activeListeners.forEach(({ ref: r }) => {
+                    try { off(r); } catch (e) {}
                 });
                 activeListeners = [];
-                
+
+                // Listen to settings/counters for realtime updates
+                const settingsCountersRef = ref(database, 'settings/counters');
+                onValue(settingsCountersRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        activeCounters = snapshot.val();
+                        updateDashboardDisplay();
+                    }
+                });
+                activeListeners.push({ ref: settingsCountersRef });
+
+                // Listen to counters/{id} for each counter
                 Object.keys(activeCounters).forEach(counterId => {
-                    const counterRef = ref(database, `settings/counters/${counterId}`);
-                    
-                    const unsubscribe = onValue(counterRef, (snapshot) => {
+                    const counterRef = ref(database, `counters/${counterId}`);
+                    onValue(counterRef, (snapshot) => {
                         if (snapshot.exists()) {
-                            const data = snapshot.val();
-                            const servingEl = document.getElementById(`${counterId}-serving`);
-                            const issuedEl = document.getElementById(`${counterId}-issued`);
-                            
-                            if (servingEl) {
-                                servingEl.textContent = `${data.prefix}${String(data.nowServing).padStart(3, '0')}`;
-                            }
-                            if (issuedEl) {
-                                issuedEl.textContent = `${data.prefix}${String(data.lastNumber).padStart(3, '0')}`;
-                            }
+                            updateCounterDisplay(counterId, snapshot.val());
                         }
-                    }, (error) => {
-                        console.error('Listener error:', error);
                     });
-                    
-                    activeListeners.push({ ref: counterRef, unsubscribe });
+                    activeListeners.push({ ref: counterRef });
                 });
             }
 
-            addMoreBtn.addEventListener('click', () => {
-                if (Object.keys(activeCounters).length >= 7) {
-                    alert('Maximum 7 counters reached');
-                    return;
-                }
-                showTypeSelection();
-            });
+            function updateDashboardDisplay() {
+                const counterKeys = Object.keys(activeCounters);
+                activeCountersText.textContent = `${counterKeys.length} active counter${counterKeys.length !== 1 ? 's' : ''}`;
 
-            // Menu handlers
-            [typeMenuBtn, setupMenuBtn, dashboardMenuBtn].forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    menuDropdown.classList.toggle('hidden');
+                // Update counter names and prefixes in cards
+                counterKeys.forEach(counterId => {
+                    const counter = activeCounters[counterId];
+                    const card = document.querySelector(`[data-counter="${counterId}"]`)?.closest('.bg-gradient-to-r');
+                    if (card) {
+                        const nameEl = card.querySelector('h3');
+                        const prefixBadge = card.querySelector('.px-3.py-1');
+                        if (nameEl) nameEl.textContent = counter.name;
+                        if (prefixBadge) prefixBadge.textContent = counter.prefix;
+
+                        // Update serving and issued displays
+                        const servingEl = card.querySelector(`#${counterId}-serving`);
+                        const issuedEl = card.querySelector(`#${counterId}-issued`);
+                        if (servingEl) servingEl.textContent = formatQueueId(counter.prefix, counter.nowServing);
+                        if (issuedEl) issuedEl.textContent = formatQueueId(counter.prefix, counter.lastNumber);
+                    }
                 });
-            });
+            }
 
-            document.addEventListener('click', (e) => {
-                if (!menuDropdown.contains(e.target)) {
-                    menuDropdown.classList.add('hidden');
+            function updateCounterDisplay(counterId, counterData) {
+                const counter = activeCounters[counterId];
+                if (!counter) return;
+
+                const servingEl = document.getElementById(`${counterId}-serving`);
+                const issuedEl = document.getElementById(`${counterId}-issued`);
+
+                if (servingEl && counterData.nowServing !== undefined) {
+                    servingEl.textContent = formatQueueId(counter.prefix, counterData.nowServing);
                 }
-            });
+                if (issuedEl && counter.lastNumber !== undefined) {
+                    issuedEl.textContent = formatQueueId(counter.prefix, counter.lastNumber);
+                }
+            }
 
-            logoutBtn.addEventListener('click', () => {
-                sessionStorage.removeItem('counterAccess');
-                location.reload();
+            addMoreBtn.addEventListener('click', () => {
+                showTypeSelection();
             });
 
             helpBtn.addEventListener('click', () => {
@@ -841,6 +1110,35 @@
 
             closeHelp.addEventListener('click', () => {
                 helpModal.classList.add('hidden');
+            });
+
+            // Menu handlers
+            [typeMenuBtn, setupMenuBtn, dashboardMenuBtn].forEach(btn => {
+                btn?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menuDropdown.classList.toggle('hidden');
+                });
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!menuDropdown.contains(e.target) && 
+                    !typeMenuBtn?.contains(e.target) && 
+                    !setupMenuBtn?.contains(e.target) && 
+                    !dashboardMenuBtn?.contains(e.target)) {
+                    menuDropdown.classList.add('hidden');
+                }
+            });
+
+            logoutBtn.addEventListener('click', () => {
+                sessionStorage.removeItem('counterAccess');
+                window.location.reload();
+            });
+
+            // Cleanup on unload
+            window.addEventListener('beforeunload', () => {
+                activeListeners.forEach(({ ref: r }) => {
+                    try { off(r); } catch (e) {}
+                });
             });
         });
     </script>
