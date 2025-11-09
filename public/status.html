@@ -243,22 +243,27 @@
     // create secure link by calling serverless
     async function generateConnectLink() {
       if (!currentQueueKey) throw new Error('Missing queueKey');
+    
+      // Wait until the number appears
+      let queueId = yourNumber.textContent;
+      if (!queueId || queueId === '--') {
+        await new Promise(resolve => setTimeout(resolve, 500)); // wait 0.5s
+        queueId = yourNumber.textContent;
+      }
+    
       const res = await fetch(CREATE_LINK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          queueId: currentQueueData?.queueId || yourNumber.textContent || currentQueueKey,
+          queueId: queueId || currentQueueKey,
           counterId: currentQueueData?.counterId || null
         })
       });
-      if (!res.ok) {
-        const txt = await res.text().catch(()=>'');
-        throw new Error(`Server error ${res.status} ${txt}`);
-      }
+    
       const j = await res.json();
-      if (!j.link) throw new Error('No link returned');
       return j.link;
     }
+
 
     async function triggerGenerateLink() {
       if (linkGenerating) return;
