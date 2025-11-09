@@ -1,31 +1,52 @@
 // /netlify/functions/createTelegramLink.js
-// POST { queueKey, counterId? } -> { link }
-// Env: BOT_USERNAME (optional; fallback), SITE_URL (optional)
+// POST { queueKey, queueId?, number?, queueNumber?, counterId?, counterName? } -> { link, token }
+// Env: BOT_USERNAME (optional), SITE_URL (optional)
+// Generates a Telegram deep link like: https://t.me/<bot>?start=<base64-token>
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+    if (event.httpMethod !== 'POST') {
+      return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+
     const body = JSON.parse(event.body || '{}');
-    const queueKey = body.queueKey || body.queueId || null;
-    const counterId = body.counterId || body.counterName || null;
-    if (!queueKey) return { statusCode: 400, body: 'Missing queueKey' };
 
-    // Build simple payload
-    const payload = { queueId: String(queueKey) };
-    if (counterId) payload.counterId = String(counterId);
+    // Prioritize human-readable number instead of internal key
+    const queueNumber =
+      body.queueNumber ||
+      body.number ||
+      body.queueId ||
+      body.queueKey ||
+      null;
 
+    const counterName = body.counterName || body.counterId || null;
+
+    if (!queueNumber) {
+      return { statusCode: 400, body: 'Missing queueNumber/queueKey' };
+    }
+
+    // Build human-friendly payload
+    const payload = { queueId: String(queueNumber) };
+    if (counterName) payload.counterName = String(counterName);
+
+    // Encode as base64 (safe for Telegram)
     const json = JSON.stringify(payload);
-    const token = Buffer.from(json).toString('base64'); // not url-safe but fine; Telegram allows base64 in start param
+    const token = Buffer.from(json).toString('base64');
 
+    // Bot username (env or fallback)
     const BOT_USERNAME = process.env.BOT_USERNAME || 'QueueJoyBot';
     const link = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(token)}`;
 
+    // Optional: if your site needs to show a preview link
+    const SITE_URL = (process.env.SITE_URL || '').replace(/\/$/, '');
+    const preview = SITE_URL ? `${SITE_URL}/preview?token=${encodeURIComponent(token)}` : null;
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ link, token })
+      body: JSON.stringify({ link, token, preview }),
     };
   } catch (err) {
-    console.error(err);
+    console.error('createTelegramLink error:', err);
     return { statusCode: 500, body: 'Server error' };
   }
 };
