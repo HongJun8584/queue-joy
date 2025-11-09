@@ -1,6 +1,6 @@
 // /netlify/functions/telegramWebhook.js
 // CommonJS for Netlify. Uses global fetch (Node 18+ runtime).
-// Env: BOT_TOKEN (required), CHAT_ID (optional), FIREBASE_DB_URL (optional)
+// Env required: BOT_TOKEN, CHAT_ID (optional admin notifications)
 
 exports.handler = async (event) => {
   try {
@@ -16,6 +16,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: 'Invalid JSON' };
     }
 
+    // Accept new messages and edited messages
     const msg = update.message || update.edited_message;
     if (!msg || !msg.chat || typeof msg.chat.id === 'undefined') {
       return { statusCode: 200, body: 'No chat message to handle' };
@@ -29,7 +30,6 @@ exports.handler = async (event) => {
 
     const BOT_TOKEN = process.env.BOT_TOKEN;
     const ADMIN_CHAT_ID = process.env.CHAT_ID || null;
-    const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
 
     if (!BOT_TOKEN) {
       console.error('Missing BOT_TOKEN env');
@@ -46,7 +46,10 @@ exports.handler = async (event) => {
           body: JSON.stringify({ chat_id: toChatId, text }),
         });
         // best-effort logging
-        try { const j = await res.json().catch(()=>null); if (!res.ok) console.warn('Telegram API non-ok', res.status, j); } catch(e){}
+        try {
+          const j = await res.json().catch(() => null);
+          if (!res.ok) console.warn('Telegram API non-ok', res.status, j);
+        } catch (e) {}
       } catch (e) {
         console.error('Failed to call Telegram API', e);
       }
@@ -57,98 +60,87 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: 'Ignored non-start message' };
     }
 
-    // If no token -> instruct user how to connect properly
+    // If no token -> instruct user how to connect (we can't look up DB here)
     if (!token) {
       await sendTelegram(chatId,
-        "Hi — to link your number open the QueueJoy status page you received and tap *Connect via Telegram*. The status page will invoke `/start <TOKEN>` for you. (This message is automatic.)"
+        "Hi — to link your number open the QueueJoy status page you received and tap Connect via Telegram. The status page will run `/start <TOKEN>` for you. (This message is automatic.)"
       );
       return { statusCode: 200, body: 'No token provided' };
     }
 
-    // token sanitization: allow alphanumeric, dash, underscore
-    const safeToken = String(token).trim();
-    if (!/^[\w-]+$/.test(safeToken)) {
+    // sanitize token acceptance: allow common safe chars (alphanumeric plus few separators and base64 =)
+    const rawToken = String(token).trim();
+    if (!/^[A-Za-z0-9_\-.:|=]+$/.test(rawToken)) {
       await sendTelegram(chatId, "Token appears invalid. Please use the Connect button from the QueueJoy status page.");
       return { statusCode: 200, body: 'Invalid token format' };
     }
 
-    // Try to read queue entry from Firebase Realtime DB if configured
-    let queueEntry = null;
-    let counterEntry = null;
-    if (FIREBASE_DB_URL) {
+    // Heuristic parsing: try to extract queueId and counterName from token
+    // Supports:
+    //  - plain queueId (e.g., A023)
+    //  - queueId|counterName  queueId:counterName  queueId::counterName
+    //  - base64 JSON with {queueId, counterName}
+    //  - fallback -> queueId = token, counterName = 'TBD'
+    let queueId = null;
+    let counterName = 'TBD';
+
+    // helper: try base64 decode then JSON parse
+    function tryParseBase64Json(str) {
       try {
-        const qUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(safeToken)}.json`;
-        const qRes = await fetch(qUrl, { method: 'GET' });
-        if (qRes.ok) queueEntry = await qRes.json();
-        else console.warn('Firebase queue GET non-ok', qRes.status);
-      } catch (e) {
-        console.warn('Firebase queue GET failed', e);
-      }
-    } else {
-      console.warn('FIREBASE_DB_URL not set; cannot lookup queue entry');
+        // normalize base64 url-safe
+        const s = str.replace(/-/g, '+').replace(/_/g, '/');
+        // pad
+        const pad = s.length % 4;
+        const padded = pad ? s + '='.repeat(4 - pad) : s;
+        const decoded = Buffer.from(padded, 'base64').toString('utf8');
+        const json = JSON.parse(decoded);
+        if (json && typeof json === 'object') return json;
+      } catch (e) {}
+      return null;
     }
 
-    // If queue entry missing -> inform user (no fake numbers)
-    if (!queueEntry) {
-      // fallback: tell user how to connect from the status page
-      await sendTelegram(chatId,
-        "We couldn't find a queue entry for that token. Open the QueueJoy status page (the page that gave you the token) and press the Telegram Connect button — it will run `/start <TOKEN>` automatically."
-      );
-      return { statusCode: 200, body: 'Queue entry not found' };
+    // 1) If token looks like base64 JSON, try that first
+    const maybeJson = tryParseBase64Json(rawToken);
+    if (maybeJson) {
+      if (maybeJson.queueId) queueId = String(maybeJson.queueId);
+      if (maybeJson.counterName) counterName = String(maybeJson.counterName);
     }
 
-    // require queueId
-    const queueId = queueEntry.queueId || null; // e.g. "A023"
-    const counterId = queueEntry.counterId || null;
+    // 2) If not, try common delimiters
     if (!queueId) {
-      await sendTelegram(chatId,
-        "We found your connection token but your queue number isn't assigned yet. Please stay on the status page and try Connect again once your number appears."
-      );
-      return { statusCode: 200, body: 'Queue entry missing queueId' };
-    }
-
-    // look up counter name if possible
-    let counterName = null;
-    if (counterId && FIREBASE_DB_URL) {
-      try {
-        const cUrl = `${FIREBASE_DB_URL}/counters/${encodeURIComponent(counterId)}.json`;
-        const cRes = await fetch(cUrl, { method: 'GET' });
-        if (cRes.ok) counterEntry = await cRes.json();
-      } catch (e) {
-        console.warn('Firebase counter GET failed', e);
+      const delimCandidates = ['::', '|', ':', '__'];
+      let used = null;
+      for (const d of delimCandidates) {
+        if (rawToken.includes(d)) { used = d; break; }
       }
-    }
-    counterName = (counterEntry && (counterEntry.name || counterEntry.displayName)) || (counterId || 'TBD');
-
-    // Attempt to persist chatId & connected flag back to the queue entry (best-effort)
-    if (FIREBASE_DB_URL) {
-      try {
-        const patchUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(safeToken)}.json`;
-        await fetch(patchUrl, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: chatId, telegramConnected: true }),
-        });
-      } catch (err) {
-        console.warn('Failed to write chatId to Firebase (non-fatal)', err);
+      if (used) {
+        const [q, c] = rawToken.split(used, 2);
+        if (q) queueId = q;
+        if (c) counterName = c || counterName;
       }
     }
 
-    // Build reply (only Hey, number, counter, and short hint)
+    // 3) fallback: treat token as queueId
+    if (!queueId) queueId = rawToken;
+
+    // sanitize small outputs
+    queueId = String(queueId).trim() || 'TBD';
+    counterName = String(counterName).trim() || 'TBD';
+
+    // Format user reply with friendly closing copy you requested
     const replyLines = [
       '👋 Hey!',
       `🧾 Number • ${queueId}`,
       `🪑 Counter • ${counterName}`,
       '',
-      'QueueJoy is keeping your spot in line.',
-      "Leave this page open in the background (don't close it) — Telegram will DM you when it's your turn. 🎮"
+      'You are now connected — you can close the browser and Telegram. Everything will be automated. Just sit down and relax. ☕️😌'
     ];
     const replyText = replyLines.join('\n');
 
     // Send DM to user
     await sendTelegram(chatId, replyText);
 
-    // Optionally notify admin chat with a short copy (if configured) so staff know user connected
+    // Optionally notify admin chat with a short copy (if configured)
     if (ADMIN_CHAT_ID) {
       try {
         const adminMsg = `User connected: ${queueId} — Counter ${counterName} (chatId: ${chatId})`;
