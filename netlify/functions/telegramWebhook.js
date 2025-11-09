@@ -1,188 +1,168 @@
 // /netlify/functions/telegramWebhook.js
-// Node 18+ runtime (Netlify). Env: BOT_TOKEN (required), CHAT_ID (optional admin)
+// Netlify (Node 18+). Env: BOT_TOKEN (required), CHAT_ID (optional admin).
+// Only handles /start commands and sends a single friendly reply to the user.
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== 'POST') {
-      return { statusCode: 405, body: 'Method Not Allowed. Use POST.' };
-    }
+    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
-    let update;
-    try {
-      update = JSON.parse(event.body || '{}');
-    } catch (err) {
-      console.error('Invalid JSON body', err);
-      return { statusCode: 400, body: 'Invalid JSON' };
-    }
-
-    const msg = update.message || update.edited_message;
-    if (!msg || !msg.chat || typeof msg.chat.id === 'undefined') {
-      return { statusCode: 200, body: 'No chat message to handle' };
-    }
-
-    const chatId = msg.chat.id;
-    const rawText = String(msg.text || '').trim();
-    const parts = rawText.split(/\s+/).filter(Boolean);
-    const cmd = (parts[0] || '').toLowerCase();
-    const tokenPart = parts.slice(1).join(' ') || null; // allow spaces inside token if encoded
+    let update = {};
+    try { update = JSON.parse(event.body || '{}'); } catch (e) { return { statusCode: 400, body: 'Invalid JSON' }; }
 
     const BOT_TOKEN = process.env.BOT_TOKEN;
     const ADMIN_CHAT_ID = process.env.CHAT_ID || null;
+    if (!BOT_TOKEN) return { statusCode: 500, body: 'Missing BOT_TOKEN' };
 
-    if (!BOT_TOKEN) {
-      console.error('Missing BOT_TOKEN env');
-      return { statusCode: 500, body: 'Missing BOT_TOKEN' };
-    }
-
+    // safe send helper
     async function sendTelegram(toChatId, text) {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
       try {
-        const res = await fetch(url, {
+        await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: toChatId, text }),
         });
-        try {
-          const j = await res.json().catch(()=>null);
-          if (!res.ok) console.warn('Telegram API non-ok', res.status, j);
-        } catch(e){}
-      } catch (e) {
-        console.error('Failed to call Telegram API', e);
-      }
+      } catch (e) { console.error('sendTelegram failed', e); }
     }
 
-    if (cmd !== '/start') {
+    // quick type checks to ensure this is a Telegram update we care about
+    // Telegram updates normally include update_id; also require message object or callback_query
+    const isTelegramUpdate = typeof update === 'object' && (typeof update.update_id !== 'undefined' || typeof update.message !== 'undefined' || typeof update.callback_query !== 'undefined');
+    if (!isTelegramUpdate) return { statusCode: 200, body: 'Ignored non-Telegram payload' };
+
+    // prefer message / edited_message / callback_query.message
+    const rawMsg = (update.message && typeof update.message === 'object') ? update.message
+                 : (update.edited_message && typeof update.edited_message === 'object') ? update.edited_message
+                 : (update.channel_post && typeof update.channel_post === 'object') ? update.channel_post
+                 : null;
+
+    const cb = update.callback_query && typeof update.callback_query === 'object' ? update.callback_query : null;
+
+    // determine user chat id
+    const userChatId = (rawMsg && rawMsg.chat && typeof rawMsg.chat.id !== 'undefined') ? rawMsg.chat.id
+                      : (cb && cb.message && cb.message.chat && typeof cb.message.chat.id !== 'undefined') ? cb.message.chat.id
+                      : (cb && cb.from && cb.from.id) ? cb.from.id
+                      : null;
+
+    if (!userChatId) return { statusCode: 200, body: 'No chat id' };
+
+    // find candidate text where /start may appear (only if message is object and contains text/caption)
+    const text = rawMsg && (typeof rawMsg.text === 'string' || typeof rawMsg.caption === 'string')
+                 ? (rawMsg.text || rawMsg.caption).trim()
+                 : '';
+    const cbData = cb && typeof cb.data === 'string' ? cb.data.trim() : '';
+
+    // Only handle /start commands. If no /start found, ignore.
+    // Accept forms like "/start", "/start TOKEN", "/start@BotName TOKEN"
+    let startToken = null;
+    if (text) {
+      const m = text.match(/\/start(?:@[\w_]+)?(?:\s+(.+))?$/i);
+      if (m) {
+        startToken = (m[1] || '').trim() || null;
+      }
+    }
+    // also accept callback_query data containing start=...
+    if (!startToken && cbData) {
+      const m2 = cbData.match(/start=([^&\s]+)/i);
+      if (m2) startToken = decodeURIComponent(m2[1]);
+    }
+
+    // If there's no /start at all, ignore (this prevents processing the "now serving" sends)
+    if (startToken === null) {
       return { statusCode: 200, body: 'Ignored non-start message' };
     }
 
-    if (!tokenPart) {
-      // No token provided -> instruct how to connect
-      await sendTelegram(chatId,
-        "Hi — to link your number open the QueueJoy status page you received and tap Connect via Telegram. The status page will run `/start <TOKEN>` for you. (This message is automatic.)"
+    // If /start was sent but with no token, guide the user (friendly)
+    if (!startToken) {
+      await sendTelegram(userChatId,
+        '👋 Hi — to connect your number, open the QueueJoy status page you received and tap Connect via Telegram. That page will run the /start command automatically.'
       );
       return { statusCode: 200, body: 'No token provided' };
     }
 
-    const tokenRaw = String(tokenPart).trim();
-
-    // Utility: try decode base64 JSON (URL-safe)
+    // token parsing helpers (base64 JSON support + common delimited forms)
     function tryDecodeBase64Json(s) {
       try {
         const normalized = s.replace(/-/g,'+').replace(/_/g,'/');
         const pad = normalized.length % 4;
         const withPad = pad ? normalized + '='.repeat(4 - pad) : normalized;
         const decoded = Buffer.from(withPad, 'base64').toString('utf8');
-        const parsed = JSON.parse(decoded);
-        if (parsed && typeof parsed === 'object') return parsed;
-      } catch (e) {}
-      return null;
+        return JSON.parse(decoded);
+      } catch (e) { return null; }
     }
 
-    // Utility: try parse token from full URL (either token present as last path segment, or query param queueId/start)
-    async function tryFetchUrlToken(urlStr) {
-      try {
-        const u = new URL(urlStr);
-        // common: the connect flow might create a URL like https://.../status.html?queueId=ABC or include ?start=<token>
-        const q = u.searchParams;
-        if (q.has('queueId')) return { queueId: q.get('queueId') };
-        if (q.has('start')) {
-          const t = q.get('start');
-          // see if start is base64 JSON
-          const parsed = tryDecodeBase64Json(t);
-          if (parsed) return parsed;
-          return { queueId: t };
+    // robustly pick a human-friendly queue number and counter name from token
+    let queueNumber = null;
+    let counterName = 'To be assigned';
+
+    // 1) try base64 JSON
+    const parsed = tryDecodeBase64Json(startToken);
+    if (parsed && typeof parsed === 'object') {
+      // try many possible key names (support queueUid, queueId, ticket, number, etc)
+      const qKeys = ['queueId','queueKey','queueUid','id','queue','number','ticket','queue_id','queue_uid','label'];
+      const cKeys = ['counterId','counterName','counter','displayName','counter_name','counter_id'];
+
+      for (const k of qKeys) if (parsed[k]) { queueNumber = String(parsed[k]); break; }
+      for (const k of cKeys) if (parsed[k]) { counterName = String(parsed[k]); break; }
+      // nested data object support
+      if (!queueNumber && parsed.data && typeof parsed.data === 'object') {
+        for (const k of qKeys) if (parsed.data[k]) { queueNumber = String(parsed.data[k]); break; }
+      }
+    }
+
+    // 2) delimiter fallback (e.g., "A1|Counter 1" or "A1:Counter 1")
+    if (!queueNumber) {
+      const delims = ['::','|',':'];
+      for (const d of delims) {
+        if (startToken.includes(d)) {
+          const [a,b] = startToken.split(d,2);
+          if (a) queueNumber = a.trim();
+          if (b) counterName = b.trim() || counterName;
+          break;
         }
-
-        // as fallback: try to fetch the URL and look for obvious tokens in the html
-        const res = await fetch(urlStr);
-        if (!res.ok) return null;
-        const html = await res.text();
-        // attempt regex: queueId in query param placed as text (rare since status.html uses client JS)
-        const qMatch = html.match(/[?&]queueId=([A-Za-z0-9_\-]+)/);
-        if (qMatch && qMatch[1]) return { queueId: decodeURIComponent(qMatch[1]) };
-
-        // attempt to read any embedded JSON object (look for "queueId":"...") in page source
-        const jsonMatch = html.match(/"queueId"\s*:\s*"([^"]+)"/);
-        if (jsonMatch && jsonMatch[1]) return { queueId: jsonMatch[1] };
-
-      } catch (e) {
-        // ignore
-      }
-      return null;
-    }
-
-    // Start parsing token
-    let queueId = null;
-    let counterName = 'TBD';
-    let debugInfo = { tokenRaw };
-
-    // 1) If token looks like a full URL -> try GET & parsing
-    if (/^https?:\/\//i.test(tokenRaw)) {
-      const parsed = await tryFetchUrlToken(tokenRaw);
-      if (parsed) {
-        if (parsed.queueId) queueId = String(parsed.queueId);
-        if (parsed.counterName) counterName = String(parsed.counterName);
-        debugInfo.urlParsed = true;
       }
     }
 
-    // 2) Try base64 JSON decode of token
-    if (!queueId) {
-      const parsed = tryDecodeBase64Json(tokenRaw);
-      if (parsed) {
-        if (parsed.queueId) queueId = String(parsed.queueId);
-        if (parsed.counterId) counterName = String(parsed.counterId);
-        if (parsed.counterName) counterName = String(parsed.counterName);
-        debugInfo.base64Json = true;
-      }
+    // 3) url param fallback (if token was a url)
+    if (!queueNumber && /^https?:\/\//i.test(startToken)) {
+      try {
+        const url = new URL(startToken);
+        if (url.searchParams.has('queueId')) queueNumber = url.searchParams.get('queueId');
+        else if (url.searchParams.has('start')) queueNumber = url.searchParams.get('start');
+      } catch(e){}
     }
 
-    // 3) If token contains delimiter like pipe or colon (e.g. "A023|Counter 1")
-    if (!queueId) {
-      const delim = tokenRaw.includes('|') ? '|' : (tokenRaw.includes(':') ? ':' : null);
-      if (delim) {
-        const [a,b] = tokenRaw.split(delim,2);
-        if (a) queueId = String(a).trim();
-        if (b) counterName = String(b).trim();
-        debugInfo.delimited = delim;
-      }
-    }
+    // 4) final fallback: use token itself
+    if (!queueNumber) queueNumber = String(startToken);
 
-    // 4) fallback: token as queueId
-    if (!queueId) {
-      // if token is short enough to be an id, accept it
-      queueId = tokenRaw;
-      debugInfo.fallback = true;
-    }
+    // sanitize small (if token is a DB push id like -Odb..., there's nothing we can map without DB)
+    queueNumber = String(queueNumber || 'Unknown').trim();
+    counterName = String(counterName || 'To be assigned').trim();
 
-    queueId = String(queueId || '').trim() || 'TBD';
-    counterName = String(counterName || '').trim() || 'TBD';
-
-    // Build reply
-    const replyLines = [
+    // Build single friendly message (exact format you requested)
+    const lines = [
       '👋 Hey!',
-      `🧾 Number • ${queueId}`,
+      `🧾 Number • ${queueNumber}`,
       `🪑 Counter • ${counterName}`,
       '',
       'You are now connected — you can close the browser and Telegram. Everything will be automated. Just sit down and relax. ☕️😌'
     ];
-    const replyText = replyLines.join('\n');
+    const reply = lines.join('\n');
 
-    // Send DM to user
-    await sendTelegram(chatId, replyText);
+    // Send one message to user
+    await sendTelegram(userChatId, reply);
 
-    // Notify admin with debug info so you can see the raw token if something's off
+    // Optionally notify admin (compact; not shown to user) so you can monitor connections
     if (ADMIN_CHAT_ID) {
       try {
-        const adminMsg = `User connected: ${queueId} — Counter ${counterName}\nchatId: ${chatId}\nraw token: ${tokenRaw}\n_debug: ${JSON.stringify(debugInfo)}`;
-        await sendTelegram(ADMIN_CHAT_ID, adminMsg);
-      } catch (e) { /* ignore */ }
+        const adminText = `🔔 Connected: ${queueNumber} • ${counterName}\nchatId: ${userChatId}`;
+        await sendTelegram(ADMIN_CHAT_ID, adminText);
+      } catch (e) { /* ignore admin errors */ }
     }
 
     return { statusCode: 200, body: 'OK' };
-
   } catch (err) {
-    console.error('Unhandled webhook error', err);
+    console.error('Webhook handler error', err);
     return { statusCode: 500, body: 'Webhook handler error' };
   }
 };
