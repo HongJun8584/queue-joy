@@ -1,6 +1,5 @@
 // /netlify/functions/telegramWebhook.js
-// CommonJS for Netlify. Uses global fetch (Node 18+ runtime).
-// Env required: BOT_TOKEN, CHAT_ID (optional admin notifications)
+// Node 18+ runtime (Netlify). Env: BOT_TOKEN (required), CHAT_ID (optional admin)
 
 exports.handler = async (event) => {
   try {
@@ -16,7 +15,6 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: 'Invalid JSON' };
     }
 
-    // Accept new messages and edited messages
     const msg = update.message || update.edited_message;
     if (!msg || !msg.chat || typeof msg.chat.id === 'undefined') {
       return { statusCode: 200, body: 'No chat message to handle' };
@@ -26,7 +24,7 @@ exports.handler = async (event) => {
     const rawText = String(msg.text || '').trim();
     const parts = rawText.split(/\s+/).filter(Boolean);
     const cmd = (parts[0] || '').toLowerCase();
-    const token = parts[1] || null; // expected token from /start <token>
+    const tokenPart = parts.slice(1).join(' ') || null; // allow spaces inside token if encoded
 
     const BOT_TOKEN = process.env.BOT_TOKEN;
     const ADMIN_CHAT_ID = process.env.CHAT_ID || null;
@@ -36,7 +34,6 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: 'Missing BOT_TOKEN' };
     }
 
-    // helper to send a telegram message (no external libs)
     async function sendTelegram(toChatId, text) {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
       try {
@@ -45,89 +42,123 @@ exports.handler = async (event) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: toChatId, text }),
         });
-        // best-effort logging
         try {
-          const j = await res.json().catch(() => null);
+          const j = await res.json().catch(()=>null);
           if (!res.ok) console.warn('Telegram API non-ok', res.status, j);
-        } catch (e) {}
+        } catch(e){}
       } catch (e) {
         console.error('Failed to call Telegram API', e);
       }
     }
 
-    // Only handle /start commands
     if (cmd !== '/start') {
       return { statusCode: 200, body: 'Ignored non-start message' };
     }
 
-    // If no token -> instruct user how to connect (we can't look up DB here)
-    if (!token) {
+    if (!tokenPart) {
+      // No token provided -> instruct how to connect
       await sendTelegram(chatId,
         "Hi — to link your number open the QueueJoy status page you received and tap Connect via Telegram. The status page will run `/start <TOKEN>` for you. (This message is automatic.)"
       );
       return { statusCode: 200, body: 'No token provided' };
     }
 
-    // sanitize token acceptance: allow common safe chars (alphanumeric plus few separators and base64 =)
-    const rawToken = String(token).trim();
-    if (!/^[A-Za-z0-9_\-.:|=]+$/.test(rawToken)) {
-      await sendTelegram(chatId, "Token appears invalid. Please use the Connect button from the QueueJoy status page.");
-      return { statusCode: 200, body: 'Invalid token format' };
-    }
+    const tokenRaw = String(tokenPart).trim();
 
-    // Heuristic parsing: try to extract queueId and counterName from token
-    // Supports:
-    //  - plain queueId (e.g., A023)
-    //  - queueId|counterName  queueId:counterName  queueId::counterName
-    //  - base64 JSON with {queueId, counterName}
-    //  - fallback -> queueId = token, counterName = 'TBD'
-    let queueId = null;
-    let counterName = 'TBD';
-
-    // helper: try base64 decode then JSON parse
-    function tryParseBase64Json(str) {
+    // Utility: try decode base64 JSON (URL-safe)
+    function tryDecodeBase64Json(s) {
       try {
-        // normalize base64 url-safe
-        const s = str.replace(/-/g, '+').replace(/_/g, '/');
-        // pad
-        const pad = s.length % 4;
-        const padded = pad ? s + '='.repeat(4 - pad) : s;
-        const decoded = Buffer.from(padded, 'base64').toString('utf8');
-        const json = JSON.parse(decoded);
-        if (json && typeof json === 'object') return json;
+        const normalized = s.replace(/-/g,'+').replace(/_/g,'/');
+        const pad = normalized.length % 4;
+        const withPad = pad ? normalized + '='.repeat(4 - pad) : normalized;
+        const decoded = Buffer.from(withPad, 'base64').toString('utf8');
+        const parsed = JSON.parse(decoded);
+        if (parsed && typeof parsed === 'object') return parsed;
       } catch (e) {}
       return null;
     }
 
-    // 1) If token looks like base64 JSON, try that first
-    const maybeJson = tryParseBase64Json(rawToken);
-    if (maybeJson) {
-      if (maybeJson.queueId) queueId = String(maybeJson.queueId);
-      if (maybeJson.counterName) counterName = String(maybeJson.counterName);
+    // Utility: try parse token from full URL (either token present as last path segment, or query param queueId/start)
+    async function tryFetchUrlToken(urlStr) {
+      try {
+        const u = new URL(urlStr);
+        // common: the connect flow might create a URL like https://.../status.html?queueId=ABC or include ?start=<token>
+        const q = u.searchParams;
+        if (q.has('queueId')) return { queueId: q.get('queueId') };
+        if (q.has('start')) {
+          const t = q.get('start');
+          // see if start is base64 JSON
+          const parsed = tryDecodeBase64Json(t);
+          if (parsed) return parsed;
+          return { queueId: t };
+        }
+
+        // as fallback: try to fetch the URL and look for obvious tokens in the html
+        const res = await fetch(urlStr);
+        if (!res.ok) return null;
+        const html = await res.text();
+        // attempt regex: queueId in query param placed as text (rare since status.html uses client JS)
+        const qMatch = html.match(/[?&]queueId=([A-Za-z0-9_\-]+)/);
+        if (qMatch && qMatch[1]) return { queueId: decodeURIComponent(qMatch[1]) };
+
+        // attempt to read any embedded JSON object (look for "queueId":"...") in page source
+        const jsonMatch = html.match(/"queueId"\s*:\s*"([^"]+)"/);
+        if (jsonMatch && jsonMatch[1]) return { queueId: jsonMatch[1] };
+
+      } catch (e) {
+        // ignore
+      }
+      return null;
     }
 
-    // 2) If not, try common delimiters
+    // Start parsing token
+    let queueId = null;
+    let counterName = 'TBD';
+    let debugInfo = { tokenRaw };
+
+    // 1) If token looks like a full URL -> try GET & parsing
+    if (/^https?:\/\//i.test(tokenRaw)) {
+      const parsed = await tryFetchUrlToken(tokenRaw);
+      if (parsed) {
+        if (parsed.queueId) queueId = String(parsed.queueId);
+        if (parsed.counterName) counterName = String(parsed.counterName);
+        debugInfo.urlParsed = true;
+      }
+    }
+
+    // 2) Try base64 JSON decode of token
     if (!queueId) {
-      const delimCandidates = ['::', '|', ':', '__'];
-      let used = null;
-      for (const d of delimCandidates) {
-        if (rawToken.includes(d)) { used = d; break; }
-      }
-      if (used) {
-        const [q, c] = rawToken.split(used, 2);
-        if (q) queueId = q;
-        if (c) counterName = c || counterName;
+      const parsed = tryDecodeBase64Json(tokenRaw);
+      if (parsed) {
+        if (parsed.queueId) queueId = String(parsed.queueId);
+        if (parsed.counterId) counterName = String(parsed.counterId);
+        if (parsed.counterName) counterName = String(parsed.counterName);
+        debugInfo.base64Json = true;
       }
     }
 
-    // 3) fallback: treat token as queueId
-    if (!queueId) queueId = rawToken;
+    // 3) If token contains delimiter like pipe or colon (e.g. "A023|Counter 1")
+    if (!queueId) {
+      const delim = tokenRaw.includes('|') ? '|' : (tokenRaw.includes(':') ? ':' : null);
+      if (delim) {
+        const [a,b] = tokenRaw.split(delim,2);
+        if (a) queueId = String(a).trim();
+        if (b) counterName = String(b).trim();
+        debugInfo.delimited = delim;
+      }
+    }
 
-    // sanitize small outputs
-    queueId = String(queueId).trim() || 'TBD';
-    counterName = String(counterName).trim() || 'TBD';
+    // 4) fallback: token as queueId
+    if (!queueId) {
+      // if token is short enough to be an id, accept it
+      queueId = tokenRaw;
+      debugInfo.fallback = true;
+    }
 
-    // Format user reply with friendly closing copy you requested
+    queueId = String(queueId || '').trim() || 'TBD';
+    counterName = String(counterName || '').trim() || 'TBD';
+
+    // Build reply
     const replyLines = [
       '👋 Hey!',
       `🧾 Number • ${queueId}`,
@@ -140,10 +171,10 @@ exports.handler = async (event) => {
     // Send DM to user
     await sendTelegram(chatId, replyText);
 
-    // Optionally notify admin chat with a short copy (if configured)
+    // Notify admin with debug info so you can see the raw token if something's off
     if (ADMIN_CHAT_ID) {
       try {
-        const adminMsg = `User connected: ${queueId} — Counter ${counterName} (chatId: ${chatId})`;
+        const adminMsg = `User connected: ${queueId} — Counter ${counterName}\nchatId: ${chatId}\nraw token: ${tokenRaw}\n_debug: ${JSON.stringify(debugInfo)}`;
         await sendTelegram(ADMIN_CHAT_ID, adminMsg);
       } catch (e) { /* ignore */ }
     }
