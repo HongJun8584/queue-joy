@@ -246,7 +246,7 @@
       const res = await fetch(CREATE_LINK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queueKey: currentQueueKey })
+        body: JSON.stringify({
           queueId: currentQueueData?.queueId || yourNumber.textContent || currentQueueKey,
           counterId: currentQueueData?.counterId || null
         })
