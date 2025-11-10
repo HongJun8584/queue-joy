@@ -3,467 +3,287 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy - Your Status</title>
+  <title>Queue Joy - Digital Queue System</title>
 
-  <!-- Tailwind (dev CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+      get,
+      child,
+      push,
+      onValue,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.appspot.com",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // expose small helpers for debugging if needed
+    window._db = db;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const getNumberBtn = document.getElementById('getNumberBtn');
+      const btnText = document.getElementById('btnText');
+      const btnSpinner = document.getElementById('btnSpinner');
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const introText = document.getElementById('introText');
+      const adPanel = document.getElementById('adPanel');
+      const noAd = document.getElementById('noAd');
+
+      function showError(msg) {
+        console.error(msg);
+        errorMessage.querySelector('p').textContent = msg;
+        errorMessage.classList.remove('hidden');
+        successMessage.classList.add('hidden');
+        setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+      }
+      function showSuccess(msg) {
+        successMessage.querySelector('p').textContent = msg;
+        successMessage.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+      }
+      function setLoading(flag) {
+        getNumberBtn.disabled = flag;
+        btnText.classList.toggle('hidden', flag);
+        btnSpinner.classList.toggle('hidden', !flag);
+      }
+
+      // setup ad and intro listeners (unchanged logic)
+      (function setupListeners() {
+        const adRef = ref(db, 'settings/adImage');
+        onValue(adRef, snap => {
+          if (snap.exists()) {
+            adPanel.src = snap.val();
+            adPanel.classList.remove('hidden');
+            noAd.classList.add('hidden');
+          } else {
+            adPanel.classList.add('hidden');
+            noAd.classList.remove('hidden');
+          }
+        });
+
+        const introRef = ref(db, 'settings/introText');
+        onValue(introRef, snap => {
+          if (snap.exists()) introText.textContent = snap.val();
+        });
+      })();
+
+      // auto redirect if lastQueueId still waiting
+      (async function autoRedirectIfActiveQueue() {
+        try {
+          const lastQueueId = sessionStorage.getItem('lastQueueId');
+          if (!lastQueueId) return;
+          const snap = await get(child(ref(db), `queue/${lastQueueId}`));
+          if (snap.exists() && snap.val().status === 'waiting') {
+            window.location.href = `status.html?queueId=${lastQueueId}`;
+          }
+        } catch (err) {
+          console.warn('autoRedirect failed', err);
+        }
+      })();
+
+      // fetch counters - preserve keys, sort deterministically (try numeric when possible)
+      async function fetchActiveCounters() {
+        const countersSnap = await get(ref(db, 'counters'));
+        if (!countersSnap.exists()) return [];
+
+        const items = [];
+        countersSnap.forEach(s => {
+          items.push({ id: s.key, ...s.val() });
+        });
+
+        // sort: prefer numeric sort when id looks numeric, otherwise lexicographic
+        items.sort((a, b) => {
+          const ai = a.id, bi = b.id;
+          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) {
+            return Number(ai) - Number(bi);
+          }
+          return String(ai).localeCompare(String(bi), undefined, { numeric: true });
+        });
+
+        return items.filter(c => c && c.active);
+      }
+
+      // helper: sleep
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+      // robust runTransaction wrapper with exponential backoff
+      async function runTransactionWithRetries(path, updater, maxRetries = 6) {
+        const refPath = ref(db, path);
+        let lastErr = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.debug(`[tx] attempt #${attempt} on`, path);
+            const result = await runTransaction(refPath, updater, { applyLocally: false });
+            // result may be { committed: boolean, snapshot: DataSnapshot }
+            if (result && result.committed) {
+              console.debug(`[tx] success on ${path} value=`, result.snapshot.val());
+              return result;
+            }
+            // not committed -> treat as retryable
+            lastErr = new Error(`Transaction not committed on ${path} (attempt ${attempt})`);
+            console.warn(lastErr);
+          } catch (txErr) {
+            lastErr = txErr;
+            console.warn(`[tx] error on ${path} attempt ${attempt}`, txErr);
+          }
+          // exponential backoff (min 100ms -> grows)
+          const backoff = 100 * Math.pow(2, attempt - 1);
+          await sleep(backoff + Math.floor(Math.random() * 60));
+        }
+        throw lastErr || new Error(`Transaction failed on ${path} after ${maxRetries} attempts`);
+      }
+
+      // Main function to get queue number
+      async function getQueueNumber() {
+        setLoading(true);
+        try {
+          // 1) load active counters
+          const counters = await fetchActiveCounters();
+          console.debug('Active counters:', counters);
+          if (!counters || counters.length === 0) {
+            setLoading(false);
+            return showError('No active counters available right now.');
+          }
+
+          // 2) Determine which global-counter path to use. Some deployments use different keys.
+          const globalCounterCandidates = [
+            'settings/lastCounterIndex',
+            'lastAssignedCounter',
+            'system/lastAssignedCounter'
+          ];
+
+          let rrResult = null;
+          let usedPath = null;
+          for (const p of globalCounterCandidates) {
+            try {
+              // updater increments and returns new value
+              rrResult = await runTransactionWithRetries(p, current => (current || 0) + 1, 6);
+              if (rrResult && rrResult.committed) {
+                usedPath = p;
+                break;
+              }
+            } catch (err) {
+              console.warn(`Global counter attempt failed for ${p}:`, err.message || err);
+              // try next candidate
+            }
+          }
+
+          if (!rrResult || !rrResult.committed) {
+            throw new Error('Round-robin transaction failed for all candidate paths');
+          }
+
+          // 3) compute index (zero-based cycle)
+          const globalCounter = Number(rrResult.snapshot.val());
+          if (!Number.isFinite(globalCounter)) throw new Error('Global counter returned invalid value');
+          // Use (globalCounter - 1) so the first increment chooses index 0
+          const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
+          const counter = counters[index];
+          if (!counter || !counter.id) {
+            console.error('Invalid counter selected', index, counters);
+            throw new Error('Selected counter not found');
+          }
+          console.debug(`Selected counter (index ${index}) id=${counter.id}`);
+
+          // 4) increment selected counter's lastIssued with retries
+          const lastIssuedPath = `counters/${counter.id}/lastIssued`;
+          const lastIssuedResult = await runTransactionWithRetries(lastIssuedPath, current => (current || 0) + 1, 6);
+          if (!lastIssuedResult || !lastIssuedResult.committed) {
+            throw new Error('Failed to increment selected counter lastIssued');
+          }
+
+          const nextNumber = Number(lastIssuedResult.snapshot.val());
+          if (!Number.isFinite(nextNumber)) throw new Error('Invalid lastIssued value after increment');
+
+          const prefix = (counter.prefix && String(counter.prefix)) || 'Q';
+          const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+
+          // 5) push new queue entry
+          const newRef = push(ref(db, 'queue'));
+          const entry = {
+            counterId: counter.id,
+            queueId,
+            timestamp: Date.now(),
+            status: 'waiting'
+          };
+          
+          try {
+          await set(newRef, entry);
+
+          } catch (err) {
+            console.warn('Failed to send Telegram notification:', err);
+          }
+
+          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
+
+        } catch (err) {
+          console.error('getQueueNumber error', err);
+          const msg = (err && err.message) ? err.message : 'Failed to get queue number. Try again.';
+          showError(msg);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // attach UI handler
+      getNumberBtn.addEventListener('click', e => {
+        e.preventDefault();
+        getQueueNumber();
+      });
+
+    });
+  </script>
+
+  <!-- Tailwind for dev -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .fade-in { animation: fadeIn 0.45s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: translateY(0); } }
-
-    .modal-content { border-radius: 14px; box-shadow: 0 18px 60px rgba(10,10,30,0.12); border: none; overflow: hidden; }
-    .spinner-inline { width:18px;height:18px;border:2px solid rgba(255,255,255,0.18);border-top-color:rgba(255,255,255,0.95);border-radius:50%;display:inline-block;animation:spin .9s linear infinite;margin-right:8px }
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    .circle-control { width:46px;height:46px;border-radius:9999px;background:white;display:inline-flex;align-items:center;justify-content:center;box-shadow: 0 8px 30px rgba(15,23,42,0.08);cursor:pointer;border:none }
-    .top-controls { z-index:80; position:absolute; right:.75rem; top:.75rem; display:flex; gap:.5rem; }
-
-    /* make sure ads clickable and not covered */
-    #adPanelContainer { z-index:40; }
-    /* small screens: move top controls inward */
-    @media (max-width:420px){ .top-controls{ right:.5rem; top:.5rem } .modal-dialog{ margin:10px } }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4 pb-32">
-
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
-
-    <!-- top controls -->
-    <div class="top-controls">
-      <!-- Game: same-tab navigation -->
-      <button id="gameBtn" title="Game" class="circle-control" type="button">🎮</button>
-
-      <!-- Connect top icon (ENVELOPE) -->
-      <button id="connectTopBtn" title="Connect Telegram" class="circle-control" type="button">✉️</button>
+    <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+      <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
     </div>
 
-    <!-- Header -->
     <div class="space-y-2">
-      <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      </div>
-      <h1 class="text-2xl font-bold text-indigo-800">Queue Status</h1>
-      <p id="counterName" class="text-sm text-gray-600">--</p>
+      <h1 class="text-2xl font-bold text-gray-800">Queue Joy</h1>
+      <p id="introText" class="text-gray-600">Real-time queueing system. Mobile-friendly. No app needed.</p>
     </div>
 
-    <!-- Connection banner (shows clear instruction about background) -->
-    <div id="connectionBanner" class="rounded-xl p-3 bg-yellow-50 border border-yellow-100 text-left text-sm">
-      <span id="connectionBannerText">Checking notification status...</span>
-    </div>
+    <button id="getNumberBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-400 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+      <span id="btnText">🎫 Get My Number</span>
+      <div id="btnSpinner" class="hidden flex items-center justify-center"><div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>Getting your number...</div>
+    </button>
 
-    <!-- Your Number -->
-    <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
-      <p class="text-sm text-purple-600 font-medium">Your Number</p>
-      <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
-    </div>
-
-    <!-- Status Info -->
-    <div class="space-y-4">
-      <div class="bg-gray-50 rounded-xl p-4">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm text-gray-600">Now Serving</span>
-          <div id="statusIndicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
-        </div>
-        <p id="nowServing" class="text-2xl font-bold text-indigo-600">--</p>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-sm text-gray-600">People Ahead</p>
-          <p id="peopleAhead" class="text-xl font-bold text-gray-800">--</p>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-sm text-gray-600">Est. Wait</p>
-          <p id="estimatedWait" class="text-xl font-bold text-gray-800">--</p>
-        </div>
-      </div>
-    </div>
-
-    <div id="telegramStatusBox" class="hidden sm:block bg-gray-50 rounded-xl p-4 text-left">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-600">Notifications</p>
-          <p id="telegramStatus" class="text-base font-semibold text-gray-800">Checking...</p>
-        </div>
-        <div id="telegramIcon" class="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-100">
-          <span>✉️</span>
-        </div>
-      </div>
-    </div>
-
-    <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-red-600 text-sm text-center"></p>
-    </div>
+    <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg"><p class="text-red-600 text-sm"></p></div>
+    <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
   </div>
 
-  <!-- ad -->
-  <div id="adPanelContainer" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+  <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
       <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
       <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
     </div>
   </div>
-
-  <!-- Simplified Connect Modal -->
-  <div class="modal fade" id="simpleTelegramModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div style="background:linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%);color:white;padding:18px;text-align:center;">
-          <div style="font-weight:700;font-size:18px;">🔔 Connect Telegram</div>
-          <div style="opacity:0.95;margin-top:6px;font-size:13px;">Only the Telegram *app* receives background notifications — open Telegram after connecting</div>
-        </div>
-        <div style="padding:16px;text-align:center;">
-          <p id="simpleModalText" class="text-gray-700 mb-3">Connect Telegram to receive a DM when it's your turn. After connecting, you can leave this browser in the background.</p>
-
-          <div id="simpleModalSpinnerRow" style="display:none;align-items:center;justify-content:center;margin-bottom:12px;">
-            <span class="spinner-inline" style="border-top-color:#7c3aed"></span>
-            <span id="simpleModalSpinnerText" style="color:#374151;">Generating secure link…</span>
-          </div>
-
-          <div class="d-grid gap-2">
-            <button id="simpleModalConnectBtn" class="w-full py-2 rounded-xl" style="background:linear-gradient(90deg,#7c3aed,#06b6d4); color:white; font-weight:600;">
-              Connect via Telegram
-            </button>
-            <button id="simpleModalCloseBtn" class="w-full py-2 rounded-xl btn btn-outline-secondary">Close</button>
-          </div>
-
-          <p style="font-size:12px;color:#9CA3AF;margin-top:10px;">If link fails, open Telegram and send <code>/start &lt;TOKEN&gt;</code> to the bot.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- connected confirmation modal (auto-close) -->
-  <div class="modal fade" id="connectedConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-      <div class="modal-content text-center p-4">
-        <div style="font-weight:700;font-size:18px;color:#0f172a">✅ Connected</div>
-        <div style="color:#374151;margin-top:8px">Hey 👋<br><small id="connectedDetails" style="display:block;margin-top:6px"></small></div>
-        <div style="margin-top:12px;font-size:13px;color:#6b7280">You may keep this page in the background — Telegram will DM you when it's your turn.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- bootstrap -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- Firebase + logic -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-    // CONFIG - keep your working endpoints & bot username
-    const TELEGRAM_BOT_USERNAME = 'QueueJoyBot'; // fallback only
-    const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
-    const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
-
-    // Firebase init
-    const firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // DOM
-    const yourNumber = document.getElementById('yourNumber');
-    const counterNameEl = document.getElementById('counterName');
-    const nowServingEl = document.getElementById('nowServing');
-    const peopleAheadEl = document.getElementById('peopleAhead');
-    const estimatedWaitEl = document.getElementById('estimatedWait');
-    const indicator = document.getElementById('statusIndicator');
-    const errorMessage = document.getElementById('errorMessage');
-    const adPanel = document.getElementById('adPanel');
-    const noAd = document.getElementById('noAd');
-
-    const telegramStatus = document.getElementById('telegramStatus');
-    const telegramIcon = document.getElementById('telegramIcon');
-    const connectionBannerText = document.getElementById('connectionBannerText');
-
-    const connectTopBtn = document.getElementById('connectTopBtn');
-    const gameBtn = document.getElementById('gameBtn');
-
-    const simpleModalEl = document.getElementById('simpleTelegramModal');
-    const bsSimpleModal = new bootstrap.Modal(simpleModalEl, { keyboard: true });
-    const simpleModalConnectBtn = document.getElementById('simpleModalConnectBtn');
-    const simpleModalCloseBtn = document.getElementById('simpleModalCloseBtn');
-    const simpleModalText = document.getElementById('simpleModalText');
-    const simpleModalSpinnerRow = document.getElementById('simpleModalSpinnerRow');
-    const simpleModalSpinnerText = document.getElementById('simpleModalSpinnerText');
-
-    const connectedConfirmEl = document.getElementById('connectedConfirmModal');
-    const bsConnectedConfirm = new bootstrap.Modal(connectedConfirmEl, { keyboard: false });
-    const connectedDetails = document.getElementById('connectedDetails');
-
-    // state
-    let queueRef = null, counterRef = null, servingRef = null, adRef = null;
-    let currentQueueKey = null;
-    let currentQueueData = null;
-    let currentCounterId = null;
-    let latestConnectLink = null;
-    let linkGenerating = false;
-    let prevTelegramConnected = false;
-    let avgServiceTimeForCounter = null; // minutes (number)
-
-    // helpers
-    const showError = (msg) => {
-      errorMessage.querySelector('p').textContent = msg;
-      errorMessage.classList.remove('hidden');
-      setTimeout(() => errorMessage.classList.add('hidden'), 5000);
-    };
-
-    function setTelegramUIConnected(connected) {
-      if (connected) {
-        telegramStatus.textContent = 'Connected — you’ll get Telegram notifications';
-        telegramStatus.classList.remove('text-gray-600');
-        telegramStatus.classList.add('text-green-700','font-semibold');
-        telegramIcon.classList.add('bg-green-100');
-        connectionBannerText.textContent = 'Connected — you can leave this page in the background. Telegram app will DM you when it’s your turn.';
-      } else {
-        telegramStatus.textContent = 'Not connected — get notified by Telegram';
-        telegramStatus.classList.remove('text-green-700','font-semibold');
-        telegramStatus.classList.add('text-gray-800');
-        telegramIcon.classList.remove('bg-green-100');
-        connectionBannerText.textContent = 'Not connected — you must keep this page open to get live updates and automatic redirect.';
-      }
-    }
-
-    // create secure link by calling serverless
-    async function generateConnectLink() {
-      if (!currentQueueKey) throw new Error('Missing queueKey');
-    
-      // Wait until the number appears
-      let queueId = yourNumber.textContent;
-      if (!queueId || queueId === '--') {
-        await new Promise(resolve => setTimeout(resolve, 500)); // wait 0.5s
-        queueId = yourNumber.textContent;
-      }
-    
-      const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          queueId: queueId || currentQueueKey,
-          counterName: currentQueueData?.counterName || currentQueueData?.name || null
-        })
-      });
-    
-      const j = await res.json();
-      return j.link;
-    }
-
-
-    async function triggerGenerateLink() {
-      if (linkGenerating) return;
-      linkGenerating = true;
-      simpleModalSpinnerRow.style.display = 'flex';
-      simpleModalSpinnerText.textContent = 'Generating secure link…';
-      simpleModalText.textContent = 'Please open Telegram and press Start after connecting.';
-      latestConnectLink = null;
-      try {
-        const link = await generateConnectLink();
-        latestConnectLink = link;
-        simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Link ready — Tap Connect then open Telegram app and press Start.';
-      } catch (err) {
-        latestConnectLink = null;
-        simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Failed to generate link. Use fallback or try again.';
-      } finally {
-        linkGenerating = false;
-      }
-    }
-
-    // top connect opens modal and generate link
-    connectTopBtn.addEventListener('click', () => {
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn.";
-      bsSimpleModal.show();
-      triggerGenerateLink();
-    });
-
-    // Connect button in modal: MUST open in NEW TAB (user requested)
-    simpleModalConnectBtn.addEventListener('click', async () => {
-      try {
-        if (!latestConnectLink && !linkGenerating) await triggerGenerateLink();
-        const linkToOpen = latestConnectLink || `https://t.me/${TELEGRAM_BOT_USERNAME}`;
-        // open in NEW tab
-        window.open(linkToOpen, '_blank', 'noopener,noreferrer');
-      } catch (e) {
-        console.warn(e);
-        window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}`, '_blank', 'noopener,noreferrer');
-      }
-    });
-
-    simpleModalCloseBtn.addEventListener('click', () => {
-      try { bsSimpleModal.hide(); } catch(e) {}
-    });
-
-    // game button: same tab navigation
-    gameBtn.addEventListener('click', () => {
-      window.location.href = 'https://queuejoy.netlify.app/game.html';
-    });
-
-    // listen ads
-    adRef = ref(db, "settings/adImage");
-    onValue(adRef, (snap) => {
-      const adUrl = snap.val();
-      if (adUrl) { adPanel.src = adUrl; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
-      else { adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
-    });
-
-    // compute estimated wait text helper using avgServiceTime (mins)
-    function computeEstimatedWaitText(ahead, avgMins) {
-      avgMins = Number(avgMins) || 2;
-      if (ahead === 0) return 'Soon';
-      const est = Math.round(ahead * avgMins);
-      return `${ahead} person${ahead>1?'s':''} — approx ${est} min`;
-    }
-
-    // load queue & counter listeners
-    document.addEventListener('DOMContentLoaded', () => {
-      const params = new URLSearchParams(window.location.search);
-      const queueKey = params.get('queueId');
-      if (!queueKey) {
-        showError('Queue ID missing. Returning to home...');
-        setTimeout(()=> window.location.href = 'index.html', 1500);
-        return;
-      }
-      currentQueueKey = queueKey;
-
-      // show modal immediately on page load (user asked)
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn. Only Telegram app receives background notifications.";
-      bsSimpleModal.show();
-      triggerGenerateLink();
-
-      // attach queue listener
-      queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, (snap) => {
-        if (!snap.exists()) {
-          showError('Queue entry not found. Returning...');
-          setTimeout(()=> window.location.href = 'index.html', 1800);
-          return;
-        }
-
-        const prevConnected = !!(currentQueueData && currentQueueData.telegramConnected);
-        currentQueueData = snap.val();
-        const { counterId, queueId } = currentQueueData || {};
-        yourNumber.textContent = queueId || '--';
-
-        // update connected UI & banner
-        setTelegramUIConnected(!!currentQueueData.telegramConnected);
-
-        // detect transition: newly connected
-        const nowConnected = !!currentQueueData.telegramConnected;
-        if (nowConnected && !prevConnected) {
-          // show connected confirmation modal briefly
-          // include a short message telling they can background and relax
-          const prefix = String(queueId||'').match(/^[A-Za-z]*/)?.[0]||'';
-          const numberOnly = String(queueId||'').replace(prefix,'') || '';
-          connectedDetails.innerHTML = `🧾 Number • ${prefix}${numberOnly} &nbsp; • &nbsp; 🪑 Counter • ${counterId || 'TBD'}`;
-          try { bsConnectedConfirm.show(); } catch(e) {}
-          setTimeout(()=> { try { bsConnectedConfirm.hide(); } catch(e){} }, 3000);
-        }
-
-        // attach counter details listener
-        if (counterId && (!counterRef || currentCounterId !== counterId)) {
-          if (counterRef) off(counterRef);
-          currentCounterId = counterId;
-          counterRef = ref(db, `counters/${counterId}`);
-          onValue(counterRef, async (counterSnap) => {
-            if (!counterSnap.exists()) return;
-            const counterData = counterSnap.val();
-            counterNameEl.textContent = counterData.name || counterId;
-
-            // determine avg service time (minutes)
-            avgServiceTimeForCounter = Number(counterData.avgServiceTime) || null;
-            if (!avgServiceTimeForCounter) {
-              // try global settings
-              try {
-                const sSnap = await get(ref(db, 'settings/avgServiceTime'));
-                if (sSnap.exists()) {
-                  avgServiceTimeForCounter = Number(sSnap.val()) || 2;
-                } else {
-                  avgServiceTimeForCounter = 2;
-                }
-              } catch (e) { avgServiceTimeForCounter = 2; }
-            }
-
-            // your numeric value
-            const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
-            const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix,''),10) : NaN;
-
-            // Now-serving listener
-            if (servingRef) off(servingRef);
-            servingRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(servingRef, (nowSnap) => {
-              const currentServing = Number(nowSnap.val() || 0);
-              nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
-
-              const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
-              peopleAheadEl.textContent = ahead;
-
-              // estimate using avgServiceTimeForCounter
-              estimatedWaitEl.textContent = computeEstimatedWaitText(ahead, avgServiceTimeForCounter);
-
-              // indicator & behavior
-              if (ahead === 0) {
-                indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-
-                // If chatId known in db, server-side webhook expected to DM user when connected.
-                // Here we still trigger sendTelegram as fallback (admin CHAT_ID will also get a copy if set up server-side).
-                const body = currentQueueData && currentQueueData.chatId
-                  ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` }
-                  : { message: `🎟 It's now the customer's turn!\nQueue: ${currentQueueKey}` };
-
-                // fire-and-forget notify
-                fetch(SEND_TELEGRAM_ENDPOINT, {
-                  method:'POST',
-                  headers:{ 'Content-Type':'application/json' },
-                  body: JSON.stringify(body)
-                }).then(r=>r.json().then(j=>console.log('notify result',j)).catch(()=>{})).catch(()=>{});
-
-                // redirect client to your_turn page after short delay — only works if page is open
-                setTimeout(()=> {
-                  try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
-                }, 1200);
-
-              } else {
-                indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
-              }
-            });
-          });
-        }
-
-      }); // onValue queue
-    }); // DOMContentLoaded
-
-    // cleanup listener on unload
-    window.addEventListener('beforeunload', () => {
-      try {
-        if (queueRef) off(queueRef);
-        if (counterRef) off(counterRef);
-        if (servingRef) off(servingRef);
-        if (adRef) off(adRef);
-      } catch(e){}
-    });
-
-    // warn fallback
-    if (!TELEGRAM_BOT_USERNAME || TELEGRAM_BOT_USERNAME === 'QueueJoyBot') {
-      console.warn('TELEGRAM_BOT_USERNAME placeholder in page; fallback link will use placeholder.');
-    }
-
-  </script>
 </body>
 </html>
