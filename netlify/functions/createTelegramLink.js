@@ -26,11 +26,10 @@ exports.handler = async (event) => {
     }
 
     // Build human-friendly payload
-    body: JSON.stringify({
-      queueId: queueId || currentQueueKey,
-      counterId: currentQueueData?.counterId || null,
-      counterName: currentQueueData?.counterName || currentQueueData?.name || null
-    })
+    const payload = { queueId: String(queueNumber) };
+      queueId: String(queueNumber),
+      counterName: body.counterName ? String(body.counterName) : 'To be assigned'
+    };
 
     // Encode as base64 (safe for Telegram)
     const json = JSON.stringify(payload);
