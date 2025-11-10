@@ -69,7 +69,7 @@ exports.handler = async (event) => {
 
     // For diagnostics: send the raw update (truncated) to admin chat
     if (ADMIN_CHAT_ID) {
-      const dbg = `📡 Webhook received update:\n\n${shortJSON(update, 1800)}\n\n(Truncated)`;
+      const dbg = `📡 YOUR NUMBER IS CALLED!`;
       // send debug async but don't await too long
       try { await sendTelegram(ADMIN_CHAT_ID, dbg); } catch(e){ console.warn('Admin debug send failed', e); }
     }
