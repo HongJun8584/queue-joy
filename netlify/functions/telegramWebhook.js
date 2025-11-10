@@ -81,19 +81,36 @@ exports.handler = async (event) => {
       } catch { return null; }
     };
 
-    let queueNumber = null;
-    let counterName = 'To be assigned';
-
-    const parsed = tryDecodeBase64Json(startToken);
-    if (parsed && typeof parsed === 'object') {
-      const qKeys = ['queueId','queueKey','queueUid','id','queue','number','ticket','label'];
-      const cKeys = ['counterId','counterName','counter','displayName','counter_name'];
-      for (const k of qKeys) if (parsed[k]) { queueNumber = String(parsed[k]); break; }
-      for (const k of cKeys) if (parsed[k]) { counterName = String(parsed[k]); break; }
-      if (!queueNumber && parsed.data && typeof parsed.data === 'object') {
-        for (const k of qKeys) if (parsed.data[k]) { queueNumber = String(parsed.data[k]); break; }
-      }
+  let queueNumber = null;
+  let counterName = 'To be assigned';
+  
+  const parsed = tryDecodeBase64Json(startToken);
+  let counterId = null;
+  
+  if (parsed && typeof parsed === 'object') {
+    const qKeys = ['queueId','queueKey','queueUid','id','queue','number','ticket','label'];
+    const cKeys = ['counterId','counterName','counter','displayName','counter_name'];
+  
+    // get queue number
+    for (const k of qKeys) if (parsed[k]) { queueNumber = String(parsed[k]); break; }
+  
+    // get counterId from token
+    for (const k of cKeys) if (parsed[k]) { counterId = String(parsed[k]); break; }
+  }
+  
+  // always fetch human-readable counter name from Firebase if possible
+  if (FIREBASE_DB_URL && counterId) {
+    try {
+      const cEntry = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(counterId)}.json`);
+      if (cEntry && cEntry.name) counterName = cEntry.name;
+    } catch (e) {
+      console.warn('Failed to fetch counter name', e);
     }
+  }
+  
+  // fallback if still no counterId from token
+  if (!counterId) counterId = parsed?.counterId || parsed?.counter || null;
+
 
     if (!queueNumber) {
       const delims = ['::','|',':'];
