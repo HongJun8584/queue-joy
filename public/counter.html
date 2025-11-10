@@ -3,55 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Counter Panel - Queue Joy</title>
+    <title>Counter Dashboard - Queue Joy</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .counter-card {
+        body { 
+            font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .counter-card {
+            background: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .counter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+        }
+        .counter-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+        }
+        .stat-box {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #bae6fd;
             transition: all 0.3s ease;
         }
-        .counter-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
-        .btn-action {
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        .stat-box:hover {
+            transform: scale(1.05);
+            border-color: #38bdf8;
         }
-        .btn-action:hover { transform: scale(1.05); }
-        .btn-action:active { transform: scale(0.95); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .loading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .btn-call {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.4);
+        }
+        .btn-call:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-skip {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.4);
+        }
+        .btn-skip:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-reset {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.4);
+        }
+        .btn-reset:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-delete {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+            box-shadow: 0 4px 14px 0 rgba(100, 116, 139, 0.4);
+        }
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            box-shadow: 0 6px 20px rgba(100, 116, 139, 0.6);
+            transform: translateY(-2px);
+        }
+        .action-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+        .action-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        .action-btn:active::after {
+            width: 300px;
+            height: 300px;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .pulse-glow {
+            animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes slide-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .slide-up {
+            animation: slide-up 0.5s ease-out;
+        }
+        .number-display {
+            font-family: 'Inter', monospace;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .badge {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateX(400px);
+            transition: transform 0.3s ease-out;
+            z-index: 1000;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        .toast.info { border-left: 4px solid #3b82f6; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-    <div class="container mx-auto px-4 py-8 max-w-6xl">
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
         <!-- Header -->
-        <div class="bg-white rounded-2xl shadow-xl p-6 mb-8">
-            <div class="flex items-center justify-between">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 mb-8 slide-up">
+            <div class="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Counter Dashboard</h1>
-                    <p class="text-gray-600 mt-1">Manage your service counters</p>
+                    <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+                        🎯 Counter Dashboard
+                    </h1>
+                    <p class="text-gray-600 text-lg">Real-time queue management system</p>
                 </div>
-                <a href="/" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-colors">
-                    Customer View
-                </a>
+                <div class="flex gap-4">
+                    <a href="/" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl">
+                        👥 Customer View
+                    </a>
+                    <button onclick="refreshData()" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition-all">
+                        🔄 Refresh
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Counters Grid -->
-        <div id="countersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-
-        <!-- No Counters Message -->
-        <div id="noCounters" class="hidden bg-white rounded-2xl shadow-xl p-12 text-center">
-            <div class="text-6xl mb-4">🏪</div>
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">No Counters Available</h2>
-            <p class="text-gray-600">Contact your administrator to set up counters</p>
+        <!-- Loading State -->
+        <div id="loading" class="flex flex-col items-center justify-center py-20">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-white text-xl font-semibold">Loading counters...</p>
         </div>
+
+        <!-- Counters Grid -->
+        <div id="countersGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-8 hidden"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden bg-white rounded-3xl shadow-2xl p-16 text-center slide-up">
+            <div class="text-8xl mb-6">🏪</div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-3">No Counters Available</h2>
+            <p class="text-gray-600 text-lg">Please set up counters in Firebase to get started</p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toastIcon"></span>
+        <span id="toastMessage" class="font-semibold"></span>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, get, onValue, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { getDatabase, ref, get, onValue, update, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -66,11 +231,33 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
+        let countersData = {};
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️'
+            };
+            
+            icon.textContent = icons[type];
+            msg.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
         function formatQueueId(prefix, num) {
             return `${prefix}${String(num).padStart(3, '0')}`;
         }
 
-        async function notifyTelegram(counterId, queueId) {
+        async function triggerNotification(counterId, queueId) {
             try {
                 const queueRef = ref(database, 'queue');
                 const snapshot = await get(queueRef);
@@ -81,149 +268,214 @@
                 snapshot.forEach(snap => {
                     const q = snap.val();
                     const key = snap.key;
-                    const ticketId = String(q.queueId || q.ticketNumber || '').trim();
+                    const ticketId = String(q.queueId || '').trim();
 
-                    if (ticketId === queueId && !q.serverNotifyRequested) {
-                        updates[`queue/${key}/counterId`] = counterId;
+                    if (ticketId === queueId && q.chatId) {
                         updates[`queue/${key}/status`] = 'serving';
+                        updates[`queue/${key}/counterId`] = counterId;
                         updates[`queue/${key}/serverNotifyRequested`] = true;
                         updates[`queue/${key}/serverNotifyRequestedAt`] = serverTimestamp();
-                        updates[`queue/${key}/serverNotifyRequestedBy`] = 'counter-panel';
+                        updates[`queue/${key}/notifiedAt`] = serverTimestamp();
                     }
                 });
 
                 if (Object.keys(updates).length > 0) {
                     await update(ref(database), updates);
+                    showToast('📱 Notification sent to customer', 'success');
                 }
             } catch (error) {
-                console.error('Telegram notification error:', error);
+                console.error('Notification error:', error);
             }
         }
 
         function createCounterCard(counterId, counter) {
             const card = document.createElement('div');
-            card.className = 'counter-card rounded-2xl shadow-xl p-6 text-white';
+            card.className = 'counter-card rounded-3xl shadow-2xl p-8 slide-up';
+            card.style.animationDelay = `${Object.keys(countersData).indexOf(counterId) * 0.1}s`;
+            
             card.innerHTML = `
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-bold">${counter.name}</h2>
-                    <span class="px-4 py-2 bg-white bg-opacity-20 rounded-xl text-lg font-bold">${counter.prefix}</span>
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-1">${counter.name}</h2>
+                        <p class="text-gray-500 text-sm">Counter ID: ${counterId}</p>
+                    </div>
+                    <div class="badge">${counter.prefix}</div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white bg-opacity-20 rounded-xl p-4 text-center">
-                        <p class="text-sm opacity-90 mb-1">Now Serving</p>
-                        <p id="${counterId}-serving" class="text-3xl font-bold">${formatQueueId(counter.prefix, counter.nowServing)}</p>
+                <div class="grid grid-cols-2 gap-6 mb-8">
+                    <div class="stat-box rounded-2xl p-6 text-center">
+                        <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">Now Serving</div>
+                        <div id="${counterId}-serving" class="number-display text-5xl text-gray-800">
+                            ${formatQueueId(counter.prefix, counter.nowServing)}
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">Current Number</div>
                     </div>
-                    <div class="bg-white bg-opacity-20 rounded-xl p-4 text-center">
-                        <p class="text-sm opacity-90 mb-1">Last Issued</p>
-                        <p id="${counterId}-issued" class="text-3xl font-bold">${formatQueueId(counter.prefix, counter.lastNumber)}</p>
+                    
+                    <div class="stat-box rounded-2xl p-6 text-center">
+                        <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">Last Issued</div>
+                        <div id="${counterId}-issued" class="number-display text-5xl text-gray-800">
+                            ${formatQueueId(counter.prefix, counter.lastIssued || 0)}
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">Latest Ticket</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-3">
-                    <button onclick="handleAction('${counterId}', 'call')"
-                            class="btn-action bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-xl">
-                        Call Next
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <button onclick="handleAction('${counterId}', 'call')" 
+                            class="action-btn btn-call text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">📢</span> Call Next
                     </button>
-                    <button onclick="handleAction('${counterId}', 'skip')"
-                            class="btn-action bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl">
-                        Skip
+                    
+                    <button onclick="handleAction('${counterId}', 'skip')" 
+                            class="action-btn btn-skip text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">⏭️</span> Skip
                     </button>
-                    <button onclick="handleAction('${counterId}', 'reset')"
-                            class="btn-action bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl">
-                        Reset
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="handleAction('${counterId}', 'reset')" 
+                            class="action-btn btn-reset text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">🔄</span> Reset
                     </button>
+                    
+                    <button onclick="handleAction('${counterId}', 'delete')" 
+                            class="action-btn btn-delete text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">🗑️</span> Delete
+                    </button>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <div class="flex items-center justify-between text-sm text-gray-500">
+                        <span class="${counter.active ? 'text-green-600' : 'text-red-600'} font-semibold">
+                            ${counter.active ? '🟢 Active' : '🔴 Inactive'}
+                        </span>
+                        <span class="${counter.busy ? 'pulse-glow' : ''}">
+                            ${counter.busy ? '⏱️ Busy' : '✅ Ready'}
+                        </span>
+                    </div>
                 </div>
             `;
+            
             return card;
         }
 
         async function handleAction(counterId, action) {
             try {
-                const counterRef = ref(database, `settings/counters/${counterId}`);
-                const snapshot = await get(counterRef);
+                const counter = countersData[counterId];
+                if (!counter) return;
 
-                if (!snapshot.exists()) return;
-
-                const counter = snapshot.val();
+                const counterRef = ref(database, `counters/${counterId}`);
                 const updates = {};
 
                 if (action === 'call') {
-                    const newNumber = counter.lastNumber + 1;
-                    updates[`settings/counters/${counterId}/lastNumber`] = newNumber;
-                    updates[`settings/counters/${counterId}/nowServing`] = newNumber;
+                    const newNumber = (counter.lastIssued || 0) + 1;
+                    updates[`counters/${counterId}/lastIssued`] = newNumber;
                     updates[`counters/${counterId}/nowServing`] = newNumber;
                     updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                    updates[`counters/${counterId}/busy`] = false;
 
                     await update(ref(database), updates);
-                    await notifyTelegram(counterId, formatQueueId(counter.prefix, newNumber));
+                    await triggerNotification(counterId, formatQueueId(counter.prefix, newNumber));
+                    showToast(`📢 Called ${formatQueueId(counter.prefix, newNumber)}`, 'success');
 
                 } else if (action === 'skip') {
                     const newServing = counter.nowServing + 1;
-                    updates[`settings/counters/${counterId}/nowServing`] = newServing;
                     updates[`counters/${counterId}/nowServing`] = newServing;
                     updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                    updates[`counters/${counterId}/busy`] = false;
 
                     await update(ref(database), updates);
-                    await notifyTelegram(counterId, formatQueueId(counter.prefix, newServing));
+                    await triggerNotification(counterId, formatQueueId(counter.prefix, newServing));
+                    showToast(`⏭️ Skipped to ${formatQueueId(counter.prefix, newServing)}`, 'info');
 
                 } else if (action === 'reset') {
-                    if (confirm('Reset this counter to 1?')) {
-                        updates[`settings/counters/${counterId}/nowServing`] = 1;
-                        updates[`settings/counters/${counterId}/lastNumber`] = 0;
+                    if (confirm(`🔄 Reset ${counter.name} to starting position?\n\nThis will set:\n• Now Serving: ${counter.prefix}001\n• Last Issued: 0`)) {
                         updates[`counters/${counterId}/nowServing`] = 1;
+                        updates[`counters/${counterId}/lastIssued`] = 0;
                         updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                        updates[`counters/${counterId}/busy`] = false;
 
                         await update(ref(database), updates);
+                        showToast(`🔄 ${counter.name} reset successfully`, 'success');
+                    }
+
+                } else if (action === 'delete') {
+                    if (confirm(`🗑️ Delete ${counter.name}?\n\nThis action cannot be undone!`)) {
+                        await remove(ref(database, `counters/${counterId}`));
+                        showToast(`🗑️ ${counter.name} deleted`, 'success');
                     }
                 }
+
             } catch (error) {
                 console.error('Action error:', error);
-                alert('Operation failed. Please try again.');
+                showToast('❌ Operation failed. Please try again.', 'error');
             }
         }
 
         window.handleAction = handleAction;
 
-        async function loadCounters() {
-            const countersRef = ref(database, 'settings/counters');
+        function renderCounters() {
+            const grid = document.getElementById('countersGrid');
+            const loading = document.getElementById('loading');
+            const empty = document.getElementById('emptyState');
 
-            onValue(countersRef, (snapshot) => {
-                const grid = document.getElementById('countersGrid');
-                const noCounters = document.getElementById('noCounters');
+            loading.classList.add('hidden');
 
-                grid.innerHTML = '';
+            if (Object.keys(countersData).length === 0) {
+                grid.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
 
-                if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
-                    grid.classList.add('hidden');
-                    noCounters.classList.remove('hidden');
-                    return;
-                }
+            grid.classList.remove('hidden');
+            empty.classList.add('hidden');
+            grid.innerHTML = '';
 
-                grid.classList.remove('hidden');
-                noCounters.classList.add('hidden');
-
-                const counters = snapshot.val();
-                Object.entries(counters).forEach(([counterId, counter]) => {
+            Object.entries(countersData)
+                .sort(([, a], [, b]) => (a.name || '').localeCompare(b.name || ''))
+                .forEach(([counterId, counter]) => {
                     grid.appendChild(createCounterCard(counterId, counter));
                 });
+        }
 
-                Object.entries(counters).forEach(([counterId]) => {
-                    const counterRef = ref(database, `counters/${counterId}`);
-                    onValue(counterRef, (snap) => {
-                        if (snap.exists()) {
-                            const data = snap.val();
-                            const servingEl = document.getElementById(`${counterId}-serving`);
-                            if (servingEl && data.nowServing !== undefined) {
-                                servingEl.textContent = formatQueueId(counters[counterId].prefix, data.nowServing);
-                            }
+        function startRealtimeListeners() {
+            const countersRef = ref(database, 'counters');
+
+            onValue(countersRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    countersData = snapshot.val();
+                    renderCounters();
+
+                    Object.keys(countersData).forEach(counterId => {
+                        const counter = countersData[counterId];
+                        
+                        const servingEl = document.getElementById(`${counterId}-serving`);
+                        const issuedEl = document.getElementById(`${counterId}-issued`);
+                        
+                        if (servingEl) {
+                            servingEl.textContent = formatQueueId(counter.prefix, counter.nowServing);
+                        }
+                        if (issuedEl) {
+                            issuedEl.textContent = formatQueueId(counter.prefix, counter.lastIssued || 0);
                         }
                     });
-                });
+                } else {
+                    countersData = {};
+                    renderCounters();
+                }
             });
         }
 
-        loadCounters();
+        function refreshData() {
+            showToast('🔄 Refreshing data...', 'info');
+            const grid = document.getElementById('countersGrid');
+            grid.innerHTML = '';
+            renderCounters();
+        }
+
+        window.refreshData = refreshData;
+
+        startRealtimeListeners();
     </script>
 </body>
 </html>
