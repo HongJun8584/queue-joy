@@ -6,6 +6,7 @@
   <title>Queue Joy - Digital Queue System</title>
 
   <script type="module">
+    // Firebase v10 modular
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getDatabase,
@@ -30,11 +31,10 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
-    // expose small helpers for debugging if needed
     window._db = db;
 
     document.addEventListener('DOMContentLoaded', () => {
+      // UI elements
       const getNumberBtn = document.getElementById('getNumberBtn');
       const btnText = document.getElementById('btnText');
       const btnSpinner = document.getElementById('btnSpinner');
@@ -43,16 +43,27 @@
       const introText = document.getElementById('introText');
       const adPanel = document.getElementById('adPanel');
       const noAd = document.getElementById('noAd');
+      const businessTitle = document.getElementById('businessTitle');
+
+      // Determine client slug from URL: ?client=mycafe OR ?storeId=...
+      const params = new URLSearchParams(window.location.search);
+      const clientParam = (params.get('client') || params.get('storeId') || '').trim();
+      const clientSlug = clientParam || null;
+      // compute base paths
+      const clientBase = clientSlug ? `clients/${clientSlug}/` : null;
+
+      // helper to build path that falls back to global
+      const remotePath = (subpath) => (clientBase ? `${clientBase}${subpath}` : subpath);
 
       function showError(msg) {
         console.error(msg);
-        errorMessage.querySelector('p').textContent = msg;
+        errorMessage.querySelector('p').textContent = String(msg);
         errorMessage.classList.remove('hidden');
         successMessage.classList.add('hidden');
         setTimeout(() => errorMessage.classList.add('hidden'), 5000);
       }
       function showSuccess(msg) {
-        successMessage.querySelector('p').textContent = msg;
+        successMessage.querySelector('p').textContent = String(msg);
         successMessage.classList.remove('hidden');
         errorMessage.classList.add('hidden');
       }
@@ -62,60 +73,133 @@
         btnSpinner.classList.toggle('hidden', !flag);
       }
 
-      // setup ad and intro listeners (unchanged logic)
-      (function setupListeners() {
+      // ======= listeners for settings & ads (client-aware with fallback) =======
+      async function setupSettingsListeners() {
+        // client-first listeners. If client exists, read client settings; otherwise read root settings.
+        if (clientBase) {
+          // listen client settings
+          const sRef = ref(db, `${clientBase}settings`);
+          onValue(sRef, (snap) => {
+            const s = snap.exists() ? snap.val() : null;
+            if (s) {
+              introText.textContent = s.introText || 'Real-time queueing system. Mobile-friendly. No app needed.';
+              businessTitle.textContent = s.businessName || 'Queue Joy';
+              if (s.adImageUrl) { adPanel.src = s.adImageUrl; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
+              else { adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
+              return;
+            }
+            // if client settings missing, fallback to global (handled below)
+          }, (err)=>console.warn('client settings listener err', err));
+        }
+
+        // fallback global settings listeners (keeps compatibility with old structure)
         const adRef = ref(db, 'settings/adImage');
         onValue(adRef, snap => {
-          if (snap.exists()) {
-            adPanel.src = snap.val();
-            adPanel.classList.remove('hidden');
-            noAd.classList.add('hidden');
+          // only apply if client not providing adImage (avoid overriding)
+          const clientHas = clientBase ? !!(get(ref(db, `${clientBase}settings/adImage`)).catch(()=>null)) : false;
+          if (!clientBase) {
+            if (snap.exists()) {
+              adPanel.src = snap.val();
+              adPanel.classList.remove('hidden');
+              noAd.classList.add('hidden');
+            } else {
+              adPanel.classList.add('hidden');
+              noAd.classList.remove('hidden');
+            }
           } else {
-            adPanel.classList.add('hidden');
-            noAd.classList.remove('hidden');
+            // if clientBase present, do nothing (client listener above takes precedence)
+            // We keep this as a safe fallback for race conditions.
+            if (!adPanel.src || adPanel.classList.contains('hidden')) {
+              if (snap.exists()) {
+                adPanel.src = snap.val();
+                adPanel.classList.remove('hidden');
+                noAd.classList.add('hidden');
+              }
+            }
           }
         });
 
         const introRef = ref(db, 'settings/introText');
         onValue(introRef, snap => {
-          if (snap.exists()) introText.textContent = snap.val();
+          if (!clientBase) {
+            if (snap.exists()) introText.textContent = snap.val();
+          } else {
+            // fallback only if client did not set introText (handled by client listener)
+            get(child(ref(db), `${clientBase}settings/introText`)).then(cs => {
+              if (!(cs && cs.exists())) {
+                if (snap.exists()) introText.textContent = snap.val();
+              }
+            }).catch(()=>{ if (snap.exists()) introText.textContent = snap.val(); });
+          }
         });
-      })();
 
-      // auto redirect if lastQueueId still waiting
+        const nameRef = ref(db, 'settings/businessName');
+        onValue(nameRef, snap => {
+          if (!clientBase) {
+            if (snap.exists()) businessTitle.textContent = snap.val();
+          } else {
+            get(child(ref(db), `${clientBase}settings/businessName`)).then(cs => {
+              if (!(cs && cs.exists())) {
+                if (snap.exists()) businessTitle.textContent = snap.val();
+              }
+            }).catch(()=>{ if (snap.exists()) businessTitle.textContent = snap.val(); });
+          }
+        });
+      }
+
+      setupSettingsListeners();
+
+      // ======= Auto-redirect if user last queue still waiting (client-aware) =======
       (async function autoRedirectIfActiveQueue() {
         try {
           const lastQueueId = sessionStorage.getItem('lastQueueId');
           if (!lastQueueId) return;
-          const snap = await get(child(ref(db), `queue/${lastQueueId}`));
+          // try client path then global
+          const snap = await get(child(ref(db), (clientBase ? `${clientBase}queue/${lastQueueId}` : `queue/${lastQueueId}`)));
           if (snap.exists() && snap.val().status === 'waiting') {
-            window.location.href = `status.html?queueId=${lastQueueId}`;
+            window.location.href = `status.html?queueId=${lastQueueId}${clientSlug ? `&client=${encodeURIComponent(clientSlug)}` : ''}`;
           }
         } catch (err) {
           console.warn('autoRedirect failed', err);
         }
       })();
 
-      // fetch counters - preserve keys, sort deterministically (try numeric when possible)
+      // ======= Counters loader (client-aware with fallback) =======
       async function fetchActiveCounters() {
-        const countersSnap = await get(ref(db, 'counters'));
-        if (!countersSnap.exists()) return [];
-
-        const items = [];
-        countersSnap.forEach(s => {
-          items.push({ id: s.key, ...s.val() });
-        });
-
-        // sort: prefer numeric sort when id looks numeric, otherwise lexicographic
-        items.sort((a, b) => {
-          const ai = a.id, bi = b.id;
-          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) {
-            return Number(ai) - Number(bi);
+        // Try client counters first
+        const clientCountersPath = clientBase ? `${clientBase}counters` : 'counters';
+        try {
+          const countersSnap = await get(ref(db, clientCountersPath));
+          if (countersSnap.exists()) {
+            const items = [];
+            countersSnap.forEach(s => items.push({ id: s.key, ...s.val() }));
+            items.sort((a, b) => {
+              const ai = a.id, bi = b.id;
+              if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
+              return String(ai).localeCompare(String(bi), undefined, { numeric: true });
+            });
+            return items.filter(c => c && c.active);
           }
-          return String(ai).localeCompare(String(bi), undefined, { numeric: true });
-        });
+        } catch (err) {
+          console.warn('client counters read failed', err);
+        }
 
-        return items.filter(c => c && c.active);
+        // fallback to root counters
+        try {
+          const countersSnap = await get(ref(db, 'counters'));
+          if (!countersSnap.exists()) return [];
+          const items = [];
+          countersSnap.forEach(s => items.push({ id: s.key, ...s.val() }));
+          items.sort((a, b) => {
+            const ai = a.id, bi = b.id;
+            if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
+            return String(ai).localeCompare(String(bi), undefined, { numeric: true });
+          });
+          return items.filter(c => c && c.active);
+        } catch (err) {
+          console.warn('global counters read failed', err);
+          return [];
+        }
       }
 
       // helper: sleep
@@ -129,30 +213,26 @@
           try {
             console.debug(`[tx] attempt #${attempt} on`, path);
             const result = await runTransaction(refPath, updater, { applyLocally: false });
-            // result may be { committed: boolean, snapshot: DataSnapshot }
             if (result && result.committed) {
               console.debug(`[tx] success on ${path} value=`, result.snapshot.val());
               return result;
             }
-            // not committed -> treat as retryable
             lastErr = new Error(`Transaction not committed on ${path} (attempt ${attempt})`);
             console.warn(lastErr);
           } catch (txErr) {
             lastErr = txErr;
             console.warn(`[tx] error on ${path} attempt ${attempt}`, txErr);
           }
-          // exponential backoff (min 100ms -> grows)
           const backoff = 100 * Math.pow(2, attempt - 1);
           await sleep(backoff + Math.floor(Math.random() * 60));
         }
         throw lastErr || new Error(`Transaction failed on ${path} after ${maxRetries} attempts`);
       }
 
-      // Main function to get queue number
+      // ======= Main: getQueueNumber (client-aware) =======
       async function getQueueNumber() {
         setLoading(true);
         try {
-          // 1) load active counters
           const counters = await fetchActiveCounters();
           console.debug('Active counters:', counters);
           if (!counters || counters.length === 0) {
@@ -160,18 +240,21 @@
             return showError('No active counters available right now.');
           }
 
-          // 2) Determine which global-counter path to use. Some deployments use different keys.
-          const globalCounterCandidates = [
-            'settings/lastCounterIndex',
-            'lastAssignedCounter',
-            'system/lastAssignedCounter'
-          ];
+          // global counter candidates — try client-scoped keys first
+          const globalCounterCandidates = [];
+          if (clientBase) {
+            globalCounterCandidates.push(`${clientBase}settings/lastCounterIndex`);
+            globalCounterCandidates.push(`${clientBase}lastAssignedCounter`);
+          }
+          // fallbacks
+          globalCounterCandidates.push('settings/lastCounterIndex');
+          globalCounterCandidates.push('lastAssignedCounter');
+          globalCounterCandidates.push('system/lastAssignedCounter');
 
           let rrResult = null;
           let usedPath = null;
           for (const p of globalCounterCandidates) {
             try {
-              // updater increments and returns new value
               rrResult = await runTransactionWithRetries(p, current => (current || 0) + 1, 6);
               if (rrResult && rrResult.committed) {
                 usedPath = p;
@@ -179,7 +262,6 @@
               }
             } catch (err) {
               console.warn(`Global counter attempt failed for ${p}:`, err.message || err);
-              // try next candidate
             }
           }
 
@@ -187,10 +269,8 @@
             throw new Error('Round-robin transaction failed for all candidate paths');
           }
 
-          // 3) compute index (zero-based cycle)
           const globalCounter = Number(rrResult.snapshot.val());
           if (!Number.isFinite(globalCounter)) throw new Error('Global counter returned invalid value');
-          // Use (globalCounter - 1) so the first increment chooses index 0
           const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
           const counter = counters[index];
           if (!counter || !counter.id) {
@@ -199,8 +279,8 @@
           }
           console.debug(`Selected counter (index ${index}) id=${counter.id}`);
 
-          // 4) increment selected counter's lastIssued with retries
-          const lastIssuedPath = `counters/${counter.id}/lastIssued`;
+          // increment selected counter's lastIssued in the correct path
+          const lastIssuedPath = clientBase ? `${clientBase}counters/${counter.id}/lastIssued` : `counters/${counter.id}/lastIssued`;
           const lastIssuedResult = await runTransactionWithRetries(lastIssuedPath, current => (current || 0) + 1, 6);
           if (!lastIssuedResult || !lastIssuedResult.committed) {
             throw new Error('Failed to increment selected counter lastIssued');
@@ -212,23 +292,28 @@
           const prefix = (counter.prefix && String(counter.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // 5) push new queue entry
-          const newRef = push(ref(db, 'queue'));
+          // push new queue entry under client or global
+          const queuePath = clientBase ? `${clientBase}queue` : 'queue';
+          const newRef = push(ref(db, queuePath));
           const entry = {
             counterId: counter.id,
             queueId,
             timestamp: Date.now(),
             status: 'waiting'
           };
-          
-          try {
+
+          // include client meta if available (helpful)
+          if (clientSlug) entry.client = clientSlug;
+
           await set(newRef, entry);
+          // save lastQueueId for auto-redirect
+          try { sessionStorage.setItem('lastQueueId', newRef.key); } catch(e){}
 
-          } catch (err) {
-            console.warn('Failed to send Telegram notification:', err);
-          }
-
-          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
+          // redirect to status with client param preserved
+          setTimeout(() => {
+            const q = encodeURIComponent(newRef.key);
+            window.location.href = `status.html?queueId=${q}${clientSlug ? `&client=${encodeURIComponent(clientSlug)}` : ''}`;
+          }, 900);
 
         } catch (err) {
           console.error('getQueueNumber error', err);
@@ -239,7 +324,7 @@
         }
       }
 
-      // attach UI handler
+      // attach UI click
       getNumberBtn.addEventListener('click', e => {
         e.preventDefault();
         getQueueNumber();
@@ -265,7 +350,7 @@
     </div>
 
     <div class="space-y-2">
-      <h1 class="text-2xl font-bold text-gray-800">Queue Joy</h1>
+      <h1 id="businessTitle" class="text-2xl font-bold text-gray-800">Queue Joy</h1>
       <p id="introText" class="text-gray-600">Real-time queueing system. Mobile-friendly. No app needed.</p>
     </div>
 
