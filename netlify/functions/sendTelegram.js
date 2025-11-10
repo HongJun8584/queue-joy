@@ -137,7 +137,7 @@ exports.handler = async (event) => {
 
     // Build friendly message (HTML)
     const header = storeName ? `<b>${escapeHtml(storeName)}</b>` : `<b>Queue Joy</b>`;
-    const calledLine = `Your queue number <b>${escapeHtml(queueNumber)}</b> is now being served${counterName ? ` at <b>${escapeHtml(counterName)}</b>` : ""}.`;
+    const calledLine = `HEY👋 | Your queue number <b>${escapeHtml(queueNumber)}</b> is now being served${counterName ? ` at <b>${escapeHtml(counterName)}</b>` : ""}.`;
     const extra = extraMessage ? `\n${escapeHtml(extraMessage)}` : "";
     const footer = "\n\nIf you have already left, you can ignore this message. ✅";
 
