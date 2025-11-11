@@ -1,179 +1,153 @@
 // /netlify/functions/telegramWebhook.js
-// Netlify (Node 18+). Env: BOT_TOKEN (required), FIREBASE_DB_URL (optional).
-// Handles only /start commands and sends one single friendly reply.
+// Clean Telegram webhook handler - No admin/debug logic
+// Environment: BOT_TOKEN (required), CHAT_ID (optional for broadcasts)
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+    if (event.httpMethod !== 'POST') {
+      return { statusCode: 405, body: 'Method Not Allowed' };
+    }
 
     let update = {};
-    try { update = JSON.parse(event.body || '{}'); } catch { return { statusCode: 400, body: 'Invalid JSON' }; }
+    try {
+      update = JSON.parse(event.body || '{}');
+    } catch (err) {
+      return { statusCode: 400, body: 'Invalid JSON' };
+    }
 
     const BOT_TOKEN = process.env.BOT_TOKEN;
-    const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
-    if (!BOT_TOKEN) return { statusCode: 500, body: 'Missing BOT_TOKEN' };
+    if (!BOT_TOKEN) {
+      return { statusCode: 500, body: 'Missing BOT_TOKEN' };
+    }
 
-    const sendTelegram = async (toChatId, text) => {
+    // Telegram API helper
+    async function sendTelegram(toChatId, text) {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
       try {
-        await fetch(url, {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: toChatId, text }),
+          body: JSON.stringify({ 
+            chat_id: toChatId, 
+            text,
+            parse_mode: 'HTML'
+          }),
         });
-      } catch (err) {
-        console.error('sendTelegram failed', err);
+        const result = await res.json();
+        if (!res.ok) console.warn('Telegram API error:', result);
+        return result;
+      } catch (e) {
+        console.error('sendTelegram failed:', e);
+        throw e;
       }
-    };
+    }
 
-    const fetchJson = async (url) => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        return await res.json();
-      } catch {
-        return null;
-      }
-    };
-
+    // Extract message and chat info
     const msg = update.message || update.edited_message || update.channel_post || null;
     const cb = update.callback_query || null;
-    const candidateMsg = msg || (cb && cb.message) || null;
+    
+    const userChatId = (msg && msg.chat && typeof msg.chat.id !== 'undefined')
+      ? msg.chat.id
+      : (cb && cb.from && cb.from.id) 
+        ? cb.from.id 
+        : null;
 
-    const userChatId = (candidateMsg && candidateMsg.chat && typeof candidateMsg.chat.id !== 'undefined')
-      ? candidateMsg.chat.id
-      : (cb && cb.from && cb.from.id) ? cb.from.id
-      : null;
+    if (!userChatId) {
+      return { statusCode: 200, body: 'No chat id' };
+    }
 
-    if (!userChatId) return { statusCode: 200, body: 'No chat id' };
+    // Extract text
+    const text = (msg && (msg.text || msg.caption)) ? String(msg.text || msg.caption).trim() : '';
+    const cbData = (cb && cb.data) ? String(cb.data).trim() : '';
 
-    const text = candidateMsg && (candidateMsg.text || candidateMsg.caption)
-      ? (candidateMsg.text || candidateMsg.caption).trim()
-      : '';
-    const cbData = cb && cb.data ? String(cb.data).trim() : '';
-
-    let startToken = null;
+    // Parse /start token
+    let tokenRaw = null;
+    
     if (text) {
-      const m = text.match(/\/start(?:@[\w_]+)?(?:\s+(.+))?$/i);
-      if (m) startToken = (m[1] || '').trim() || null;
+      const m = text.match(/\/start(?:@[\w_]+)?\s+(.+)$/i);
+      if (m && m[1]) {
+        tokenRaw = m[1].trim();
+      }
     }
-    if (!startToken && cbData) {
+    
+    if (!tokenRaw && cbData) {
       const m2 = cbData.match(/start=([^&\s]+)/i);
-      if (m2) startToken = decodeURIComponent(m2[1]);
+      if (m2) {
+        tokenRaw = decodeURIComponent(m2[1]);
+      } else {
+        tokenRaw = cbData;
+      }
     }
 
-    if (startToken === null) return { statusCode: 200, body: 'Ignored non-start message' };
+    // Handle non-start messages
+    if (tokenRaw === null) {
+      return { statusCode: 200, body: 'Ignored' };
+    }
 
-    if (!startToken) {
+    // No token provided
+    if (!tokenRaw) {
       await sendTelegram(userChatId,
-        '👋 Hi — to connect your number, open the QueueJoy status page you received and tap Connect via Telegram. That page will run the /start command automatically.'
+        '👋 Hi! To connect your queue number, open your QueueJoy status page and tap "Connect via Telegram".'
       );
-      return { statusCode: 200, body: 'No token provided' };
+      return { statusCode: 200, body: 'No token' };
     }
 
-    const tryDecodeBase64Json = (s) => {
-      try {
-        const normalized = s.replace(/-/g, '+').replace(/_/g, '/');
-        const pad = normalized.length % 4;
-        const withPad = pad ? normalized + '='.repeat(4 - pad) : normalized;
-        const decoded = Buffer.from(withPad, 'base64').toString('utf8');
-        return JSON.parse(decoded);
-      } catch { return null; }
-    };
+    // Parse token (supports base64 JSON, delimited, or plain)
+    let queueId = null;
+    let counterName = 'TBD';
 
-  let queueNumber = null;
-  let counterName = 'To be assigned';
-  
-  const parsed = tryDecodeBase64Json(startToken);
-  let counterId = null;
-  
-  if (parsed && typeof parsed === 'object') {
-    const qKeys = ['queueId','queueKey','queueUid','id','queue','number','ticket','label'];
-    const cKeys = ['counterId','counterName','counter','displayName','counter_name'];
-  
-    // get queue number
-    for (const k of qKeys) if (parsed[k]) { queueNumber = String(parsed[k]); break; }
-  
-    // get counterId from token
-    for (const k of cKeys) if (parsed[k]) { counterId = String(parsed[k]); break; }
-  }
-  
-  // always fetch human-readable counter name from Firebase if possible
-  if (FIREBASE_DB_URL && counterId) {
+    // Try base64 JSON decode
     try {
-      const cEntry = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(counterId)}.json`);
-      if (cEntry && cEntry.name) counterName = cEntry.name;
+      const norm = tokenRaw.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = norm.length % 4;
+      const padded = pad ? norm + '='.repeat(4 - pad) : norm;
+      const decoded = Buffer.from(padded, 'base64').toString('utf8');
+      const parsed = JSON.parse(decoded);
+      
+      if (parsed && typeof parsed === 'object') {
+        queueId = parsed.queueId || parsed.queueKey || null;
+        counterName = parsed.counterId || parsed.counterName || 'TBD';
+      }
     } catch (e) {
-      console.warn('Failed to fetch counter name', e);
+      // Not base64 JSON
     }
-  }
-  
-  // fallback if still no counterId from token
-  if (!counterId) counterId = parsed?.counterId || parsed?.counter || null;
 
-
-    if (!queueNumber) {
-      const delims = ['::','|',':'];
-      for (const d of delims) {
-        if (startToken.includes(d)) {
-          const [a,b] = startToken.split(d,2);
-          if (a) queueNumber = a.trim();
-          if (b) counterName = b.trim() || counterName;
+    // Try delimited format
+    if (!queueId) {
+      for (const delimiter of ['::', '|', ':']) {
+        if (tokenRaw.includes(delimiter)) {
+          const [a, b] = tokenRaw.split(delimiter, 2);
+          queueId = (a || '').trim();
+          counterName = (b || '').trim() || counterName;
           break;
         }
       }
     }
 
-    if (!queueNumber && FIREBASE_DB_URL) {
-      try {
-        const qUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(startToken)}.json`;
-        const qEntry = await fetchJson(qUrl);
-        if (qEntry) {
-          if (qEntry.queueId) queueNumber = String(qEntry.queueId);
-          else if (qEntry.number) queueNumber = String(qEntry.number);
-          else if (qEntry.ticket) queueNumber = String(qEntry.ticket);
-
-          const counterId = qEntry.counterId || qEntry.counter || null;
-          if (counterId) {
-            const cUrl = `${FIREBASE_DB_URL}/counters/${encodeURIComponent(counterId)}.json`;
-            const cEntry = await fetchJson(cUrl);
-            if (cEntry) {
-              counterName = (cEntry.name || cEntry.displayName || cEntry.label || counterName);
-            }
-          }
-          const patchUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(startToken)}.json`;
-          await fetch(patchUrl, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId: userChatId, telegramConnected: true }),
-          });
-        }
-      } catch (e) {
-        console.warn('Firebase lookup failed', e);
-      }
+    // Fallback: use token as queueId
+    if (!queueId) {
+      queueId = tokenRaw;
     }
 
-    if (!queueNumber) {
-      const humanMatch = startToken.match(/^[A-Za-z]{1,3}\d{1,4}$/);
-      queueNumber = humanMatch ? startToken : startToken;
-    }
+    queueId = String(queueId || 'TBD').trim();
+    counterName = String(counterName || 'TBD').trim();
 
-    queueNumber = String(queueNumber || 'Unknown').trim();
-    counterName = String(counterName || 'To be assigned').trim();
+    // Send success message
+    const replyText = `👋 Hey!\n🧾 Number • ${queueId}\n🪑 Counter • ${counterName}\n\nYou are now connected — you can close the browser and Telegram. Everything will be automated. ☕️😌`;
 
-    const userMsg = [
-      '👋 Hey!',
-      `🧾 Number • ${queueNumber}`,
-      `🪑 Counter • ${counterName}`,
-      '',
-      'You are now connected — you can close the browser and Telegram. Everything will be automated. Just sit down and relax. ☕️😌'
-    ].join('\n');
+    await sendTelegram(userChatId, replyText);
 
-    await sendTelegram(userChatId, userMsg);
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        success: true, 
+        queueId, 
+        chatId: userChatId 
+      }) 
+    };
 
-    return { statusCode: 200, body: 'OK' };
   } catch (err) {
-    console.error('Webhook handler error', err);
-    return { statusCode: 500, body: 'Webhook handler error' };
+    console.error('Webhook error:', err);
+    return { statusCode: 500, body: 'Internal error' };
   }
 };
