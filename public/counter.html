@@ -1,412 +1,481 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QueueJoy - Counter Display</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 1200px;
-      width: 100%;
-      text-align: center;
-    }
-
-    .header {
-      margin-bottom: 60px;
-      animation: fadeInDown 0.8s ease;
-    }
-
-    .header h1 {
-      font-size: 3.5rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-      text-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    }
-
-    .header p {
-      font-size: 1.2rem;
-      opacity: 0.9;
-    }
-
-    .counter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 30px;
-      margin-bottom: 40px;
-    }
-
-    .counter-card {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 40px 30px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-      transition: all 0.3s ease;
-      animation: fadeInUp 0.8s ease;
-    }
-
-    .counter-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-    }
-
-    .counter-name {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      opacity: 0.9;
-    }
-
-    .queue-number {
-      font-size: 5rem;
-      font-weight: 700;
-      margin: 20px 0;
-      text-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .status {
-      display: inline-block;
-      padding: 8px 20px;
-      border-radius: 50px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-top: 15px;
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    .status.calling {
-      background: rgba(76, 175, 80, 0.8);
-      animation: blink 1s ease-in-out infinite;
-    }
-
-    .controls {
-      margin-top: 50px;
-      display: flex;
-      gap: 15px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    button {
-      padding: 15px 30px;
-      font-size: 1rem;
-      font-weight: 600;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      background: rgba(255, 255, 255, 0.25);
-      color: #fff;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-
-    button:hover {
-      background: rgba(255, 255, 255, 0.35);
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    .telegram-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 15px 30px;
-      background: #0088cc;
-      color: white;
-      text-decoration: none;
-      border-radius: 50px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0,136,204,0.4);
-    }
-
-    .telegram-link:hover {
-      background: #006699;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0,136,204,0.6);
-    }
-
-    @keyframes fadeInDown {
-      from {
-        opacity: 0;
-        transform: translateY(-30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        transform: scale(1);
-      }
-      50% {
-        transform: scale(1.05);
-      }
-    }
-
-    @keyframes blink {
-      0%, 50%, 100% {
-        opacity: 1;
-      }
-      25%, 75% {
-        opacity: 0.5;
-      }
-    }
-
-    .notification {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: rgba(76, 175, 80, 0.95);
-      color: white;
-      padding: 15px 25px;
-      border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      animation: slideInRight 0.5s ease;
-      display: none;
-    }
-
-    .notification.show {
-      display: block;
-    }
-
-    @keyframes slideInRight {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .header h1 {
-        font-size: 2.5rem;
-      }
-      .queue-number {
-        font-size: 4rem;
-      }
-      .counter-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🎯 QueueJoy</h1>
-      <p>Real-time Queue Management System</p>
-    </div>
-
-    <div class="counter-grid" id="counterGrid">
-      <!-- Counters will be dynamically added here -->
-    </div>
-
-    <div class="controls">
-      <button onclick="nextNumber('counter1')">📞 Call Next (Counter 1)</button>
-      <button onclick="nextNumber('counter2')">📞 Call Next (Counter 2)</button>
-      <button onclick="resetCounters()">🔄 Reset All</button>
-      <a href="#" class="telegram-link" id="telegramLink">
-        <span>📱</span>
-        <span>Connect via Telegram</span>
-      </a>
-    </div>
-  </div>
-
-  <div class="notification" id="notification">
-    <span id="notificationText"></span>
-  </div>
-
-  <script>
-    // Configuration
-    const FIREBASE_URL = 'YOUR_FIREBASE_URL'; // Replace with your Firebase Realtime Database URL
-    const BOT_USERNAME = 'YOUR_BOT_USERNAME'; // Replace with your Telegram bot username
-
-    // State management
-    const counters = {
-      counter1: {
-        name: 'Counter 1',
-        currentNumber: 'A001',
-        queue: ['A002', 'A003', 'A004', 'A005'],
-        status: 'calling'
-      },
-      counter2: {
-        name: 'Counter 2', 
-        currentNumber: 'B001',
-        queue: ['B002', 'B003', 'B004', 'B005'],
-        status: 'waiting'
-      }
-    };
-
-    // Initialize display
-    function renderCounters() {
-      const grid = document.getElementById('counterGrid');
-      grid.innerHTML = '';
-
-      Object.entries(counters).forEach(([id, counter]) => {
-        const card = document.createElement('div');
-        card.className = 'counter-card';
-        card.innerHTML = `
-          <div class="counter-name">${counter.name}</div>
-          <div class="queue-number">${counter.currentNumber}</div>
-          <div class="status ${counter.status}">${counter.status === 'calling' ? '🔔 Calling Now' : '⏸️ Waiting'}</div>
-          <div style="margin-top: 20px; opacity: 0.8; font-size: 0.9rem;">
-            Next in queue: ${counter.queue.length > 0 ? counter.queue[0] : 'None'}
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-
-      updateTelegramLink();
-    }
-
-    // Generate Telegram deep link with token
-    function updateTelegramLink() {
-      const counter = counters.counter1;
-      const token = btoa(JSON.stringify({
-        queueId: counter.currentNumber,
-        counterId: 'counter1',
-        counterName: counter.name
-      })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      
-      const link = document.getElementById('telegramLink');
-      link.href = `https://t.me/${BOT_USERNAME}?start=${token}`;
-    }
-
-    // Call next number in queue
-    function nextNumber(counterId) {
-      const counter = counters[counterId];
-      if (counter.queue.length > 0) {
-        counter.currentNumber = counter.queue.shift();
-        counter.status = 'calling';
-        
-        // Reset other counters to waiting
-        Object.entries(counters).forEach(([id, c]) => {
-          if (id !== counterId) c.status = 'waiting';
-        });
-
-        renderCounters();
-        showNotification(`📞 Now calling ${counter.currentNumber} at ${counter.name}`);
-        
-        // Send to Telegram if connected
-        sendTelegramNotification(counter.currentNumber, counter.name);
-      } else {
-        showNotification('⚠️ No more numbers in queue');
-      }
-    }
-
-    // Reset all counters
-    function resetCounters() {
-      if (confirm('Reset all counters to initial state?')) {
-        counters.counter1.currentNumber = 'A001';
-        counters.counter1.queue = ['A002', 'A003', 'A004', 'A005'];
-        counters.counter1.status = 'calling';
-        
-        counters.counter2.currentNumber = 'B001';
-        counters.counter2.queue = ['B002', 'B003', 'B004', 'B005'];
-        counters.counter2.status = 'waiting';
-        
-        renderCounters();
-        showNotification('✅ All counters reset');
-      }
-    }
-
-    // Show notification
-    function showNotification(text) {
-      const notification = document.getElementById('notification');
-      const notificationText = document.getElementById('notificationText');
-      
-      notificationText.textContent = text;
-      notification.classList.add('show');
-      
-      setTimeout(() => {
-        notification.classList.remove('show');
-      }, 3000);
-    }
-
-    // Send notification to Telegram (requires backend)
-    async function sendTelegramNotification(queueNumber, counterName) {
-      // This would call your Netlify function
-      try {
-        const response = await fetch('/.netlify/functions/sendTelegram', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            queueNumber,
-            counterName,
-            message: `🔔 YOUR NUMBER IS CALLED!\n\n🧾 Number: ${queueNumber}\n🪑 Counter: ${counterName}\n\nPlease proceed to the counter now.`
-          })
-        });
-        
-        if (response.ok) {
-          console.log('Telegram notification sent');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter Dashboard - Queue Joy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-      } catch (error) {
-        console.error('Failed to send Telegram notification:', error);
-      }
-    }
-
-    // Initialize on page load
-    renderCounters();
-
-    // Auto-refresh from Firebase (optional)
-    if (FIREBASE_URL && FIREBASE_URL !== 'YOUR_FIREBASE_URL') {
-      setInterval(async () => {
-        try {
-          const response = await fetch(`${FIREBASE_URL}/counters.json`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data) {
-              Object.assign(counters, data);
-              renderCounters();
+        .counter-card {
+            background: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .counter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+        }
+        .counter-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+        }
+        .stat-box {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #bae6fd;
+            transition: all 0.3s ease;
+        }
+        .stat-box:hover {
+            transform: scale(1.05);
+            border-color: #38bdf8;
+        }
+        .btn-call {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.4);
+        }
+        .btn-call:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-skip {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.4);
+        }
+        .btn-skip:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-reset {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.4);
+        }
+        .btn-reset:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-delete {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+            box-shadow: 0 4px 14px 0 rgba(100, 116, 139, 0.4);
+        }
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            box-shadow: 0 6px 20px rgba(100, 116, 139, 0.6);
+            transform: translateY(-2px);
+        }
+        .action-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+        .action-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        .action-btn:active::after {
+            width: 300px;
+            height: 300px;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .pulse-glow {
+            animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes slide-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
             }
-          }
-        } catch (error) {
-          console.error('Firebase sync error:', error);
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-      }, 5000); // Sync every 5 seconds
-    }
-  </script>
+        .slide-up {
+            animation: slide-up 0.5s ease-out;
+        }
+        .number-display {
+            font-family: 'Inter', monospace;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .badge {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateX(400px);
+            transition: transform 0.3s ease-out;
+            z-index: 1000;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        .toast.info { border-left: 4px solid #3b82f6; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <div class="bg-white rounded-3xl shadow-2xl p-8 mb-8 slide-up">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+                        🎯 Counter Dashboard
+                    </h1>
+                    <p class="text-gray-600 text-lg">Real-time queue management system</p>
+                </div>
+                <div class="flex gap-4">
+                    <a href="/" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl">
+                        👥 Customer View
+                    </a>
+                    <button onclick="refreshData()" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition-all">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="flex flex-col items-center justify-center py-20">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-white text-xl font-semibold">Loading counters...</p>
+        </div>
+
+        <!-- Counters Grid -->
+        <div id="countersGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-8 hidden"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden bg-white rounded-3xl shadow-2xl p-16 text-center slide-up">
+            <div class="text-8xl mb-6">🏪</div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-3">No Counters Available</h2>
+            <p class="text-gray-600 text-lg">Please set up counters in Firebase to get started</p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toastIcon"></span>
+        <span id="toastMessage" class="font-semibold"></span>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, get, onValue, update, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+            authDomain: "queue-joy-aa21b.firebaseapp.com",
+            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "queue-joy-aa21b",
+            storageBucket: "queue-joy-aa21b.appspot.com",
+            messagingSenderId: "950240394209",
+            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        let countersData = {};
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️'
+            };
+            
+            icon.textContent = icons[type];
+            msg.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function formatQueueId(prefix, num) {
+            return `${prefix}${String(num).padStart(3, '0')}`;
+        }
+
+        async function triggerNotification(counterId, queueId) {
+            try {
+                const queueRef = ref(database, 'queue');
+                const snapshot = await get(queueRef);
+
+                if (!snapshot.exists()) return;
+
+                const updates = {};
+                snapshot.forEach(snap => {
+                    const q = snap.val();
+                    const key = snap.key;
+                    const ticketId = String(q.queueId || '').trim();
+
+                    if (ticketId === queueId && q.chatId) {
+                        updates[`queue/${key}/status`] = 'serving';
+                        updates[`queue/${key}/counterId`] = counterId;
+                        updates[`queue/${key}/serverNotifyRequested`] = true;
+                        updates[`queue/${key}/serverNotifyRequestedAt`] = serverTimestamp();
+                        updates[`queue/${key}/notifiedAt`] = serverTimestamp();
+                    }
+                });
+
+                if (Object.keys(updates).length > 0) {
+                    await update(ref(database), updates);
+                    showToast('📱 Notification sent to customer', 'success');
+                }
+            } catch (error) {
+                console.error('Notification error:', error);
+            }
+        }
+
+        function createCounterCard(counterId, counter) {
+            const card = document.createElement('div');
+            card.className = 'counter-card rounded-3xl shadow-2xl p-8 slide-up';
+            card.style.animationDelay = `${Object.keys(countersData).indexOf(counterId) * 0.1}s`;
+            
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-1">${counter.name}</h2>
+                        <p class="text-gray-500 text-sm">Counter ID: ${counterId}</p>
+                    </div>
+                    <div class="badge">${counter.prefix}</div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6 mb-8">
+                    <div class="stat-box rounded-2xl p-6 text-center">
+                        <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">Now Serving</div>
+                        <div id="${counterId}-serving" class="number-display text-5xl text-gray-800">
+                            ${formatQueueId(counter.prefix, counter.nowServing)}
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">Current Number</div>
+                    </div>
+                    
+                    <div class="stat-box rounded-2xl p-6 text-center">
+                        <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">Last Issued</div>
+                        <div id="${counterId}-issued" class="number-display text-5xl text-gray-800">
+                            ${formatQueueId(counter.prefix, counter.lastIssued || 0)}
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">Latest Ticket</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <button onclick="handleAction('${counterId}', 'call')" 
+                            class="action-btn btn-call text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">📢</span> Call Next
+                    </button>
+                    
+                    <button onclick="handleAction('${counterId}', 'skip')" 
+                            class="action-btn btn-skip text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">⏭️</span> Skip
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="handleAction('${counterId}', 'reset')" 
+                            class="action-btn btn-reset text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">🔄</span> Reset
+                    </button>
+                    
+                    <button onclick="handleAction('${counterId}', 'delete')" 
+                            class="action-btn btn-delete text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+                        <span class="text-2xl">🗑️</span> Delete
+                    </button>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <div class="flex items-center justify-between text-sm text-gray-500">
+                        <span class="${counter.active ? 'text-green-600' : 'text-red-600'} font-semibold">
+                            ${counter.active ? '🟢 Active' : '🔴 Inactive'}
+                        </span>
+                        <span class="${counter.busy ? 'pulse-glow' : ''}">
+                            ${counter.busy ? '⏱️ Busy' : '✅ Ready'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        async function handleAction(counterId, action) {
+            try {
+                const counter = countersData[counterId];
+                if (!counter) return;
+
+                const counterRef = ref(database, `counters/${counterId}`);
+                const updates = {};
+
+                if (action === 'call') {
+                    const newNumber = (counter.lastIssued || 0) + 1;
+                    updates[`counters/${counterId}/lastIssued`] = newNumber;
+                    updates[`counters/${counterId}/nowServing`] = newNumber;
+                    updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                    updates[`counters/${counterId}/busy`] = false;
+
+                    await update(ref(database), updates);
+                    await triggerNotification(counterId, formatQueueId(counter.prefix, newNumber));
+                    showToast(`📢 Called ${formatQueueId(counter.prefix, newNumber)}`, 'success');
+
+                } else if (action === 'skip') {
+                    const newServing = counter.nowServing + 1;
+                    updates[`counters/${counterId}/nowServing`] = newServing;
+                    updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                    updates[`counters/${counterId}/busy`] = false;
+
+                    await update(ref(database), updates);
+                    await triggerNotification(counterId, formatQueueId(counter.prefix, newServing));
+                    showToast(`⏭️ Skipped to ${formatQueueId(counter.prefix, newServing)}`, 'info');
+
+                } else if (action === 'reset') {
+                    if (confirm(`🔄 Reset ${counter.name} to starting position?\n\nThis will set:\n• Now Serving: ${counter.prefix}001\n• Last Issued: 0`)) {
+                        updates[`counters/${counterId}/nowServing`] = 1;
+                        updates[`counters/${counterId}/lastIssued`] = 0;
+                        updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
+                        updates[`counters/${counterId}/busy`] = false;
+
+                        await update(ref(database), updates);
+                        showToast(`🔄 ${counter.name} reset successfully`, 'success');
+                    }
+
+                } else if (action === 'delete') {
+                    if (confirm(`🗑️ Delete ${counter.name}?\n\nThis action cannot be undone!`)) {
+                        await remove(ref(database, `counters/${counterId}`));
+                        showToast(`🗑️ ${counter.name} deleted`, 'success');
+                    }
+                }
+
+            } catch (error) {
+                console.error('Action error:', error);
+                showToast('❌ Operation failed. Please try again.', 'error');
+            }
+        }
+
+        window.handleAction = handleAction;
+
+        function renderCounters() {
+            const grid = document.getElementById('countersGrid');
+            const loading = document.getElementById('loading');
+            const empty = document.getElementById('emptyState');
+
+            loading.classList.add('hidden');
+
+            if (Object.keys(countersData).length === 0) {
+                grid.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            empty.classList.add('hidden');
+            grid.innerHTML = '';
+
+            Object.entries(countersData)
+                .sort(([, a], [, b]) => (a.name || '').localeCompare(b.name || ''))
+                .forEach(([counterId, counter]) => {
+                    grid.appendChild(createCounterCard(counterId, counter));
+                });
+        }
+
+        function startRealtimeListeners() {
+            const countersRef = ref(database, 'counters');
+
+            onValue(countersRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    countersData = snapshot.val();
+                    renderCounters();
+
+                    Object.keys(countersData).forEach(counterId => {
+                        const counter = countersData[counterId];
+                        
+                        const servingEl = document.getElementById(`${counterId}-serving`);
+                        const issuedEl = document.getElementById(`${counterId}-issued`);
+                        
+                        if (servingEl) {
+                            servingEl.textContent = formatQueueId(counter.prefix, counter.nowServing);
+                        }
+                        if (issuedEl) {
+                            issuedEl.textContent = formatQueueId(counter.prefix, counter.lastIssued || 0);
+                        }
+                    });
+                } else {
+                    countersData = {};
+                    renderCounters();
+                }
+            });
+        }
+
+        function refreshData() {
+            showToast('🔄 Refreshing data...', 'info');
+            const grid = document.getElementById('countersGrid');
+            grid.innerHTML = '';
+            renderCounters();
+        }
+
+        window.refreshData = refreshData;
+
+        startRealtimeListeners();
+    </script>
 </body>
 </html>
