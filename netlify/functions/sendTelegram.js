@@ -1,167 +1,160 @@
-// /netlify/functions/sendTelegram.js
-// Netlify function to send Telegram notifications when a number is called
-// Environment variables required: BOT_TOKEN, FIREBASE_DB_URL (optional)
+// netlify/functions/sendTelegram.js
+// Requirements:
+//   BOT_TOKEN - Telegram bot token
+//   FIREBASE_DB_URL - Firebase Realtime Database root URL (no trailing slash)
 
 exports.handler = async (event) => {
   try {
-    // Only accept POST requests
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // Parse request body
-    let requestData = {};
+    const BOT_TOKEN = process.env.BOT_TOKEN;
+    const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
+    if (!BOT_TOKEN) {
+      console.error('Missing BOT_TOKEN');
+      return { statusCode: 500, body: 'Server misconfigured' };
+    }
+
+    // Parse body
+    let body = {};
     try {
-      requestData = JSON.parse(event.body || '{}');
-    } catch (error) {
-      console.error('Invalid JSON body:', error);
+      body = JSON.parse(event.body || '{}');
+    } catch (e) {
+      console.error('Invalid JSON body');
       return { statusCode: 400, body: 'Invalid JSON' };
     }
 
-    const { queueNumber, counterName, message, chatId } = requestData;
+    const { queueNumber, queueKey, counterName, message, chatId: providedChatId } = body;
 
-    // Get environment variables
-    const BOT_TOKEN = process.env.BOT_TOKEN;
-    const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
-
-    if (!BOT_TOKEN) {
-      console.error('Missing BOT_TOKEN environment variable');
-      return { statusCode: 500, body: 'Server configuration error' };
-    }
-
-    // ==================== HELPER FUNCTIONS ====================
-
-    /**
-     * Send a message via Telegram Bot API
-     */
-    const sendTelegram = async (toChatId, text, options = {}) => {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const fetchJson = async (url, opts = {}) => {
       try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: toChatId,
-            text,
-            parse_mode: options.parseMode || null,
-            ...options
-          }),
-        });
-
-        const responseData = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          console.error('Telegram API error:', response.status, responseData);
-          return { success: false, error: responseData };
-        }
-
-        return { success: true, data: responseData };
-      } catch (error) {
-        console.error('Failed to send Telegram message:', error);
-        return { success: false, error: error.message };
-      }
-    };
-
-    /**
-     * Fetch JSON from URL
-     */
-    const fetchJson = async (url) => {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        return await response.json();
-      } catch (error) {
-        console.error('Fetch error:', error);
+        const res = await fetch(url, opts);
+        const data = await res.json().catch(() => null);
+        return res.ok ? data : null;
+      } catch (e) {
+        console.error('fetchJson error', e, url);
         return null;
       }
     };
 
-    // ==================== FIND CHAT ID ====================
-
-    let targetChatId = chatId; // Use provided chatId if available
-
-    // If no chatId provided, try to find it from Firebase using queue number
-    if (!targetChatId && FIREBASE_DB_URL && queueNumber) {
+    const sendTelegram = async (chatId, text, extra = {}) => {
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
       try {
-        // Try to find queue entry by queue number
-        const queueUrl = `${FIREBASE_DB_URL}/queue.json?orderBy="queueId"&equalTo="${queueNumber}"`;
-        const queueData = await fetchJson(queueUrl);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            parse_mode: extra.parse_mode || 'Markdown',
+            disable_web_page_preview: true,
+            ...extra
+          }),
+        });
+        const d = await res.json().catch(() => ({}));
+        return { ok: res.ok, data: d };
+      } catch (e) {
+        console.error('sendTelegram error', e);
+        return { ok: false, error: e.message };
+      }
+    };
 
-        if (queueData) {
-          const queueEntry = Object.values(queueData)[0];
-          if (queueEntry && queueEntry.chatId) {
-            targetChatId = queueEntry.chatId;
-            console.log('Found chatId from Firebase:', targetChatId);
+    // find chatId if not provided
+    let targetChatId = providedChatId || null;
+    let targetQueueKey = queueKey || null;
+
+    if (!targetChatId && FIREBASE_DB_URL) {
+      // If queueKey supplied, try to fetch that entry
+      if (queueKey) {
+        const entry = await fetchJson(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(queueKey)}.json`);
+        if (entry?.chatId) {
+          targetChatId = entry.chatId;
+          targetQueueKey = queueKey;
+        }
+      }
+
+      // If still no chatId and queueNumber provided, try query by queueId
+      if (!targetChatId && queueNumber) {
+        const qnumEnc = encodeURIComponent(String(queueNumber));
+        const url = `${FIREBASE_DB_URL}/queue.json?orderBy="queueId"&equalTo="${qnumEnc}"`;
+        const result = await fetchJson(url);
+        if (result && Object.keys(result).length) {
+          const firstKey = Object.keys(result)[0];
+          const entry = result[firstKey];
+          if (entry?.chatId) {
+            targetChatId = entry.chatId;
+            targetQueueKey = firstKey;
+          } else {
+            // store notificationError: no-chatId
+            await fetch(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(firstKey)}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ notificationError: 'no-chatId', notificationErrorAt: Date.now() })
+            }).catch(()=>null);
           }
         }
-      } catch (error) {
-        console.warn('Failed to fetch chatId from Firebase:', error);
       }
     }
 
     if (!targetChatId) {
-      console.error('No chatId provided or found in Firebase');
+      console.error('No chatId available for notification');
       return {
         statusCode: 400,
-        body: JSON.stringify({
-          error: 'No chatId available. User may not be connected via Telegram.'
-        })
+        body: JSON.stringify({ success: false, error: 'No chatId available' })
       };
     }
 
-    // ==================== SEND NOTIFICATION ====================
-
-    // Build the message
-    const notificationMessage = message || [
-      '🔔 YOUR NUMBER IS CALLED!',
+    const notifyText = message || [
+      '🔔 *YOUR NUMBER IS CALLED!*',
       '',
-      `🧾 Number: ${queueNumber || 'Unknown'}`,
-      `🪑 Counter: ${counterName || 'Unknown'}`,
+      `🧾 Number: *${queueNumber || 'Unknown'}*`,
+      `🪑 Counter: *${counterName || 'Unknown'}*`,
       '',
       '👉 Please proceed to the counter now.',
       '',
       'Thank you for your patience! 😊'
     ].join('\n');
 
-    // Send the message
-    const result = await sendTelegram(targetChatId, notificationMessage);
-
-    if (result.success) {
-      console.log('Notification sent successfully:', {
-        chatId: targetChatId,
-        queueNumber,
-        counterName
-      });
-
+    const res = await sendTelegram(targetChatId, notifyText);
+    if (res.ok) {
+      // mark queue entry as notified (if we have the queueKey)
+      if (targetQueueKey && FIREBASE_DB_URL) {
+        await fetch(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(targetQueueKey)}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notificationSent: true,
+            notifiedAt: Date.now(),
+            notifiedVia: 'telegram'
+          })
+        }).catch(e => console.warn('Failed to patch queue entry after notify', e));
+      }
       return {
         statusCode: 200,
-        body: JSON.stringify({
-          success: true,
-          message: 'Notification sent successfully',
-          chatId: targetChatId
-        })
+        body: JSON.stringify({ success: true, chatId: targetChatId })
       };
     } else {
-      console.error('Failed to send notification:', result.error);
+      // record error on the queue entry if available
+      if (targetQueueKey && FIREBASE_DB_URL) {
+        await fetch(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(targetQueueKey)}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notificationError: res.error || 'telegram-failed',
+            notificationErrorAt: Date.now()
+          })
+        }).catch(()=>null);
+      }
+      console.error('Telegram send failed', res);
       return {
         statusCode: 500,
-        body: JSON.stringify({
-          success: false,
-          error: 'Failed to send notification',
-          details: result.error
-        })
+        body: JSON.stringify({ success: false, error: res.error || 'telegram-failed' })
       };
     }
 
-  } catch (error) {
-    console.error('Send Telegram function error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        error: 'Internal server error',
-        details: error.message
-      })
-    };
+  } catch (err) {
+    console.error('sendTelegram handler error', err);
+    return { statusCode: 500, body: JSON.stringify({ success: false, error: 'Internal server error' }) };
   }
 };
