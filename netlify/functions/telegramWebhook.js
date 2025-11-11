@@ -1,285 +1,264 @@
-// /netlify/functions/telegramWebhook.js
-// Production-ready Telegram webhook handler for QueueJoy
-// Environment variables required: BOT_TOKEN, FIREBASE_DB_URL (optional)
+// netlify/functions/telegramWebhook.js
+// Requirements (Netlify environment variables):
+//   BOT_TOKEN - Telegram bot token
+//   FIREBASE_DB_URL - https://<your-project>.firebaseio.com (no trailing slash recommended)
 
 exports.handler = async (event) => {
   try {
-    // Only accept POST requests
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // Parse incoming update
-    let update = {};
-    try {
-      update = JSON.parse(event.body || '{}');
-    } catch (error) {
-      console.error('Invalid JSON body:', error);
-      return { statusCode: 400, body: 'Invalid JSON' };
-    }
-
-    // Get environment variables
     const BOT_TOKEN = process.env.BOT_TOKEN;
     const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').replace(/\/$/, '');
 
     if (!BOT_TOKEN) {
-      console.error('Missing BOT_TOKEN environment variable');
-      return { statusCode: 500, body: 'Server configuration error' };
+      console.error('Missing BOT_TOKEN env var');
+      return { statusCode: 500, body: 'Server misconfigured' };
+    }
+    if (!FIREBASE_DB_URL) {
+      console.warn('FIREBASE_DB_URL not set — webhook can still handle /start tokens but cannot lookup counters in DB.');
     }
 
-    // ==================== HELPER FUNCTIONS ====================
+    // helpers
+    const fetchJson = async (url, opts = {}) => {
+      try {
+        const res = await fetch(url, opts);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        console.error('fetchJson error', e, url);
+        return null;
+      }
+    };
 
-    /**
-     * Send a message via Telegram Bot API
-     */
-    const sendTelegram = async (chatId, text, options = {}) => {
+    const patchJson = async (url, bodyObj) => {
+      try {
+        const res = await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyObj)
+        });
+        return res.ok ? await res.json() : null;
+      } catch (e) {
+        console.error('patchJson error', e, url);
+        return null;
+      }
+    };
+
+    const sendTelegram = async (chatId, text, extra = {}) => {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
       try {
-        const response = await fetch(url, {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
             text,
-            parse_mode: options.parseMode || null,
-            ...options
+            parse_mode: extra.parse_mode || 'Markdown',
+            disable_web_page_preview: true,
+            ...extra
           }),
         });
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}));
-          console.error('Telegram API error:', response.status, error);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.warn('Telegram sendMessage failed', data);
+          return { ok: false, error: data };
         }
-        
-        return response.ok;
-      } catch (error) {
-        console.error('Failed to send Telegram message:', error);
-        return false;
+        return { ok: true, data };
+      } catch (e) {
+        console.error('sendTelegram err', e);
+        return { ok: false, error: e.message };
       }
     };
 
-    /**
-     * Fetch JSON from URL
-     */
-    const fetchJson = async (url) => {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        return await response.json();
-      } catch (error) {
-        console.error('Fetch error:', error);
-        return null;
-      }
-    };
+    // parse inbound Telegram update
+    let update = {};
+    try {
+      update = JSON.parse(event.body || '{}');
+    } catch (e) {
+      console.error('Invalid JSON body');
+      return { statusCode: 400, body: 'Invalid JSON' };
+    }
 
-    /**
-     * Decode base64 JSON token
-     */
-    const decodeBase64Json = (token) => {
-      try {
-        const normalized = token.replace(/-/g, '+').replace(/_/g, '/');
-        const padding = normalized.length % 4;
-        const padded = padding ? normalized + '='.repeat(4 - padding) : normalized;
-        const decoded = Buffer.from(padded, 'base64').toString('utf8');
-        return JSON.parse(decoded);
-      } catch (error) {
-        return null;
-      }
-    };
-
-    // ==================== EXTRACT USER INFO ====================
-
-    const msg = update.message || update.edited_message || update.channel_post || null;
-    const callbackQuery = update.callback_query || null;
-    const candidateMsg = msg || (callbackQuery && callbackQuery.message) || null;
-
-    // Extract user chat ID
-    const userChatId = (candidateMsg && candidateMsg.chat && typeof candidateMsg.chat.id !== 'undefined')
-      ? candidateMsg.chat.id
-      : (callbackQuery && callbackQuery.from && callbackQuery.from.id)
-      ? callbackQuery.from.id
-      : null;
+    // get message and chatId
+    const msg = update.message || update.edited_message || update.callback_query?.message || null;
+    const from = update.message?.from || update.callback_query?.from || null;
+    const userChatId = msg?.chat?.id ?? from?.id ?? null;
 
     if (!userChatId) {
-      return { statusCode: 200, body: 'No chat ID found' };
+      console.log('No chat id in update — ignoring.');
+      return { statusCode: 200, body: 'No chat id' };
     }
 
-    // Extract message text
-    const messageText = candidateMsg && (candidateMsg.text || candidateMsg.caption)
-      ? (candidateMsg.text || candidateMsg.caption).trim()
-      : '';
-    
-    const callbackData = callbackQuery && callbackQuery.data 
-      ? String(callbackQuery.data).trim() 
-      : '';
+    const messageText = (msg?.text || msg?.caption || '').trim();
 
-    // ==================== EXTRACT /START TOKEN ====================
-
-    let startToken = null;
-
-    // Method 1: Extract from message text
-    if (messageText) {
-      const match = messageText.match(/\/start(?:@[\w_]+)?(?:\s+(.+))?$/i);
-      if (match) {
-        startToken = (match[1] || '').trim() || null;
-      }
-    }
-
-    // Method 2: Extract from callback data
-    if (!startToken && callbackData) {
-      const match = callbackData.match(/start=([^&\s]+)/i);
-      if (match) {
-        startToken = decodeURIComponent(match[1]);
-      }
-    }
-
-    // If no /start command, ignore the message
-    if (startToken === null) {
-      return { statusCode: 200, body: 'Not a /start command' };
-    }
-
-    // If /start without token, send instructions
-    if (!startToken) {
-      await sendTelegram(
-        userChatId,
-        '👋 Hi!\n\nTo connect your queue number, please open the QueueJoy status page you received and tap "Connect via Telegram".\n\nThe page will automatically run the /start command with your unique token.'
-      );
-      return { statusCode: 200, body: 'No token provided' };
-    }
-
-    // ==================== PARSE TOKEN ====================
-
-    let queueNumber = null;
-    let counterName = 'To be assigned';
-    let counterId = null;
-
-    // Try to decode as base64 JSON
-    const parsedToken = decodeBase64Json(startToken);
-
-    if (parsedToken && typeof parsedToken === 'object') {
-      // Extract queue number from various possible keys
-      const queueKeys = ['queueId', 'queueKey', 'queueUid', 'id', 'queue', 'number', 'ticket', 'label'];
-      for (const key of queueKeys) {
-        if (parsedToken[key]) {
-          queueNumber = String(parsedToken[key]);
-          break;
-        }
-      }
-
-      // Extract counter ID from various possible keys
-      const counterKeys = ['counterId', 'counterName', 'counter', 'displayName', 'counter_name'];
-      for (const key of counterKeys) {
-        if (parsedToken[key]) {
-          counterId = String(parsedToken[key]);
-          break;
-        }
-      }
-    }
-
-    // Try to fetch human-readable counter name from Firebase
-    if (FIREBASE_DB_URL && counterId) {
+    // utility: decode base64 JSON (JWT-like friendly)
+    const tryDecodeBase64Json = (token) => {
       try {
-        const counterData = await fetchJson(
-          `${FIREBASE_DB_URL}/counters/${encodeURIComponent(counterId)}.json`
-        );
-        if (counterData && counterData.name) {
-          counterName = counterData.name;
-        }
-      } catch (error) {
-        console.warn('Failed to fetch counter name from Firebase:', error);
+        const normalized = token.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = normalized.length % 4 ? '='.repeat(4 - (normalized.length % 4)) : '';
+        const b = Buffer.from(normalized + pad, 'base64').toString('utf8');
+        return JSON.parse(b);
+      } catch (e) {
+        return null;
       }
+    };
+
+    // Try to parse token from /start or any text: permit /start token or raw token
+    let token = null;
+    const startMatch = messageText.match(/\/start(?:@[\w_]+)?(?:\s+(.+))?$/i);
+    if (startMatch) {
+      token = (startMatch[1] || '').trim() || null;
+    } else if (messageText && messageText.length < 200) {
+      // user typed something else — treat whole text as potential token
+      token = messageText;
     }
 
-    // Fallback: Try delimiter-based parsing (e.g., "A001::Counter1" or "A001|Counter1")
-    if (!queueNumber) {
-      const delimiters = ['::', '|', ':'];
-      for (const delimiter of delimiters) {
-        if (startToken.includes(delimiter)) {
-          const [queue, counter] = startToken.split(delimiter, 2);
-          if (queue) queueNumber = queue.trim();
-          if (counter) counterName = counter.trim();
-          break;
+    // If token looks empty, but user typed something, we still proceed to lookup by chatId
+    // Strategy:
+    // 1) If token present and looks like a Firebase push key (starts with '-'), treat as queueKey and attach chatId.
+    // 2) If token decodes to JSON with queueKey/queueId/counterId, use that.
+    // 3) If token looks like a human queueId (e.g., A001), search DB by queueId and attach chatId.
+    // 4) If no token or attach failed: lookup by chatId to find queue entry and respond with number & counter.
+
+    const attachChatToQueue = async (candidateToken) => {
+      // candidateToken may be a Firebase push key, a base64 token, or a queueId string
+      if (!FIREBASE_DB_URL) return { ok: false, reason: 'no-firebase' };
+
+      // 1) If it looks like a firebase push key (starts with '-'), patch that record
+      if (/^-[A-Za-z0-9_]+$/.test(candidateToken)) {
+        const url = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(candidateToken)}.json`;
+        const q = await fetchJson(url);
+        if (!q) {
+          // maybe token is queueKey string but not existing
+          const patch = await patchJson(url, { chatId: userChatId, telegramConnected: true, connectedAt: new Date().toISOString() });
+          return patch ? { ok: true, queueKey: candidateToken, patched: patch } : { ok: false, reason: 'patch-failed' };
+        } else {
+          // update
+          const patch = await patchJson(url, { chatId: userChatId, telegramConnected: true, connectedAt: new Date().toISOString() });
+          return patch ? { ok: true, queueKey: candidateToken, patched: patch } : { ok: false, reason: 'patch-failed' };
         }
       }
-    }
 
-    // Fallback: Try to fetch from Firebase using token as key
-    if (!queueNumber && FIREBASE_DB_URL) {
-      try {
-        const queueUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(startToken)}.json`;
-        const queueData = await fetchJson(queueUrl);
-        
-        if (queueData) {
-          // Extract queue number
-          if (queueData.queueId) queueNumber = String(queueData.queueId);
-          else if (queueData.number) queueNumber = String(queueData.number);
-          else if (queueData.ticket) queueNumber = String(queueData.ticket);
+      // 2) Try decode base64 JSON
+      const parsed = tryDecodeBase64Json(candidateToken);
+      if (parsed && typeof parsed === 'object') {
+        // try known keys
+        const keys = ['queueKey', 'queueId', 'id', 'ticket', 'number'];
+        let found = null;
+        for (const k of keys) if (parsed[k]) { found = { key: k, value: String(parsed[k]) }; break; }
 
-          // Extract and fetch counter info
-          const counterIdFromQueue = queueData.counterId || queueData.counter || null;
-          if (counterIdFromQueue) {
-            const counterUrl = `${FIREBASE_DB_URL}/counters/${encodeURIComponent(counterIdFromQueue)}.json`;
-            const counterData = await fetchJson(counterUrl);
-            if (counterData) {
-              counterName = counterData.name || counterData.displayName || counterData.label || counterName;
-            }
+        if (found && found.key === 'queueKey' && /^-/.test(found.value)) {
+          const url = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(found.value)}.json`;
+          const patch = await patchJson(url, { chatId: userChatId, telegramConnected: true, connectedAt: new Date().toISOString() });
+          return patch ? { ok: true, queueKey: found.value, patched: patch } : { ok: false, reason: 'patch-failed' };
+        }
+
+        // if we have queueId (human readable) attempt to find record by queueId
+        if (found && (found.key === 'queueId' || found.key === 'number' || found.key === 'ticket' || found.key === 'id')) {
+          const qid = encodeURIComponent(String(found.value));
+          const url = `${FIREBASE_DB_URL}/queue.json?orderBy="queueId"&equalTo="${qid}"`;
+          const result = await fetchJson(url);
+          if (result && Object.keys(result).length) {
+            const firstKey = Object.keys(result)[0];
+            const patchUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(firstKey)}.json`;
+            const patch = await patchJson(patchUrl, { chatId: userChatId, telegramConnected: true, connectedAt: new Date().toISOString() });
+            return patch ? { ok: true, queueKey: firstKey, patched: patch } : { ok: false, reason: 'patch-failed' };
           }
-
-          // Update Firebase with Telegram connection info
-          const patchUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(startToken)}.json`;
-          await fetch(patchUrl, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: userChatId,
-              telegramConnected: true,
-              connectedAt: new Date().toISOString()
-            }),
-          });
         }
-      } catch (error) {
-        console.warn('Firebase lookup failed:', error);
       }
+
+      // 3) If token looks like a readable queue id (letters+digits)
+      if (/^[A-Za-z]{0,3}\d{1,5}|^[A-Za-z0-9\-_]{2,20}$/.test(candidateToken)) {
+        // search by queueId
+        const qid = encodeURIComponent(candidateToken);
+        const url = `${FIREBASE_DB_URL}/queue.json?orderBy="queueId"&equalTo="${qid}"`;
+        const result = await fetchJson(url);
+        if (result && Object.keys(result).length) {
+          const firstKey = Object.keys(result)[0];
+          const patchUrl = `${FIREBASE_DB_URL}/queue/${encodeURIComponent(firstKey)}.json`;
+          const patch = await patchJson(patchUrl, { chatId: userChatId, telegramConnected: true, connectedAt: new Date().toISOString() });
+          return patch ? { ok: true, queueKey: firstKey, patched: patch } : { ok: false, reason: 'patch-failed' };
+        }
+      }
+
+      return { ok: false, reason: 'no-match' };
+    };
+
+    const findQueueByChatId = async (chatId) => {
+      if (!FIREBASE_DB_URL) return null;
+      const url = `${FIREBASE_DB_URL}/queue.json?orderBy="chatId"&equalTo="${chatId}"`;
+      const q = await fetchJson(url);
+      if (!q) return null;
+      const key = Object.keys(q)[0];
+      const entry = q[key];
+      return { key, entry };
+    };
+
+    // If token present, attempt attach
+    if (token) {
+      const attachResult = await attachChatToQueue(token);
+      if (attachResult && attachResult.ok) {
+        // fetch patched/entry to get readable values
+        const q = await fetchJson(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(attachResult.queueKey)}.json`);
+        const queueId = q?.queueId || q?.number || q?.ticket || 'Unknown';
+        let counterName = 'Unassigned';
+        if (q?.counterId) {
+          const c = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`);
+          if (c?.name) counterName = c.name;
+        }
+        const reply = [
+          '✅ Connected to QueueJoy!',
+          `🧾 Your number: *${queueId}*`,
+          `🪑 Counter: *${counterName}*`,
+          '',
+          'We will notify you via this Telegram chat when your number is called. You can close this chat or app — notifications will arrive automatically.'
+        ].join('\n');
+
+        await sendTelegram(userChatId, reply);
+        return { statusCode: 200, body: 'OK' };
+      }
+      // attach failed — fall through to lookup by chatId / respond with instructions
     }
 
-    // Final fallback: Use token as queue number if it looks like one
-    if (!queueNumber) {
-      const isHumanReadable = /^[A-Za-z]{1,3}\d{1,4}$/;
-      queueNumber = isHumanReadable.test(startToken) ? startToken : startToken;
+    // No token or attach failed — lookup by chatId
+    const found = await findQueueByChatId(userChatId);
+    if (found) {
+      const q = found.entry;
+      const queueId = q.queueId || q.number || q.ticket || 'Unknown';
+      let counterName = 'Unassigned';
+      if (q.counterId && FIREBASE_DB_URL) {
+        const c = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`);
+        if (c?.name) counterName = c.name;
+      }
+      const reply = [
+        'ℹ️ Queue status for this Telegram chat:',
+        `🧾 Number: *${queueId}*`,
+        `🪑 Counter: *${counterName}*`,
+        '',
+        'We will send you a message when it is your turn.'
+      ].join('\n');
+      await sendTelegram(userChatId, reply);
+      return { statusCode: 200, body: 'OK' };
     }
 
-    // Ensure we have values
-    queueNumber = String(queueNumber || 'Unknown').trim();
-    counterName = String(counterName || 'To be assigned').trim();
-
-    // ==================== SEND CONFIRMATION ====================
-
-    const confirmationMessage = [
-      '👋 Hey!',
-      `🧾 Number • ${queueNumber}`,
-      `🪑 Counter • ${counterName}`,
+    // Not connected — send friendly instructions including a /start example
+    const connectInstructions = [
+      '👋 Hi — I could not find a Queue entry for this Telegram chat.',
       '',
-      'You are now connected! You can close this app and Telegram.',
-      'Everything will be automated from now on.',
-      'Just sit down and relax. ☕️😌',
+      'To connect: open the QueueJoy status page you were given and tap *Connect via Telegram*. That runs `/start <token>` automatically and connects this chat.',
       '',
-      'We\'ll notify you when it\'s your turn!'
+      'If you prefer, paste the token here and I will try to connect you.',
+      '',
+      'Example token format: `/start -OaVK...` or the token link on your status page.'
     ].join('\n');
 
-    await sendTelegram(userChatId, confirmationMessage);
-
-    console.log('User connected:', {
-      userChatId,
-      queueNumber,
-      counterName,
-      counterId,
-      token: startToken.substring(0, 20) + '...'
-    });
-
+    await sendTelegram(userChatId, connectInstructions, { parse_mode: 'Markdown' });
     return { statusCode: 200, body: 'OK' };
 
-  } catch (error) {
-    console.error('Webhook handler error:', error);
-    return { statusCode: 500, body: 'Internal server error' };
+  } catch (err) {
+    console.error('Handler error', err);
+    return { statusCode: 500, body: 'Internal Server Error' };
   }
 };
