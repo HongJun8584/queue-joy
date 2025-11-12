@@ -30,8 +30,6 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
-    // expose small helpers for debugging if needed
     window._db = db;
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -41,7 +39,13 @@
       const errorMessage = document.getElementById('errorMessage');
       const successMessage = document.getElementById('successMessage');
       const introText = document.getElementById('introText');
+
+      // NEW UI elements for title/logo & ad text/link
+      const siteTitleEl = document.getElementById('siteTitle');
+      const siteLogoEl = document.getElementById('siteLogo');
+      const adLinkEl = document.getElementById('adLink');
       const adPanel = document.getElementById('adPanel');
+      const adTextEl = document.getElementById('adText');
       const noAd = document.getElementById('noAd');
 
       function showError(msg) {
@@ -62,23 +66,69 @@
         btnSpinner.classList.toggle('hidden', !flag);
       }
 
-      // setup ad and intro listeners (unchanged logic)
+      // setup ad, title and intro listeners
       (function setupListeners() {
-        const adRef = ref(db, 'settings/adImage');
-        onValue(adRef, snap => {
-          if (snap.exists()) {
+        // --- ad image
+        const adImageRef = ref(db, 'settings/adImage');
+        onValue(adImageRef, snap => {
+          if (snap.exists() && snap.val()) {
             adPanel.src = snap.val();
             adPanel.classList.remove('hidden');
             noAd.classList.add('hidden');
           } else {
+            adPanel.src = '';
             adPanel.classList.add('hidden');
             noAd.classList.remove('hidden');
           }
         });
 
+        // --- ad text
+        const adTextRef = ref(db, 'settings/adText');
+        onValue(adTextRef, snap => {
+          const v = (snap.exists() && typeof snap.val() === 'string') ? snap.val().trim() : '';
+          adTextEl.textContent = v || '';
+          adTextEl.classList.toggle('hidden', !v);
+        });
+
+        // --- ad link (optional)
+        const adLinkRef = ref(db, 'settings/adLink');
+        onValue(adLinkRef, snap => {
+          if (snap.exists() && snap.val()) {
+            // if adLink is provided use it; otherwise keep anchor inactive
+            adLinkEl.href = snap.val();
+            adLinkEl.target = '_blank';
+            adLinkEl.rel = 'noopener noreferrer';
+          } else {
+            adLinkEl.href = '#';
+            adLinkEl.removeAttribute('target');
+            adLinkEl.removeAttribute('rel');
+          }
+        });
+
+        // --- introText (existing)
         const introRef = ref(db, 'settings/introText');
         onValue(introRef, snap => {
           if (snap.exists()) introText.textContent = snap.val();
+        });
+
+        // --- site title (document title + page heading)
+        const titleRef = ref(db, 'settings/title');
+        onValue(titleRef, snap => {
+          const v = (snap.exists() && typeof snap.val() === 'string') ? snap.val() : 'Queue Joy';
+          document.title = v;
+          if (siteTitleEl) siteTitleEl.textContent = v;
+        });
+
+        // --- site logo (small header logo)
+        const logoRef = ref(db, 'settings/logo');
+        onValue(logoRef, snap => {
+          if (snap.exists() && snap.val()) {
+            siteLogoEl.src = snap.val();
+            siteLogoEl.classList.remove('hidden');
+          } else {
+            siteLogoEl.src = '';
+            siteLogoEl.classList.add('hidden');
+          }
         });
       })();
 
@@ -106,7 +156,6 @@
           items.push({ id: s.key, ...s.val() });
         });
 
-        // sort: prefer numeric sort when id looks numeric, otherwise lexicographic
         items.sort((a, b) => {
           const ai = a.id, bi = b.id;
           if (!isNaN(Number(ai)) && !isNaN(Number(bi))) {
@@ -118,10 +167,8 @@
         return items.filter(c => c && c.active);
       }
 
-      // helper: sleep
       function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-      // robust runTransaction wrapper with exponential backoff
       async function runTransactionWithRetries(path, updater, maxRetries = 6) {
         const refPath = ref(db, path);
         let lastErr = null;
@@ -129,30 +176,25 @@
           try {
             console.debug(`[tx] attempt #${attempt} on`, path);
             const result = await runTransaction(refPath, updater, { applyLocally: false });
-            // result may be { committed: boolean, snapshot: DataSnapshot }
             if (result && result.committed) {
               console.debug(`[tx] success on ${path} value=`, result.snapshot.val());
               return result;
             }
-            // not committed -> treat as retryable
             lastErr = new Error(`Transaction not committed on ${path} (attempt ${attempt})`);
             console.warn(lastErr);
           } catch (txErr) {
             lastErr = txErr;
             console.warn(`[tx] error on ${path} attempt ${attempt}`, txErr);
           }
-          // exponential backoff (min 100ms -> grows)
           const backoff = 100 * Math.pow(2, attempt - 1);
           await sleep(backoff + Math.floor(Math.random() * 60));
         }
         throw lastErr || new Error(`Transaction failed on ${path} after ${maxRetries} attempts`);
       }
 
-      // Main function to get queue number
       async function getQueueNumber() {
         setLoading(true);
         try {
-          // 1) load active counters
           const counters = await fetchActiveCounters();
           console.debug('Active counters:', counters);
           if (!counters || counters.length === 0) {
@@ -160,7 +202,6 @@
             return showError('No active counters available right now.');
           }
 
-          // 2) Determine which global-counter path to use. Some deployments use different keys.
           const globalCounterCandidates = [
             'settings/lastCounterIndex',
             'lastAssignedCounter',
@@ -171,7 +212,6 @@
           let usedPath = null;
           for (const p of globalCounterCandidates) {
             try {
-              // updater increments and returns new value
               rrResult = await runTransactionWithRetries(p, current => (current || 0) + 1, 6);
               if (rrResult && rrResult.committed) {
                 usedPath = p;
@@ -179,7 +219,6 @@
               }
             } catch (err) {
               console.warn(`Global counter attempt failed for ${p}:`, err.message || err);
-              // try next candidate
             }
           }
 
@@ -187,10 +226,8 @@
             throw new Error('Round-robin transaction failed for all candidate paths');
           }
 
-          // 3) compute index (zero-based cycle)
           const globalCounter = Number(rrResult.snapshot.val());
           if (!Number.isFinite(globalCounter)) throw new Error('Global counter returned invalid value');
-          // Use (globalCounter - 1) so the first increment chooses index 0
           const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
           const counter = counters[index];
           if (!counter || !counter.id) {
@@ -199,7 +236,6 @@
           }
           console.debug(`Selected counter (index ${index}) id=${counter.id}`);
 
-          // 4) increment selected counter's lastIssued with retries
           const lastIssuedPath = `counters/${counter.id}/lastIssued`;
           const lastIssuedResult = await runTransactionWithRetries(lastIssuedPath, current => (current || 0) + 1, 6);
           if (!lastIssuedResult || !lastIssuedResult.committed) {
@@ -212,7 +248,6 @@
           const prefix = (counter.prefix && String(counter.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // 5) push new queue entry
           const newRef = push(ref(db, 'queue'));
           const entry = {
             counterId: counter.id,
@@ -220,12 +255,11 @@
             timestamp: Date.now(),
             status: 'waiting'
           };
-          
-          try {
-          await set(newRef, entry);
 
+          try {
+            await set(newRef, entry);
           } catch (err) {
-            console.warn('Failed to send Telegram notification:', err);
+            console.warn('Failed to set queue entry', err);
           }
 
           setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
@@ -239,7 +273,6 @@
         }
       }
 
-      // attach UI handler
       getNumberBtn.addEventListener('click', e => {
         e.preventDefault();
         getQueueNumber();
@@ -259,13 +292,25 @@
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
+
+  <!-- Header: LOGO + SITE TITLE (real-time) -->
+  <header class="w-full max-w-sm mb-4">
+    <div class="bg-white rounded-2xl shadow-md p-4 flex items-center gap-3">
+      <img id="siteLogo" src="" alt="Logo" class="w-12 h-12 rounded-full hidden object-cover">
+      <div class="flex-1 text-left">
+        <h1 id="siteTitle" class="text-lg font-bold text-gray-800">Queue Joy</h1>
+        <p class="text-xs text-gray-500">Digital Queue System</p>
+      </div>
+    </div>
+  </header>
+
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
     <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
       <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
     </div>
 
     <div class="space-y-2">
-      <h1 class="text-2xl font-bold text-gray-800">Queue Joy</h1>
+      <h2 class="text-2xl font-bold text-gray-800">Get your queue number</h2>
       <p id="introText" class="text-gray-600">Real-time queueing system. Mobile-friendly. No app needed.</p>
     </div>
 
@@ -278,11 +323,15 @@
     <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
   </div>
 
+  <!-- Ad area (fixed bottom) -->
   <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+      <a id="adLink" href="#" target="_blank" class="block">
+        <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+      </a>
       <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
+      <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
     </div>
   </div>
 </body>
