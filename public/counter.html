@@ -66,12 +66,21 @@
       box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
       transform: translateY(-2px);
     }
-    .btn-add {
-      background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    .btn-delete {
+      background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+      box-shadow: 0 4px 14px 0 rgba(100, 116, 139, 0.4);
+    }
+    .btn-delete:hover {
+      background: linear-gradient(135deg, #475569 0%, #334155 100%);
+      box-shadow: 0 6px 20px rgba(100, 116, 139, 0.6);
+      transform: translateY(-2px);
+    }
+    .btn-edit {
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
       box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.4);
     }
-    .btn-add:hover {
-      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    .btn-edit:hover {
+      background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
       box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
       transform: translateY(-2px);
     }
@@ -163,16 +172,29 @@
       align-items: center;
       justify-content: center;
     }
-    .modal.show {
+    .modal.active {
       display: flex;
     }
     .modal-content {
       background: white;
       padding: 2rem;
       border-radius: 1rem;
-      max-width: 400px;
+      max-width: 500px;
       width: 90%;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    .input-field {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
     }
   </style>
 </head>
@@ -229,21 +251,46 @@
   <!-- Add Counter Modal -->
   <div id="addCounterModal" class="modal">
     <div class="modal-content">
-      <h2 class="text-2xl font-bold mb-4 text-gray-800">Add New Counter</h2>
+      <h2 class="text-2xl font-bold mb-4 text-gray-800">➕ Add New Counter</h2>
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
-          <input type="text" id="counterName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="e.g., Ice Cream Counter">
+          <input type="text" id="addCounterName" class="input-field" placeholder="e.g., Counter Ice Cream" maxlength="50">
         </div>
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefix (max 3 uppercase letters)</label>
-          <input type="text" id="counterPrefix" maxlength="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="e.g., ICE" style="text-transform: uppercase;">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefixes (comma-separated, up to 7; each 1-3 uppercase letters)</label>
+          <input type="text" id="addCounterPrefixes" class="input-field" placeholder="e.g., A,B,C or ICE,VIP" maxlength="64" style="text-transform: uppercase;">
         </div>
         <div class="flex gap-3 mt-6">
-          <button onclick="addCounter()" class="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all">
-            Add Counter
+          <button onclick="addCounter()" class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 transition-all">
+            Create Counter
           </button>
-          <button onclick="closeAddCounterModal()" class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-all">
+          <button onclick="closeAddCounterModal()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold transition-all">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Counter Modal -->
+  <div id="editCounterModal" class="modal">
+    <div class="modal-content">
+      <h2 class="text-2xl font-bold mb-4 text-gray-800">✏️ Edit Counter</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
+          <input type="text" id="editCounterName" class="input-field" placeholder="e.g., Counter Ice Cream" maxlength="50">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefixes (comma-separated, up to 7; each 1-3 uppercase letters)</label>
+          <input type="text" id="editCounterPrefixes" class="input-field" placeholder="e.g., A,B,C or ICE,VIP" maxlength="64" style="text-transform: uppercase;">
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button onclick="saveEditCounter()" class="flex-1 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-indigo-600 transition-all">
+            Save Changes
+          </button>
+          <button onclick="closeEditCounterModal()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold transition-all">
             Cancel
           </button>
         </div>
@@ -269,6 +316,7 @@
     const database = getDatabase(app);
 
     let countersData = {};
+    let editingCounterId = null;
 
     function showToast(message, type = 'info') {
       const toast = document.getElementById('toast');
@@ -290,11 +338,29 @@
       }, 3000);
     }
 
-    function formatQueueId(prefix, num) {
-      return `${prefix}${String(num).padStart(3, '0')}`;
+    function formatQueueId(prefix, num) { return `${prefix}${String(num).padStart(3, '0')}`; }
+
+    // parse prefixes string
+    function parsePrefixes(input) {
+      const items = input.split(',').map(s => s.trim()).filter(Boolean);
+      if (!items.length) return { valid:false, error:'❌ No prefixes provided' };
+      if (items.length > 7) return { valid:false, error:'❌ Maximum 7 prefixes' };
+      for (const p of items) {
+        if (!/^[A-Z]{1,3}$/.test(p)) return { valid:false, error:'❌ Each prefix must be 1-3 uppercase letters' };
+      }
+      // dedupe preserving order
+      const seen = new Set();
+      const unique = items.filter(p => (seen.has(p) ? false : (seen.add(p), true)));
+      return { valid:true, items: unique.slice(0,7) };
     }
 
-    async function triggerNotification(counterId, queueId) {
+    async function changeActivePrefix(counterId, prefix) {
+      try {
+        await update(ref(database), { [`counters/${counterId}/activePrefix`]: prefix });
+      } catch (e) { console.error(e); }
+    }
+
+    async function triggerNotification(counterId, queueId, counterName) {
       try {
         const queueRef = ref(database, 'queue');
         const snapshot = await get(queueRef);
@@ -302,6 +368,8 @@
         if (!snapshot.exists()) return;
 
         const updates = {};
+        let notificationSent = false;
+
         snapshot.forEach(snap => {
           const q = snap.val();
           const key = snap.key;
@@ -313,29 +381,29 @@
             updates[`queue/${key}/serverNotifyRequested`] = true;
             updates[`queue/${key}/serverNotifyRequestedAt`] = serverTimestamp();
             updates[`queue/${key}/notifiedAt`] = serverTimestamp();
+            notificationSent = true;
+
+            // Try Telegram webhook first; fallback to sendTelegram
+            fetch('/.netlify/functions/telegramWebhook', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode: 'notifyCalled', queueId, counterId, counterName })
+            }).catch(()=>{});
+
+            fetch('/.netlify/functions/sendTelegram', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chatId: q.chatId,
+                message: `👋 Hey!\n🧾 Number • ${queueId}\n🪑 Counter • ${counterName}\n\nIt's your turn! Please proceed to the counter. ☕️😌`
+              })
+            }).catch(err => console.error('Telegram send error:', err));
           }
         });
 
         if (Object.keys(updates).length > 0) {
           await update(ref(database), updates);
-          
-          // Call Telegram webhook
-          const counter = countersData[counterId];
-          const response = await fetch('/.netlify/functions/telegramWebhook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: {
-                text: `/notify ${queueId}`,
-                chat: { id: 'system' }
-              },
-              counterId: counterId,
-              counterName: counter?.name || counterId,
-              queueId: queueId
-            })
-          });
-
-          if (response.ok) {
+          if (notificationSent) {
             showToast('📱 Notification sent to customer', 'success');
           }
         }
@@ -348,69 +416,74 @@
       const card = document.createElement('div');
       card.className = 'counter-card rounded-3xl shadow-2xl p-8 slide-up';
       card.style.animationDelay = `${Object.keys(countersData).indexOf(counterId) * 0.1}s`;
-      
+      const prefixes = Array.isArray(counter.prefixes) && counter.prefixes.length ? counter.prefixes : (counter.prefix ? [counter.prefix] : ['A']);
+      const activePrefix = (counter.activePrefix && prefixes.includes(counter.activePrefix)) ? counter.activePrefix : prefixes[0];
+      const serving = counter.state?.[activePrefix]?.nowServing ?? 0;
+      const issued = counter.state?.[activePrefix]?.lastIssued ?? 0;
       card.innerHTML = `
         <div class="flex items-center justify-between mb-8">
           <div>
             <h2 class="text-3xl font-bold text-gray-800 mb-1">${counter.name}</h2>
             <p class="text-gray-500 text-sm">Counter ID: ${counterId}</p>
           </div>
-          <div class="badge">${counter.prefix}</div>
+          <div class="flex items-center gap-3">
+            <div id="${counterId}-prefixPills" class="flex flex-wrap gap-2"></div>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-6 mb-8">
           <div class="stat-box rounded-2xl p-6 text-center">
-            <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">
-              Now Serving
-            </div>
-            <div id="${counterId}-serving" class="number-display text-5xl text-gray-800">
-              ${formatQueueId(counter.prefix, counter.nowServing)}
-            </div>
+            <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">Now Serving</div>
+            <div id="${counterId}-serving" class="number-display text-5xl text-gray-800">${formatQueueId(activePrefix, serving)}</div>
             <div class="mt-2 text-xs text-gray-500">Current Number</div>
           </div>
-          
           <div class="stat-box rounded-2xl p-6 text-center">
-            <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">
-              Last Issued
-            </div>
-            <div id="${counterId}-issued" class="number-display text-5xl text-gray-800">
-              ${formatQueueId(counter.prefix, counter.lastIssued || 0)}
-            </div>
+            <div class="text-sm font-semibold text-blue-600 mb-2 uppercase tracking-wide">Last Issued</div>
+            <div id="${counterId}-issued" class="number-display text-5xl text-gray-800">${formatQueueId(activePrefix, issued)}</div>
             <div class="mt-2 text-xs text-gray-500">Latest Ticket</div>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-4">
-          <button onclick="handleAction('${counterId}', 'call')" 
-                  class="action-btn btn-call text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+          <button onclick="handleAction('${counterId}', 'call')" class="action-btn btn-call text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
             <span class="text-2xl">📢</span> Call Next
           </button>
-          
-          <button onclick="handleAction('${counterId}', 'skip')" 
-                  class="action-btn btn-skip text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
+          <button onclick="handleAction('${counterId}', 'skip')" class="action-btn btn-skip text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
             <span class="text-2xl">⏭️</span> Skip
           </button>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <button onclick="handleAction('${counterId}', 'reset')" 
-                  class="action-btn btn-reset text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
-            <span class="text-2xl">🔄</span> Reset
+        <div class="grid grid-cols-3 gap-4">
+          <button onclick="openEditCounterModal('${counterId}')" class="action-btn btn-edit text-white font-bold py-4 rounded-xl text-base flex items-center justify-center gap-2">
+            <span class="text-xl">✏️</span> Edit
+          </button>
+          <button onclick="handleAction('${counterId}', 'reset')" class="action-btn btn-reset text-white font-bold py-4 rounded-xl text-base flex items-center justify-center gap-2">
+            <span class="text-xl">🔄</span> Reset
+          </button>
+          <button onclick="handleAction('${counterId}', 'delete')" class="action-btn btn-delete text-white font-bold py-4 rounded-xl text-base flex items-center justify-center gap-2">
+            <span class="text-xl">🗑️</span> Delete
           </button>
         </div>
 
         <div class="mt-6 pt-6 border-t border-gray-200">
           <div class="flex items-center justify-between text-sm text-gray-500">
-            <span class="${counter.active ? 'text-green-600' : 'text-red-600'} font-semibold">
-              ${counter.active ? '🟢 Active' : '🔴 Inactive'}
-            </span>
-            <span class="${counter.busy ? 'pulse-glow' : ''}">
-              ${counter.busy ? '⏱️ Busy' : '✅ Ready'}
-            </span>
+            <span class="${counter.active ? 'text-green-600' : 'text-red-600'} font-semibold">${counter.active ? '🟢 Active' : '🔴 Inactive'}</span>
+            <span class="${counter.busy ? 'pulse-glow' : ''}">${counter.busy ? '⏱️ Busy' : '✅ Ready'}</span>
           </div>
-        </div>
-      `;
-      
+        </div>`;
+
+      // build prefix pills
+      const pills = document.createElement('div');
+      pills.className = 'flex gap-2 flex-wrap';
+      prefixes.forEach(p => {
+        const b = document.createElement('button');
+        b.className = `px-3 py-1 rounded-full text-sm font-semibold ${p===activePrefix?'bg-indigo-600 text-white':'bg-gray-100 text-gray-700'}`;
+        b.textContent = p;
+        b.onclick = () => changeActivePrefix(counterId, p);
+        pills.appendChild(b);
+      });
+      card.querySelector(`#${counterId}-prefixPills`).replaceWith(pills);
+
       return card;
     }
 
@@ -419,38 +492,56 @@
         const counter = countersData[counterId];
         if (!counter) return;
 
-        const updates = {};
+        const prefixes = Array.isArray(counter.prefixes) && counter.prefixes.length ? counter.prefixes : (counter.prefix ? [counter.prefix] : ['A']);
+        const activePrefix = (counter.activePrefix && prefixes.includes(counter.activePrefix)) ? counter.activePrefix : prefixes[0];
+        const statePath = `counters/${counterId}/state/${activePrefix}`;
+        const serving = Number(counter.state?.[activePrefix]?.nowServing ?? 0);
+        const lastIssued = Number(counter.state?.[activePrefix]?.lastIssued ?? 0);
 
         if (action === 'call') {
-          // Call Next: Increment nowServing by exactly 1
-          const newServing = counter.nowServing + 1;
-          updates[`counters/${counterId}/nowServing`] = newServing;
-          updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
-          updates[`counters/${counterId}/busy`] = false;
-
-          await update(ref(database), updates);
-          await triggerNotification(counterId, formatQueueId(counter.prefix, newServing));
-          showToast(`📢 Called ${formatQueueId(counter.prefix, newServing)}`, 'success');
+          const next = serving + 1;
+          if (next > lastIssued) {
+            showToast('⚠️ No next ticket issued yet', 'info');
+            return;
+          }
+          await update(ref(database), {
+            [`${statePath}/nowServing`]: next,
+            [`counters/${counterId}/lastAdvanceAt`]: serverTimestamp(),
+            [`counters/${counterId}/busy`]: false,
+          });
+          const queueId = formatQueueId(activePrefix, next);
+          await triggerNotification(counterId, queueId, counter.name);
+          showToast(`📢 Called ${queueId}`, 'success');
 
         } else if (action === 'skip') {
-          // Skip: Increment nowServing by 1
-          const newServing = counter.nowServing + 1;
-          updates[`counters/${counterId}/nowServing`] = newServing;
-          updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
-          updates[`counters/${counterId}/busy`] = false;
-
-          await update(ref(database), updates);
-          showToast(`⏭️ Skipped to ${formatQueueId(counter.prefix, newServing)}`, 'info');
+          const next = serving + 1;
+          if (next > lastIssued) {
+            showToast('⚠️ Cannot skip beyond last issued', 'info');
+            return;
+          }
+          await update(ref(database), {
+            [`${statePath}/nowServing`]: next,
+            [`counters/${counterId}/lastAdvanceAt`]: serverTimestamp(),
+            [`counters/${counterId}/busy`]: false,
+          });
+          const queueId = formatQueueId(activePrefix, next);
+          await triggerNotification(counterId, queueId, counter.name);
+          showToast(`⏭️ Skipped to ${queueId}`, 'info');
 
         } else if (action === 'reset') {
-          if (confirm(`🔄 Reset ${counter.name}?\n\nThis will set:\n• Now Serving: ${counter.prefix}001\n• Last Issued: 0\n\nNext ticket will be ${counter.prefix}000`)) {
-            updates[`counters/${counterId}/nowServing`] = 1;
-            updates[`counters/${counterId}/lastIssued`] = 0;
-            updates[`counters/${counterId}/lastAdvanceAt`] = serverTimestamp();
-            updates[`counters/${counterId}/busy`] = false;
+          if (confirm(`🔄 Reset ${counter.name} for prefix ${activePrefix} to starting position?\n\nThis will set:\n• Now Serving: ${activePrefix}000`)) {
+            await update(ref(database), {
+              [`${statePath}/nowServing`]: 0,
+              [`counters/${counterId}/lastAdvanceAt`]: serverTimestamp(),
+              [`counters/${counterId}/busy`]: false,
+            });
+            showToast(`🔄 ${counter.name} reset to ${activePrefix}000`, 'success');
+          }
 
-            await update(ref(database), updates);
-            showToast(`🔄 ${counter.name} reset successfully`, 'success');
+        } else if (action === 'delete') {
+          if (confirm(`🗑️ Delete ${counter.name}?\n\nThis action cannot be undone!`)) {
+            await remove(ref(database, `counters/${counterId}`));
+            showToast(`🗑️ ${counter.name} deleted`, 'success');
           }
         }
 
@@ -488,24 +579,39 @@
 
     function startRealtimeListeners() {
       const countersRef = ref(database, 'counters');
-
-      onValue(countersRef, (snapshot) => {
+      onValue(countersRef, async (snapshot) => {
         if (snapshot.exists()) {
           countersData = snapshot.val();
+
+          // migrate old schema on the fly
+          for (const [id, c] of Object.entries(countersData)) {
+            if (!Array.isArray(c.prefixes) || !c.prefixes.length) {
+              const oldPrefix = c.prefix || 'A';
+              const updates = {};
+              updates[`counters/${id}/prefixes`] = [oldPrefix];
+              updates[`counters/${id}/activePrefix`] = oldPrefix;
+              updates[`counters/${id}/state/${oldPrefix}/nowServing`] = Number(c.nowServing ?? 0);
+              updates[`counters/${id}/state/${oldPrefix}/lastIssued`] = Number((c.lastIssued === undefined || c.lastIssued < 0) ? 0 : c.lastIssued);
+              await update(ref(database), updates);
+            }
+          }
+
+          countersData = (await get(countersRef)).val() || countersData;
           renderCounters();
 
           Object.keys(countersData).forEach(counterId => {
             const counter = countersData[counterId];
-            
+            const prefixes = Array.isArray(counter.prefixes) && counter.prefixes.length ? counter.prefixes : [counter.prefix || 'A'];
+            const active = (counter.activePrefix && prefixes.includes(counter.activePrefix)) ? counter.activePrefix : prefixes[0];
+
             const servingEl = document.getElementById(`${counterId}-serving`);
             const issuedEl = document.getElementById(`${counterId}-issued`);
-            
-            if (servingEl) {
-              servingEl.textContent = formatQueueId(counter.prefix, counter.nowServing);
-            }
-            if (issuedEl) {
-              issuedEl.textContent = formatQueueId(counter.prefix, counter.lastIssued || 0);
-            }
+
+            const serving = Number(counter.state?.[active]?.nowServing ?? 0);
+            const issued = Number(counter.state?.[active]?.lastIssued ?? 0);
+
+            if (servingEl) servingEl.textContent = formatQueueId(active, serving);
+            if (issuedEl) issuedEl.textContent = formatQueueId(active, issued);
           });
         } else {
           countersData = {};
@@ -523,45 +629,41 @@
 
     window.refreshData = refreshData;
 
-    window.openAddCounterModal = () => {
-      document.getElementById('addCounterModal').classList.add('show');
-      document.getElementById('counterName').value = '';
-      document.getElementById('counterPrefix').value = '';
+    window.openAddCounterModal = function() {
+      document.getElementById('addCounterName').value = '';
+      document.getElementById('addCounterPrefixes').value = '';
+      document.getElementById('addCounterModal').classList.add('active');
     };
 
-    window.closeAddCounterModal = () => {
-      document.getElementById('addCounterModal').classList.remove('show');
+    window.closeAddCounterModal = function() {
+      document.getElementById('addCounterModal').classList.remove('active');
     };
 
-    window.addCounter = async () => {
-      const name = document.getElementById('counterName').value.trim();
-      const prefix = document.getElementById('counterPrefix').value.trim().toUpperCase();
+    window.addCounter = async function() {
+      const name = document.getElementById('addCounterName').value.trim();
+      const prefixesRaw = document.getElementById('addCounterPrefixes').value.trim().toUpperCase();
 
-      if (!name || !prefix) {
-        showToast('❌ Please fill in all fields', 'error');
-        return;
-      }
+      if (!name) { showToast('❌ Please enter a counter name', 'error'); return; }
+      if (!prefixesRaw) { showToast('❌ Enter at least one prefix', 'error'); return; }
 
-      if (!/^[A-Z]{1,3}$/.test(prefix)) {
-        showToast('❌ Prefix must be 1-3 uppercase letters only', 'error');
-        return;
-      }
+      const prefixes = parsePrefixes(prefixesRaw);
+      if (!prefixes.valid) { showToast(prefixes.error || '❌ Invalid prefixes', 'error'); return; }
 
       try {
         const countersRef = ref(database, 'counters');
         const newCounterRef = push(countersRef);
-        
-        const newCounter = {
-          name,
-          prefix,
-          nowServing: 1,
-          lastIssued: 0,
-          active: true,
-          busy: false,
-        };
-
-        await update(ref(database, `counters/${newCounterRef.key}`), newCounter);
-        showToast(`✅ Counter "${name}" created successfully`, 'success');
+        const updates = {};
+        updates[`counters/${newCounterRef.key}/name`] = name;
+        updates[`counters/${newCounterRef.key}/prefixes`] = prefixes.items;
+        updates[`counters/${newCounterRef.key}/activePrefix`] = prefixes.items[0];
+        updates[`counters/${newCounterRef.key}/active`] = true;
+        updates[`counters/${newCounterRef.key}/busy`] = false;
+        prefixes.items.forEach(p => {
+          updates[`counters/${newCounterRef.key}/state/${p}/nowServing`] = 0;
+          updates[`counters/${newCounterRef.key}/state/${p}/lastIssued`] = 0;
+        });
+        await update(ref(database), updates);
+        showToast(`✅ Counter "${name}" created`, 'success');
         closeAddCounterModal();
       } catch (error) {
         console.error('Error adding counter:', error);
@@ -569,10 +671,58 @@
       }
     };
 
-    // Auto-uppercase prefix input
-    document.getElementById('counterPrefix')?.addEventListener('input', (e) => {
-      e.target.value = e.target.value.toUpperCase();
-    });
+    window.openEditCounterModal = function(counterId) {
+      const counter = countersData[counterId];
+      if (!counter) return;
+      editingCounterId = counterId;
+      document.getElementById('editCounterName').value = counter.name || '';
+      const prefixes = Array.isArray(counter.prefixes) && counter.prefixes.length ? counter.prefixes : (counter.prefix ? [counter.prefix] : []);
+      document.getElementById('editCounterPrefixes').value = prefixes.join(',');
+      document.getElementById('editCounterModal').classList.add('active');
+    };
+
+    window.closeEditCounterModal = function() {
+      document.getElementById('editCounterModal').classList.remove('active');
+      editingCounterId = null;
+    };
+
+    window.saveEditCounter = async function() {
+      if (!editingCounterId) return;
+      const name = document.getElementById('editCounterName').value.trim();
+      const prefixesRaw = document.getElementById('editCounterPrefixes').value.trim().toUpperCase();
+      if (!name) { showToast('❌ Please enter a counter name', 'error'); return; }
+      if (!prefixesRaw) { showToast('❌ Enter at least one prefix', 'error'); return; }
+      const parsed = parsePrefixes(prefixesRaw);
+      if (!parsed.valid) { showToast(parsed.error || '❌ Invalid prefixes', 'error'); return; }
+
+      try {
+        const prev = countersData[editingCounterId] || {};
+        const prevPrefixes = Array.isArray(prev.prefixes) ? prev.prefixes : (prev.prefix ? [prev.prefix] : []);
+        const updates = {};
+        updates[`counters/${editingCounterId}/name`] = name;
+        updates[`counters/${editingCounterId}/prefixes`] = parsed.items;
+        // ensure state exists for each prefix
+        parsed.items.forEach(p => {
+          const cur = prev.state?.[p] || {};
+          updates[`counters/${editingCounterId}/state/${p}/nowServing`] = Number(cur.nowServing ?? 0);
+          updates[`counters/${editingCounterId}/state/${p}/lastIssued`] = Number(cur.lastIssued ?? 0);
+        });
+        // remove state for deleted prefixes
+        prevPrefixes.filter(p => !parsed.items.includes(p)).forEach(p => {
+          updates[`counters/${editingCounterId}/state/${p}`] = null;
+        });
+        // adjust activePrefix
+        const newActive = (prev.activePrefix && parsed.items.includes(prev.activePrefix)) ? prev.activePrefix : parsed.items[0];
+        updates[`counters/${editingCounterId}/activePrefix`] = newActive;
+
+        await update(ref(database), updates);
+        showToast('✅ Counter updated', 'success');
+        closeEditCounterModal();
+      } catch (error) {
+        console.error('Error updating counter:', error);
+        showToast('❌ Failed to update counter', 'error');
+      }
+    };
 
     startRealtimeListeners();
   </script>
