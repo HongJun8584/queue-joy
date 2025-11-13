@@ -1,7 +1,6 @@
 // /netlify/functions/createTelegramLink.js
 // POST { queueKey, queueId?, number?, queueNumber?, counterId?, counterName? } -> { link, token }
 // Env: BOT_USERNAME (optional), SITE_URL (optional)
-// Generates a Telegram deep link like: https://t.me/<bot>?start=<base64-token>
 
 exports.handler = async (event) => {
   try {
@@ -11,33 +10,30 @@ exports.handler = async (event) => {
 
     const body = JSON.parse(event.body || '{}');
 
-    // Prioritize human-readable number instead of internal key
-    const queueNumber =
-      body.queueNumber ||
-      body.number ||
-      body.queueId ||
-      body.queueKey ||
-      null;
+    // Determine the primary identifier
+    const queueKey = body.queueKey || null; // Firebase push key if exists
+    const queueNumber = body.queueNumber || body.number || body.queueId || null; // human-readable number
+    const counterId = body.counterId || null;
 
-    const counterName = body.counterName || body.counterId || null;
-
-    if (!queueNumber) {
-      return { statusCode: 400, body: 'Missing queueNumber/queueKey' };
+    if (!queueKey && !queueNumber) {
+      return { statusCode: 400, body: 'Missing queueKey or queueNumber' };
     }
 
-    // Build human-friendly payload
-    const payload = { queueId: String(queueNumber) };
-    if (counterName) payload.counterName = String(counterName);
+    // Build payload
+    const payload = {};
+    if (queueKey) payload.queueKey = queueKey;
+    if (queueNumber) payload.queueId = String(queueNumber);
+    if (counterId) payload.counterId = String(counterId);
 
-    // Encode as base64 (safe for Telegram)
+    // Encode as base64 safe for Telegram
     const json = JSON.stringify(payload);
     const token = Buffer.from(json).toString('base64');
 
-    // Bot username (env or fallback)
+    // Bot username
     const BOT_USERNAME = process.env.BOT_USERNAME || 'QueueJoyBot';
     const link = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(token)}`;
 
-    // Optional: if your site needs to show a preview link
+    // Optional preview link
     const SITE_URL = (process.env.SITE_URL || '').replace(/\/$/, '');
     const preview = SITE_URL ? `${SITE_URL}/preview?token=${encodeURIComponent(token)}` : null;
 
