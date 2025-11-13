@@ -1,11 +1,10 @@
 // netlify/functions/announce.js
-// Minimal, safe, production-ready announcer using BOT_TOKEN + CHAT_ID
-// - Accepts POST JSON: { "message": "Hello", "parse_mode": "HTML" }
-// - If MASTER_API_KEY env exists, requests must include header x-master-key or Authorization: Bearer <key>
-// - Supports browser calls (CORS) and returns helpful JSON
+// Enhanced announcer supporting text, images, videos, and GIFs
+// Accepts POST JSON: { "message": "Hello", "media": "base64...", "mediaType": "image/jpeg" }
+// If MASTER_API_KEY env exists, requests must include header x-master-key or Authorization: Bearer <key>
 
 export async function handler(event) {
-  // CORS: allow browser clients (adjust origin if needed)
+  // CORS: allow browser clients
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization,x-master-key',
@@ -54,7 +53,7 @@ export async function handler(event) {
     }
   }
 
-  // parse body
+  // Parse body
   let payload;
   try {
     payload = JSON.parse(event.body || '{}');
@@ -67,57 +66,134 @@ export async function handler(event) {
   }
 
   const message = (payload.message || '').toString().trim();
-  if (!message) {
-    return {
-      statusCode: 400,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'Missing message field' })
-    };
-  }
+  const media = payload.media;
+  const mediaType = payload.mediaType || '';
 
-  // optional parse_mode (HTML or MarkdownV2)
-  const parse_mode = (payload.parse_mode || 'HTML').toString();
-  // Telegram max message length ~4096; truncate politely
-  const MAX_LEN = 4000;
-  const finalMessage = message.length > MAX_LEN ? message.slice(0, MAX_LEN) + '…' : message;
+  // Send media if provided, otherwise send text
+  let apiEndpoint;
+  let bodyToSend;
 
-  // send to Telegram
-  const api = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  const bodyToSend = {
-    chat_id: String(CHAT_ID),
-    text: finalMessage,
-    parse_mode,
-    disable_web_page_preview: true
-  };
+  if (media && mediaType) {
+    // Detect media type
+    const isVideo = mediaType.startsWith('video/');
+    const isGif = mediaType === 'image/gif' || media.includes('data:image/gif');
+    const isPhoto = mediaType.startsWith('image/') && !isGif;
 
-  try {
-    const res = await fetch(api, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bodyToSend)
-    });
+    // Convert base64 to buffer
+    const base64Data = media.split(',')[1] || media;
+    const buffer = Buffer.from(base64Data, 'base64');
 
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || json.ok === false) {
-      // Pass along Telegram error when possible
-      const errMsg = (json && json.description) ? json.description : `Telegram error ${res.status}`;
+    // Use FormData to send media
+    const FormData = (await import('form-data')).default;
+    const form = new FormData();
+    form.append('chat_id', String(CHAT_ID));
+
+    if (isVideo) {
+      apiEndpoint = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
+      form.append('video', buffer, { filename: 'video.mp4', contentType: mediaType });
+      if (message) form.append('caption', message);
+    } else if (isGif) {
+      apiEndpoint = `https://api.telegram.org/bot${BOT_TOKEN}/sendAnimation`;
+      form.append('animation', buffer, { filename: 'animation.gif', contentType: 'image/gif' });
+      if (message) form.append('caption', message);
+    } else if (isPhoto) {
+      apiEndpoint = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+      form.append('photo', buffer, { filename: 'photo.jpg', contentType: mediaType });
+      if (message) form.append('caption', message);
+    } else {
       return {
-        statusCode: 502,
+        statusCode: 400,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ error: 'Telegram send failed', detail: errMsg, raw: json })
+        body: JSON.stringify({ error: 'Unsupported media type' })
       };
     }
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ ok: true, deliveredTo: CHAT_ID, telegram: json })
+    try {
+      const fetch = (await import('node-fetch')).default;
+      const res = await fetch(apiEndpoint, {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders(),
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        const errMsg = (json && json.description) ? json.description : `Telegram error ${res.status}`;
+        return {
+          statusCode: 502,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'Telegram send failed', detail: errMsg, raw: json })
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ ok: true, deliveredTo: CHAT_ID, telegram: json })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Internal error sending to Telegram', detail: String(err) })
+      };
+    }
+  } else if (message) {
+    // Send text only
+    if (!message) {
+      return {
+        statusCode: 400,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Missing message field' })
+      };
+    }
+
+    const MAX_LEN = 4000;
+    const finalMessage = message.length > MAX_LEN ? message.slice(0, MAX_LEN) + '…' : message;
+
+    apiEndpoint = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    bodyToSend = {
+      chat_id: String(CHAT_ID),
+      text: finalMessage,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true
     };
-  } catch (err) {
+
+    try {
+      const fetch = (await import('node-fetch')).default;
+      const res = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyToSend)
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        const errMsg = (json && json.description) ? json.description : `Telegram error ${res.status}`;
+        return {
+          statusCode: 502,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'Telegram send failed', detail: errMsg, raw: json })
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ ok: true, deliveredTo: CHAT_ID, telegram: json })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Internal error sending to Telegram', detail: String(err) })
+      };
+    }
+  } else {
     return {
-      statusCode: 500,
+      statusCode: 400,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'Internal error sending to Telegram', detail: String(err) })
+      body: JSON.stringify({ error: 'Must provide either message or media' })
     };
   }
 }
