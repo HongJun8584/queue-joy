@@ -1,831 +1,653 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>QueueJoy Admin — Real-Time Queue Management</title>
-    <meta name="description" content="QueueJoy Admin Panel - Manage queues, announcements, and analytics in real-time" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>QueueJoy Admin — Real-Time Queue Management</title>
+  <meta name="description" content="QueueJoy Admin Panel - Manage queues, announcements, and analytics in real-time" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-    <style>
-      :root { --primary: 264 83% 62%; }
-      * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.3) transparent; }
-      *::-webkit-scrollbar { width: 8px; height: 8px; }
-      *::-webkit-scrollbar-track { background: transparent; }
-      *::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 10px; }
-      body {
-        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-        margin:0;
-      }
-      @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
-      .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
-      .fade-in { animation: fadeIn 0.5s ease-in; }
-      @keyframes fadeIn { from {opacity:0; transform: translateY(20px);} to {opacity:1; transform: translateY(0);} }
-      .toast { position: fixed; top: 20px; right: 20px; padding: 12px 18px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 1000; animation: slideIn 0.3s ease-out; color:white; }
-      @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-      .spinner { border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid hsl(var(--primary)); border-radius: 50%; width: 18px; height: 18px; animation: spin 0.8s linear infinite; display: inline-block; vertical-align:middle; margin-right:8px; }
-      @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-      .sidebar { position: fixed; left: 0; top: 0; height: 100vh; width: 260px; background: linear-gradient(180deg, rgba(99,102,241,0.95) 0%, rgba(139,92,246,0.95) 50%, rgba(168,85,247,0.95) 100%); backdrop-filter: blur(20px); z-index: 50; transition: transform .3s cubic-bezier(.4,0,.2,1); box-shadow: 8px 0 40px rgba(139,92,246,.4), 0 0 0 1px rgba(255,255,255,.2) inset; border-right: 1px solid rgba(255,255,255,.2); padding-bottom:80px; }
-      .sidebar-mobile-closed { transform: translateX(-100%); }
-      .sidebar-item { display:flex; align-items:center; gap:14px; padding:16px 24px; margin:6px 12px; color:#fff; cursor:pointer; transition: all .3s cubic-bezier(.4,0,.2,1); font-weight:600; border-radius:12px; position:relative; overflow:hidden; }
-      .sidebar-item::before { content:''; position:absolute; inset:0; background: rgba(255,255,255,0); transition: all .3s cubic-bezier(.4,0,.2,1); z-index:-1; }
-      .sidebar-item:hover::before { background: rgba(255,255,255,0.15); }
-      .sidebar-item.active { background: rgba(255,255,255,0.18); box-shadow:0 8px 20px rgba(0,0,0,0.15); transform: translateX(4px); }
-      .main-content { margin-left:260px; transition: margin-left .3s cubic-bezier(.4,0,.2,1); min-height:100vh; padding-bottom:120px; }
-      @media (max-width: 1024px) { .main-content { margin-left:0; } .sidebar { position:fixed; } }
-      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
-      .modal-content { background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border-radius: 24px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y:auto; padding:32px; box-shadow: 0 30px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
-      .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-    </style>
-  </head>
-  <body class="min-h-screen">
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar sidebar-mobile-closed lg:transform-none">
-      <div class="p-8 border-b border-white/20">
-        <div class="flex items-center gap-3 mb-2">
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center text-white text-lg font-bold shadow-lg">QJ</div>
-          <h1 class="text-white text-2xl font-bold tracking-tight">QueueJoy</h1>
-        </div>
-        <p class="text-white/80 text-sm font-medium ml-13">Admin Panel</p>
+  <style>
+    :root { --primary: 264 83% 62%; }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial; margin:0; background: linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%); background-size:400% 400%; animation: gradientShift 15s linear infinite; }
+    @keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+    .card{background:rgba(255,255,255,0.95);backdrop-filter:blur(18px);border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.35)}
+    .toast{position:fixed;top:20px;right:20px;padding:12px 16px;border-radius:12px;color:white;z-index:1000}
+    .spinner{border:2px solid rgba(255,255,255,0.3);border-top:2px solid hsl(var(--primary));border-radius:50%;width:18px;height:18px;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .sidebar{position:fixed;left:0;top:0;height:100vh;width:260px;background:linear-gradient(180deg,rgba(99,102,241,0.95),rgba(139,92,246,0.95));padding:18px;box-shadow:8px 0 40px rgba(0,0,0,0.15)}
+    .main-content{margin-left:260px;padding:28px;min-height:100vh}
+    @media(max-width:1024px){.main-content{margin-left:0}}
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="mb-6">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white font-bold">QJ</div>
+        <h1 class="text-white text-xl font-bold">QueueJoy</h1>
       </div>
-      <nav class="mt-6">
-        <div class="sidebar-item active" data-view="dashboard"><span class="text-2xl">🏠</span><span class="text-base">Dashboard</span></div>
-        <div class="sidebar-item" data-view="analyst"><span class="text-2xl">📊</span><span class="text-base">Analytics</span></div>
-        <div class="sidebar-item" id="howToUseBtn"><span class="text-2xl">❓</span><span class="text-base">How to Use</span></div>
-      </nav>
-    </aside>
+      <p class="text-white/80 text-sm">Admin Panel</p>
+    </div>
+    <nav class="space-y-2">
+      <div class="block p-3 text-white bg-white/10 rounded-md" id="navDashboard">🏠 Dashboard</div>
+      <div class="block p-3 text-white hover:bg-white/10 rounded-md" id="navAnalyst">📊 Analytics</div>
+      <div class="block p-3 text-white hover:bg-white/10 rounded-md" id="navHowTo">❓ How to Use</div>
+    </nav>
+  </aside>
 
-    <!-- Mobile Menu Toggle -->
-    <button id="mobileMenuBtn" class="lg:hidden fixed top-4 left-4 z-40 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-2xl hover:scale-110 transition-all duration-300">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-    </button>
+  <!-- Main -->
+  <div class="main-content">
+    <div class="max-w-6xl mx-auto">
+      <!-- Header -->
+      <header class="flex items-center justify-between gap-6 mb-8 mt-6">
+        <div class="flex items-center gap-4">
+          <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white font-bold">QJ</div>
+          <div>
+            <h2 id="headerName" class="text-2xl font-bold text-gray-900">QueueJoy Admin</h2>
+            <p class="text-sm text-gray-600">Real-time management dashboard</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <button id="saveAllBtn" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg">💾 Save All Changes</button>
+        </div>
+      </header>
 
-    <!-- Main Content -->
-    <div class="main-content">
-      <div class="max-w-6xl mx-auto p-4 pb-20 fade-in">
-        <!-- Dashboard View -->
-        <div id="dashboardView">
-          <!-- Header -->
-          <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 mt-16 lg:mt-6">
-            <div class="flex items-center gap-4">
-              <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl ring-4 ring-white/30">QJ</div>
-              <div>
-                <h2 id="headerName" class="text-3xl font-bold gradient-text">Queue Joy Admin</h2>
-                <p class="text-sm text-gray-700 font-medium mt-1">Real-time management dashboard</p>
-              </div>
-            </div>
+      <!-- Stats -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="card">
+          <p class="text-sm text-gray-600">Total Queues</p>
+          <p id="totalQueues" class="text-3xl font-bold mt-2">0</p>
+        </div>
+        <div class="card">
+          <p class="text-sm text-gray-600">Active (Waiting)</p>
+          <p id="waitingCount" class="text-3xl font-bold mt-2">0</p>
+        </div>
+        <div class="card">
+          <p class="text-sm text-gray-600">Average Wait Time</p>
+          <p id="avgWait" class="text-3xl font-bold mt-2">0 min</p>
+        </div>
+        <div class="card">
+          <p class="text-sm text-gray-600">Active Counters</p>
+          <p id="activeCounters" class="text-3xl font-bold mt-2">0</p>
+        </div>
+      </div>
 
-            <!-- Auth + Save -->
-            <div class="flex items-center gap-4">
-              <div id="authArea" class="flex items-center gap-3">
-                <button id="signInBtn" class="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition">Sign in</button>
-                <div id="signedInInfo" class="hidden items-center gap-3 text-white">
-                  <div id="userAvatar" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm text-white overflow-hidden"></div>
-                  <div id="userEmail" class="text-sm"></div>
-                  <button id="signOutBtn" class="ml-3 px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition">Sign out</button>
-                </div>
-              </div>
+      <!-- Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left: Settings -->
+        <div class="card space-y-6">
+          <h3 class="text-xl font-bold">⚙️ Business Settings</h3>
 
-              <button id="saveAllBtn" class="px-6 py-3 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50 disabled:opacity-50" disabled>
-                <span id="saveAllText">💾 Save All Changes</span>
-                <span id="saveAllSpinner" class="hidden"><span class="spinner"></span>Saving</span>
-              </button>
-            </div>
-          </header>
+          <div>
+            <label class="text-sm text-gray-700">Business Name</label>
+            <input id="businessName" class="w-full mt-2 p-3 rounded border" placeholder="Your Business Name" />
+          </div>
 
-          <!-- Analytics Panel -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Total Queues</p>
-                  <p id="totalQueues" class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl shadow-xl">📊</div>
-              </div>
-            </div>
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Queues</p>
-                  <p id="activeQueues" class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-xl">🎫</div>
-              </div>
-            </div>
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Today's Queues</p>
-                  <p id="todayQueues" class="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-xl">📈</div>
-              </div>
-            </div>
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Counters</p>
-                  <p id="activeCounters" class="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-2xl shadow-xl">🏪</div>
-              </div>
+          <div>
+            <label class="text-sm text-gray-700">Welcome Message</label>
+            <textarea id="welcomeMessage" rows="3" class="w-full mt-2 p-3 rounded border" placeholder="Real-time queueing system..."></textarea>
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-700">Logo (crop)</label>
+            <div class="flex gap-3 items-center mt-2">
+              <img id="logoPreview" src="" class="w-16 h-16 rounded object-cover hidden" alt="logo" />
+              <input id="logoFile" type="file" accept="image/*" />
             </div>
           </div>
 
-          <!-- Main Content Grid -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Business Settings Card -->
-            <div class="card p-8 space-y-6">
-              <h3 class="text-2xl font-bold gradient-text mb-6">⚙️ Business Settings</h3>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
-                <input id="businessName" type="text" placeholder="Your Business Name" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Welcome Message</label>
-                <textarea id="welcomeMessage" rows="3" placeholder="Real-time queueing system. Mobile-friendly. No app needed." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Logo Image (Square)</label>
-                <div class="flex items-center gap-3">
-                  <img id="logoPreview" src="" alt="Logo" class="w-16 h-16 rounded-lg object-cover border-2 border-gray-200 hidden" />
-                  <div class="flex-1">
-                    <input id="logoFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 cursor-pointer"/>
-                    <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Banner (Landscape)</label>
-                <div class="space-y-3">
-                  <div class="flex items-start gap-3">
-                    <div id="adPreviewBox" class="w-32 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hidden"></div>
-                    <div class="flex-1">
-                      <input id="adFile" type="file" accept="image/*,video/*" class="w-full text-sm text-gray-600 cursor-pointer"/>
-                      <p class="text-xs text-gray-500 mt-1">Click to crop before saving (images). Videos/GIFs skip cropping.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <button id="updateSettingsBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50 disabled:opacity-60" disabled>
-                  <span id="updateBtnText">✨ Update Settings</span>
-                  <span id="updateBtnSpinner" class="hidden"><span class="spinner"></span> Updating...</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Display Settings Card -->
-            <div class="card p-8 space-y-6">
-              <h3 class="text-2xl font-bold gradient-text mb-6">🖥️ Display Settings</h3>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Small Text (Subtitle)</label>
-                <input id="displaySmallText" type="text" placeholder="Digital Queue System" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL (Centered)</label>
-                <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Main Title</label>
-                <input id="displayMainTitle" type="text" placeholder="Get your queue number" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <p class="text-xs text-gray-500">These values are saved to <code>/displaySettings</code> without touching your queue schema.</p>
-            </div>
-
-            <!-- Right Column: Announcement + Live Preview -->
-            <div class="space-y-6">
-              <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">📢 Telegram Announcement</h3>
-                <div class="space-y-4">
-                  <textarea id="announcementMessage" rows="4" placeholder="Type your announcement message here..." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Attach Media (Image, Video, or GIF)</label>
-                    <input id="announcementMedia" type="file" accept="image/*,video/*,audio/*,.gif" class="w-full text-sm text-gray-600 cursor-pointer" />
-                    <div id="announcementPreview" class="mt-3 hidden"></div>
-                  </div>
-                  <button id="sendAnnouncementBtn" class="w-full py-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50 disabled:opacity-60" disabled>
-                    <span id="sendBtnText">📱 Send to Telegram</span>
-                    <span id="sendBtnSpinner" class="hidden"><span class="spinner"></span> Sending...</span>
-                  </button>
-                  <div id="announcementResult" class="hidden p-3 rounded-lg text-sm"></div>
-                </div>
-              </div>
-
-              <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">👁️ Live Preview</h3>
-                <div class="space-y-4">
-                  <div class="flex items-center gap-4">
-                    <div id="previewLogo" class="w-14 h-14 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
-                    <div class="flex-1">
-                      <p id="previewName" class="text-lg font-bold text-gray-800">Your Business</p>
-                      <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
-                    </div>
-                  </div>
-                  <div class="bg-gray-50 rounded-xl p-4">
-                    <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
-                    <div class="flex items-center gap-3">
-                      <img id="previewAd" src="" alt="Ad" class="w-24 h-16 rounded-lg object-cover border hidden" />
-                    </div>
-                  </div>
-                  <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl opacity-75 cursor-not-allowed">🎫 Get My Number</button>
-                  <p class="text-xs text-center text-gray-500">This is how customers see your page</p>
-                </div>
-              </div>
+          <div>
+            <label class="text-sm text-gray-700">Ad Banner (crop)</label>
+            <div class="mt-2 flex gap-3 items-center">
+              <div id="adPreviewBox" class="w-32 h-20 rounded overflow-hidden hidden"></div>
+              <input id="adFile" type="file" accept="image/*,video/*" />
             </div>
           </div>
 
-          <footer class="text-center text-sm font-medium text-gray-700 mt-12 p-6 card">
-            <p>🔥 Real-time sync powered by Firebase</p>
-          </footer>
+          <div>
+            <button id="updateSettingsBtn" class="w-full p-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded">✨ Update Settings</button>
+          </div>
         </div>
 
-        <!-- Analyst View -->
-        <div id="analystView" class="hidden">
-          <div class="mt-16 lg:mt-6">
-            <h2 class="text-3xl font-bold text-white mb-8 bg-gradient-to-r from-purple-600 to-indigo-500 p-6 rounded-2xl shadow-lg">📊 Analytics Dashboard</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div class="card p-6 bg-white">
-                <p class="text-sm opacity-90 mb-2">Total Customers Served</p>
-                <p id="analystTotalServed" class="text-4xl font-bold">0</p>
+        <!-- Right: Display & Announcement & Preview -->
+        <div class="space-y-6">
+          <div class="card">
+            <h3 class="text-xl font-bold">🖥️ Display Settings</h3>
+            <div class="mt-3 space-y-3">
+              <div>
+                <label class="text-sm text-gray-700">Small Text (Subtitle)</label>
+                <input id="displaySmallText" class="w-full mt-2 p-2 rounded border" placeholder="Digital Queue System" />
               </div>
-              <div class="card p-6 bg-white">
-                <p class="text-sm opacity-90 mb-2">Average Wait Time</p>
-                <p class="text-4xl font-bold"><span id="analystAvgWait">0</span><span class="text-lg ml-1">min</span></p>
+              <div>
+                <label class="text-sm text-gray-700">Logo URL (Centered)</label>
+                <input id="displayLogoUrl" class="w-full mt-2 p-2 rounded border" placeholder="https://.../logo.png" />
               </div>
-              <div class="card p-6 bg-white">
-                <p class="text-sm opacity-90 mb-2">Active Counters</p>
-                <p id="analystActiveCounters" class="text-4xl font-bold">0</p>
+              <div>
+                <label class="text-sm text-gray-700">Main Title</label>
+                <input id="displayMainTitle" class="w-full mt-2 p-2 rounded border" placeholder="Get your queue number" />
+              </div>
+              <p class="text-xs text-gray-500 mt-2">Saves to <code>/displaySettings</code>. Index page reads this for live updates.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="text-xl font-bold">📢 Telegram Announcement</h3>
+            <textarea id="announcementMessage" class="w-full mt-2 p-3 rounded border" rows="3" placeholder="Announcement..."></textarea>
+            <div class="mt-3 flex gap-3 items-start">
+              <input id="announcementMedia" type="file" accept="image/*,video/*,.gif" />
+              <div id="announcementPreview" class="hidden"></div>
+            </div>
+            <div class="mt-3">
+              <button id="sendAnnouncementBtn" class="p-2 bg-green-600 text-white rounded">📱 Send to Telegram</button>
+              <div id="announcementResult" class="mt-2 text-sm hidden"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="text-xl font-bold">👁️ Live Preview</h3>
+            <div class="flex items-center gap-3 mt-3">
+              <div id="previewLogo" class="w-14 h-14 rounded bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white">QJ</div>
+              <div>
+                <p id="previewName" class="font-bold">Your Business</p>
+                <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
               </div>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Trend (Last 7 Days)</h3>
-                <canvas id="queueTrendChart"></canvas>
-              </div>
-              <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Counter Performance</h3>
-                <canvas id="counterPerfChart"></canvas>
-              </div>
-            </div>
-            <div class="card p-6 mt-6">
-              <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Status Breakdown</h3>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center"><p class="text-3xl font-bold text-green-600" id="analystCompleted">0</p><p class="text-sm text-gray-600 mt-1">Completed</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-blue-600" id="analystWaiting">0</p><p class="text-sm text-gray-600 mt-1">Waiting</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-purple-600" id="analystServing">0</p><p class="text-sm text-gray-600 mt-1">Serving</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-gray-600" id="analystCancelled">0</p><p class="text-sm text-gray-600 mt-1">Cancelled</p></div>
-              </div>
+            <div class="mt-3">
+              <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
+              <img id="previewAd" src="" class="w-32 h-20 rounded object-cover hidden" alt="ad" />
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Crop Modal -->
-    <div id="cropModal" class="modal hidden">
-      <div class="modal-content">
-        <h3 class="text-xl font-bold text-gray-800 mb-4" id="cropModalTitle">Crop Image</h3>
-        <div class="cropper-container"><img id="cropImage" src="" alt="Crop" style="max-width: 100%;" /></div>
-        <div class="flex gap-3 mt-4">
-          <button id="cropSaveBtn" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">✂️ Crop & Save</button>
-          <button id="cropCancelBtn" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all">Cancel</button>
+      <!-- Analyst View (hidden by default) -->
+      <div id="analystArea" class="card mt-8 hidden">
+        <h3 class="text-xl font-bold mb-4">📊 Analytics Dashboard</h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="card">
+            <h4 class="font-bold mb-2">Queue Trend (Last 7 Days)</h4>
+            <canvas id="queueTrendChart" height="120"></canvas>
+          </div>
+
+          <div class="card">
+            <h4 class="font-bold mb-2">Counter Performance (served per counter)</h4>
+            <canvas id="counterPerfChart" height="120"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-6">
+          <div class="card">
+            <p class="text-sm text-gray-600">Completed</p>
+            <p id="completedCount" class="text-2xl font-bold mt-2">0</p>
+          </div>
+          <div class="card">
+            <p class="text-sm text-gray-600">Waiting</p>
+            <p id="waitingCount2" class="text-2xl font-bold mt-2">0</p>
+          </div>
+          <div class="card">
+            <p class="text-sm text-gray-600">Serving</p>
+            <p id="servingCount" class="text-2xl font-bold mt-2">0</p>
+          </div>
+          <div class="card">
+            <p class="text-sm text-gray-600">Cancelled</p>
+            <p id="cancelledCount" class="text-2xl font-bold mt-2">0</p>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- How to Use Modal -->
-    <div id="howToUseModal" class="modal hidden">
-      <div class="modal-content">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-2xl font-bold text-gray-800">❓ How to Use QueueJoy Admin</h3>
-          <button id="closeHowToUse" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-        </div>
-        <div class="space-y-4 text-gray-700">
-          <!-- (same content as before) -->
-          <p>Use the controls on the left to switch views, upload and crop images, and save changes.</p>
-        </div>
-        <button id="closeHowToUseBtn" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">Got it!</button>
+      <footer class="mt-8 text-center text-sm text-gray-600">🔥 Live sync with Firebase — changes update index.html in real time</footer>
+    </div>
+  </div>
+
+  <!-- Crop Modal -->
+  <div id="cropModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-40">
+    <div class="bg-white p-4 rounded-lg max-w-xl w-full">
+      <h4 class="font-bold mb-3">Crop Image</h4>
+      <div class="mb-3"><img id="cropImage" src="" style="max-width:100%" /></div>
+      <div class="flex gap-3 justify-end">
+        <button id="cropCancelBtn" class="px-3 py-2 bg-gray-200 rounded">Cancel</button>
+        <button id="cropSaveBtn" class="px-3 py-2 bg-purple-600 text-white rounded">Save</button>
       </div>
     </div>
+  </div>
 
-    <!-- Firebase & App Script -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-      import {
-        getDatabase, ref, set, onValue, update, get
-      } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-      import {
-        getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
-      } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  <!-- Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getDatabase, ref, onValue, get, update, set } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-        authDomain: "queue-joy-aa21b.firebaseapp.com",
-        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "queue-joy-aa21b",
-        storageBucket: "queue-joy-aa21b.appspot.com",
-        messagingSenderId: "950240394209",
-        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-      };
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.appspot.com",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
 
-      const app = initializeApp(firebaseConfig);
-      const db = getDatabase(app);
-      const auth = getAuth(app);
-      const provider = new GoogleAuthProvider();
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-      // Simple toast
-      const showToast = (message, type = 'success') => {
-        const toast = document.createElement('div');
-        toast.className = 'toast ' + (type === 'success' ? 'bg-green-500' : 'bg-red-600');
-        toast.textContent = (type === 'success' ? '✅ ' : '⚠️ ') + message;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 4000);
-      };
+    // helpers
+    const $ = (id) => document.getElementById(id);
+    const showToast = (msg, ok=true) => {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.style.background = ok ? 'linear-gradient(90deg,#16a34a,#059669)' : 'linear-gradient(90deg,#dc2626,#ef4444)';
+      t.textContent = (ok ? '✅ ' : '⚠️ ') + msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    };
+    const fileToBase64 = (file) => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
 
-      // File -> base64
-      const fileToBase64 = (file) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    // elements
+    const businessName = $('businessName');
+    const welcomeMessage = $('welcomeMessage');
+    const logoFile = $('logoFile');
+    const logoPreview = $('logoPreview');
+    const adFile = $('adFile');
+    const adPreviewBox = $('adPreviewBox');
+    const updateSettingsBtn = $('updateSettingsBtn');
+    const saveAllBtn = $('saveAllBtn');
 
-      // Elements
-      const businessName = document.getElementById('businessName');
-      const welcomeMessage = document.getElementById('welcomeMessage');
-      const logoFile = document.getElementById('logoFile');
-      const logoPreview = document.getElementById('logoPreview');
-      const adFile = document.getElementById('adFile');
-      const adPreviewBox = document.getElementById('adPreviewBox');
-      const updateSettingsBtn = document.getElementById('updateSettingsBtn');
-      const updateBtnText = document.getElementById('updateBtnText');
-      const updateBtnSpinner = document.getElementById('updateBtnSpinner');
-      const saveAllBtn = document.getElementById('saveAllBtn');
-      const saveAllText = document.getElementById('saveAllText');
-      const saveAllSpinner = document.getElementById('saveAllSpinner');
+    const displaySmallText = $('displaySmallText');
+    const displayLogoUrl = $('displayLogoUrl');
+    const displayMainTitle = $('displayMainTitle');
 
-      // Display settings inputs
-      const displaySmallText = document.getElementById('displaySmallText');
-      const displayLogoUrl = document.getElementById('displayLogoUrl');
-      const displayMainTitle = document.getElementById('displayMainTitle');
+    const previewName = $('previewName');
+    const previewIntro = $('previewIntro');
+    const previewLogo = $('previewLogo');
+    const previewAd = $('previewAd');
 
-      const previewName = document.getElementById('previewName');
-      const previewIntro = document.getElementById('previewIntro');
-      const previewLogo = document.getElementById('previewLogo');
-      const previewAd = document.getElementById('previewAd');
-      const headerLogo = document.getElementById('headerLogo');
-      const headerName = document.getElementById('headerName');
+    const announcementMessage = $('announcementMessage');
+    const announcementMedia = $('announcementMedia');
+    const announcementPreview = $('announcementPreview');
+    const sendAnnouncementBtn = $('sendAnnouncementBtn');
 
-      const announcementMessage = document.getElementById('announcementMessage');
-      const announcementMedia = document.getElementById('announcementMedia');
-      const announcementPreview = document.getElementById('announcementPreview');
-      const sendAnnouncementBtn = document.getElementById('sendAnnouncementBtn');
-      const sendBtnText = document.getElementById('sendBtnText');
-      const sendBtnSpinner = document.getElementById('sendBtnSpinner');
-      const announcementResult = document.getElementById('announcementResult');
+    const totalQueuesEl = $('totalQueues');
+    const waitingCountEl = $('waitingCount');
+    const activeCountersEl = $('activeCounters');
+    const avgWaitEl = $('avgWait');
 
-      const cropModal = document.getElementById('cropModal');
-      const cropImage = document.getElementById('cropImage');
-      const cropSaveBtn = document.getElementById('cropSaveBtn');
-      const cropCancelBtn = document.getElementById('cropCancelBtn');
-      const cropModalTitle = document.getElementById('cropModalTitle');
+    // analyst
+    const analystArea = $('analystArea');
+    const navAnalyst = document.getElementById('navAnalyst');
+    const navDashboard = document.getElementById('navDashboard');
+    const navHowTo = document.getElementById('navHowTo');
 
-      const howToUseModal = document.getElementById('howToUseModal');
-      const howToUseBtn = document.getElementById('howToUseBtn');
-      const closeHowToUse = document.getElementById('closeHowToUse');
-      const closeHowToUseBtn = document.getElementById('closeHowToUseBtn');
+    const completedCountEl = $('completedCount');
+    const waitingCount2El = $('waitingCount2');
+    const servingCountEl = $('servingCount');
+    const cancelledCountEl = $('cancelledCount');
 
-      const sidebar = document.getElementById('sidebar');
-      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-      const dashboardView = document.getElementById('dashboardView');
-      const analystView = document.getElementById('analystView');
-      const sidebarItems = document.querySelectorAll('.sidebar-item[data-view]');
+    // charts
+    let queueTrendChart = null;
+    let counterPerfChart = null;
 
-      const totalQueuesEl = document.getElementById('totalQueues');
-      const activeQueuesEl = document.getElementById('activeQueues');
-      const todayQueuesEl = document.getElementById('todayQueues');
-      const activeCountersEl = document.getElementById('activeCounters');
-
-      const analystTotalServed = document.getElementById('analystTotalServed');
-      const analystAvgWait = document.getElementById('analystAvgWait');
-      const analystActiveCounters = document.getElementById('analystActiveCounters');
-      const analystCompleted = document.getElementById('analystCompleted');
-      const analystWaiting = document.getElementById('analystWaiting');
-      const analystServing = document.getElementById('analystServing');
-      const analystCancelled = document.getElementById('analystCancelled');
-
-      // Auth area
-      const signInBtn = document.getElementById('signInBtn');
-      const signOutBtn = document.getElementById('signOutBtn');
-      const signedInInfo = document.getElementById('signedInInfo');
-      const userAvatar = document.getElementById('userAvatar');
-      const userEmail = document.getElementById('userEmail');
-
-      // Mobile Menu
-      mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('sidebar-mobile-closed'));
-
-      // Switch views
-      sidebarItems.forEach(item => {
-        item.addEventListener('click', () => {
-          const view = item.dataset.view;
-          sidebarItems.forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-          if (view === 'dashboard') {
-            dashboardView.classList.remove('hidden');
-            analystView.classList.add('hidden');
-          } else {
-            dashboardView.classList.add('hidden');
-            analystView.classList.remove('hidden');
-            initializeCharts(); // lazy-init charts
-          }
-          sidebar.classList.add('sidebar-mobile-closed');
+    function initCharts() {
+      if (!queueTrendChart) {
+        const ctx = document.getElementById('queueTrendChart').getContext('2d');
+        queueTrendChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: [], datasets: [{ label: 'Queues', data: [], tension: 0.35, fill: true, backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgb(99,102,241)' }] },
+          options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
         });
-      });
+      }
+      if (!counterPerfChart) {
+        const ctx2 = document.getElementById('counterPerfChart').getContext('2d');
+        counterPerfChart = new Chart(ctx2, {
+          type: 'bar',
+          data: { labels: [], datasets: [{ label: 'Served', data: [], backgroundColor: [] }] },
+          options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+        });
+      }
+    }
 
-      // How to Use
-      howToUseBtn.addEventListener('click', () => { howToUseModal.classList.remove('hidden'); sidebar.classList.add('sidebar-mobile-closed'); });
-      closeHowToUse.addEventListener('click', () => howToUseModal.classList.add('hidden'));
-      closeHowToUseBtn.addEventListener('click', () => howToUseModal.classList.add('hidden'));
+    // Utility: format minutes nicely
+    function humanizeMinutes(mins) {
+      if (!isFinite(mins) || mins <= 0) return '0 min';
+      if (mins < 60) return `${Math.round(mins)} min`;
+      const hours = mins / 60;
+      if (hours < 24) return `${(hours).toFixed(1)} hr`;
+      const days = hours / 24;
+      return `${days.toFixed(1)} day`;
+    }
 
-      // AUTH
-      function enableAdminFeatures(enabled) {
-        updateSettingsBtn.disabled = !enabled;
-        saveAllBtn.disabled = !enabled;
-        sendAnnouncementBtn.disabled = !enabled;
-        if (enabled) {
-          updateSettingsBtn.classList.remove('opacity-60');
-          updateSettingsBtn.classList.remove('cursor-not-allowed');
-        }
+    // Apply display settings to preview
+    function applyDisplaySettings(obj={}) {
+      const smallText = obj.smallText ?? obj.displaySmallText ?? obj.name ?? '';
+      const logoUrl = obj.logoUrl ?? obj.displayLogoUrl ?? obj.logo ?? '';
+      const mainTitle = obj.mainTitle ?? obj.displayMainTitle ?? obj.introText ?? '';
+
+      if (smallText) { displaySmallText.value = smallText; previewName.textContent = smallText; }
+      if (mainTitle) { displayMainTitle.value = mainTitle; previewIntro.textContent = mainTitle; }
+      if (logoUrl) { displayLogoUrl.value = logoUrl; previewLogo.innerHTML = `<img src="${logoUrl}" class="w-full h-full object-cover rounded" />`; previewLogo.classList.remove('hidden'); }
+    }
+
+    // Read existing settings (live)
+    onValue(ref(db, 'settings/name'), snap => {
+      if (!snap.exists()) return;
+      businessName.value = snap.val();
+      previewName.textContent = snap.val();
+      $('headerName')?.textContent = snap.val();
+    });
+    onValue(ref(db, 'settings/introText'), snap => {
+      if (!snap.exists()) return;
+      welcomeMessage.value = snap.val();
+      previewIntro.textContent = snap.val();
+    });
+    onValue(ref(db, 'settings/logo'), snap => {
+      if (!snap.exists()) return;
+      const v = snap.val();
+      logoPreview.src = v; logoPreview.classList.remove('hidden');
+      previewLogo.innerHTML = `<img src="${v}" class="w-full h-full object-cover rounded" />`;
+      headerLogo.innerHTML = `<img src="${v}" class="w-full h-full object-cover rounded" />`;
+    });
+
+    // displaySettings (primary for display)
+    onValue(ref(db, 'displaySettings'), snap => {
+      if (!snap.exists()) return;
+      applyDisplaySettings(snap.val());
+    });
+
+    // ad image
+    onValue(ref(db, 'settings/adImage'), snap => {
+      if (!snap.exists()) { adPreviewBox.classList.add('hidden'); previewAd.classList.add('hidden'); return; }
+      const v = snap.val();
+      if (typeof v === 'string' && v.startsWith('data:video/')) {
+        adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
+      } else {
+        adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
+      }
+      adPreviewBox.classList.remove('hidden');
+      previewAd.src = v; previewAd.classList.remove('hidden');
+    });
+
+    // Queue analytics listener (robust)
+    onValue(ref(db, 'queue'), snap => {
+      const raw = snap.exists() ? snap.val() : {};
+      // raw is object keyed by push-id => { queueId, timestamp, status, counterId, ... }
+      const items = Object.keys(raw).map(k => ({ id:k, ...(raw[k]||{}) }));
+
+      // counts
+      const counts = { waiting:0, serving:0, completed:0, cancelled:0 };
+      const waitingTimestamps = [];
+      const completedPerCounter = {}; // served by counterId
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      let todayCount = 0;
+
+      // Build last7 days buckets (YYYY-MM-DD)
+      const buckets = {};
+      for (let i=6;i>=0;i--) {
+        const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0,10);
+        buckets[key] = 0;
       }
 
-      signInBtn.addEventListener('click', async () => {
-        try {
-          await signInWithPopup(auth, provider);
-        } catch (err) {
-          console.error('Sign-in error', err);
-          showToast('Sign-in failed: ' + (err.message || err), 'error');
+      items.forEach(item => {
+        const status = String(item.status || '').toLowerCase();
+        const ts = Number(item.timestamp || item.time || 0) || (item.timestamp && Date.parse(item.timestamp) ? Date.parse(item.timestamp) : 0);
+        // status mapping
+        if (status === 'waiting' || status === 'pending') { counts.waiting++; if (ts) waitingTimestamps.push(ts); }
+        else if (status === 'serving' || status === 'called' || status === 'in-service') { counts.serving++; if (ts) waitingTimestamps.push(ts); }
+        else if (status === 'done' || status === 'served' || status === 'completed') { counts.completed++; if (item.counterId) completedPerCounter[item.counterId] = (completedPerCounter[item.counterId]||0) + 1; }
+        else if (status === 'cancelled' || status === 'canceled') { counts.cancelled++; }
+
+        if (ts) {
+          const key = new Date(ts).toISOString().slice(0,10);
+          if (key in buckets) buckets[key] += 1;
+          if (new Date(ts).setHours(0,0,0,0) === todayStart.getTime()) todayCount++;
         }
       });
 
-      signOutBtn?.addEventListener('click', async () => {
-        try {
-          await signOut(auth);
-        } catch (err) {
-          console.error('Sign-out error', err);
-        }
-      });
+      // totals
+      totalQueuesEl.textContent = String(items.length || 0);
+      waitingCountEl.textContent = String(counts.waiting || 0);
+      $('waitingCount2').textContent = String(counts.waiting || 0);
+      servingCountEl.textContent = String(counts.serving || 0);
+      completedCountEl.textContent = String(counts.completed || 0);
+      cancelledCountEl.textContent = String(counts.cancelled || 0);
 
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          // show signed-in area
-          signInBtn.classList.add('hidden');
-          signedInInfo.classList.remove('hidden');
-          userEmail.textContent = user.email || user.displayName || 'Admin';
-          userAvatar.innerHTML = user.photoURL ? `<img src="${user.photoURL}" class="w-full h-full object-cover rounded-full" />` : (user.email ? user.email[0].toUpperCase() : 'A');
-          enableAdminFeatures(true);
-        } else {
-          signInBtn.classList.remove('hidden');
-          signedInInfo.classList.add('hidden');
-          userAvatar.innerHTML = '';
-          userEmail.textContent = '';
-          enableAdminFeatures(false);
-        }
-      });
+      // average wait in minutes from waiting items
+      const now = Date.now();
+      const minsArray = waitingTimestamps.map(t => (now - Number(t)) / 60000).filter(n => isFinite(n) && n >= 0);
+      const avg = minsArray.length ? (minsArray.reduce((a,b)=>a+b,0)/minsArray.length) : 0;
+      avgWaitEl.textContent = humanizeMinutes(avg);
 
-      // Real-time Analytics Updates
-      onValue(ref(db, 'queue'), (snapshot) => {
-        if (snapshot.exists()) {
-          const raw = snapshot.val();
-          const queues = Object.values(raw || {});
-          const total = queues.length;
-          const waiting = queues.filter(q => q.status === 'waiting').length;
-          const completed = queues.filter(q => (q.status === 'done' || q.status === 'served' || q.status === 'completed')).length;
-          const serving = queues.filter(q => q.status === 'serving').length;
-          const cancelled = queues.filter(q => q.status === 'cancelled').length;
+      // Build last7 arrays for chart
+      const labels = Object.keys(buckets).map(k => k.slice(5)); // MM-DD
+      const data = Object.keys(buckets).map(k => buckets[k]);
 
-          totalQueuesEl.textContent = total;
-          activeQueuesEl.textContent = waiting;
-
-          const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-          const todayCount = queues.filter(q => {
-            const ts = q.timestamp || q.time || 0;
-            return new Date(ts).setHours(0,0,0,0) === todayStart.getTime();
-          }).length;
-          todayQueuesEl.textContent = todayCount;
-
-          analystTotalServed.textContent = completed;
-          analystCompleted.textContent = completed;
-          analystWaiting.textContent = waiting;
-          analystServing.textContent = serving;
-          analystCancelled.textContent = cancelled;
-
-          // Average wait time (minutes) for waiting items
-          const waitingQueuesForAvg = queues.filter(q => q.status === 'waiting' && q.timestamp);
-          const avgWait = waitingQueuesForAvg.length > 0 ? Math.round(waitingQueuesForAvg.reduce((acc, item) => acc + ((Date.now() - new Date(item.timestamp)) / 60000), 0) / waitingQueuesForAvg.length) : 0;
-          analystAvgWait.textContent = String(isFinite(avgWait) ? Math.max(0, avgWait) : 0);
-
-          // Update trend chart data source
-          updateQueueTrendChartFromQueues(queues);
-        } else {
-          [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, analystCompleted, analystWaiting, analystServing, analystCancelled, analystAvgWait].forEach(el => el.textContent = '0');
-          updateQueueTrendChartFromQueues([]);
-        }
-      }, (err) => {
-        console.error('Queue listener error', err);
-      });
-
-      onValue(ref(db, 'counters'), (snapshot) => {
-        if (snapshot.exists()) {
-          const countersArr = Object.values(snapshot.val() || {});
-          const activeCount = countersArr.filter(c => !!c.active).length;
-          activeCountersEl.textContent = activeCount;
-          analystActiveCounters.textContent = activeCount;
-          updateCounterPerfChart(countersArr);
-        } else {
-          activeCountersEl.textContent = '0';
-          analystActiveCounters.textContent = '0';
-        }
-      });
-
-      // Settings sync (reads)
-      onValue(ref(db, 'settings/name'), (snap) => {
-        if (snap.exists()) {
-          const v = snap.val();
-          businessName.value = v;
-          previewName.textContent = v;
-          headerName.textContent = v;
-        }
-      });
-      onValue(ref(db, 'settings/introText'), (snap) => {
-        if (snap.exists()) {
-          const v = snap.val();
-          welcomeMessage.value = v;
-          previewIntro.textContent = v;
-        }
-      });
-      onValue(ref(db, 'settings/logo'), (snap) => {
-        if (snap.exists()) {
-          const v = snap.val();
-          logoPreview.src = v; logoPreview.classList.remove('hidden');
-          previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`;
-          headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`;
-        }
-      });
-
-      // Display settings sync
-      onValue(ref(db, 'displaySettings'), (snap) => {
-        if (snap.exists()) {
-          const v = snap.val();
-          displaySmallText.value = v.smallText || '';
-          displayLogoUrl.value = v.logoUrl || '';
-          displayMainTitle.value = v.mainTitle || '';
-
-          // Live preview
-          if (v.logoUrl) {
-            previewLogo.innerHTML = `<img src="${v.logoUrl}" class="w-full h-full rounded-xl object-cover" />`;
-            previewLogo.classList.remove('hidden');
-          }
-          if (v.smallText) previewName.textContent = v.smallText;
-          if (v.mainTitle) previewIntro.textContent = v.mainTitle;
-        }
-      });
-
-      // ad image sync
-      onValue(ref(db, 'settings/adImage'), (snap) => {
-        if (snap.exists()) {
-          const v = snap.val();
-          if (typeof v === 'string' && v.startsWith('data:video/')) {
-            adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
-          } else {
-            adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
-          }
-          adPreviewBox.classList.remove('hidden');
-          previewAd.src = v; previewAd.classList.remove('hidden');
-        } else {
-          adPreviewBox.classList.add('hidden'); previewAd.classList.add('hidden');
-        }
-      });
-
-      // Cropping
-      let currentCropper = null, currentCropType = '';
-      let adData = '';
-      logoFile.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; if (!file) return;
-        currentCropType = 'logo'; cropModalTitle.textContent = 'Crop Logo (Square)';
-        const base64 = await fileToBase64(file); cropImage.src = base64; cropModal.classList.remove('hidden');
-        if (currentCropper) currentCropper.destroy();
-        currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 2, autoCropArea: 1 });
-      });
-      adFile.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; if (!file) return;
-        if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); return; }
-        const base64 = await fileToBase64(file);
-        const type = file.type || '';
-        if (type.startsWith('video/')) {
-          adData = base64;
-          adPreviewBox.innerHTML = `<video src="${base64}" class="w-full h-full object-cover" controls></video>`;
-          adPreviewBox.classList.remove('hidden');
-          previewAd.src = base64; previewAd.classList.remove('hidden');
-          return;
-        }
-        if (type === 'image/gif') {
-          adData = base64; // don't crop GIFs
-          adPreviewBox.innerHTML = `<img src="${base64}" class="w-full h-full object-cover" />`;
-          adPreviewBox.classList.remove('hidden');
-          previewAd.src = base64; previewAd.classList.remove('hidden');
-          return;
-        }
-        currentCropType = 'ad'; cropModalTitle.textContent = 'Crop Ad Banner (Landscape)';
-        cropImage.src = base64; cropModal.classList.remove('hidden');
-        if (currentCropper) currentCropper.destroy();
-        currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
-      });
-
-      cropSaveBtn.addEventListener('click', () => {
-        if (!currentCropper) return;
-        const canvas = currentCropper.getCroppedCanvas();
-        const cropped = canvas.toDataURL('image/jpeg', 0.9);
-        if (currentCropType === 'logo') {
-          logoPreview.src = cropped; logoPreview.classList.remove('hidden');
-          previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
-          headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
-        } else if (currentCropType === 'ad') {
-          adData = cropped;
-          adPreviewBox.innerHTML = `<img src="${cropped}" class="w-full h-full object-cover" />`;
-          adPreviewBox.classList.remove('hidden');
-          previewAd.src = cropped; previewAd.classList.remove('hidden');
-        }
-        cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
-        showToast('Image cropped successfully');
-      });
-
-      cropCancelBtn.addEventListener('click', () => {
-        cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
-        if (currentCropType === 'logo') logoFile.value=''; else if (currentCropType === 'ad') adFile.value='';
-      });
-
-      // Save settings (atomic update) - requires auth
-      const updateSettings = async () => {
-        // require auth
-        if (!auth.currentUser) { showToast('Please sign in before saving', 'error'); return; }
-
-        updateBtnText.classList.add('hidden'); updateBtnSpinner.classList.remove('hidden'); updateSettingsBtn.disabled = true;
-        saveAllText.classList.add('hidden'); saveAllSpinner.classList.remove('hidden'); saveAllBtn.disabled = true;
-
-        try {
-          // build updates object for atomic update at root
-          const updates = {};
-          // settings/*
-          updates['/settings/name'] = businessName.value || '';
-          updates['/settings/introText'] = welcomeMessage.value || '';
-          if (logoPreview.src && logoPreview.src.startsWith('data:')) updates['/settings/logo'] = logoPreview.src;
-          if (adData && typeof adData === 'string' && adData.startsWith('data:')) updates['/settings/adImage'] = adData;
-
-          // displaySettings/*
-          updates['/displaySettings/smallText'] = displaySmallText.value || 'Digital Queue System';
-          updates['/displaySettings/logoUrl'] = displayLogoUrl.value || '';
-          updates['/displaySettings/mainTitle'] = displayMainTitle.value || 'Get your queue number';
-
-          await update(ref(db, '/'), updates);
-
-          showToast('Settings updated successfully!', 'success');
-        } catch (err) {
-          console.error('Update settings error:', err);
-          // show detailed error to help troubleshooting
-          showToast('Failed to update settings: ' + (err.message || err), 'error');
-        } finally {
-          updateBtnText.classList.remove('hidden'); updateBtnSpinner.classList.add('hidden'); updateSettingsBtn.disabled = false;
-          saveAllText.classList.remove('hidden'); saveAllSpinner.classList.add('hidden'); saveAllBtn.disabled = false;
-        }
-      };
-      updateSettingsBtn.addEventListener('click', updateSettings);
-      saveAllBtn.addEventListener('click', updateSettings);
-
-      // Announcement with media support (uses serverless function)
-      let selectedMediaFile = null;
-      announcementMedia.addEventListener('change', (e) => {
-        const file = e.target.files?.[0]; selectedMediaFile = file || null; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
-        if (file) {
-          if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); selectedMediaFile = null; return; }
-          const url = URL.createObjectURL(file);
-          if (file.type.startsWith('video/')) {
-            const video = document.createElement('video'); video.src = url; video.controls = true; video.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(video);
-          } else if (file.type.startsWith('audio/')) {
-            const audio = document.createElement('audio'); audio.src = url; audio.controls = true; audio.className = 'w-full'; announcementPreview.appendChild(audio);
-          } else {
-            const img = document.createElement('img'); img.src = url; img.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(img);
-          }
-          announcementPreview.classList.remove('hidden');
-        }
-      });
-
-      sendAnnouncementBtn.addEventListener('click', async () => {
-        if (!auth.currentUser) { showToast('Sign in to send announcements', 'error'); return; }
-        const message = announcementMessage.value.trim();
-        if (!message && !selectedMediaFile) { showToast('Please enter a message or attach media', 'error'); return; }
-        sendBtnText.classList.add('hidden'); sendBtnSpinner.classList.remove('hidden'); sendAnnouncementBtn.disabled = true;
-        try {
-          let mediaBase64 = '';
-          let mediaType = '';
-          if (selectedMediaFile) { mediaBase64 = await fileToBase64(selectedMediaFile); mediaType = selectedMediaFile.type; }
-          const res = await fetch('/.netlify/functions/announce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, media: mediaBase64, mediaType }) });
-          const result = await res.json();
-          if (!res.ok) throw new Error(result.error || 'Failed to send');
-          announcementResult.className = 'p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
-          announcementResult.textContent = '✅ ' + (result.message || 'Announcement sent successfully!');
-          announcementMessage.value=''; announcementMedia.value=''; announcementPreview.innerHTML=''; announcementPreview.classList.add('hidden'); selectedMediaFile = null; showToast('Announcement sent!', 'success');
-        } catch (error) {
-          console.error('Announcement error:', error);
-          announcementResult.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
-          announcementResult.textContent = '⚠️ ' + (error.message || 'Failed to send announcement');
-          showToast('Failed to send announcement: ' + (error.message || error), 'error');
-        } finally {
-          announcementResult.classList.remove('hidden');
-          sendBtnText.classList.remove('hidden'); sendBtnSpinner.classList.add('hidden'); sendAnnouncementBtn.disabled = false;
-          setTimeout(() => announcementResult.classList.add('hidden'), 5000);
-        }
-      });
-
-      // Charts (queue trend, counter perf)
-      let queueTrendChart = null, counterPerfChart = null;
-      function initializeCharts() {
-        if (!queueTrendChart) {
-          const ctx = document.getElementById('queueTrendChart').getContext('2d');
-          queueTrendChart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Customers (last 7 days)', data: [], tension: 0.35, fill: true, backgroundColor: 'rgba(168,85,247,0.12)', borderColor: 'rgb(168,85,247)' }] },
-            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
-          });
-        }
-        if (!counterPerfChart) {
-          const ctx2 = document.getElementById('counterPerfChart').getContext('2d');
-          counterPerfChart = new Chart(ctx2, {
-            type: 'bar',
-            data: { labels: [], datasets: [{ label: 'Customers Served', data: [], backgroundColor: [] }] },
-            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
-          });
-        }
+      initCharts();
+      if (queueTrendChart) {
+        queueTrendChart.data.labels = labels;
+        queueTrendChart.data.datasets[0].data = data;
+        queueTrendChart.update();
       }
 
-      // Build last 7 days labels and counts from queue items
-      function updateQueueTrendChartFromQueues(queues) {
-        try {
-          initializeCharts();
-          const buckets = {};
-          const labels = [];
-          const today = new Date(); today.setHours(0,0,0,0);
-          for (let i=6;i>=0;i--) {
-            const d = new Date(today.getTime() - i*24*60*60*1000);
-            const key = d.toISOString().slice(0,10);
-            buckets[key] = 0;
-            labels.push(key.slice(5)); // MM-DD for display
-          }
-          queues.forEach(q => {
-            const ts = q.timestamp || q.time || 0;
-            if (!ts) return;
-            const key = new Date(ts).toISOString().slice(0,10);
-            if (key in buckets) buckets[key] += 1;
-          });
-          const data = Object.keys(buckets).map(k => buckets[k]);
-          if (queueTrendChart) {
-            queueTrendChart.data.labels = labels;
-            queueTrendChart.data.datasets[0].data = data;
-            queueTrendChart.update();
-          }
-        } catch (err) { console.error('updateQueueTrendChartFromQueues error', err); }
+      // Counter performance: if counters node exists, we'll use served counts derived from queue + fallback to lastIssued
+      // We'll fetch counters once and merge served counts with lastIssued if available
+      get(ref(db, 'counters')).then(countersSnap => {
+        const cdata = countersSnap.exists() ? countersSnap.val() : {};
+        const keys = Object.keys(cdata || {});
+        const labelsC = [];
+        const dataC = [];
+        const colors = [];
+        keys.forEach((k, idx) => {
+          const c = cdata[k] || {};
+          labelsC.push(c.name || (c.prefix ? `Counter ${c.prefix}` : `Counter ${idx+1}`));
+          // prefer computed served count if present otherwise fallback to lastIssued or 0
+          const served = completedPerCounter[k] || c.servedCount || c.lastIssued || 0;
+          dataC.push(served);
+          const palette = ['rgba(99,102,241,0.85)','rgba(168,85,247,0.85)','rgba(236,72,153,0.85)','rgba(59,130,246,0.85)','rgba(16,185,129,0.85)'];
+          colors.push(palette[idx % palette.length]);
+        });
+        if (counterPerfChart) {
+          counterPerfChart.data.labels = labelsC;
+          counterPerfChart.data.datasets[0].data = dataC;
+          counterPerfChart.data.datasets[0].backgroundColor = colors;
+          counterPerfChart.update();
+        }
+        activeCountersEl.textContent = String(keys.filter(k=>cdata[k] && cdata[k].active).length || 0);
+      }).catch(err=>{
+        console.error('counters read error', err);
+        activeCountersEl.textContent = '0';
+      });
+    }, err => {
+      console.error('queue listener error', err);
+    });
+
+    // Counters listener for active counters in header (fallback)
+    onValue(ref(db, 'counters'), snap => {
+      if (!snap.exists()) { activeCountersEl.textContent = '0'; return; }
+      const obj = snap.val();
+      const arr = Object.values(obj || {});
+      activeCountersEl.textContent = String(arr.filter(x => x && x.active).length || 0);
+    });
+
+    // Image cropping (Cropper)
+    let currentCropper = null;
+    let currentCropType = ''; // 'logo' or 'ad'
+    const cropModal = document.getElementById('cropModal');
+    const cropImage = document.getElementById('cropImage');
+    const cropSaveBtn = document.getElementById('cropSaveBtn');
+    const cropCancelBtn = document.getElementById('cropCancelBtn');
+    let adData = '';
+
+    logoFile.addEventListener('change', async (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      currentCropType = 'logo';
+      const b64 = await fileToBase64(f);
+      cropImage.src = b64;
+      cropModal.classList.remove('hidden');
+      if (currentCropper) currentCropper.destroy();
+      currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 2, autoCropArea: 1 });
+    });
+
+    adFile.addEventListener('change', async (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      if (f.size > 50*1024*1024) { showToast('File too large (50MB max)', false); return; }
+      const b64 = await fileToBase64(f);
+      const t = f.type || '';
+      if (t.startsWith('video/')) {
+        adData = b64;
+        adPreviewBox.innerHTML = `<video src="${b64}" controls class="w-full h-full object-cover"></video>`;
+        adPreviewBox.classList.remove('hidden');
+        previewAd.src = b64; previewAd.classList.remove('hidden');
+        return;
       }
-
-      function updateCounterPerfChart(countersArr) {
-        try {
-          initializeCharts();
-          // We'll take counters' lastIssued or servedCount if present; fall back to 0
-          const labels = countersArr.map((c, idx) => c.name || (`Counter ${idx+1}`));
-          const data = countersArr.map(c => (c.servedCount || c.lastIssued || 0));
-          const colors = countersArr.map((c, idx) => {
-            const palette = ['rgba(99,102,241,0.85)','rgba(168,85,247,0.85)','rgba(236,72,153,0.85)','rgba(59,130,246,0.85)','rgba(16,185,129,0.85)'];
-            return palette[idx % palette.length];
-          });
-          if (counterPerfChart) {
-            counterPerfChart.data.labels = labels;
-            counterPerfChart.data.datasets[0].data = data;
-            counterPerfChart.data.datasets[0].backgroundColor = colors;
-            counterPerfChart.update();
-          }
-        } catch (err) { console.error('updateCounterPerfChart error', err); }
+      if (t === 'image/gif') {
+        adData = b64;
+        adPreviewBox.innerHTML = `<img src="${b64}" class="w-full h-full object-cover" />`;
+        adPreviewBox.classList.remove('hidden');
+        previewAd.src = b64; previewAd.classList.remove('hidden');
+        return;
       }
+      // else crop image
+      currentCropType = 'ad';
+      cropImage.src = b64;
+      cropModal.classList.remove('hidden');
+      if (currentCropper) currentCropper.destroy();
+      currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
+    });
 
-      // initial call to setup charts if user switches to analyst view
-      // (charts will update via listeners above)
+    cropSaveBtn.addEventListener('click', () => {
+      if (!currentCropper) return;
+      const canvas = currentCropper.getCroppedCanvas();
+      const out = canvas.toDataURL('image/jpeg', 0.9);
+      if (currentCropType === 'logo') {
+        logoPreview.src = out; logoPreview.classList.remove('hidden');
+        previewLogo.innerHTML = `<img src="${out}" class="w-full h-full object-cover rounded" />`;
+        headerLogo.innerHTML = `<img src="${out}" class="w-full h-full object-cover rounded" />`;
+      } else if (currentCropType === 'ad') {
+        adData = out;
+        adPreviewBox.innerHTML = `<img src="${out}" class="w-full h-full object-cover" />`;
+        adPreviewBox.classList.remove('hidden');
+        previewAd.src = out; previewAd.classList.remove('hidden');
+      }
+      cropModal.classList.add('hidden');
+      currentCropper.destroy(); currentCropper = null;
+      showToast('Image cropped');
+    });
 
-    </script>
-  </body>
+    cropCancelBtn.addEventListener('click', () => {
+      cropModal.classList.add('hidden');
+      if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
+    });
+
+    // Save settings (atomic update)
+    updateSettingsBtn.addEventListener('click', async () => {
+      const updates = {};
+      updates['/settings/name'] = businessName.value || '';
+      updates['/settings/introText'] = welcomeMessage.value || '';
+      if (logoPreview.src && logoPreview.src.startsWith('data:')) updates['/settings/logo'] = logoPreview.src;
+      if (adData) updates['/settings/adImage'] = adData;
+
+      // display settings
+      updates['/displaySettings/smallText'] = displaySmallText.value || (businessName.value || 'Digital Queue System');
+      updates['/displaySettings/logoUrl'] = displayLogoUrl.value || (logoPreview.src && logoPreview.src.startsWith('http') ? logoPreview.src : '');
+      updates['/displaySettings/mainTitle'] = displayMainTitle.value || (welcomeMessage.value || 'Get your queue number');
+
+      try {
+        update(ref(db, '/'), updates);
+        showToast('Settings saved');
+      } catch (err) {
+        console.error('update error', err);
+        showToast('Failed to save settings: ' + (err.message || err), false);
+      }
+    });
+
+    saveAllBtn.addEventListener('click', () => updateSettingsBtn.click());
+
+    // Announcement
+    let selectedMedia = null;
+    announcementMedia.addEventListener('change', (e) => {
+      const f = e.target.files?.[0]; selectedMedia = f || null;
+      announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
+      if (!f) return;
+      if (f.size > 50*1024*1024) { showToast('Media too large (50MB max)', false); selectedMedia = null; return; }
+      const url = URL.createObjectURL(f);
+      if (f.type.startsWith('video/')) {
+        announcementPreview.innerHTML = `<video src="${url}" controls class="w-48 h-32 object-cover"></video>`;
+      } else {
+        announcementPreview.innerHTML = `<img src="${url}" class="w-48 h-32 object-cover" />`;
+      }
+      announcementPreview.classList.remove('hidden');
+    });
+
+    sendAnnouncementBtn.addEventListener('click', async () => {
+      const msg = announcementMessage.value.trim();
+      if (!msg && !selectedMedia) { showToast('Please supply message or media', false); return; }
+      sendAnnouncementBtn.disabled = true;
+      try {
+        let mediaBase64 = '';
+        let mediaType = '';
+        if (selectedMedia) { mediaBase64 = await fileToBase64(selectedMedia); mediaType = selectedMedia.type; }
+        const res = await fetch('/.netlify/functions/announce', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: msg, media: mediaBase64, mediaType }) });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Failed to send');
+        showToast(body.message || 'Announcement sent');
+        announcementMessage.value = ''; announcementMedia.value = ''; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden'); selectedMedia = null;
+      } catch (err) {
+        console.error(err);
+        showToast('Announcement failed: ' + (err.message || err), false);
+      } finally { sendAnnouncementBtn.disabled = false; }
+    });
+
+    // Navigation toggles
+    navAnalyst.addEventListener('click', () => {
+      analystArea.classList.remove('hidden');
+      window.scrollTo({ top: analystArea.offsetTop - 100, behavior: 'smooth' });
+      initCharts();
+    });
+    navDashboard.addEventListener('click', () => {
+      analystArea.classList.add('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    navHowTo.addEventListener('click', () => {
+      alert('How to use: Upload/crop images, update display settings, send announcements. Index.html reads /displaySettings and /settings/* live.');
+    });
+
+    // Initialize charts area on load if needed
+    function initCharts() {
+      if (!queueTrendChart || !counterPerfChart) initChartsOnce();
+    }
+    function initChartsOnce() {
+      if (!queueTrendChart) {
+        const ctx = document.getElementById('queueTrendChart').getContext('2d');
+        queueTrendChart = new Chart(ctx, { type:'line', data:{ labels:[], datasets:[{ label:'Queues', data:[], tension:0.35, backgroundColor:'rgba(99,102,241,0.12)', borderColor:'rgb(99,102,241)' }] }, options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } } });
+      }
+      if (!counterPerfChart) {
+        const ctx2 = document.getElementById('counterPerfChart').getContext('2d');
+        counterPerfChart = new Chart(ctx2, { type:'bar', data:{ labels:[], datasets:[{ label:'Served', data:[], backgroundColor:[] }] }, options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } } });
+      }
+    }
+
+    // small safety: initialize charts now
+    initChartsOnce();
+
+    // humanize minutes used earlier
+    function humanizeMinutes(mins) {
+      if (!isFinite(mins) || mins <= 0) return '0 min';
+      if (mins < 60) return `${Math.round(mins)} min`;
+      const hrs = mins / 60;
+      if (hrs < 24) return `${hrs.toFixed(1)} hr`;
+      const days = hrs / 24;
+      return `${days.toFixed(1)} day`;
+    }
+  </script>
+</body>
 </html>
