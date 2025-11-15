@@ -166,7 +166,7 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Banner (Landscape)</label>
                 <div class="space-y-3">
                   <div class="flex items-start gap-3">
-                    <img id="adPreview" src="" alt="Ad" class="w-32 h-20 rounded-lg object-cover border-2 border-gray-200 hidden" />
+                    <div id="adPreviewBox" class="w-32 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hidden"></div>
                     <div class="flex-1">
                       <input id="adFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
                       <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
@@ -180,6 +180,24 @@
               </button>
             </div>
 
+            <!-- Display Settings Card -->
+            <div class="card p-8 space-y-6">
+              <h3 class="text-2xl font-bold gradient-text mb-6">🖥️ Display Settings</h3>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Small Text (Subtitle)</label>
+                <input id="displaySmallText" type="text" placeholder="Digital Queue System" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL (Centered)</label>
+                <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Main Title</label>
+                <input id="displayMainTitle" type="text" placeholder="Get your queue number" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <p class="text-xs text-gray-500">These values are saved to <code>/displaySettings</code> without touching your queue schema.</p>
+            </div>
+
             <!-- Right Column: Announcement + Live Preview -->
             <div class="space-y-6">
               <div class="card p-8">
@@ -188,7 +206,7 @@
                   <textarea id="announcementMessage" rows="4" placeholder="Type your announcement message here..." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Attach Media (Image, Video, or GIF)</label>
-                    <input id="announcementMedia" type="file" accept="image/*,video/*,.gif" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-600 file:font-semibold hover:file:bg-green-100 cursor-pointer" />
+                    <input id="announcementMedia" type="file" accept="image/*,video/*,audio/*,.gif" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-600 file:font-semibold hover:file:bg-green-100 cursor-pointer" />
                     <div id="announcementPreview" class="mt-3 hidden"></div>
                   </div>
                   <button id="sendAnnouncementBtn" class="w-full py-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
@@ -380,11 +398,15 @@
       const logoFile = document.getElementById('logoFile');
       const logoPreview = document.getElementById('logoPreview');
       const adFile = document.getElementById('adFile');
-      const adPreview = document.getElementById('adPreview');
+      const adPreviewBox = document.getElementById('adPreviewBox');
       const updateSettingsBtn = document.getElementById('updateSettingsBtn');
       const updateBtnText = document.getElementById('updateBtnText');
       const updateBtnSpinner = document.getElementById('updateBtnSpinner');
       const saveAllBtn = document.getElementById('saveAllBtn');
+      // Display settings inputs
+      const displaySmallText = document.getElementById('displaySmallText');
+      const displayLogoUrl = document.getElementById('displayLogoUrl');
+      const displayMainTitle = document.getElementById('displayMainTitle');
 
       const previewName = document.getElementById('previewName');
       const previewIntro = document.getElementById('previewIntro');
@@ -481,9 +503,9 @@
           analystServing.textContent = serving;
           analystCancelled.textContent = cancelled;
 
-          // Average wait time in minutes from timestamp -> servedAt
-          const completedQueues = queues.filter(q => (q.status === 'done' || q.status === 'served') && q.servedAt && q.timestamp);
-          const avgWait = completedQueues.length > 0 ? Math.round(completedQueues.reduce((acc, q) => acc + ((new Date(q.servedAt) - new Date(q.timestamp)) / 60000), 0) / completedQueues.length) : 0;
+          // Average wait time (current waiting customers)
+          const waitingQueuesForAvg = queues.filter(q => q.status === 'waiting' && q.timestamp);
+          const avgWait = waitingQueuesForAvg.length > 0 ? Math.round(waitingQueuesForAvg.reduce((acc, q) => acc + ((Date.now() - new Date(q.timestamp)) / 60000), 0) / waitingQueuesForAvg.length) : 0;
           analystAvgWait.textContent = String(isFinite(avgWait) ? Math.max(0, avgWait) : 0);
         } else {
           [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, analystCompleted, analystWaiting, analystServing, analystCancelled, analystAvgWait].forEach(el => el.textContent = '0');
@@ -506,10 +528,29 @@
       onValue(ref(db, 'settings/name'), (snap) => { if (snap.exists()) { const v = snap.val(); businessName.value = v; previewName.textContent = v; headerName.textContent = v; } });
       onValue(ref(db, 'settings/introText'), (snap) => { if (snap.exists()) { const v = snap.val(); welcomeMessage.value = v; previewIntro.textContent = v; } });
       onValue(ref(db, 'settings/logo'), (snap) => { if (snap.exists()) { const v = snap.val(); logoPreview.src = v; logoPreview.classList.remove('hidden'); previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; } });
-      onValue(ref(db, 'settings/adImage'), (snap) => { if (snap.exists()) { const v = snap.val(); adPreview.src = v; adPreview.classList.remove('hidden'); previewAd.src = v; previewAd.classList.remove('hidden'); } else { adPreview.classList.add('hidden'); previewAd.classList.add('hidden'); } });
+      // Display settings sync
+      onValue(ref(db, 'displaySettings'), (snap) => {
+        if (snap.exists()) { const v = snap.val(); displaySmallText.value = v.smallText || ''; displayLogoUrl.value = v.logoUrl || ''; displayMainTitle.value = v.mainTitle || ''; }
+      });
+      onValue(ref(db, 'settings/adImage'), (snap) => { 
+        if (snap.exists()) { 
+          const v = snap.val();
+          if (typeof v === 'string' && v.startsWith('data:video/')) {
+            adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
+          } else {
+            adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
+          }
+          adPreviewBox.classList.remove('hidden');
+          previewAd.src = v; previewAd.classList.remove('hidden');
+          adData = v;
+        } else { 
+          adPreviewBox.classList.add('hidden'); previewAd.classList.add('hidden'); 
+        } 
+      });
 
       // Cropping
       let currentCropper = null; let currentCropType = '';
+      let adData = '';
       logoFile.addEventListener('change', async (e) => {
         const file = e.target.files?.[0]; if (!file) return;
         currentCropType = 'logo'; cropModalTitle.textContent = 'Crop Logo (Square)';
@@ -519,15 +560,41 @@
       });
       adFile.addEventListener('change', async (e) => {
         const file = e.target.files?.[0]; if (!file) return;
+        // 50MB max
+        if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); return; }
+        const base64 = await fileToBase64(file);
+        const type = file.type || '';
+        if (type.startsWith('video/')) {
+          adData = base64;
+          adPreviewBox.innerHTML = `<video src="${base64}" class="w-full h-full object-cover" controls></video>`;
+          adPreviewBox.classList.remove('hidden');
+          return;
+        }
+        if (type === 'image/gif') {
+          adData = base64; // don't crop GIFs
+          adPreviewBox.innerHTML = `<img src="${base64}" class="w-full h-full object-cover" />`;
+          adPreviewBox.classList.remove('hidden');
+          return;
+        }
+        // Crop images
         currentCropType = 'ad'; cropModalTitle.textContent = 'Crop Ad Banner (Landscape)';
-        const base64 = await fileToBase64(file); cropImage.src = base64; cropModal.classList.remove('hidden');
+        cropImage.src = base64; cropModal.classList.remove('hidden');
         if (currentCropper) currentCropper.destroy();
         currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
       });
       cropSaveBtn.addEventListener('click', () => {
         if (!currentCropper) return; const canvas = currentCropper.getCroppedCanvas(); const cropped = canvas.toDataURL('image/jpeg', 0.9);
-        if (currentCropType === 'logo') { logoPreview.src = cropped; logoPreview.classList.remove('hidden'); previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`; headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`; }
-        if (currentCropType === 'ad') { adPreview.src = cropped; adPreview.classList.remove('hidden'); previewAd.src = cropped; previewAd.classList.remove('hidden'); }
+        if (currentCropType === 'logo') {
+          logoPreview.src = cropped; logoPreview.classList.remove('hidden');
+          previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
+          headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
+        }
+        if (currentCropType === 'ad') {
+          adData = cropped;
+          adPreviewBox.innerHTML = `<img src="${cropped}" class="w-full h-full object-cover" />`;
+          adPreviewBox.classList.remove('hidden');
+          previewAd.src = cropped; previewAd.classList.remove('hidden');
+        }
         cropModal.classList.add('hidden'); currentCropper.destroy(); currentCropper = null; showToast('Image cropped successfully');
       });
       cropCancelBtn.addEventListener('click', () => { cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; } if (currentCropType === 'logo') logoFile.value=''; else if (currentCropType === 'ad') adFile.value=''; });
@@ -538,8 +605,14 @@
         try {
           const updates = { name: businessName.value, introText: welcomeMessage.value };
           if (logoPreview.src && logoPreview.src.startsWith('data:')) updates.logo = logoPreview.src;
-          if (adPreview.src && adPreview.src.startsWith('data:')) updates.adImage = adPreview.src;
+          if (adData && typeof adData === 'string' && adData.startsWith('data:')) updates.adImage = adData;
           await set(ref(db, 'settings'), updates);
+          // Save display settings separately
+          await set(ref(db, 'displaySettings'), {
+            smallText: displaySmallText.value || 'Digital Queue System',
+            logoUrl: displayLogoUrl.value || '',
+            mainTitle: displayMainTitle.value || 'Get your queue number'
+          });
           showToast('Settings updated successfully!');
         } catch (err) { console.error(err); showToast('Failed to update settings', 'error'); }
         finally { updateBtnText.classList.remove('hidden'); updateBtnSpinner.classList.add('hidden'); updateSettingsBtn.disabled = false; }
@@ -552,9 +625,15 @@
       announcementMedia.addEventListener('change', (e) => {
         const file = e.target.files?.[0]; selectedMediaFile = file || null; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
         if (file) {
+          if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); selectedMediaFile = null; return; }
           const url = URL.createObjectURL(file);
-          if (file.type.startsWith('video/')) { const video = document.createElement('video'); video.src = url; video.controls = true; video.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(video); }
-          else { const img = document.createElement('img'); img.src = url; img.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(img); }
+          if (file.type.startsWith('video/')) {
+            const video = document.createElement('video'); video.src = url; video.controls = true; video.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(video);
+          } else if (file.type.startsWith('audio/')) {
+            const audio = document.createElement('audio'); audio.src = url; audio.controls = true; audio.className = 'w-full'; announcementPreview.appendChild(audio);
+          } else {
+            const img = document.createElement('img'); img.src = url; img.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(img);
+          }
           announcementPreview.classList.remove('hidden');
         }
       });
