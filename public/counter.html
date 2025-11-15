@@ -1,834 +1,907 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Counter Management System</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Queue Joy - Counter Management</title>
+  <meta name="description" content="Professional queue management system with Telegram notifications" />
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
-        }
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-            animation: fadeInDown 0.6s ease-out;
-        }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
 
-        .header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
 
-        .header p {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-        .config-section {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            animation: fadeInUp 0.6s ease-out;
-        }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
 
-        .config-section h2 {
-            margin-bottom: 20px;
-            color: #667eea;
-            font-size: 1.5em;
-        }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
+    .pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
 
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
 
-        .input-group label {
-            font-weight: 600;
-            color: #555;
-            font-size: 0.9em;
-        }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+    }
 
-        .input-group input {
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: all 0.3s ease;
-        }
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s ease-in;
+    }
 
-        .input-group input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+      animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
 
-        .btn {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(60px) scale(0.9); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }
+    .glass {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: all 0.3s ease;
+    }
 
-        .btn-primary:active {
-            transform: translateY(0);
-        }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
 
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
+    .btn-secondary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
 
-        .counters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 30px;
-            margin-top: 30px;
-        }
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(245, 87, 108, 0.4);
+    }
 
-        .counter-card {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            animation: fadeInUp 0.6s ease-out;
-            position: relative;
-            overflow: hidden;
-        }
+    .ticket {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
 
-        .counter-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        }
+    .ticket::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+    }
 
-        .counter-card.busy::before {
-            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
-        }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #ticketPrint, #ticketPrint * {
+        visibility: visible;
+      }
+      #ticketPrint {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+    }
 
-        .counter-card.inactive {
-            opacity: 0.6;
-        }
+    .number-display {
+      font-size: 6rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
 
-        .counter-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    .notification-log {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+    }
 
-        .counter-name {
-            font-size: 1.5em;
-            font-weight: 700;
-            color: #333;
-        }
+    .notification-log::-webkit-scrollbar {
+      width: 6px;
+    }
 
-        .counter-prefix {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        .counter-display {
-            text-align: center;
-            padding: 40px 20px;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            border-radius: 12px;
-            margin: 20px 0;
-        }
-
-        .counter-label {
-            font-size: 1em;
-            color: #666;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .counter-number {
-            font-size: 4em;
-            font-weight: 800;
-            color: #667eea;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        .counter-stats {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .stat {
-            text-align: center;
-        }
-
-        .stat-label {
-            font-size: 0.8em;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .stat-value {
-            font-size: 1.5em;
-            font-weight: 700;
-            color: #333;
-        }
-
-        .counter-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .btn-call {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
-        }
-
-        .btn-call:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(17, 153, 142, 0.6);
-        }
-
-        .btn-skip {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: white;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(250, 112, 154, 0.4);
-        }
-
-        .btn-skip:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(250, 112, 154, 0.6);
-        }
-
-        .btn-toggle {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            grid-column: 1 / -1;
-        }
-
-        .btn-toggle.inactive {
-            background: linear-gradient(135deg, #a8a8a8 0%, #757575 100%);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-
-        .status-active {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-busy {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .notification-log {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .notification-log h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-
-        .log-entry {
-            padding: 12px;
-            border-left: 4px solid #667eea;
-            background: #f8f9fa;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        .log-entry.success {
-            border-left-color: #38ef7d;
-        }
-
-        .log-entry.error {
-            border-left-color: #f5576c;
-        }
-
-        .log-time {
-            color: #666;
-            font-size: 0.85em;
-            margin-bottom: 5px;
-        }
-
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.05);
-            }
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: white;
-            font-size: 1.5em;
-        }
-
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border: 1px solid #f5c6cb;
-        }
-
-        .waiting-queue {
-            margin-top: 15px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .waiting-queue h4 {
-            font-size: 0.9em;
-            color: #666;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-
-        .waiting-tickets {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .ticket-badge {
-            background: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            color: #667eea;
-            border: 2px solid #667eea;
-            font-size: 0.9em;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2em;
-            }
-
-            .counters-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .counter-number {
-                font-size: 3em;
-            }
-        }
-    </style>
+    .notification-log::-webkit-scrollbar-thumb {
+      background: #cbd5e0;
+      border-radius: 3px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎯 Counter Management System</h1>
-            <p>Real-time queue management with Telegram notifications</p>
-        </div>
 
-        <div class="config-section">
-            <h2>⚙️ Configuration</h2>
-            <div class="config-grid">
-                <div class="input-group">
-                    <label>Firebase Database URL</label>
-                    <input type="text" id="firebaseUrl" placeholder="https://your-project.firebaseio.com">
-                </div>
-                <div class="input-group">
-                    <label>Netlify Function URL</label>
-                    <input type="text" id="netlifyUrl" placeholder="https://your-site.netlify.app/.netlify/functions/notifyCounter">
-                </div>
-                <div class="input-group">
-                    <label>Telegram Bot Token (for notifications)</label>
-                    <input type="password" id="botToken" placeholder="Your bot token">
-                </div>
+  <div class="min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Header -->
+      <div class="glass rounded-3xl p-6 mb-6 fade-in shadow-2xl">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
             </div>
-            <div style="margin-top: 20px;">
-                <button class="btn btn-primary" id="connectBtn">Connect to Firebase</button>
-                <button class="btn btn-primary" id="saveConfigBtn" style="margin-left: 10px;">Save Configuration</button>
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900">Queue Joy</h1>
+              <p class="text-sm text-gray-600">Counter Management System</p>
             </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="settingsBtn" class="px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl shadow-md transition-all">
+              ⚙️ Settings
+            </button>
+            <button id="generateTicketBtn" class="px-6 py-3 btn-primary text-white font-semibold rounded-xl shadow-lg">
+              🎫 Generate Ticket
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Panel - Counter Control -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- Counter Selection -->
+          <div class="glass rounded-3xl p-6 shadow-2xl fade-in">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Counter Selection</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="counterButtonsContainer">
+              <!-- Counter buttons will be dynamically generated -->
+            </div>
+            <button id="addCounterBtn" class="w-full mt-4 py-3 bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all shadow-md">
+              + Add Counter
+            </button>
+          </div>
+
+          <!-- Current Serving -->
+          <div class="glass rounded-3xl p-8 shadow-2xl fade-in text-center">
+            <p class="text-sm font-medium text-gray-600 mb-2">Now Serving</p>
+            <div id="currentNumber" class="number-display mb-6">--</div>
+
+            <div class="flex gap-3 justify-center">
+              <button id="nextBtn" class="flex-1 max-w-xs py-4 btn-primary text-white font-bold rounded-xl text-lg shadow-lg">
+                Next Number
+              </button>
+              <button id="callAgainBtn" class="px-6 py-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl shadow-md transition-all">
+                📢 Call Again
+              </button>
+            </div>
+          </div>
+
+          <!-- Notification Log -->
+          <div class="glass rounded-3xl p-6 shadow-2xl fade-in">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-900">Notification Log</h3>
+              <button id="clearLogBtn" class="text-xs px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors">
+                Clear
+              </button>
+            </div>
+            <div id="notificationLog" class="notification-log space-y-2 bg-gray-50 rounded-xl p-4 min-h-[100px]">
+              <p class="text-gray-400 text-center">No notifications yet</p>
+            </div>
+          </div>
+
         </div>
 
-        <div id="loadingState" class="loading" style="display: none;">
-            Loading counters...
+        <!-- Right Panel - Queue Status -->
+        <div class="space-y-6">
+
+          <!-- Active Counter Info -->
+          <div class="glass rounded-3xl p-6 shadow-2xl fade-in">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Active Counter</h3>
+            <div class="space-y-3">
+              <div class="bg-white rounded-xl p-4 border-2 border-purple-200">
+                <p class="text-xs text-gray-600 mb-1">Counter Name</p>
+                <p id="activeCounterName" class="text-xl font-bold text-gray-900">Not Selected</p>
+              </div>
+              <div class="bg-white rounded-xl p-4 border-2 border-purple-200">
+                <p class="text-xs text-gray-600 mb-1">Prefix</p>
+                <p id="activeCounterPrefix" class="text-xl font-bold text-gray-900">--</p>
+              </div>
+              <div class="bg-white rounded-xl p-4 border-2 border-purple-200">
+                <p class="text-xs text-gray-600 mb-1">Last Issued</p>
+                <p id="lastIssued" class="text-xl font-bold text-purple-600">--</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Waiting Queue -->
+          <div class="glass rounded-3xl p-6 shadow-2xl fade-in">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Waiting Queue</h3>
+            <div id="waitingQueue" class="space-y-2 max-h-96 overflow-y-auto">
+              <p class="text-gray-400 text-center text-sm py-4">No queue data</p>
+            </div>
+          </div>
+
         </div>
 
-        <div id="errorState" style="display: none;"></div>
+      </div>
 
-        <div id="countersContainer" class="counters-grid"></div>
-
-        <div class="notification-log">
-            <h3>📡 Notification Log</h3>
-            <div id="notificationLog"></div>
-        </div>
     </div>
+  </div>
 
-    <script type="module">
-        // Firebase configuration and state
-        let firebaseConfig = {
-            databaseURL: localStorage.getItem('firebaseUrl') || '',
-            netlifyUrl: localStorage.getItem('netlifyUrl') || '',
-            botToken: localStorage.getItem('botToken') || ''
-        };
+  <!-- Generate Ticket Modal -->
+  <div id="ticketModal" class="modal">
+    <div class="modal-content max-w-md">
+      <div class="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6 rounded-t-2xl">
+        <h2 class="text-2xl font-bold text-center">Generate Queue Ticket</h2>
+      </div>
 
-        let countersData = {};
-        let queueData = {};
-        let isConnected = false;
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Select Counter</label>
+          <select id="ticketCounterSelect" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none">
+            <option value="">-- Select Counter --</option>
+          </select>
+        </div>
 
-        // Load saved config
-        document.getElementById('firebaseUrl').value = firebaseConfig.databaseURL;
-        document.getElementById('netlifyUrl').value = firebaseConfig.netlifyUrl;
-        document.getElementById('botToken').value = firebaseConfig.botToken;
+        <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
+          <p class="text-sm text-yellow-800">
+            ℹ️ A new queue number will be generated and the customer can scan the QR code to track their status.
+          </p>
+        </div>
 
-        // Save configuration
-        document.getElementById('saveConfigBtn').addEventListener('click', () => {
-            firebaseConfig.databaseURL = document.getElementById('firebaseUrl').value;
-            firebaseConfig.netlifyUrl = document.getElementById('netlifyUrl').value;
-            firebaseConfig.botToken = document.getElementById('botToken').value;
+        <div class="flex gap-3">
+          <button id="generateBtn" class="flex-1 py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Generate
+          </button>
+          <button id="closeTicketModalBtn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-            localStorage.setItem('firebaseUrl', firebaseConfig.databaseURL);
-            localStorage.setItem('netlifyUrl', firebaseConfig.netlifyUrl);
-            localStorage.setItem('botToken', firebaseConfig.botToken);
+  <!-- Ticket Display Modal -->
+  <div id="ticketDisplayModal" class="modal">
+    <div class="modal-content max-w-md">
+      <div id="ticketPrint" class="ticket p-8 m-4">
+        <div class="text-center mb-6 pt-4">
+          <h2 class="text-3xl font-bold text-gray-900 mb-2">Queue Joy</h2>
+          <p id="ticketCounterName" class="text-lg text-gray-600">Service Counter</p>
+        </div>
 
-            addLog('Configuration saved successfully', 'success');
+        <div class="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-6 mb-6 text-center border-2 border-purple-300">
+          <p class="text-sm font-medium text-purple-700 mb-2">Your Number</p>
+          <p id="ticketNumber" class="text-6xl font-black text-purple-800">A001</p>
+        </div>
+
+        <div class="flex justify-center mb-6">
+          <div id="qrCodeContainer" class="bg-white p-4 rounded-2xl shadow-lg border-2 border-gray-200"></div>
+        </div>
+
+        <div class="text-center space-y-2 text-sm text-gray-600 mb-6">
+          <p>📱 Scan the QR code to track your queue status</p>
+          <p class="font-semibold text-purple-600">Get notified on Telegram!</p>
+        </div>
+
+        <div class="border-t-2 border-dashed border-gray-300 pt-4 text-center text-xs text-gray-500">
+          <p>queuejoy.netlify.app</p>
+          <p class="mt-1">Thank you for your patience</p>
+        </div>
+      </div>
+
+      <div class="p-6 pt-0 flex gap-3">
+        <button id="printTicketBtn" class="flex-1 py-3 btn-secondary text-white font-bold rounded-xl shadow-lg">
+          🖨️ Print
+        </button>
+        <button id="closeTicketDisplayBtn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content max-w-lg">
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
+        <h2 class="text-2xl font-bold text-center">System Settings</h2>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Average Service Time (minutes)</label>
+          <input type="number" id="avgServiceTimeInput" min="1" max="60" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none" placeholder="2">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Advertisement Image URL</label>
+          <input type="text" id="adImageInput" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none" placeholder="https://example.com/ad.jpg">
+        </div>
+
+        <div class="flex gap-3">
+          <button id="saveSettingsBtn" class="flex-1 py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Save Settings
+          </button>
+          <button id="closeSettingsBtn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Counter Modal -->
+  <div id="addCounterModal" class="modal">
+    <div class="modal-content max-w-md">
+      <div class="bg-gradient-to-r from-green-500 to-blue-500 text-white p-6 rounded-t-2xl">
+        <h2 class="text-2xl font-bold text-center">Add New Counter</h2>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
+          <input type="text" id="newCounterName" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none" placeholder="Service Desk">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefix (1-7 letters, e.g., A, ICE, SERVICE)</label>
+          <input type="text" id="newCounterPrefix" maxlength="7" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none uppercase" placeholder="A">
+        </div>
+
+        <div class="flex gap-3">
+          <button id="confirmAddCounterBtn" class="flex-1 py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Add Counter
+          </button>
+          <button id="closeAddCounterBtn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, update, onValue, off, push, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const NOTIFY_ENDPOINT = 'https://queuejoy.netlify.app/.netlify/functions/counterNotify';
+
+    // DOM Elements
+    const counterButtonsContainer = document.getElementById('counterButtonsContainer');
+    const currentNumber = document.getElementById('currentNumber');
+    const activeCounterName = document.getElementById('activeCounterName');
+    const activeCounterPrefix = document.getElementById('activeCounterPrefix');
+    const lastIssued = document.getElementById('lastIssued');
+    const waitingQueue = document.getElementById('waitingQueue');
+    const notificationLog = document.getElementById('notificationLog');
+    const nextBtn = document.getElementById('nextBtn');
+    const callAgainBtn = document.getElementById('callAgainBtn');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const generateTicketBtn = document.getElementById('generateTicketBtn');
+    const addCounterBtn = document.getElementById('addCounterBtn');
+
+    // Modals
+    const ticketModal = document.getElementById('ticketModal');
+    const ticketDisplayModal = document.getElementById('ticketDisplayModal');
+    const settingsModal = document.getElementById('settingsModal');
+    const addCounterModal = document.getElementById('addCounterModal');
+
+    let selectedCounter = null;
+    let countersData = {};
+    let queueData = {};
+
+    // Notification Log
+    function addLog(message, type = 'info') {
+      const logEntry = document.createElement('div');
+      logEntry.className = `text-xs p-2 rounded-lg ${
+        type === 'success' ? 'bg-green-100 text-green-800' :
+        type === 'error' ? 'bg-red-100 text-red-800' :
+        'bg-blue-100 text-blue-800'
+      }`;
+      logEntry.innerHTML = `<span class="font-semibold">${new Date().toLocaleTimeString()}</span> - ${message}`;
+
+      if (notificationLog.children[0]?.textContent === 'No notifications yet') {
+        notificationLog.innerHTML = '';
+      }
+
+      notificationLog.insertBefore(logEntry, notificationLog.firstChild);
+
+      if (notificationLog.children.length > 50) {
+        notificationLog.removeChild(notificationLog.lastChild);
+      }
+    }
+
+    clearLogBtn.addEventListener('click', () => {
+      notificationLog.innerHTML = '<p class="text-gray-400 text-center">No notifications yet</p>';
+    });
+
+    // Load counters
+    const countersRef = ref(db, 'counters');
+    onValue(countersRef, (snap) => {
+      countersData = snap.val() || {};
+      renderCounterButtons();
+      updateTicketCounterSelect();
+    });
+
+    function renderCounterButtons() {
+      counterButtonsContainer.innerHTML = '';
+
+      Object.keys(countersData).forEach(counterId => {
+        const counter = countersData[counterId];
+        const btn = document.createElement('button');
+        btn.className = `py-4 px-4 rounded-xl font-semibold transition-all shadow-md ${
+          selectedCounter === counterId
+            ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-lg transform scale-105'
+            : 'bg-white hover:bg-gray-50 text-gray-700'
+        }`;
+        btn.textContent = counter.name || counterId;
+        btn.onclick = () => selectCounter(counterId);
+        counterButtonsContainer.appendChild(btn);
+      });
+
+      if (Object.keys(countersData).length === 0) {
+        counterButtonsContainer.innerHTML = '<p class="col-span-full text-center text-gray-400 py-4">No counters yet. Add one to get started!</p>';
+      }
+    }
+
+    function selectCounter(counterId) {
+      selectedCounter = counterId;
+      renderCounterButtons();
+
+      const counter = countersData[counterId];
+      activeCounterName.textContent = counter.name || counterId;
+      activeCounterPrefix.textContent = counter.prefix || '';
+
+      const nowServing = counter.nowServing || 0;
+      currentNumber.textContent = `${counter.prefix || ''}${String(nowServing).padStart(3, '0')}`;
+
+      updateLastIssued(counterId);
+      loadWaitingQueue(counterId);
+
+      addLog(`Switched to counter: ${counter.name}`, 'info');
+    }
+
+    async function updateLastIssued(counterId) {
+      const queueSnap = await get(ref(db, 'queue'));
+      const allQueue = queueSnap.val() || {};
+
+      let maxNumber = 0;
+      Object.values(allQueue).forEach(q => {
+        if (q.counterId === counterId) {
+          const prefix = countersData[counterId]?.prefix || '';
+          const numStr = String(q.queueId || '').replace(prefix, '');
+          const num = parseInt(numStr, 10);
+          if (!isNaN(num) && num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
+
+      const prefix = countersData[counterId]?.prefix || '';
+      lastIssued.textContent = maxNumber > 0 ? `${prefix}${String(maxNumber).padStart(3, '0')}` : '--';
+    }
+
+    function loadWaitingQueue(counterId) {
+      const queueRef = ref(db, 'queue');
+      onValue(queueRef, (snap) => {
+        queueData = snap.val() || {};
+
+        const filtered = Object.entries(queueData).filter(([key, q]) => q.counterId === counterId);
+
+        if (filtered.length === 0) {
+          waitingQueue.innerHTML = '<p class="text-gray-400 text-center text-sm py-4">No customers waiting</p>';
+          return;
+        }
+
+        const nowServing = countersData[counterId]?.nowServing || 0;
+        const prefix = countersData[counterId]?.prefix || '';
+
+        filtered.sort((a, b) => {
+          const numA = parseInt(String(a[1].queueId).replace(prefix, ''), 10);
+          const numB = parseInt(String(b[1].queueId).replace(prefix, ''), 10);
+          return numA - numB;
         });
 
-        // Connect to Firebase
-        document.getElementById('connectBtn').addEventListener('click', async () => {
-            if (!firebaseConfig.databaseURL) {
-                alert('Please enter Firebase Database URL');
-                return;
-            }
+        waitingQueue.innerHTML = '';
+        filtered.forEach(([key, q]) => {
+          const numStr = String(q.queueId || '').replace(prefix, '');
+          const num = parseInt(numStr, 10);
+          const isNext = num === nowServing + 1;
 
-            document.getElementById('loadingState').style.display = 'block';
-            document.getElementById('errorState').style.display = 'none';
+          const div = document.createElement('div');
+          div.className = `p-3 rounded-xl flex items-center justify-between ${
+            isNext ? 'bg-gradient-to-r from-green-100 to-blue-100 border-2 border-green-400' : 'bg-white border border-gray-200'
+          }`;
 
-            try {
-                await loadCountersData();
-                await loadQueueData();
-                isConnected = true;
-                renderCounters();
-                startRealtimeSync();
-                addLog('Connected to Firebase successfully', 'success');
-            } catch (error) {
-                showError('Failed to connect: ' + error.message);
-                addLog('Connection failed: ' + error.message, 'error');
-            } finally {
-                document.getElementById('loadingState').style.display = 'none';
-            }
+          div.innerHTML = `
+            <div>
+              <p class="font-bold text-gray-900">${q.queueId}</p>
+              <p class="text-xs text-gray-600">${q.telegramConnected ? '✅ Telegram' : '⚠️ No Telegram'}</p>
+            </div>
+            <div class="text-sm font-semibold ${isNext ? 'text-green-700' : 'text-gray-600'}">
+              ${isNext ? 'NEXT' : `+${num - nowServing}`}
+            </div>
+          `;
+
+          waitingQueue.appendChild(div);
+        });
+      });
+    }
+
+    // Next Number
+    nextBtn.addEventListener('click', async () => {
+      if (!selectedCounter) {
+        alert('Please select a counter first');
+        return;
+      }
+
+      nextBtn.disabled = true;
+      nextBtn.innerHTML = '<span class="spinner"></span>Calling...';
+
+      try {
+        const counter = countersData[selectedCounter];
+        const currentServing = counter.nowServing || 0;
+        const newServing = currentServing + 1;
+
+        await update(ref(db, `counters/${selectedCounter}`), {
+          nowServing: newServing
         });
 
-        // Load counters data from Firebase
-        async function loadCountersData() {
-            const url = `${firebaseConfig.databaseURL}/counters.json`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Failed to load counters');
-            countersData = await response.json() || {};
+        const prefix = counter.prefix || '';
+        const calledFull = `${prefix}${String(newServing).padStart(3, '0')}`;
+        currentNumber.textContent = calledFull;
+
+        await notifyCustomers(calledFull, counter.name);
+
+        addLog(`Called number: ${calledFull}`, 'success');
+      } catch (e) {
+        addLog(`Error: ${e.message}`, 'error');
+      } finally {
+        nextBtn.disabled = false;
+        nextBtn.textContent = 'Next Number';
+      }
+    });
+
+    // Call Again
+    callAgainBtn.addEventListener('click', async () => {
+      if (!selectedCounter) {
+        alert('Please select a counter first');
+        return;
+      }
+
+      const counter = countersData[selectedCounter];
+      const currentServing = counter.nowServing || 0;
+
+      if (currentServing === 0) {
+        alert('No number to call again');
+        return;
+      }
+
+      callAgainBtn.disabled = true;
+      callAgainBtn.innerHTML = '<span class="spinner"></span>Calling...';
+
+      try {
+        const prefix = counter.prefix || '';
+        const calledFull = `${prefix}${String(currentServing).padStart(3, '0')}`;
+
+        await notifyCustomers(calledFull, counter.name);
+
+        addLog(`Called again: ${calledFull}`, 'info');
+      } catch (e) {
+        addLog(`Error: ${e.message}`, 'error');
+      } finally {
+        callAgainBtn.disabled = false;
+        callAgainBtn.innerHTML = '📢 Call Again';
+      }
+    });
+
+    // Notify Customers via Netlify Function
+    async function notifyCustomers(calledFull, counterName) {
+      const recipients = [];
+
+      Object.entries(queueData).forEach(([key, q]) => {
+        if (q.counterId === selectedCounter && q.chatId) {
+          recipients.push({
+            chatId: q.chatId,
+            theirNumber: q.queueId,
+            ticketId: key
+          });
         }
+      });
 
-        // Load queue data from Firebase
-        async function loadQueueData() {
-            const url = `${firebaseConfig.databaseURL}/queue.json`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Failed to load queue');
-            queueData = await response.json() || {};
+      if (recipients.length === 0) {
+        addLog('No Telegram recipients found for this call', 'info');
+        return;
+      }
+
+      try {
+        const res = await fetch(NOTIFY_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            calledFull,
+            counterName: counterName || selectedCounter,
+            recipients
+          })
+        });
+
+        const result = await res.json();
+
+        if (result.ok) {
+          const successCount = result.results.filter(r => r.result?.ok).length;
+          addLog(`✅ Notified ${successCount}/${recipients.length} customers via Telegram`, 'success');
+        } else {
+          addLog(`⚠️ Notification failed: ${result.error || 'Unknown error'}`, 'error');
         }
+      } catch (e) {
+        addLog(`❌ Network error: ${e.message}`, 'error');
+      }
+    }
 
-        // Start real-time synchronization
-        function startRealtimeSync() {
-            // Poll for updates every 2 seconds
-            setInterval(async () => {
-                if (isConnected) {
-                    try {
-                        await loadCountersData();
-                        await loadQueueData();
-                        renderCounters();
-                    } catch (error) {
-                        console.error('Sync error:', error);
-                    }
-                }
-            }, 2000);
-        }
+    // Generate Ticket
+    generateTicketBtn.addEventListener('click', () => {
+      ticketModal.classList.add('show');
+    });
 
-        // Render counters UI
-        function renderCounters() {
-            const container = document.getElementById('countersContainer');
-            container.innerHTML = '';
+    document.getElementById('closeTicketModalBtn').addEventListener('click', () => {
+      ticketModal.classList.remove('show');
+    });
 
-            Object.entries(countersData).forEach(([counterId, counter]) => {
-                const card = createCounterCard(counterId, counter);
-                container.appendChild(card);
-            });
-        }
+    function updateTicketCounterSelect() {
+      const select = document.getElementById('ticketCounterSelect');
+      select.innerHTML = '<option value="">-- Select Counter --</option>';
 
-        // Create counter card element
-        function createCounterCard(counterId, counter) {
-            const card = document.createElement('div');
-            card.className = `counter-card ${counter.busy ? 'busy' : ''} ${!counter.active ? 'inactive' : ''}`;
+      Object.keys(countersData).forEach(counterId => {
+        const counter = countersData[counterId];
+        const option = document.createElement('option');
+        option.value = counterId;
+        option.textContent = counter.name || counterId;
+        select.appendChild(option);
+      });
+    }
 
-            const waitingTickets = getWaitingTickets(counterId);
-            const waitingCount = waitingTickets.length;
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const counterId = document.getElementById('ticketCounterSelect').value;
 
-            let statusBadge = '';
-            if (!counter.active) {
-                statusBadge = '<span class="status-badge status-inactive">Inactive</span>';
-            } else if (counter.busy) {
-                statusBadge = '<span class="status-badge status-busy">Busy</span>';
-            } else {
-                statusBadge = '<span class="status-badge status-active">Active</span>';
+      if (!counterId) {
+        alert('Please select a counter');
+        return;
+      }
+
+      try {
+        const counter = countersData[counterId];
+        const prefix = counter.prefix || '';
+
+        const queueSnap = await get(ref(db, 'queue'));
+        const allQueue = queueSnap.val() || {};
+
+        let maxNumber = 0;
+        Object.values(allQueue).forEach(q => {
+          if (q.counterId === counterId) {
+            const numStr = String(q.queueId || '').replace(prefix, '');
+            const num = parseInt(numStr, 10);
+            if (!isNaN(num) && num > maxNumber) {
+              maxNumber = num;
             }
+          }
+        });
 
-            card.innerHTML = `
-                <div class="counter-header">
-                    <div>
-                        <div class="counter-name">${counter.name}${statusBadge}</div>
-                    </div>
-                    <div class="counter-prefix">${counter.prefix}</div>
-                </div>
+        const newNumber = maxNumber + 1;
+        const newQueueId = `${prefix}${String(newNumber).padStart(3, '0')}`;
 
-                <div class="counter-display">
-                    <div class="counter-label">Now Serving</div>
-                    <div class="counter-number">${counter.prefix}${String(counter.nowServing).padStart(3, '0')}</div>
-                </div>
+        const newQueueRef = push(ref(db, 'queue'));
+        await set(newQueueRef, {
+          queueId: newQueueId,
+          counterId: counterId,
+          telegramConnected: false,
+          timestamp: Date.now()
+        });
 
-                <div class="counter-stats">
-                    <div class="stat">
-                        <div class="stat-label">Last Issued</div>
-                        <div class="stat-value">${counter.prefix}${String(counter.lastIssued).padStart(3, '0')}</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">Waiting</div>
-                        <div class="stat-value">${waitingCount}</div>
-                    </div>
-                </div>
+        const queueKey = newQueueRef.key;
+        const customerUrl = `https://queuejoy.netlify.app/customer.html?queueId=${queueKey}`;
 
-                ${waitingTickets.length > 0 ? `
-                    <div class="waiting-queue">
-                        <h4>⏳ Waiting Queue</h4>
-                        <div class="waiting-tickets">
-                            ${waitingTickets.map(t => `<div class="ticket-badge">${t.queueId}</div>`).join('')}
-                        </div>
-                    </div>
-                ` : ''}
+        document.getElementById('ticketNumber').textContent = newQueueId;
+        document.getElementById('ticketCounterName').textContent = counter.name || counterId;
 
-                <div class="counter-actions">
-                    <button class="btn-call" onclick="callNext('${counterId}')" ${!counter.active || waitingCount === 0 ? 'disabled' : ''}>
-                        📢 Call Next
-                    </button>
-                    <button class="btn-skip" onclick="skipCurrent('${counterId}')" ${!counter.active ? 'disabled' : ''}>
-                        ⏭️ Skip
-                    </button>
-                    <button class="btn-toggle ${!counter.active ? 'inactive' : ''}" onclick="toggleCounter('${counterId}')">
-                        ${counter.active ? '⏸️ Deactivate' : '▶️ Activate'} Counter
-                    </button>
-                </div>
-            `;
+        const qrContainer = document.getElementById('qrCodeContainer');
+        qrContainer.innerHTML = '';
+        await QRCode.toCanvas(customerUrl, { width: 200, margin: 2 }, (err, canvas) => {
+          if (err) throw err;
+          qrContainer.appendChild(canvas);
+        });
 
-            return card;
+        ticketModal.classList.remove('show');
+        ticketDisplayModal.classList.add('show');
+
+        addLog(`Generated ticket: ${newQueueId}`, 'success');
+        updateLastIssued(counterId);
+      } catch (e) {
+        alert('Error generating ticket: ' + e.message);
+        addLog(`Error generating ticket: ${e.message}`, 'error');
+      }
+    });
+
+    document.getElementById('printTicketBtn').addEventListener('click', () => {
+      window.print();
+    });
+
+    document.getElementById('closeTicketDisplayBtn').addEventListener('click', () => {
+      ticketDisplayModal.classList.remove('show');
+    });
+
+    // Settings
+    settingsBtn.addEventListener('click', async () => {
+      const settingsSnap = await get(ref(db, 'settings'));
+      const settings = settingsSnap.val() || {};
+
+      document.getElementById('avgServiceTimeInput').value = settings.avgServiceTime || 2;
+      document.getElementById('adImageInput').value = settings.adImage || '';
+
+      settingsModal.classList.add('show');
+    });
+
+    document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+      const avgTime = parseInt(document.getElementById('avgServiceTimeInput').value) || 2;
+      const adImage = document.getElementById('adImageInput').value.trim();
+
+      try {
+        await update(ref(db, 'settings'), {
+          avgServiceTime: avgTime,
+          adImage: adImage
+        });
+
+        addLog('Settings saved successfully', 'success');
+        settingsModal.classList.remove('show');
+      } catch (e) {
+        alert('Error saving settings: ' + e.message);
+      }
+    });
+
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+      settingsModal.classList.remove('show');
+    });
+
+    // Add Counter
+    addCounterBtn.addEventListener('click', () => {
+      document.getElementById('newCounterName').value = '';
+      document.getElementById('newCounterPrefix').value = '';
+      addCounterModal.classList.add('show');
+    });
+
+    document.getElementById('newCounterPrefix').addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+    });
+
+    document.getElementById('confirmAddCounterBtn').addEventListener('click', async () => {
+      const name = document.getElementById('newCounterName').value.trim();
+      const prefix = document.getElementById('newCounterPrefix').value.trim().toUpperCase();
+
+      if (!name) {
+        alert('Please enter counter name');
+        return;
+      }
+
+      if (!prefix || prefix.length > 7) {
+        alert('Prefix must be 1-7 letters');
+        return;
+      }
+
+      const existingPrefix = Object.values(countersData).find(c => c.prefix === prefix);
+      if (existingPrefix) {
+        alert('This prefix is already used by another counter');
+        return;
+      }
+
+      try {
+        const newCounterRef = push(ref(db, 'counters'));
+        await set(newCounterRef, {
+          name,
+          prefix,
+          nowServing: 0,
+          avgServiceTime: 2
+        });
+
+        addLog(`Added new counter: ${name} (${prefix})`, 'success');
+        addCounterModal.classList.remove('show');
+      } catch (e) {
+        alert('Error adding counter: ' + e.message);
+      }
+    });
+
+    document.getElementById('closeAddCounterBtn').addEventListener('click', () => {
+      addCounterModal.classList.remove('show');
+    });
+
+    // Close modals on outside click
+    [ticketModal, ticketDisplayModal, settingsModal, addCounterModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('show');
         }
+      });
+    });
 
-        // Get waiting tickets for a counter
-        function getWaitingTickets(counterId) {
-            return Object.entries(queueData)
-                .filter(([_, ticket]) => ticket.counterId === counterId && ticket.status === 'waiting')
-                .map(([key, ticket]) => ({ ...ticket, key }))
-                .sort((a, b) => a.timestamp - b.timestamp);
-        }
+    // Initial load message
+    addLog('Counter management system loaded', 'info');
+  </script>
 
-        // Call next number
-        window.callNext = async function(counterId) {
-            const counter = countersData[counterId];
-            if (!counter || !counter.active) return;
-
-            const waitingTickets = getWaitingTickets(counterId);
-            if (waitingTickets.length === 0) {
-                alert('No tickets waiting for this counter');
-                return;
-            }
-
-            const nextTicket = waitingTickets[0];
-            const nextNumber = nextTicket.queueId;
-
-            try {
-                // Update counter state
-                await updateCounter(counterId, {
-                    nowServing: counter.nowServing + 1,
-                    busy: true
-                });
-
-                // Update ticket status
-                await updateTicketStatus(nextTicket.key, 'serving');
-
-                // Send Telegram notification
-                await sendTelegramNotification(nextNumber, counter.name, waitingTickets);
-
-                addLog(`Called ${nextNumber} at ${counter.name}`, 'success');
-            } catch (error) {
-                addLog(`Failed to call next: ${error.message}`, 'error');
-                alert('Failed to call next number: ' + error.message);
-            }
-        };
-
-        // Skip current number
-        window.skipCurrent = async function(counterId) {
-            const counter = countersData[counterId];
-            if (!counter || !counter.active) return;
-
-            try {
-                await updateCounter(counterId, {
-                    nowServing: counter.nowServing + 1,
-                    busy: false
-                });
-
-                addLog(`Skipped number at ${counter.name}`, 'success');
-            } catch (error) {
-                addLog(`Failed to skip: ${error.message}`, 'error');
-            }
-        };
-
-        // Toggle counter active state
-        window.toggleCounter = async function(counterId) {
-            const counter = countersData[counterId];
-            if (!counter) return;
-
-            try {
-                await updateCounter(counterId, {
-                    active: !counter.active,
-                    busy: false
-                });
-
-                addLog(`Counter ${counter.name} ${counter.active ? 'deactivated' : 'activated'}`, 'success');
-            } catch (error) {
-                addLog(`Failed to toggle counter: ${error.message}`, 'error');
-            }
-        };
-
-        // Update counter in Firebase
-        async function updateCounter(counterId, updates) {
-            const url = `${firebaseConfig.databaseURL}/counters/${counterId}.json`;
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updates)
-            });
-
-            if (!response.ok) throw new Error('Failed to update counter');
-
-            // Update local state
-            countersData[counterId] = { ...countersData[counterId], ...updates };
-            renderCounters();
-        }
-
-        // Update ticket status
-        async function updateTicketStatus(ticketKey, status) {
-            const url = `${firebaseConfig.databaseURL}/queue/${ticketKey}.json`;
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
-            });
-
-            if (!response.ok) throw new Error('Failed to update ticket');
-
-            // Update local state
-            queueData[ticketKey] = { ...queueData[ticketKey], status };
-            renderCounters();
-        }
-
-        // Send Telegram notification via Netlify function
-        async function sendTelegramNotification(calledNumber, counterName, allWaitingTickets) {
-            if (!firebaseConfig.netlifyUrl) {
-                console.warn('Netlify URL not configured, skipping notification');
-                return;
-            }
-
-            // Build recipients array from waiting tickets
-            const recipients = allWaitingTickets.map(ticket => ({
-                chatId: ticket.chatId || '123456', // You'll need to store chatId in Firebase
-                theirNumber: ticket.queueId,
-                ticketId: ticket.key
-            }));
-
-            const payload = {
-                calledFull: calledNumber,
-                counterName: counterName,
-                recipients: recipients
-            };
-
-            try {
-                const response = await fetch(firebaseConfig.netlifyUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.ok) {
-                    addLog(`Telegram notifications sent for ${calledNumber}`, 'success');
-                } else {
-                    addLog(`Telegram notification failed: ${result.error || 'Unknown error'}`, 'error');
-                }
-            } catch (error) {
-                console.error('Notification error:', error);
-                addLog(`Telegram notification error: ${error.message}`, 'error');
-            }
-        }
-
-        // Add log entry
-        function addLog(message, type = 'info') {
-            const logContainer = document.getElementById('notificationLog');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-
-            const now = new Date().toLocaleTimeString();
-            entry.innerHTML = `
-                <div class="log-time">${now}</div>
-                <div>${message}</div>
-            `;
-
-            logContainer.insertBefore(entry, logContainer.firstChild);
-
-            // Keep only last 50 entries
-            while (logContainer.children.length > 50) {
-                logContainer.removeChild(logContainer.lastChild);
-            }
-        }
-
-        // Show error message
-        function showError(message) {
-            const errorDiv = document.getElementById('errorState');
-            errorDiv.className = 'error-message';
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-
-        // Auto-connect if config exists
-        if (firebaseConfig.databaseURL) {
-            document.getElementById('connectBtn').click();
-        }
-    </script>
 </body>
 </html>
