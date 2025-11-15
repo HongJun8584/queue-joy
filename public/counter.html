@@ -10,156 +10,335 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-        .card-hover { transition: all 0.3s ease; }
-        .card-hover:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); transform: translateY(-2px); }
-        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-        .badge-active { background: linear-gradient(135deg, #34d399 0%, #10b981 100%); }
-        .badge-inactive { background: linear-gradient(135deg, #f87171 0%, #ef4444 100%); }
-        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); } }
-        .pulse-glow { animation: pulse-glow 2s infinite; }
-        .modal-backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .slide-up { animation: slideUp 0.3s ease-out; }
-        .number-display { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .transition-all { transition: all 0.3s ease; }
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .pulse-ring {
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.5; }
+            100% { transform: scale(0.8); opacity: 1; }
+        }
+        .shake {
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease-out;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 9999px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
 
     <!-- PIN Modal -->
     <div id="pinModal" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50">
-        <div class="w-full max-w-md bg-white rounded-3xl card-shadow p-8 slide-up mx-4">
-            <div class="text-center mb-8">
-                <div class="w-20 h-20 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 pulse-glow">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8 space-y-6 slide-up mx-4">
+            <div class="text-center space-y-3">
+                <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
                     <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                     </svg>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800 mb-2">Counter Panel Access</h1>
-                <p class="text-gray-600">Enter your PIN to continue</p>
+                <h1 class="text-2xl font-bold text-gray-800">Counter Access</h1>
+                <p class="text-gray-600">Enter PIN to continue</p>
             </div>
 
             <form id="pinForm" class="space-y-4">
                 <div class="relative">
-                    <input type="password" id="pinInput" maxlength="4"
-                           class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl tracking-widest font-semibold transition-all"
-                           placeholder="••••" autocomplete="off">
-                    <button type="button" id="togglePin"
-                            class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <input
+                        type="password"
+                        id="pinInput"
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center text-lg tracking-wider font-semibold transition-all"
+                        placeholder="Enter PIN"
+                        maxlength="4"
+                        autocomplete="off"
+                    />
+                    <button
+                        type="button"
+                        id="togglePin"
+                        class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                         </svg>
                     </button>
                 </div>
-                <div id="pinError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-lg text-center">
-                    ❌ Incorrect PIN. Please try again.
+
+                <div id="pinError" class="hidden">
+                    <p class="text-sm text-red-600 text-center font-medium">❌ Incorrect PIN</p>
                 </div>
-                <button type="submit" id="pinSubmit"
-                        class="w-full py-4 btn-primary text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
-                    <span id="pinBtnText">Access Counter Panel</span>
-                    <div id="pinSpinner" class="hidden flex items-center justify-center">
-                        <svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Verifying...
-                    </div>
+
+                <button
+                    type="submit"
+                    id="pinSubmit"
+                    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                    <span id="pinBtnText">Access Panel</span>
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- Main Dashboard -->
-    <div id="dashboard" class="hidden min-h-screen p-4 md:p-6">
-        <div class="max-w-7xl mx-auto">
+    <!-- Main Counter Panel -->
+    <div id="counterPanel" class="hidden min-h-screen p-4 pb-20">
+        <div class="max-w-6xl mx-auto">
 
             <!-- Header -->
-            <div class="bg-white rounded-3xl card-shadow p-6 mb-6 card-hover">
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center">
-                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h1 class="text-2xl font-bold text-gray-800">Counter Dashboard</h1>
-                            <p class="text-gray-600" id="activeCountersText">Loading...</p>
-                        </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                            <span class="text-3xl">🎯</span>
+                            Counter Dashboard
+                        </h1>
+                        <p class="text-sm text-gray-600 mt-1">Real-time queue management system</p>
                     </div>
-                    <div class="flex items-center space-x-3">
-                        <button id="helpBtn" class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all">
+                    <div class="flex items-center gap-3">
+                        <button id="helpBtn" class="p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition-all relative">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                         </button>
-                        <button id="logoutBtn" class="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all">
+                        <button id="menuBtn" class="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all relative">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
+                            <span id="newCustomerBadge" class="hidden badge">0</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Counters Grid -->
-            <div id="countersList" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <!-- Counters will be rendered here -->
+            <!-- Counter Type Selection -->
+            <div id="typeStep" class="bg-white rounded-2xl shadow-lg p-8">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">Choose Counter Setup</h2>
+                    <p class="text-gray-600 mt-2">Select how you want to configure your counters</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                    <button id="multipleCounters" class="group p-6 border-2 border-gray-200 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left">
+                        <div class="w-16 h-16 bg-indigo-100 group-hover:bg-indigo-200 rounded-xl flex items-center justify-center mb-4 transition-all">
+                            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Multiple Counters</h3>
+                        <p class="text-sm text-gray-600">Manage up to 7 service counters simultaneously</p>
+                    </button>
+
+                    <button id="singleCounter" class="group p-6 border-2 border-gray-200 rounded-2xl hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
+                        <div class="w-16 h-16 bg-purple-100 group-hover:bg-purple-200 rounded-xl flex items-center justify-center mb-4 transition-all">
+                            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Single Counter</h3>
+                        <p class="text-sm text-gray-600">Manage one dedicated service counter</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Counter Setup -->
+            <div id="setupMode" class="hidden bg-white rounded-2xl shadow-lg p-8">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <h2 id="setupTitle" class="text-2xl font-bold text-gray-800">Setup Counters</h2>
+                    <p id="setupDescription" class="text-gray-600 mt-2">Configure your counter settings</p>
+                </div>
+
+                <!-- Multiple Setup -->
+                <div id="multipleSetup" class="hidden max-w-3xl mx-auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm font-semibold text-gray-700">Select Counters</span>
+                        <span id="counterCount" class="text-sm font-semibold text-indigo-600">0/7 selected</span>
+                    </div>
+                    <div id="counterList" class="space-y-3 max-h-[500px] overflow-y-auto pr-2"></div>
+                </div>
+
+                <!-- Single Setup -->
+                <div id="singleSetup" class="hidden max-w-md mx-auto space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
+                        <input
+                            type="text"
+                            id="singleCounterName"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                            placeholder="e.g., Service Counter"
+                            value="Service Counter"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Prefix</label>
+                        <input
+                            type="text"
+                            id="singleCounterPrefix"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center text-xl font-bold uppercase transition-all"
+                            placeholder="A"
+                            maxlength="7"
+                        />
+                        <p class="text-xs text-gray-500 mt-2">Max 7 characters (A-Z, 0-9)</p>
+                    </div>
+                    <div id="singleError" class="hidden">
+                        <p class="text-sm text-red-600 text-center font-medium">❌ Please fill in all fields</p>
+                    </div>
+                </div>
+
+                <button
+                    id="setupBtn"
+                    class="w-full max-w-md mx-auto block mt-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    disabled
+                >
+                    <span id="setupBtnText">Complete Setup</span>
+                </button>
+            </div>
+
+            <!-- Dashboard -->
+            <div id="dashboardMode" class="hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="countersList"></div>
+
+                <button id="addMoreBtn" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Add More Counters
+                </button>
             </div>
 
         </div>
     </div>
 
     <!-- Help Modal -->
-    <div id="helpModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50">
-        <div class="w-full max-w-2xl bg-white rounded-3xl card-shadow p-8 mx-4 max-h-[90vh] overflow-y-auto slide-up">
+    <div id="helpModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+        <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-8 slide-up max-h-[80vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-2xl font-bold text-gray-800">How It Works</h3>
-                <button id="closeHelp" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 class="text-2xl font-bold text-indigo-600">How It Works</h3>
+                <button id="closeHelp" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
             </div>
-            <div class="space-y-4 text-gray-700">
-                <div class="p-4 bg-purple-50 rounded-xl">
-                    <h4 class="font-semibold text-purple-900 mb-2 flex items-center">
-                        <span class="text-2xl mr-2">🔐</span> PIN Access
+            <div class="space-y-5 text-sm text-gray-700">
+                <div class="p-4 bg-blue-50 rounded-xl">
+                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <span class="text-xl">🔐</span> PIN Access
                     </h4>
-                    <p>Enter PIN (0108) to securely access the counter panel.</p>
+                    <p>Use PIN <strong>0108</strong> to access the counter panel securely.</p>
                 </div>
                 <div class="p-4 bg-green-50 rounded-xl">
-                    <h4 class="font-semibold text-green-900 mb-2 flex items-center">
-                        <span class="text-2xl mr-2">📞</span> Call Next
+                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <span class="text-xl">📞</span> Call Next
                     </h4>
-                    <p>Issues a new ticket number and updates "Now Serving" display for customers.</p>
+                    <p>Issues a new number and updates "Now Serving" display instantly.</p>
                 </div>
-                <div class="p-4 bg-blue-50 rounded-xl">
-                    <h4 class="font-semibold text-blue-900 mb-2 flex items-center">
-                        <span class="text-2xl mr-2">⏭️</span> Skip
+                <div class="p-4 bg-yellow-50 rounded-xl">
+                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <span class="text-xl">⏭️</span> Skip Number
                     </h4>
-                    <p>Advances to the next number in queue without issuing a new ticket.</p>
+                    <p>Move to the next queued number without issuing a new one.</p>
                 </div>
-                <div class="p-4 bg-orange-50 rounded-xl">
-                    <h4 class="font-semibold text-orange-900 mb-2 flex items-center">
-                        <span class="text-2xl mr-2">🔄</span> Reset
+                <div class="p-4 bg-purple-50 rounded-xl">
+                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <span class="text-xl">🔄</span> Reset Counter
                     </h4>
                     <p>Resets both serving and issued numbers back to 1.</p>
                 </div>
-                <div class="p-4 bg-indigo-50 rounded-xl">
-                    <h4 class="font-semibold text-indigo-900 mb-2 flex items-center">
-                        <span class="text-2xl mr-2">🔄</span> Real-time Sync
+                <div class="p-4 bg-pink-50 rounded-xl">
+                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <span class="text-xl">🔔</span> Real-time Notifications
                     </h4>
-                    <p>All changes sync instantly with customer displays via Firebase.</p>
+                    <p>Get instant alerts when customers take new queue numbers.</p>
+                </div>
+                <div class="p-4 bg-indigo-50 rounded-xl">
+                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <span class="text-xl">✏️</span> Edit Counters
+                    </h4>
+                    <p>Modify counter names and prefixes from the counter menu.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Firebase & Scripts -->
+    <!-- Menu Dropdown -->
+    <div id="menuDropdown" class="hidden fixed top-20 right-4 bg-white shadow-2xl rounded-2xl p-4 w-64 z-50 slide-up border border-gray-100">
+        <div class="space-y-2">
+            <button id="logoutBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-red-600 transition-colors p-3 rounded-xl hover:bg-red-50">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+                Logout
+            </button>
+            <a href="/" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-indigo-600 transition-colors p-3 rounded-xl hover:bg-indigo-50">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                Customer View
+            </a>
+        </div>
+    </div>
+
+    <!-- Firebase & Main Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -178,301 +357,566 @@
         const database = getDatabase(app);
 
         let activeCounters = {};
+        let counterType = '';
+        let selectedCounters = [];
+        let prefixes = {};
+        let lastSeenQueue = {};
+        let newCustomerCount = 0;
+        let notificationSound;
 
-        // DOM Elements
-        const pinModal = document.getElementById('pinModal');
-        const dashboard = document.getElementById('dashboard');
-        const pinForm = document.getElementById('pinForm');
-        const pinInput = document.getElementById('pinInput');
-        const pinError = document.getElementById('pinError');
-        const pinSubmit = document.getElementById('pinSubmit');
-        const pinBtnText = document.getElementById('pinBtnText');
-        const pinSpinner = document.getElementById('pinSpinner');
-        const togglePin = document.getElementById('togglePin');
-        const countersList = document.getElementById('countersList');
-        const activeCountersText = document.getElementById('activeCountersText');
-        const helpBtn = document.getElementById('helpBtn');
-        const helpModal = document.getElementById('helpModal');
-        const closeHelp = document.getElementById('closeHelp');
-        const logoutBtn = document.getElementById('logoutBtn');
+        // Initialize notification sound
+        function initSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            gainNode.gain.value = 0;
+            oscillator.start();
+            notificationSound = { oscillator, gainNode, audioContext };
+        }
+
+        function playNotificationSound() {
+            if (notificationSound) {
+                const { gainNode } = notificationSound;
+                gainNode.gain.setValueAtTime(0.3, notificationSound.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, notificationSound.audioContext.currentTime + 0.5);
+            }
+        }
+
+        // Show notification toast
+        function showNotification(title, message, type = 'info') {
+            const container = document.getElementById('notificationContainer');
+            const toast = document.createElement('div');
+
+            const bgColors = {
+                info: 'bg-blue-500',
+                success: 'bg-green-500',
+                warning: 'bg-yellow-500',
+                error: 'bg-red-500'
+            };
+
+            toast.className = `notification-toast ${bgColors[type]} text-white p-4 rounded-xl shadow-2xl`;
+            toast.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="text-2xl">${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔔'}</div>
+                    <div class="flex-1">
+                        <p class="font-semibold">${title}</p>
+                        <p class="text-sm opacity-90">${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(toast);
+            playNotificationSound();
+
+            setTimeout(() => toast.remove(), 5000);
+        }
+
+        // Update badge
+        function updateBadge() {
+            const badge = document.getElementById('newCustomerBadge');
+            if (newCustomerCount > 0) {
+                badge.textContent = newCustomerCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
 
         // Check authentication
         if (sessionStorage.getItem('counterAccess') === 'true') {
-            pinModal.classList.add('hidden');
-            dashboard.classList.remove('hidden');
+            document.getElementById('pinModal').classList.add('hidden');
+            document.getElementById('counterPanel').classList.remove('hidden');
+            initSound();
             loadCounters();
         }
 
-        // PIN Toggle
-        togglePin.addEventListener('click', () => {
-            pinInput.type = pinInput.type === 'password' ? 'text' : 'password';
+        // PIN handling
+        document.getElementById('togglePin').addEventListener('click', () => {
+            const input = document.getElementById('pinInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
         });
 
-        // PIN Form Submit
-        pinForm.addEventListener('submit', async (e) => {
+        document.getElementById('pinForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const pin = pinInput.value;
-
-            if (pin.length !== 4) return;
-
-            pinSubmit.disabled = true;
-            pinBtnText.classList.add('hidden');
-            pinSpinner.classList.remove('hidden');
-            pinError.classList.add('hidden');
-
-            await new Promise(resolve => setTimeout(resolve, 800));
+            const pin = document.getElementById('pinInput').value;
 
             if (pin === '0108') {
                 sessionStorage.setItem('counterAccess', 'true');
-                pinModal.classList.add('hidden');
-                dashboard.classList.remove('hidden');
+                document.getElementById('pinModal').classList.add('hidden');
+                document.getElementById('counterPanel').classList.remove('hidden');
+                initSound();
                 loadCounters();
             } else {
-                pinError.classList.remove('hidden');
-                pinInput.value = '';
+                document.getElementById('pinError').classList.remove('hidden');
+                document.getElementById('pinInput').value = '';
+                document.getElementById('pinInput').classList.add('shake');
+                setTimeout(() => document.getElementById('pinInput').classList.remove('shake'), 500);
             }
-
-            pinSubmit.disabled = false;
-            pinBtnText.classList.remove('hidden');
-            pinSpinner.classList.add('hidden');
         });
 
-        // Load Counters
+        // Load counters
         async function loadCounters() {
             try {
-                const countersRef = ref(database, 'settings/counters');
-                const snapshot = await get(countersRef);
-
+                const snapshot = await get(ref(database, 'settings/counters'));
                 if (snapshot.exists()) {
                     activeCounters = snapshot.val();
-                    renderCounters();
-                    setupRealtimeListeners();
+                    if (Object.keys(activeCounters).length > 0) {
+                        showDashboard();
+                    } else {
+                        showTypeSelection();
+                    }
                 } else {
-                    activeCountersText.textContent = 'No active counters';
+                    showTypeSelection();
                 }
             } catch (error) {
                 console.error('Error loading counters:', error);
-                activeCountersText.textContent = 'Error loading counters';
+                showTypeSelection();
             }
         }
 
-        // Setup Realtime Listeners
+        function showTypeSelection() {
+            document.getElementById('typeStep').classList.remove('hidden');
+            document.getElementById('setupMode').classList.add('hidden');
+            document.getElementById('dashboardMode').classList.add('hidden');
+        }
+
+        function showSetup() {
+            document.getElementById('typeStep').classList.add('hidden');
+            document.getElementById('setupMode').classList.remove('hidden');
+            document.getElementById('dashboardMode').classList.add('hidden');
+
+            if (counterType === 'multiple') {
+                document.getElementById('setupTitle').textContent = 'Setup Multiple Counters';
+                document.getElementById('setupDescription').textContent = 'Select and configure up to 7 counters';
+                document.getElementById('multipleSetup').classList.remove('hidden');
+                document.getElementById('singleSetup').classList.add('hidden');
+                generateCounterList();
+            } else {
+                document.getElementById('setupTitle').textContent = 'Setup Single Counter';
+                document.getElementById('setupDescription').textContent = 'Configure your service counter';
+                document.getElementById('multipleSetup').classList.add('hidden');
+                document.getElementById('singleSetup').classList.remove('hidden');
+                validateSingleSetup();
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('typeStep').classList.add('hidden');
+            document.getElementById('setupMode').classList.add('hidden');
+            document.getElementById('dashboardMode').classList.remove('hidden');
+            renderCounters();
+            setupRealtimeListeners();
+        }
+
+        // Counter type selection
+        document.getElementById('multipleCounters').addEventListener('click', () => {
+            counterType = 'multiple';
+            showSetup();
+        });
+
+        document.getElementById('singleCounter').addEventListener('click', () => {
+            counterType = 'single';
+            showSetup();
+        });
+
+        // Generate counter list for multiple setup
+        function generateCounterList() {
+            const list = document.getElementById('counterList');
+            list.innerHTML = '';
+
+            for (let i = 1; i <= 7; i++) {
+                const id = `counter${i}`;
+                const div = document.createElement('div');
+                div.className = 'bg-gray-50 rounded-xl p-4 space-y-3';
+                div.innerHTML = `
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="${id}" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" />
+                        <span class="text-lg font-semibold text-gray-800">Counter ${i}</span>
+                    </label>
+                    <div id="${id}-config" class="hidden space-y-3 pl-8">
+                        <input type="text" placeholder="Counter Name" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-field="name" value="Counter ${i}" />
+                        <input type="text" placeholder="Prefix" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase font-bold" data-field="prefix" maxlength="7" />
+                        <div class="error-msg hidden text-sm text-red-600 font-medium"></div>
+                    </div>
+                `;
+
+                const checkbox = div.querySelector(`#${id}`);
+                const config = div.querySelector(`#${id}-config`);
+                const nameInput = config.querySelector('[data-field="name"]');
+                const prefixInput = config.querySelector('[data-field="prefix"]');
+
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        if (selectedCounters.length >= 7) {
+                            checkbox.checked = false;
+                            return;
+                        }
+                        selectedCounters.push(id);
+                        config.classList.remove('hidden');
+                        if (!prefixes[id]) prefixes[id] = { name: `Counter ${i}`, prefix: '' };
+                    } else {
+                        selectedCounters = selectedCounters.filter(c => c !== id);
+                        config.classList.add('hidden');
+                        delete prefixes[id];
+                    }
+                    updateCounterCount();
+                    validateMultipleSetup();
+                });
+
+                nameInput.addEventListener('input', (e) => {
+                    if (!prefixes[id]) prefixes[id] = {};
+                    prefixes[id].name = e.target.value;
+                    validateMultipleSetup();
+                });
+
+                prefixInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                    if (!prefixes[id]) prefixes[id] = {};
+                    prefixes[id].prefix = e.target.value;
+                    validateMultipleSetup();
+                });
+
+                list.appendChild(div);
+            }
+        }
+
+        function updateCounterCount() {
+            document.getElementById('counterCount').textContent = `${selectedCounters.length}/7 selected`;
+        }
+
+        function validateMultipleSetup() {
+            const errors = {};
+            const usedPrefixes = new Set();
+
+            selectedCounters.forEach(id => {
+                const config = prefixes[id] || {};
+                const errorDiv = document.querySelector(`#${id}-config .error-msg`);
+
+                if (!config.name?.trim()) {
+                    errors[id] = 'Name required';
+                } else if (!config.prefix) {
+                    errors[id] = 'Prefix required';
+                } else if (!/^[A-Z0-9]{1,7}$/.test(config.prefix)) {
+                    errors[id] = 'Invalid format (A-Z, 0-9, max 7 chars)';
+                } else if (usedPrefixes.has(config.prefix)) {
+                    errors[id] = 'Prefix already used';
+                } else {
+                    usedPrefixes.add(config.prefix);
+                }
+
+                if (errors[id]) {
+                    errorDiv.textContent = errors[id];
+                    errorDiv.classList.remove('hidden');
+                } else {
+                    errorDiv.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('setupBtn').disabled = !(selectedCounters.length > 0 && Object.keys(errors).length === 0);
+        }
+
+        // Single counter validation
+        function validateSingleSetup() {
+            const name = document.getElementById('singleCounterName').value.trim();
+            const prefix = document.getElementById('singleCounterPrefix').value.trim().toUpperCase();
+            const isValid = name && prefix && /^[A-Z0-9]{1,7}$/.test(prefix);
+
+            document.getElementById('singleError').classList.toggle('hidden', isValid || (!name && !prefix));
+            document.getElementById('setupBtn').disabled = !isValid;
+        }
+
+        document.getElementById('singleCounterName').addEventListener('input', validateSingleSetup);
+        document.getElementById('singleCounterPrefix').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+            validateSingleSetup();
+        });
+
+        // Setup counters
+        document.getElementById('setupBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('setupBtn');
+            btn.disabled = true;
+            document.getElementById('setupBtnText').textContent = 'Setting up...';
+
+            try {
+                const countersData = {};
+
+                if (counterType === 'single') {
+                    const name = document.getElementById('singleCounterName').value.trim();
+                    const prefix = document.getElementById('singleCounterPrefix').value.trim().toUpperCase();
+                    countersData['counter1'] = { name, prefix, nowServing: 1, lastIssued: 1, active: true };
+                } else {
+                    selectedCounters.forEach(id => {
+                        const config = prefixes[id];
+                        countersData[id] = {
+                            name: config.name.trim(),
+                            prefix: config.prefix.trim().toUpperCase(),
+                            nowServing: 1,
+                            lastIssued: 1,
+                            active: true
+                        };
+                    });
+                }
+
+                await set(ref(database, 'settings/counters'), countersData);
+
+                for (const [id, config] of Object.entries(countersData)) {
+                    await set(ref(database, `counters/${id}`), {
+                        name: config.name,
+                        prefix: config.prefix,
+                        nowServing: config.nowServing,
+                        lastIssued: config.lastIssued,
+                        active: true,
+                        busy: false
+                    });
+                }
+
+                showNotification('Success', 'Counters setup complete!', 'success');
+                activeCounters = countersData;
+                showDashboard();
+            } catch (error) {
+                console.error('Setup error:', error);
+                showNotification('Error', 'Failed to setup counters', 'error');
+            } finally {
+                btn.disabled = false;
+                document.getElementById('setupBtnText').textContent = 'Complete Setup';
+            }
+        });
+
+        // Render counters
+        function renderCounters() {
+            const list = document.getElementById('countersList');
+            list.innerHTML = '';
+
+            Object.entries(activeCounters).forEach(([id, counter]) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl shadow-lg p-6 space-y-4 hover:shadow-xl transition-all relative border-2 border-transparent hover:border-indigo-200';
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">${counter.name}</p>
+                            <p class="text-4xl font-bold text-indigo-600 my-2">${counter.prefix}${String(counter.nowServing).padStart(3, '0')}</p>
+                            <p class="text-xs text-gray-400">Now Serving</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="bg-pink-100 rounded-xl px-4 py-2">
+                                <p class="text-2xl font-bold text-pink-600">${counter.prefix}${String(counter.lastIssued).padStart(3, '0')}</p>
+                                <p class="text-xs text-gray-500">Last Issued</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="feedback-${id}" class="hidden p-3 rounded-xl text-sm font-medium"></div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="call-${id}" class="py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all font-semibold" ${!counter.active ? 'disabled' : ''}>
+                            📞 Call Next
+                        </button>
+                        <button id="skip-${id}" class="py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 hover:scale-105 transition-all font-semibold" ${!counter.active ? 'disabled' : ''}>
+                            ⏭️ Skip
+                        </button>
+                        <button id="reset-${id}" class="py-3 bg-yellow-200 text-yellow-800 rounded-xl hover:bg-yellow-300 hover:scale-105 transition-all font-semibold">
+                            🔄 Reset
+                        </button>
+                        <button id="edit-${id}" class="py-3 bg-blue-200 text-blue-800 rounded-xl hover:bg-blue-300 hover:scale-105 transition-all font-semibold">
+                            ✏️ Edit
+                        </button>
+                    </div>
+
+                    <button id="remove-${id}" class="w-full py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 hover:scale-105 transition-all font-semibold">
+                        🗑️ Remove Counter
+                    </button>
+                `;
+
+                list.appendChild(card);
+                setupCounterActions(id, counter);
+            });
+        }
+
+        // Setup counter actions
+        function setupCounterActions(id, counter) {
+            document.getElementById(`call-${id}`).addEventListener('click', () => handleAction(id, 'call'));
+            document.getElementById(`skip-${id}`).addEventListener('click', () => handleAction(id, 'skip'));
+            document.getElementById(`reset-${id}`).addEventListener('click', () => handleAction(id, 'reset'));
+            document.getElementById(`edit-${id}`).addEventListener('click', () => editCounter(id));
+            document.getElementById(`remove-${id}`).addEventListener('click', () => handleAction(id, 'remove'));
+        }
+
+        async function handleAction(id, action) {
+            const counter = activeCounters[id];
+            if (!counter) return;
+
+            if (action === 'reset' && !confirm(`Reset ${counter.name}?`)) return;
+            if (action === 'remove' && !confirm(`Remove ${counter.name}?`)) return;
+
+            try {
+                const updates = {};
+
+                if (action === 'call') {
+                    const next = counter.lastIssued + 1;
+                    updates[`settings/counters/${id}/lastIssued`] = next;
+                    updates[`settings/counters/${id}/nowServing`] = next;
+                    updates[`counters/${id}/lastIssued`] = next;
+                    updates[`counters/${id}/nowServing`] = next;
+                    showFeedback(id, `✅ ${counter.prefix}${String(next).padStart(3, '0')} called!`, 'success');
+                } else if (action === 'skip') {
+                    const next = counter.nowServing < counter.lastIssued ? counter.nowServing + 1 : counter.lastIssued + 1;
+                    updates[`settings/counters/${id}/nowServing`] = next;
+                    updates[`counters/${id}/nowServing`] = next;
+                    if (next > counter.lastIssued) {
+                        updates[`settings/counters/${id}/lastIssued`] = next;
+                        updates[`counters/${id}/lastIssued`] = next;
+                    }
+                    showFeedback(id, `⏭️ Skipped to ${counter.prefix}${String(next).padStart(3, '0')}`, 'success');
+                } else if (action === 'reset') {
+                    updates[`settings/counters/${id}/nowServing`] = 1;
+                    updates[`settings/counters/${id}/lastIssued`] = 1;
+                    updates[`counters/${id}/nowServing`] = 1;
+                    updates[`counters/${id}/lastIssued`] = 1;
+                    showFeedback(id, `🔄 Reset to ${counter.prefix}001`, 'success');
+                } else if (action === 'remove') {
+                    updates[`settings/counters/${id}`] = null;
+                    updates[`counters/${id}`] = null;
+                    showFeedback(id, `🗑️ ${counter.name} removed`, 'success');
+                }
+
+                await update(ref(database), updates);
+
+                if (action === 'remove') {
+                    delete activeCounters[id];
+                    if (Object.keys(activeCounters).length === 0) showTypeSelection();
+                    else renderCounters();
+                }
+            } catch (error) {
+                console.error('Action error:', error);
+                showFeedback(id, `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function editCounter(id) {
+            const counter = activeCounters[id];
+            const newName = prompt('Enter new counter name:', counter.name);
+            if (newName && newName.trim() !== counter.name) {
+                try {
+                    await set(ref(database, `settings/counters/${id}/name`), newName.trim());
+                    await set(ref(database, `counters/${id}/name`), newName.trim());
+                    showNotification('Success', 'Counter name updated', 'success');
+                } catch (error) {
+                    showNotification('Error', 'Failed to update name', 'error');
+                }
+            }
+
+            const newPrefix = prompt('Enter new prefix (A-Z, 0-9, max 7):', counter.prefix);
+            if (newPrefix && /^[A-Z0-9]{1,7}$/.test(newPrefix.toUpperCase()) && newPrefix.toUpperCase() !== counter.prefix) {
+                const isUnique = !Object.values(activeCounters).some(c => c.prefix === newPrefix.toUpperCase() && c !== counter);
+                if (isUnique) {
+                    try {
+                        await set(ref(database, `settings/counters/${id}/prefix`), newPrefix.toUpperCase());
+                        await set(ref(database, `counters/${id}/prefix`), newPrefix.toUpperCase());
+                        showNotification('Success', 'Counter prefix updated', 'success');
+                    } catch (error) {
+                        showNotification('Error', 'Failed to update prefix', 'error');
+                    }
+                } else {
+                    showNotification('Error', 'Prefix already in use', 'error');
+                }
+            }
+        }
+
+        function showFeedback(id, message, type) {
+            const feedback = document.getElementById(`feedback-${id}`);
+            feedback.className = `p-3 rounded-xl text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+            feedback.textContent = message;
+            feedback.classList.remove('hidden');
+            setTimeout(() => feedback.classList.add('hidden'), 3000);
+        }
+
+        // Setup realtime listeners
         function setupRealtimeListeners() {
-            const countersRef = ref(database, 'settings/counters');
-            onValue(countersRef, (snapshot) => {
+            onValue(ref(database, 'settings/counters'), (snapshot) => {
                 if (snapshot.exists()) {
                     activeCounters = snapshot.val();
                     renderCounters();
                 }
             });
-        }
 
-        // Render Counters
-        function renderCounters() {
-            const countersArray = Object.entries(activeCounters);
-            activeCountersText.textContent = `${countersArray.length} Active Counter${countersArray.length !== 1 ? 's' : ''}`;
-
-            countersList.innerHTML = '';
-
-            countersArray.forEach(([counterId, counter]) => {
-                const counterCard = document.createElement('div');
-                counterCard.className = 'bg-white rounded-3xl card-shadow p-6 card-hover';
-                counterCard.innerHTML = `
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold text-gray-800">${counter.name}</h3>
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${counter.active ? 'badge-active' : 'badge-inactive'} text-white">
-                                    ${counter.active ? '● Active' : '● Inactive'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-2xl">
-                            <p class="text-sm text-gray-600 mb-1">Now Serving</p>
-                            <p class="number-display">${counter.prefix}${String(counter.nowServing).padStart(3, '0')}</p>
-                        </div>
-                        <div class="bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-2xl">
-                            <p class="text-sm text-gray-600 mb-1">Last Issued</p>
-                            <p class="text-3xl font-bold text-pink-600">${counter.prefix}${String(counter.lastNumber || counter.nowServing).padStart(3, '0')}</p>
-                        </div>
-                    </div>
-
-                    <div id="feedback-${counterId}" class="hidden mb-4 p-3 rounded-xl text-sm"></div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <button id="call-${counterId}" ${!counter.active ? 'disabled' : ''}
-                                class="py-3 px-4 btn-primary text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                            </svg>
-                            Call Next
-                        </button>
-                        <button id="skip-${counterId}" ${!counter.active ? 'disabled' : ''}
-                                class="py-3 px-4 bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 rounded-xl font-semibold shadow hover:shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
-                            </svg>
-                            Skip
-                        </button>
-                        <button id="reset-${counterId}" ${!counter.active ? 'disabled' : ''}
-                                class="py-3 px-4 bg-gradient-to-br from-orange-100 to-orange-200 text-orange-700 rounded-xl font-semibold shadow hover:shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                            </svg>
-                            Reset
-                        </button>
-                        <button id="remove-${counterId}"
-                                class="py-3 px-4 btn-danger text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                            Remove
-                        </button>
-                    </div>
-                `;
-
-                countersList.appendChild(counterCard);
-
-                setupCounterActions(counterId, counter);
+            // Listen for new customers in queue
+            onValue(ref(database, 'queue'), (snapshot) => {
+                if (snapshot.exists()) {
+                    const queue = snapshot.val();
+                    Object.entries(queue).forEach(([ticketId, data]) => {
+                        if (!lastSeenQueue[ticketId] && data.status === 'waiting') {
+                            const counter = Object.values(activeCounters).find(c => c.prefix === data.prefix);
+                            if (counter) {
+                                newCustomerCount++;
+                                updateBadge();
+                                showNotification(
+                                    'New Customer',
+                                    `${data.prefix}${String(data.number).padStart(3, '0')} joined ${counter.name}`,
+                                    'info'
+                                );
+                            }
+                        }
+                        lastSeenQueue[ticketId] = true;
+                    });
+                }
             });
         }
 
-        // Setup Counter Actions
-        function setupCounterActions(counterId, counter) {
-            const callBtn = document.getElementById(`call-${counterId}`);
-            const skipBtn = document.getElementById(`skip-${counterId}`);
-            const resetBtn = document.getElementById(`reset-${counterId}`);
-            const removeBtn = document.getElementById(`remove-${counterId}`);
-
-            callBtn?.addEventListener('click', () => handleCounterAction(counterId, 'call'));
-            skipBtn?.addEventListener('click', () => handleCounterAction(counterId, 'skip'));
-            resetBtn?.addEventListener('click', () => handleCounterAction(counterId, 'reset'));
-            removeBtn?.addEventListener('click', () => handleCounterAction(counterId, 'remove'));
-        }
-
-        // Handle Counter Actions
-        async function handleCounterAction(counterId, action) {
-            const counter = activeCounters[counterId];
-            if (!counter) return;
-
-            if (action === 'reset' && !confirm(`Reset ${counter.name} to ${counter.prefix}001?`)) return;
-            if (action === 'remove' && !confirm(`Remove ${counter.name}?`)) return;
-
-            const actionBtn = document.getElementById(`${action}-${counterId}`);
-            if (actionBtn) {
-                actionBtn.disabled = true;
-            }
-
-            try {
-                let updates = {};
-                let message = '';
-
-                switch (action) {
-                    case 'call': {
-                        const next = (counter.lastNumber || counter.nowServing) + 1;
-                        updates[`settings/counters/${counterId}/lastNumber`] = next;
-                        updates[`settings/counters/${counterId}/nowServing`] = next;
-                        updates[`counters/${counterId}/lastIssued`] = next;
-                        updates[`counters/${counterId}/nowServing`] = next;
-                        message = `✅ ${counter.prefix}${String(next).padStart(3, '0')} called!`;
-                        break;
-                    }
-                    case 'skip': {
-                        const lastNum = counter.lastNumber || counter.nowServing;
-                        if (counter.nowServing < lastNum) {
-                            const next = counter.nowServing + 1;
-                            updates[`settings/counters/${counterId}/nowServing`] = next;
-                            updates[`counters/${counterId}/nowServing`] = next;
-                            message = `⏭️ Skipped to ${counter.prefix}${String(next).padStart(3, '0')}`;
-                        } else {
-                            const nextNum = lastNum + 1;
-                            updates[`settings/counters/${counterId}/lastNumber`] = nextNum;
-                            updates[`settings/counters/${counterId}/nowServing`] = nextNum;
-                            updates[`counters/${counterId}/lastIssued`] = nextNum;
-                            updates[`counters/${counterId}/nowServing`] = nextNum;
-                            message = `⏭️ Skipped to ${counter.prefix}${String(nextNum).padStart(3, '0')}`;
-                        }
-                        break;
-                    }
-                    case 'reset': {
-                        updates[`settings/counters/${counterId}/nowServing`] = 1;
-                        updates[`settings/counters/${counterId}/lastNumber`] = 1;
-                        updates[`counters/${counterId}/nowServing`] = 1;
-                        updates[`counters/${counterId}/lastIssued`] = 1;
-                        message = `🔄 ${counter.name} reset to ${counter.prefix}001`;
-                        break;
-                    }
-                    case 'remove': {
-                        updates[`settings/counters/${counterId}`] = null;
-                        updates[`counters/${counterId}`] = null;
-                        message = `🗑️ ${counter.name} removed`;
-                        break;
-                    }
-                }
-
-                await update(ref(database), updates);
-                showFeedback(counterId, message, 'success');
-
-                if (action === 'remove') {
-                    delete activeCounters[counterId];
-                    renderCounters();
-                }
-            } catch (error) {
-                console.error(`Error ${action}:`, error);
-                showFeedback(counterId, `❌ Error: ${error.message}`, 'error');
-            } finally {
-                if (actionBtn) {
-                    actionBtn.disabled = false;
-                }
-            }
-        }
-
-        // Show Feedback
-        function showFeedback(counterId, message, type = 'success') {
-            const feedback = document.getElementById(`feedback-${counterId}`);
-            if (feedback) {
-                feedback.className = `p-3 rounded-xl text-sm mb-4 ${type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`;
-                feedback.textContent = message;
-                feedback.classList.remove('hidden');
-
-                setTimeout(() => {
-                    feedback.classList.add('hidden');
-                }, 3000);
-            }
-        }
-
-        // Help Modal
-        helpBtn.addEventListener('click', () => {
-            helpModal.classList.remove('hidden');
-        });
-
-        closeHelp.addEventListener('click', () => {
-            helpModal.classList.add('hidden');
-        });
-
-        helpModal.addEventListener('click', (e) => {
-            if (e.target === helpModal) {
-                helpModal.classList.add('hidden');
+        // Menu and help
+        document.getElementById('menuBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const menu = document.getElementById('menuDropdown');
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) {
+                newCustomerCount = 0;
+                updateBadge();
             }
         });
 
-        // Logout
-        logoutBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to logout?')) {
-                sessionStorage.removeItem('counterAccess');
-                location.reload();
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.remove('hidden');
+        });
+
+        document.getElementById('closeHelp').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.add('hidden');
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            sessionStorage.removeItem('counterAccess');
+            location.reload();
+        });
+
+        document.getElementById('addMoreBtn').addEventListener('click', () => {
+            counterType = '';
+            selectedCounters = [];
+            prefixes = {};
+            showTypeSelection();
+        });
+
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('menuDropdown');
+            const menuBtn = document.getElementById('menuBtn');
+            if (!menu.contains(e.target) && !menuBtn.contains(e.target)) {
+                menu.classList.add('hidden');
             }
         });
 
+        // Close modals on outside click
+        document.getElementById('helpModal').addEventListener('click', (e) => {
+            if (e.target.id === 'helpModal') {
+                document.getElementById('helpModal').classList.add('hidden');
+            }
+        });
     </script>
-
 </body>
 </html>
