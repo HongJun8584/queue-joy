@@ -284,7 +284,7 @@
         connectLink = data.link;
 
         // Try to open in a new tab/window; detect popup blocked
-        const newWin = window.open(connectLink || '#', '_blank', 'noopener,noreferrer');
+        const newWin = window.open("https://t.me/QueueJoyNotifier_bot", "_blank", "noopener,noreferrer");
         if (!newWin) {
           // Popup blocked — inform the user with clear instructions
           alert('Popup blocked. Please tap Connect again or allow popups for this site. Alternatively, open Telegram and paste the link shown to connect.');
