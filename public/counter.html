@@ -3,920 +3,832 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Joy - Counter Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Counter Management System</title>
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .transition-all { transition: all 0.3s ease; }
-        .modal-backdrop {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .slide-up {
-            animation: slideUp 0.3s ease-out;
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
         }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
         }
-        .fade-in {
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .pulse-ring {
-            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.5; }
-            100% { transform: scale(0.8); opacity: 1; }
-        }
-        .shake {
-            animation: shake 0.5s;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-        .notification-toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-            animation: slideInRight 0.3s ease-out;
-        }
-        @keyframes slideInRight {
-            from { transform: translateX(400px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ef4444;
+
+        .header {
+            text-align: center;
             color: white;
-            border-radius: 9999px;
-            width: 20px;
-            height: 20px;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .config-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .config-section h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+            font-size: 1.5em;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .input-group {
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        .input-group input {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .counters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .counter-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: fadeInUp 0.6s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .counter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .counter-card.busy::before {
+            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .counter-card.inactive {
+            opacity: 0.6;
+        }
+
+        .counter-header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            font-size: 11px;
+            margin-bottom: 20px;
+        }
+
+        .counter-name {
+            font-size: 1.5em;
             font-weight: 700;
-        }
-    </style>
-</head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-
-    <!-- Notification Container -->
-    <div id="notificationContainer"></div>
-
-    <!-- PIN Modal -->
-    <div id="pinModal" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50">
-        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8 space-y-6 slide-up mx-4">
-            <div class="text-center space-y-3">
-                <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                    </svg>
-                </div>
-                <h1 class="text-2xl font-bold text-gray-800">Counter Access</h1>
-                <p class="text-gray-600">Enter PIN to continue</p>
-            </div>
-
-            <form id="pinForm" class="space-y-4">
-                <div class="relative">
-                    <input
-                        type="password"
-                        id="pinInput"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center text-lg tracking-wider font-semibold transition-all"
-                        placeholder="Enter PIN"
-                        maxlength="4"
-                        autocomplete="off"
-                    />
-                    <button
-                        type="button"
-                        id="togglePin"
-                        class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div id="pinError" class="hidden">
-                    <p class="text-sm text-red-600 text-center font-medium">❌ Incorrect PIN</p>
-                </div>
-
-                <button
-                    type="submit"
-                    id="pinSubmit"
-                    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                    <span id="pinBtnText">Access Panel</span>
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Main Counter Panel -->
-    <div id="counterPanel" class="hidden min-h-screen p-4 pb-20">
-        <div class="max-w-6xl mx-auto">
-
-            <!-- Header -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                            <span class="text-3xl">🎯</span>
-                            Counter Dashboard
-                        </h1>
-                        <p class="text-sm text-gray-600 mt-1">Real-time queue management system</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button id="helpBtn" class="p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition-all relative">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </button>
-                        <button id="menuBtn" class="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all relative">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                            </svg>
-                            <span id="newCustomerBadge" class="hidden badge">0</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Counter Type Selection -->
-            <div id="typeStep" class="bg-white rounded-2xl shadow-lg p-8">
-                <div class="text-center mb-8">
-                    <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-2xl font-bold text-gray-800">Choose Counter Setup</h2>
-                    <p class="text-gray-600 mt-2">Select how you want to configure your counters</p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    <button id="multipleCounters" class="group p-6 border-2 border-gray-200 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left">
-                        <div class="w-16 h-16 bg-indigo-100 group-hover:bg-indigo-200 rounded-xl flex items-center justify-center mb-4 transition-all">
-                            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Multiple Counters</h3>
-                        <p class="text-sm text-gray-600">Manage up to 7 service counters simultaneously</p>
-                    </button>
-
-                    <button id="singleCounter" class="group p-6 border-2 border-gray-200 rounded-2xl hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
-                        <div class="w-16 h-16 bg-purple-100 group-hover:bg-purple-200 rounded-xl flex items-center justify-center mb-4 transition-all">
-                            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Single Counter</h3>
-                        <p class="text-sm text-gray-600">Manage one dedicated service counter</p>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Counter Setup -->
-            <div id="setupMode" class="hidden bg-white rounded-2xl shadow-lg p-8">
-                <div class="text-center mb-8">
-                    <div class="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                    </div>
-                    <h2 id="setupTitle" class="text-2xl font-bold text-gray-800">Setup Counters</h2>
-                    <p id="setupDescription" class="text-gray-600 mt-2">Configure your counter settings</p>
-                </div>
-
-                <!-- Multiple Setup -->
-                <div id="multipleSetup" class="hidden max-w-3xl mx-auto">
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="text-sm font-semibold text-gray-700">Select Counters</span>
-                        <span id="counterCount" class="text-sm font-semibold text-indigo-600">0/7 selected</span>
-                    </div>
-                    <div id="counterList" class="space-y-3 max-h-[500px] overflow-y-auto pr-2"></div>
-                </div>
-
-                <!-- Single Setup -->
-                <div id="singleSetup" class="hidden max-w-md mx-auto space-y-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
-                        <input
-                            type="text"
-                            id="singleCounterName"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                            placeholder="e.g., Service Counter"
-                            value="Service Counter"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Prefix</label>
-                        <input
-                            type="text"
-                            id="singleCounterPrefix"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center text-xl font-bold uppercase transition-all"
-                            placeholder="A"
-                            maxlength="7"
-                        />
-                        <p class="text-xs text-gray-500 mt-2">Max 7 characters (A-Z, 0-9)</p>
-                    </div>
-                    <div id="singleError" class="hidden">
-                        <p class="text-sm text-red-600 text-center font-medium">❌ Please fill in all fields</p>
-                    </div>
-                </div>
-
-                <button
-                    id="setupBtn"
-                    class="w-full max-w-md mx-auto block mt-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    disabled
-                >
-                    <span id="setupBtnText">Complete Setup</span>
-                </button>
-            </div>
-
-            <!-- Dashboard -->
-            <div id="dashboardMode" class="hidden space-y-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="countersList"></div>
-
-                <button id="addMoreBtn" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Add More Counters
-                </button>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- Help Modal -->
-    <div id="helpModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
-        <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-8 slide-up max-h-[80vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-2xl font-bold text-indigo-600">How It Works</h3>
-                <button id="closeHelp" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            <div class="space-y-5 text-sm text-gray-700">
-                <div class="p-4 bg-blue-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">🔐</span> PIN Access
-                    </h4>
-                    <p>Use PIN <strong>0108</strong> to access the counter panel securely.</p>
-                </div>
-                <div class="p-4 bg-green-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">📞</span> Call Next
-                    </h4>
-                    <p>Issues a new number and updates "Now Serving" display instantly.</p>
-                </div>
-                <div class="p-4 bg-yellow-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">⏭️</span> Skip Number
-                    </h4>
-                    <p>Move to the next queued number without issuing a new one.</p>
-                </div>
-                <div class="p-4 bg-purple-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">🔄</span> Reset Counter
-                    </h4>
-                    <p>Resets both serving and issued numbers back to 1.</p>
-                </div>
-                <div class="p-4 bg-pink-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">🔔</span> Real-time Notifications
-                    </h4>
-                    <p>Get instant alerts when customers take new queue numbers.</p>
-                </div>
-                <div class="p-4 bg-indigo-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">✏️</span> Edit Counters
-                    </h4>
-                    <p>Modify counter names and prefixes from the counter menu.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Menu Dropdown -->
-    <div id="menuDropdown" class="hidden fixed top-20 right-4 bg-white shadow-2xl rounded-2xl p-4 w-64 z-50 slide-up border border-gray-100">
-        <div class="space-y-2">
-            <button id="logoutBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-red-600 transition-colors p-3 rounded-xl hover:bg-red-50">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                Logout
-            </button>
-            <a href="/" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-indigo-600 transition-colors p-3 rounded-xl hover:bg-indigo-50">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                Customer View
-            </a>
-        </div>
-    </div>
-
-    <!-- Firebase & Main Script -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-            authDomain: "queue-joy-aa21b.firebaseapp.com",
-            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "queue-joy-aa21b",
-            storageBucket: "queue-joy-aa21b.appspot.com",
-            messagingSenderId: "950240394209",
-            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-
-        let activeCounters = {};
-        let counterType = '';
-        let selectedCounters = [];
-        let prefixes = {};
-        let lastSeenQueue = {};
-        let newCustomerCount = 0;
-        let notificationSound;
-
-        // Initialize notification sound
-        function initSound() {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.frequency.value = 800;
-            oscillator.type = 'sine';
-            gainNode.gain.value = 0;
-            oscillator.start();
-            notificationSound = { oscillator, gainNode, audioContext };
+            color: #333;
         }
 
-        function playNotificationSound() {
-            if (notificationSound) {
-                const { gainNode } = notificationSound;
-                gainNode.gain.setValueAtTime(0.3, notificationSound.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, notificationSound.audioContext.currentTime + 0.5);
+        .counter-prefix {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .counter-display {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .counter-label {
+            font-size: 1em;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .counter-number {
+            font-size: 4em;
+            font-weight: 800;
+            color: #667eea;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .counter-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .counter-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn-call {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-call:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(17, 153, 142, 0.6);
+        }
+
+        .btn-skip {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(250, 112, 154, 0.4);
+        }
+
+        .btn-skip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(250, 112, 154, 0.6);
+        }
+
+        .btn-toggle {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            grid-column: 1 / -1;
+        }
+
+        .btn-toggle.inactive {
+            background: linear-gradient(135deg, #a8a8a8 0%, #757575 100%);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-busy {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .notification-log {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .notification-log h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .log-entry {
+            padding: 12px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .log-entry.success {
+            border-left-color: #38ef7d;
+        }
+
+        .log-entry.error {
+            border-left-color: #f5576c;
+        }
+
+        .log-time {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
-        // Show notification toast
-        function showNotification(title, message, type = 'info') {
-            const container = document.getElementById('notificationContainer');
-            const toast = document.createElement('div');
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-            const bgColors = {
-                info: 'bg-blue-500',
-                success: 'bg-green-500',
-                warning: 'bg-yellow-500',
-                error: 'bg-red-500'
-            };
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
 
-            toast.className = `notification-toast ${bgColors[type]} text-white p-4 rounded-xl shadow-2xl`;
-            toast.innerHTML = `
-                <div class="flex items-start gap-3">
-                    <div class="text-2xl">${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔔'}</div>
-                    <div class="flex-1">
-                        <p class="font-semibold">${title}</p>
-                        <p class="text-sm opacity-90">${message}</p>
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.5em;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .waiting-queue {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .waiting-queue h4 {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .waiting-tickets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ticket-badge {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            color: #667eea;
+            border: 2px solid #667eea;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .counters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .counter-number {
+                font-size: 3em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Counter Management System</h1>
+            <p>Real-time queue management with Telegram notifications</p>
+        </div>
+
+        <div class="config-section">
+            <h2>⚙️ Configuration</h2>
+            <div class="config-grid">
+                <div class="input-group">
+                    <label>Firebase Database URL</label>
+                    <input type="text" id="firebaseUrl" placeholder="https://your-project.firebaseio.com">
+                </div>
+                <div class="input-group">
+                    <label>Netlify Function URL</label>
+                    <input type="text" id="netlifyUrl" placeholder="https://your-site.netlify.app/.netlify/functions/notifyCounter">
+                </div>
+                <div class="input-group">
+                    <label>Telegram Bot Token (for notifications)</label>
+                    <input type="password" id="botToken" placeholder="Your bot token">
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" id="connectBtn">Connect to Firebase</button>
+                <button class="btn btn-primary" id="saveConfigBtn" style="margin-left: 10px;">Save Configuration</button>
+            </div>
+        </div>
+
+        <div id="loadingState" class="loading" style="display: none;">
+            Loading counters...
+        </div>
+
+        <div id="errorState" style="display: none;"></div>
+
+        <div id="countersContainer" class="counters-grid"></div>
+
+        <div class="notification-log">
+            <h3>📡 Notification Log</h3>
+            <div id="notificationLog"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase configuration and state
+        let firebaseConfig = {
+            databaseURL: localStorage.getItem('firebaseUrl') || '',
+            netlifyUrl: localStorage.getItem('netlifyUrl') || '',
+            botToken: localStorage.getItem('botToken') || ''
+        };
+
+        let countersData = {};
+        let queueData = {};
+        let isConnected = false;
+
+        // Load saved config
+        document.getElementById('firebaseUrl').value = firebaseConfig.databaseURL;
+        document.getElementById('netlifyUrl').value = firebaseConfig.netlifyUrl;
+        document.getElementById('botToken').value = firebaseConfig.botToken;
+
+        // Save configuration
+        document.getElementById('saveConfigBtn').addEventListener('click', () => {
+            firebaseConfig.databaseURL = document.getElementById('firebaseUrl').value;
+            firebaseConfig.netlifyUrl = document.getElementById('netlifyUrl').value;
+            firebaseConfig.botToken = document.getElementById('botToken').value;
+
+            localStorage.setItem('firebaseUrl', firebaseConfig.databaseURL);
+            localStorage.setItem('netlifyUrl', firebaseConfig.netlifyUrl);
+            localStorage.setItem('botToken', firebaseConfig.botToken);
+
+            addLog('Configuration saved successfully', 'success');
+        });
+
+        // Connect to Firebase
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if (!firebaseConfig.databaseURL) {
+                alert('Please enter Firebase Database URL');
+                return;
+            }
+
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('errorState').style.display = 'none';
+
+            try {
+                await loadCountersData();
+                await loadQueueData();
+                isConnected = true;
+                renderCounters();
+                startRealtimeSync();
+                addLog('Connected to Firebase successfully', 'success');
+            } catch (error) {
+                showError('Failed to connect: ' + error.message);
+                addLog('Connection failed: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        });
+
+        // Load counters data from Firebase
+        async function loadCountersData() {
+            const url = `${firebaseConfig.databaseURL}/counters.json`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to load counters');
+            countersData = await response.json() || {};
+        }
+
+        // Load queue data from Firebase
+        async function loadQueueData() {
+            const url = `${firebaseConfig.databaseURL}/queue.json`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to load queue');
+            queueData = await response.json() || {};
+        }
+
+        // Start real-time synchronization
+        function startRealtimeSync() {
+            // Poll for updates every 2 seconds
+            setInterval(async () => {
+                if (isConnected) {
+                    try {
+                        await loadCountersData();
+                        await loadQueueData();
+                        renderCounters();
+                    } catch (error) {
+                        console.error('Sync error:', error);
+                    }
+                }
+            }, 2000);
+        }
+
+        // Render counters UI
+        function renderCounters() {
+            const container = document.getElementById('countersContainer');
+            container.innerHTML = '';
+
+            Object.entries(countersData).forEach(([counterId, counter]) => {
+                const card = createCounterCard(counterId, counter);
+                container.appendChild(card);
+            });
+        }
+
+        // Create counter card element
+        function createCounterCard(counterId, counter) {
+            const card = document.createElement('div');
+            card.className = `counter-card ${counter.busy ? 'busy' : ''} ${!counter.active ? 'inactive' : ''}`;
+
+            const waitingTickets = getWaitingTickets(counterId);
+            const waitingCount = waitingTickets.length;
+
+            let statusBadge = '';
+            if (!counter.active) {
+                statusBadge = '<span class="status-badge status-inactive">Inactive</span>';
+            } else if (counter.busy) {
+                statusBadge = '<span class="status-badge status-busy">Busy</span>';
+            } else {
+                statusBadge = '<span class="status-badge status-active">Active</span>';
+            }
+
+            card.innerHTML = `
+                <div class="counter-header">
+                    <div>
+                        <div class="counter-name">${counter.name}${statusBadge}</div>
                     </div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                    <div class="counter-prefix">${counter.prefix}</div>
+                </div>
+
+                <div class="counter-display">
+                    <div class="counter-label">Now Serving</div>
+                    <div class="counter-number">${counter.prefix}${String(counter.nowServing).padStart(3, '0')}</div>
+                </div>
+
+                <div class="counter-stats">
+                    <div class="stat">
+                        <div class="stat-label">Last Issued</div>
+                        <div class="stat-value">${counter.prefix}${String(counter.lastIssued).padStart(3, '0')}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Waiting</div>
+                        <div class="stat-value">${waitingCount}</div>
+                    </div>
+                </div>
+
+                ${waitingTickets.length > 0 ? `
+                    <div class="waiting-queue">
+                        <h4>⏳ Waiting Queue</h4>
+                        <div class="waiting-tickets">
+                            ${waitingTickets.map(t => `<div class="ticket-badge">${t.queueId}</div>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div class="counter-actions">
+                    <button class="btn-call" onclick="callNext('${counterId}')" ${!counter.active || waitingCount === 0 ? 'disabled' : ''}>
+                        📢 Call Next
+                    </button>
+                    <button class="btn-skip" onclick="skipCurrent('${counterId}')" ${!counter.active ? 'disabled' : ''}>
+                        ⏭️ Skip
+                    </button>
+                    <button class="btn-toggle ${!counter.active ? 'inactive' : ''}" onclick="toggleCounter('${counterId}')">
+                        ${counter.active ? '⏸️ Deactivate' : '▶️ Activate'} Counter
                     </button>
                 </div>
             `;
 
-            container.appendChild(toast);
-            playNotificationSound();
-
-            setTimeout(() => toast.remove(), 5000);
+            return card;
         }
 
-        // Update badge
-        function updateBadge() {
-            const badge = document.getElementById('newCustomerBadge');
-            if (newCustomerCount > 0) {
-                badge.textContent = newCustomerCount;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
+        // Get waiting tickets for a counter
+        function getWaitingTickets(counterId) {
+            return Object.entries(queueData)
+                .filter(([_, ticket]) => ticket.counterId === counterId && ticket.status === 'waiting')
+                .map(([key, ticket]) => ({ ...ticket, key }))
+                .sort((a, b) => a.timestamp - b.timestamp);
+        }
+
+        // Call next number
+        window.callNext = async function(counterId) {
+            const counter = countersData[counterId];
+            if (!counter || !counter.active) return;
+
+            const waitingTickets = getWaitingTickets(counterId);
+            if (waitingTickets.length === 0) {
+                alert('No tickets waiting for this counter');
+                return;
             }
-        }
 
-        // Check authentication
-        if (sessionStorage.getItem('counterAccess') === 'true') {
-            document.getElementById('pinModal').classList.add('hidden');
-            document.getElementById('counterPanel').classList.remove('hidden');
-            initSound();
-            loadCounters();
-        }
-
-        // PIN handling
-        document.getElementById('togglePin').addEventListener('click', () => {
-            const input = document.getElementById('pinInput');
-            input.type = input.type === 'password' ? 'text' : 'password';
-        });
-
-        document.getElementById('pinForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const pin = document.getElementById('pinInput').value;
-
-            if (pin === '0108') {
-                sessionStorage.setItem('counterAccess', 'true');
-                document.getElementById('pinModal').classList.add('hidden');
-                document.getElementById('counterPanel').classList.remove('hidden');
-                initSound();
-                loadCounters();
-            } else {
-                document.getElementById('pinError').classList.remove('hidden');
-                document.getElementById('pinInput').value = '';
-                document.getElementById('pinInput').classList.add('shake');
-                setTimeout(() => document.getElementById('pinInput').classList.remove('shake'), 500);
-            }
-        });
-
-        // Load counters
-        async function loadCounters() {
-            try {
-                const snapshot = await get(ref(database, 'settings/counters'));
-                if (snapshot.exists()) {
-                    activeCounters = snapshot.val();
-                    if (Object.keys(activeCounters).length > 0) {
-                        showDashboard();
-                    } else {
-                        showTypeSelection();
-                    }
-                } else {
-                    showTypeSelection();
-                }
-            } catch (error) {
-                console.error('Error loading counters:', error);
-                showTypeSelection();
-            }
-        }
-
-        function showTypeSelection() {
-            document.getElementById('typeStep').classList.remove('hidden');
-            document.getElementById('setupMode').classList.add('hidden');
-            document.getElementById('dashboardMode').classList.add('hidden');
-        }
-
-        function showSetup() {
-            document.getElementById('typeStep').classList.add('hidden');
-            document.getElementById('setupMode').classList.remove('hidden');
-            document.getElementById('dashboardMode').classList.add('hidden');
-
-            if (counterType === 'multiple') {
-                document.getElementById('setupTitle').textContent = 'Setup Multiple Counters';
-                document.getElementById('setupDescription').textContent = 'Select and configure up to 7 counters';
-                document.getElementById('multipleSetup').classList.remove('hidden');
-                document.getElementById('singleSetup').classList.add('hidden');
-                generateCounterList();
-            } else {
-                document.getElementById('setupTitle').textContent = 'Setup Single Counter';
-                document.getElementById('setupDescription').textContent = 'Configure your service counter';
-                document.getElementById('multipleSetup').classList.add('hidden');
-                document.getElementById('singleSetup').classList.remove('hidden');
-                validateSingleSetup();
-            }
-        }
-
-        function showDashboard() {
-            document.getElementById('typeStep').classList.add('hidden');
-            document.getElementById('setupMode').classList.add('hidden');
-            document.getElementById('dashboardMode').classList.remove('hidden');
-            renderCounters();
-            setupRealtimeListeners();
-        }
-
-        // Counter type selection
-        document.getElementById('multipleCounters').addEventListener('click', () => {
-            counterType = 'multiple';
-            showSetup();
-        });
-
-        document.getElementById('singleCounter').addEventListener('click', () => {
-            counterType = 'single';
-            showSetup();
-        });
-
-        // Generate counter list for multiple setup
-        function generateCounterList() {
-            const list = document.getElementById('counterList');
-            list.innerHTML = '';
-
-            for (let i = 1; i <= 7; i++) {
-                const id = `counter${i}`;
-                const div = document.createElement('div');
-                div.className = 'bg-gray-50 rounded-xl p-4 space-y-3';
-                div.innerHTML = `
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" id="${id}" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" />
-                        <span class="text-lg font-semibold text-gray-800">Counter ${i}</span>
-                    </label>
-                    <div id="${id}-config" class="hidden space-y-3 pl-8">
-                        <input type="text" placeholder="Counter Name" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-field="name" value="Counter ${i}" />
-                        <input type="text" placeholder="Prefix" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase font-bold" data-field="prefix" maxlength="7" />
-                        <div class="error-msg hidden text-sm text-red-600 font-medium"></div>
-                    </div>
-                `;
-
-                const checkbox = div.querySelector(`#${id}`);
-                const config = div.querySelector(`#${id}-config`);
-                const nameInput = config.querySelector('[data-field="name"]');
-                const prefixInput = config.querySelector('[data-field="prefix"]');
-
-                checkbox.addEventListener('change', () => {
-                    if (checkbox.checked) {
-                        if (selectedCounters.length >= 7) {
-                            checkbox.checked = false;
-                            return;
-                        }
-                        selectedCounters.push(id);
-                        config.classList.remove('hidden');
-                        if (!prefixes[id]) prefixes[id] = { name: `Counter ${i}`, prefix: '' };
-                    } else {
-                        selectedCounters = selectedCounters.filter(c => c !== id);
-                        config.classList.add('hidden');
-                        delete prefixes[id];
-                    }
-                    updateCounterCount();
-                    validateMultipleSetup();
-                });
-
-                nameInput.addEventListener('input', (e) => {
-                    if (!prefixes[id]) prefixes[id] = {};
-                    prefixes[id].name = e.target.value;
-                    validateMultipleSetup();
-                });
-
-                prefixInput.addEventListener('input', (e) => {
-                    e.target.value = e.target.value.toUpperCase();
-                    if (!prefixes[id]) prefixes[id] = {};
-                    prefixes[id].prefix = e.target.value;
-                    validateMultipleSetup();
-                });
-
-                list.appendChild(div);
-            }
-        }
-
-        function updateCounterCount() {
-            document.getElementById('counterCount').textContent = `${selectedCounters.length}/7 selected`;
-        }
-
-        function validateMultipleSetup() {
-            const errors = {};
-            const usedPrefixes = new Set();
-
-            selectedCounters.forEach(id => {
-                const config = prefixes[id] || {};
-                const errorDiv = document.querySelector(`#${id}-config .error-msg`);
-
-                if (!config.name?.trim()) {
-                    errors[id] = 'Name required';
-                } else if (!config.prefix) {
-                    errors[id] = 'Prefix required';
-                } else if (!/^[A-Z0-9]{1,7}$/.test(config.prefix)) {
-                    errors[id] = 'Invalid format (A-Z, 0-9, max 7 chars)';
-                } else if (usedPrefixes.has(config.prefix)) {
-                    errors[id] = 'Prefix already used';
-                } else {
-                    usedPrefixes.add(config.prefix);
-                }
-
-                if (errors[id]) {
-                    errorDiv.textContent = errors[id];
-                    errorDiv.classList.remove('hidden');
-                } else {
-                    errorDiv.classList.add('hidden');
-                }
-            });
-
-            document.getElementById('setupBtn').disabled = !(selectedCounters.length > 0 && Object.keys(errors).length === 0);
-        }
-
-        // Single counter validation
-        function validateSingleSetup() {
-            const name = document.getElementById('singleCounterName').value.trim();
-            const prefix = document.getElementById('singleCounterPrefix').value.trim().toUpperCase();
-            const isValid = name && prefix && /^[A-Z0-9]{1,7}$/.test(prefix);
-
-            document.getElementById('singleError').classList.toggle('hidden', isValid || (!name && !prefix));
-            document.getElementById('setupBtn').disabled = !isValid;
-        }
-
-        document.getElementById('singleCounterName').addEventListener('input', validateSingleSetup);
-        document.getElementById('singleCounterPrefix').addEventListener('input', (e) => {
-            e.target.value = e.target.value.toUpperCase();
-            validateSingleSetup();
-        });
-
-        // Setup counters
-        document.getElementById('setupBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('setupBtn');
-            btn.disabled = true;
-            document.getElementById('setupBtnText').textContent = 'Setting up...';
+            const nextTicket = waitingTickets[0];
+            const nextNumber = nextTicket.queueId;
 
             try {
-                const countersData = {};
+                // Update counter state
+                await updateCounter(counterId, {
+                    nowServing: counter.nowServing + 1,
+                    busy: true
+                });
 
-                if (counterType === 'single') {
-                    const name = document.getElementById('singleCounterName').value.trim();
-                    const prefix = document.getElementById('singleCounterPrefix').value.trim().toUpperCase();
-                    countersData['counter1'] = { name, prefix, nowServing: 1, lastIssued: 1, active: true };
-                } else {
-                    selectedCounters.forEach(id => {
-                        const config = prefixes[id];
-                        countersData[id] = {
-                            name: config.name.trim(),
-                            prefix: config.prefix.trim().toUpperCase(),
-                            nowServing: 1,
-                            lastIssued: 1,
-                            active: true
-                        };
-                    });
-                }
+                // Update ticket status
+                await updateTicketStatus(nextTicket.key, 'serving');
 
-                await set(ref(database, 'settings/counters'), countersData);
+                // Send Telegram notification
+                await sendTelegramNotification(nextNumber, counter.name, waitingTickets);
 
-                for (const [id, config] of Object.entries(countersData)) {
-                    await set(ref(database, `counters/${id}`), {
-                        name: config.name,
-                        prefix: config.prefix,
-                        nowServing: config.nowServing,
-                        lastIssued: config.lastIssued,
-                        active: true,
-                        busy: false
-                    });
-                }
-
-                showNotification('Success', 'Counters setup complete!', 'success');
-                activeCounters = countersData;
-                showDashboard();
+                addLog(`Called ${nextNumber} at ${counter.name}`, 'success');
             } catch (error) {
-                console.error('Setup error:', error);
-                showNotification('Error', 'Failed to setup counters', 'error');
-            } finally {
-                btn.disabled = false;
-                document.getElementById('setupBtnText').textContent = 'Complete Setup';
+                addLog(`Failed to call next: ${error.message}`, 'error');
+                alert('Failed to call next number: ' + error.message);
             }
-        });
+        };
 
-        // Render counters
-        function renderCounters() {
-            const list = document.getElementById('countersList');
-            list.innerHTML = '';
+        // Skip current number
+        window.skipCurrent = async function(counterId) {
+            const counter = countersData[counterId];
+            if (!counter || !counter.active) return;
 
-            Object.entries(activeCounters).forEach(([id, counter]) => {
-                const card = document.createElement('div');
-                card.className = 'bg-white rounded-2xl shadow-lg p-6 space-y-4 hover:shadow-xl transition-all relative border-2 border-transparent hover:border-indigo-200';
+            try {
+                await updateCounter(counterId, {
+                    nowServing: counter.nowServing + 1,
+                    busy: false
+                });
 
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">${counter.name}</p>
-                            <p class="text-4xl font-bold text-indigo-600 my-2">${counter.prefix}${String(counter.nowServing).padStart(3, '0')}</p>
-                            <p class="text-xs text-gray-400">Now Serving</p>
-                        </div>
-                        <div class="text-right">
-                            <div class="bg-pink-100 rounded-xl px-4 py-2">
-                                <p class="text-2xl font-bold text-pink-600">${counter.prefix}${String(counter.lastIssued).padStart(3, '0')}</p>
-                                <p class="text-xs text-gray-500">Last Issued</p>
-                            </div>
-                        </div>
-                    </div>
+                addLog(`Skipped number at ${counter.name}`, 'success');
+            } catch (error) {
+                addLog(`Failed to skip: ${error.message}`, 'error');
+            }
+        };
 
-                    <div id="feedback-${id}" class="hidden p-3 rounded-xl text-sm font-medium"></div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <button id="call-${id}" class="py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all font-semibold" ${!counter.active ? 'disabled' : ''}>
-                            📞 Call Next
-                        </button>
-                        <button id="skip-${id}" class="py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 hover:scale-105 transition-all font-semibold" ${!counter.active ? 'disabled' : ''}>
-                            ⏭️ Skip
-                        </button>
-                        <button id="reset-${id}" class="py-3 bg-yellow-200 text-yellow-800 rounded-xl hover:bg-yellow-300 hover:scale-105 transition-all font-semibold">
-                            🔄 Reset
-                        </button>
-                        <button id="edit-${id}" class="py-3 bg-blue-200 text-blue-800 rounded-xl hover:bg-blue-300 hover:scale-105 transition-all font-semibold">
-                            ✏️ Edit
-                        </button>
-                    </div>
-
-                    <button id="remove-${id}" class="w-full py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 hover:scale-105 transition-all font-semibold">
-                        🗑️ Remove Counter
-                    </button>
-                `;
-
-                list.appendChild(card);
-                setupCounterActions(id, counter);
-            });
-        }
-
-        // Setup counter actions
-        function setupCounterActions(id, counter) {
-            document.getElementById(`call-${id}`).addEventListener('click', () => handleAction(id, 'call'));
-            document.getElementById(`skip-${id}`).addEventListener('click', () => handleAction(id, 'skip'));
-            document.getElementById(`reset-${id}`).addEventListener('click', () => handleAction(id, 'reset'));
-            document.getElementById(`edit-${id}`).addEventListener('click', () => editCounter(id));
-            document.getElementById(`remove-${id}`).addEventListener('click', () => handleAction(id, 'remove'));
-        }
-
-        async function handleAction(id, action) {
-            const counter = activeCounters[id];
+        // Toggle counter active state
+        window.toggleCounter = async function(counterId) {
+            const counter = countersData[counterId];
             if (!counter) return;
 
-            if (action === 'reset' && !confirm(`Reset ${counter.name}?`)) return;
-            if (action === 'remove' && !confirm(`Remove ${counter.name}?`)) return;
+            try {
+                await updateCounter(counterId, {
+                    active: !counter.active,
+                    busy: false
+                });
+
+                addLog(`Counter ${counter.name} ${counter.active ? 'deactivated' : 'activated'}`, 'success');
+            } catch (error) {
+                addLog(`Failed to toggle counter: ${error.message}`, 'error');
+            }
+        };
+
+        // Update counter in Firebase
+        async function updateCounter(counterId, updates) {
+            const url = `${firebaseConfig.databaseURL}/counters/${counterId}.json`;
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+
+            if (!response.ok) throw new Error('Failed to update counter');
+
+            // Update local state
+            countersData[counterId] = { ...countersData[counterId], ...updates };
+            renderCounters();
+        }
+
+        // Update ticket status
+        async function updateTicketStatus(ticketKey, status) {
+            const url = `${firebaseConfig.databaseURL}/queue/${ticketKey}.json`;
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+
+            if (!response.ok) throw new Error('Failed to update ticket');
+
+            // Update local state
+            queueData[ticketKey] = { ...queueData[ticketKey], status };
+            renderCounters();
+        }
+
+        // Send Telegram notification via Netlify function
+        async function sendTelegramNotification(calledNumber, counterName, allWaitingTickets) {
+            if (!firebaseConfig.netlifyUrl) {
+                console.warn('Netlify URL not configured, skipping notification');
+                return;
+            }
+
+            // Build recipients array from waiting tickets
+            const recipients = allWaitingTickets.map(ticket => ({
+                chatId: ticket.chatId || '123456', // You'll need to store chatId in Firebase
+                theirNumber: ticket.queueId,
+                ticketId: ticket.key
+            }));
+
+            const payload = {
+                calledFull: calledNumber,
+                counterName: counterName,
+                recipients: recipients
+            };
 
             try {
-                const updates = {};
+                const response = await fetch(firebaseConfig.netlifyUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-                if (action === 'call') {
-                    const next = counter.lastIssued + 1;
-                    updates[`settings/counters/${id}/lastIssued`] = next;
-                    updates[`settings/counters/${id}/nowServing`] = next;
-                    updates[`counters/${id}/lastIssued`] = next;
-                    updates[`counters/${id}/nowServing`] = next;
-                    showFeedback(id, `✅ ${counter.prefix}${String(next).padStart(3, '0')} called!`, 'success');
-                } else if (action === 'skip') {
-                    const next = counter.nowServing < counter.lastIssued ? counter.nowServing + 1 : counter.lastIssued + 1;
-                    updates[`settings/counters/${id}/nowServing`] = next;
-                    updates[`counters/${id}/nowServing`] = next;
-                    if (next > counter.lastIssued) {
-                        updates[`settings/counters/${id}/lastIssued`] = next;
-                        updates[`counters/${id}/lastIssued`] = next;
-                    }
-                    showFeedback(id, `⏭️ Skipped to ${counter.prefix}${String(next).padStart(3, '0')}`, 'success');
-                } else if (action === 'reset') {
-                    updates[`settings/counters/${id}/nowServing`] = 1;
-                    updates[`settings/counters/${id}/lastIssued`] = 1;
-                    updates[`counters/${id}/nowServing`] = 1;
-                    updates[`counters/${id}/lastIssued`] = 1;
-                    showFeedback(id, `🔄 Reset to ${counter.prefix}001`, 'success');
-                } else if (action === 'remove') {
-                    updates[`settings/counters/${id}`] = null;
-                    updates[`counters/${id}`] = null;
-                    showFeedback(id, `🗑️ ${counter.name} removed`, 'success');
-                }
+                const result = await response.json();
 
-                await update(ref(database), updates);
-
-                if (action === 'remove') {
-                    delete activeCounters[id];
-                    if (Object.keys(activeCounters).length === 0) showTypeSelection();
-                    else renderCounters();
+                if (result.ok) {
+                    addLog(`Telegram notifications sent for ${calledNumber}`, 'success');
+                } else {
+                    addLog(`Telegram notification failed: ${result.error || 'Unknown error'}`, 'error');
                 }
             } catch (error) {
-                console.error('Action error:', error);
-                showFeedback(id, `❌ Error: ${error.message}`, 'error');
+                console.error('Notification error:', error);
+                addLog(`Telegram notification error: ${error.message}`, 'error');
             }
         }
 
-        async function editCounter(id) {
-            const counter = activeCounters[id];
-            const newName = prompt('Enter new counter name:', counter.name);
-            if (newName && newName.trim() !== counter.name) {
-                try {
-                    await set(ref(database, `settings/counters/${id}/name`), newName.trim());
-                    await set(ref(database, `counters/${id}/name`), newName.trim());
-                    showNotification('Success', 'Counter name updated', 'success');
-                } catch (error) {
-                    showNotification('Error', 'Failed to update name', 'error');
-                }
-            }
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('notificationLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
 
-            const newPrefix = prompt('Enter new prefix (A-Z, 0-9, max 7):', counter.prefix);
-            if (newPrefix && /^[A-Z0-9]{1,7}$/.test(newPrefix.toUpperCase()) && newPrefix.toUpperCase() !== counter.prefix) {
-                const isUnique = !Object.values(activeCounters).some(c => c.prefix === newPrefix.toUpperCase() && c !== counter);
-                if (isUnique) {
-                    try {
-                        await set(ref(database, `settings/counters/${id}/prefix`), newPrefix.toUpperCase());
-                        await set(ref(database, `counters/${id}/prefix`), newPrefix.toUpperCase());
-                        showNotification('Success', 'Counter prefix updated', 'success');
-                    } catch (error) {
-                        showNotification('Error', 'Failed to update prefix', 'error');
-                    }
-                } else {
-                    showNotification('Error', 'Prefix already in use', 'error');
-                }
+            const now = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <div class="log-time">${now}</div>
+                <div>${message}</div>
+            `;
+
+            logContainer.insertBefore(entry, logContainer.firstChild);
+
+            // Keep only last 50 entries
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
             }
         }
 
-        function showFeedback(id, message, type) {
-            const feedback = document.getElementById(`feedback-${id}`);
-            feedback.className = `p-3 rounded-xl text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
-            feedback.textContent = message;
-            feedback.classList.remove('hidden');
-            setTimeout(() => feedback.classList.add('hidden'), 3000);
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorState');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
         }
 
-        // Setup realtime listeners
-        function setupRealtimeListeners() {
-            onValue(ref(database, 'settings/counters'), (snapshot) => {
-                if (snapshot.exists()) {
-                    activeCounters = snapshot.val();
-                    renderCounters();
-                }
-            });
-
-            // Listen for new customers in queue
-            onValue(ref(database, 'queue'), (snapshot) => {
-                if (snapshot.exists()) {
-                    const queue = snapshot.val();
-                    Object.entries(queue).forEach(([ticketId, data]) => {
-                        if (!lastSeenQueue[ticketId] && data.status === 'waiting') {
-                            const counter = Object.values(activeCounters).find(c => c.prefix === data.prefix);
-                            if (counter) {
-                                newCustomerCount++;
-                                updateBadge();
-                                showNotification(
-                                    'New Customer',
-                                    `${data.prefix}${String(data.number).padStart(3, '0')} joined ${counter.name}`,
-                                    'info'
-                                );
-                            }
-                        }
-                        lastSeenQueue[ticketId] = true;
-                    });
-                }
-            });
+        // Auto-connect if config exists
+        if (firebaseConfig.databaseURL) {
+            document.getElementById('connectBtn').click();
         }
-
-        // Menu and help
-        document.getElementById('menuBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const menu = document.getElementById('menuDropdown');
-            menu.classList.toggle('hidden');
-            if (!menu.classList.contains('hidden')) {
-                newCustomerCount = 0;
-                updateBadge();
-            }
-        });
-
-        document.getElementById('helpBtn').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.remove('hidden');
-        });
-
-        document.getElementById('closeHelp').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.add('hidden');
-        });
-
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            sessionStorage.removeItem('counterAccess');
-            location.reload();
-        });
-
-        document.getElementById('addMoreBtn').addEventListener('click', () => {
-            counterType = '';
-            selectedCounters = [];
-            prefixes = {};
-            showTypeSelection();
-        });
-
-        document.addEventListener('click', (e) => {
-            const menu = document.getElementById('menuDropdown');
-            const menuBtn = document.getElementById('menuBtn');
-            if (!menu.contains(e.target) && !menuBtn.contains(e.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-
-        // Close modals on outside click
-        document.getElementById('helpModal').addEventListener('click', (e) => {
-            if (e.target.id === 'helpModal') {
-                document.getElementById('helpModal').classList.add('hidden');
-            }
-        });
     </script>
 </body>
 </html>
