@@ -1,135 +1,50 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Queue Joy - Your Queue Status</title>
   <meta name="description" content="Real-time queue status with Telegram notifications" />
-  
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
   <style>
-    body { 
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    
-    .fade-in {
-      animation: fadeIn 0.5s ease-in;
-    }
-    
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    .spinner {
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      display: inline-block;
-      animation: spin 0.8s linear infinite;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      animation: fadeIn 0.3s ease-in;
-    }
-    
-    .modal.show {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .modal-content {
-      background: white;
-      border-radius: 16px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      animation: slideUp 0.3s ease-out;
-    }
-    
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(40px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    .pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.5;
-      }
-    }
+    :root{--bg-from:#f5f3ff;--bg-via:#eef2ff;--bg-to:#ecfeff}
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0}
+    .fade-in{animation:fadeIn .45s cubic-bezier(.2,.9,.2,1)}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:white;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .modal{display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
+    .modal.show{display:flex}
+    .modal-content{background:white;border-radius:14px;max-width:520px;width:94%;box-shadow:0 20px 60px rgba(2,6,23,.25);overflow:hidden}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* small responsive niceties */
+    @media (prefers-reduced-motion:reduce){.fade-in,.spinner{animation:none}}
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
+<body class="min-h-screen bg-gradient-to-br from-[#f3f0ff] via-[#eef2ff] to-[#ecfeff]">
 
-  <div class="min-h-screen flex items-center justify-center p-4 pb-32">
-    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 space-y-6 relative fade-in">
-      
+  <main class="min-h-screen flex items-center justify-center p-4 pb-28">
+    <section class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 space-y-6 relative fade-in" aria-labelledby="pageTitle">
+
       <!-- Top Controls -->
       <div class="absolute top-4 right-4 flex gap-2 z-10">
-        <button id="gameBtn" class="w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl hover:scale-110 transition-transform" title="Play Game">
-          🎮
-        </button>
-        <button id="connectTopBtn" class="w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl hover:scale-110 transition-transform" title="Connect Telegram">
-          ✉️
-        </button>
+        <button id="gameBtn" title="Play Game" class="w-11 h-11 rounded-full bg-white shadow flex items-center justify-center text-2xl hover:scale-105 transition">🎮</button>
+        <button id="connectTopBtn" title="Connect Telegram" class="w-11 h-11 rounded-full bg-white shadow flex items-center justify-center text-2xl hover:scale-105 transition">✉️</button>
       </div>
 
       <!-- Header -->
       <div class="space-y-3 text-center pt-8">
         <div class="w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
-          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         </div>
-        <h1 class="text-3xl font-bold text-gray-900">Queue Status</h1>
+        <h1 id="pageTitle" class="text-3xl font-bold text-gray-900">Queue Status</h1>
         <p id="counterName" class="text-sm text-gray-600">--</p>
       </div>
 
-      <!-- Connection Status Banner -->
-      <div id="connectionBanner" class="rounded-2xl p-4 border-2">
-        <p id="connectionBannerText" class="text-sm text-center"></p>
+      <!-- Connection Banner -->
+      <div id="connectionBanner" class="rounded-2xl p-4 border-2 bg-yellow-50 border-yellow-200">
+        <p id="connectionBannerText" class="text-sm text-center text-yellow-700">⚠️ Not connected. Keep this page open for updates.</p>
       </div>
 
       <!-- Your Number -->
@@ -150,21 +65,11 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div class="bg-gray-50 rounded-2xl p-5">
-            <div class="flex items-center gap-2 mb-2">
-              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-              </svg>
-              <p class="text-sm text-gray-600">People Ahead</p>
-            </div>
+            <div class="flex items-center gap-2 mb-2"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg><p class="text-sm text-gray-600">People Ahead</p></div>
             <p id="peopleAhead" class="text-2xl font-bold text-gray-900">--</p>
           </div>
           <div class="bg-gray-50 rounded-2xl p-5">
-            <div class="flex items-center gap-2 mb-2">
-              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <p class="text-sm text-gray-600">Est. Wait</p>
-            </div>
+            <div class="flex items-center gap-2 mb-2"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><p class="text-sm text-gray-600">Est. Wait</p></div>
             <p id="estimatedWait" class="text-2xl font-bold text-gray-900">--</p>
           </div>
         </div>
@@ -177,13 +82,12 @@
             <p class="text-sm text-gray-600">Notifications</p>
             <p id="telegramStatus" class="text-base font-semibold">Checking...</p>
           </div>
-          <div id="telegramIcon" class="w-12 h-12 rounded-full flex items-center justify-center bg-gray-100">
-            <span class="text-2xl">✉️</span>
-          </div>
+          <div id="telegramIcon" class="w-12 h-12 rounded-full flex items-center justify-center bg-gray-100"><span class="text-2xl">✉️</span></div>
         </div>
       </div>
-    </div>
-  </div>
+
+    </section>
+  </main>
 
   <!-- Advertisement -->
   <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-40">
@@ -195,97 +99,102 @@
   </div>
 
   <!-- Connect Telegram Modal -->
-  <div id="connectModal" class="modal">
+  <div id="connectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
     <div class="modal-content">
-      <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-lg">
         <div class="flex items-center justify-center mb-4">
-          <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-            </svg>
+          <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
           </div>
         </div>
-        <h2 class="text-2xl font-bold text-center">Get Notified on Telegram</h2>
+        <h2 id="connectTitle" class="text-2xl font-bold text-center">Get Notified on Telegram</h2>
         <p class="text-center text-blue-100 text-sm mt-2">Stay updated without keeping this page open</p>
       </div>
-      
+
       <div class="p-6 space-y-4">
         <div class="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
           <div class="flex items-start gap-3">
             <div class="flex-shrink-0">
-              <svg class="w-6 h-6 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-              </svg>
+              <svg class="w-6 h-6 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
             </div>
             <div class="flex-1">
               <p class="font-semibold text-gray-900 mb-2">📱 Important: Install Telegram App First</p>
               <p class="text-sm text-gray-700 mb-3">The Telegram <strong>app</strong> is required for background notifications. The web version won't work when your phone is locked.</p>
-              
+
               <div class="bg-white rounded-lg p-3 space-y-2 text-sm text-gray-700">
                 <p class="font-medium text-gray-900">How to connect:</p>
                 <ol class="space-y-1.5 ml-4 list-decimal">
                   <li>Make sure <strong>Telegram app</strong> is installed on your phone</li>
-                  <li>Click "<strong>Connect Telegram</strong>" button below</li>
-                  <li>A new tab will open - tap "<strong>Open in Telegram</strong>"</li>
-                  <li>Press "<strong>Start</strong>" in the Telegram app to complete connection</li>
+                  <li>Tap "<strong>Connect Telegram</strong>" below</li>
+                  <li>Telegram will open — tap "<strong>Start</strong>" in the bot to finish</li>
                 </ol>
               </div>
             </div>
           </div>
         </div>
 
-        <div id="loadingIndicator" class="hidden text-center py-2">
-          <span class="spinner"></span>
-          <span class="text-gray-600 text-sm">Preparing your secure link...</span>
-        </div>
+        <div id="loadingIndicator" class="hidden text-center py-2"><span class="spinner" aria-hidden></span><span class="ml-2 text-gray-600 text-sm">Preparing your secure link...</span></div>
 
         <div class="space-y-3">
-          <button id="connectBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg">
-            Connect Telegram
-          </button>
-          <button id="closeModalBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-xl transition-colors">
-            Close
-          </button>
+          <button id="connectBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg">Connect Telegram</button>
+          <button id="closeModalBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-xl transition-colors">Close</button>
         </div>
 
-        <p class="text-xs text-gray-500 text-center">
-          ⚠️ Only the Telegram app receives notifications in the background
-        </p>
+        <p class="text-xs text-gray-500 text-center">⚠️ Only the Telegram app receives notifications in the background</p>
       </div>
     </div>
   </div>
 
   <!-- Confirmation Modal -->
-  <div id="confirmModal" class="modal">
+  <div id="confirmModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <div class="modal-content max-w-sm">
       <div class="text-center py-6 px-4">
-        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-        </div>
-        <h3 class="text-xl font-bold text-gray-900 mb-2">Connected Successfully!</h3>
+        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></div>
+        <h3 id="confirmTitle" class="text-xl font-bold text-gray-900 mb-2">Connected Successfully!</h3>
         <p class="text-gray-600 mb-3">Hey 👋</p>
         <div class="text-sm bg-gray-50 rounded-lg p-4 mb-4 space-y-1">
           <p class="text-gray-700">🧾 Number: <strong id="confirmNumber">--</strong></p>
           <p class="text-gray-700">🪑 Counter: <strong id="confirmCounter">--</strong></p>
         </div>
-        <p class="text-sm text-gray-600">
-          You can close this page now. We'll message you on Telegram when it's your turn.
-        </p>
+        <p class="text-sm text-gray-600">You can close this page now. We'll message you on Telegram when it's your turn.</p>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase + Client JS -->
   <script type="module">
+    // Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    const TELEGRAM_BOT_USERNAME = 'QueueJoyBot';
+    // ENDPOINTS (Netlify functions)
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
     const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
 
+    // DOM
+    const yourNumber = document.getElementById('yourNumber');
+    const counterNameEl = document.getElementById('counterName');
+    const nowServingEl = document.getElementById('nowServing');
+    const peopleAheadEl = document.getElementById('peopleAhead');
+    const estimatedWaitEl = document.getElementById('estimatedWait');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const telegramStatus = document.getElementById('telegramStatus');
+    const telegramIcon = document.getElementById('telegramIcon');
+    const connectionBanner = document.getElementById('connectionBanner');
+    const connectionBannerText = document.getElementById('connectionBannerText');
+    const adPanel = document.getElementById('adPanel');
+    const noAd = document.getElementById('noAd');
+    const connectModal = document.getElementById('connectModal');
+    const confirmModal = document.getElementById('confirmModal');
+    const connectTopBtn = document.getElementById('connectTopBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const gameBtn = document.getElementById('gameBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const confirmNumber = document.getElementById('confirmNumber');
+    const confirmCounter = document.getElementById('confirmCounter');
+
+    // Your Firebase config — keep as before
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -299,45 +208,24 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // DOM Elements
-    const yourNumber = document.getElementById('yourNumber');
-    const counterNameEl = document.getElementById('counterName');
-    const nowServingEl = document.getElementById('nowServing');
-    const peopleAheadEl = document.getElementById('peopleAhead');
-    const estimatedWaitEl = document.getElementById('estimatedWait');
-    const statusIndicator = document.getElementById('statusIndicator');
-    const telegramStatus = document.getElementById('telegramStatus');
-    const telegramIcon = document.getElementById('telegramIcon');
-    const connectionBanner = document.getElementById('connectionBanner');
-    const connectionBannerText = document.getElementById('connectionBannerText');
-    const adPanel = document.getElementById('adPanel');
-    const noAd = document.getElementById('noAd');
-
-    const connectModal = document.getElementById('connectModal');
-    const confirmModal = document.getElementById('confirmModal');
-    const connectTopBtn = document.getElementById('connectTopBtn');
-    const connectBtn = document.getElementById('connectBtn');
-    const closeModalBtn = document.getElementById('closeModalBtn');
-    const gameBtn = document.getElementById('gameBtn');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const confirmNumber = document.getElementById('confirmNumber');
-    const confirmCounter = document.getElementById('confirmCounter');
-
+    // State
     let queueData = null;
     let avgServiceTime = 2;
     let isGeneratingLink = false;
     let connectLink = null;
     let prevTelegramConnected = false;
 
+    // Read queueId from URL
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get('queueId');
 
     if (!queueKey) {
+      // If missing, show a friendly error and bail
       alert('Queue ID missing. Please scan the QR code again.');
       window.location.href = '/';
     }
 
-    // Update connection UI
+    // Utility: update UI for connection
     function updateConnectionUI(connected) {
       if (connected) {
         telegramStatus.textContent = 'Connected to Telegram';
@@ -351,82 +239,93 @@
         telegramStatus.className = 'text-base font-semibold text-gray-800';
         telegramIcon.className = 'w-12 h-12 rounded-full flex items-center justify-center bg-gray-100';
         connectionBanner.className = 'rounded-2xl p-4 border-2 bg-yellow-50 border-yellow-200';
-        connectionBannerText.textContent = '⚠️ Not connected. Keep this page open for updates.';
+        connectionBannerText.textContent = '⚠️ Not connected. Tap Connect to receive notifications.';
         connectionBannerText.className = 'text-sm text-center text-yellow-700';
       }
     }
 
-    // Generate Telegram link
+    // Generate Telegram connect link (server returns URL-safe token + link)
     async function generateConnectLink() {
       if (!queueKey) throw new Error('Missing queueKey');
-      
-      let queueId = yourNumber.textContent;
-      if (!queueId || queueId === '--') {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        queueId = yourNumber.textContent;
-      }
+      // ensure we have the human-readable number if available
+      let queueNumber = yourNumber.textContent && yourNumber.textContent !== '--' ? yourNumber.textContent : null;
+
+      const payload = {
+        queueKey: queueKey || null,
+        queueNumber: queueNumber || null,
+        counterId: queueData?.counterId || null
+      };
 
       const res = await fetch(CREATE_LINK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          queueId: queueId || queueKey,
-          counterId: queueData?.counterId || null
-        })
+        body: JSON.stringify(payload)
       });
 
+      if (!res.ok) {
+        const text = await res.text().catch(()=>null);
+        throw new Error('Link creation failed: ' + (text || res.status));
+      }
+
       const json = await res.json();
-      return json.link;
+      return json; // { link, token, preview }
     }
 
-    // Handle connect click - OPENS IN NEW TAB
-    async function handleConnect() {
+    // Handle connect click
+    async function handleConnectClick() {
       if (isGeneratingLink) return;
-      
       isGeneratingLink = true;
+      connectBtn.setAttribute('aria-busy', 'true');
+      connectBtn.disabled = true;
       loadingIndicator.classList.remove('hidden');
-      
+
       try {
-        const link = await generateConnectLink();
-        connectLink = link;
-        // OPEN IN NEW TAB
-        window.open(link || `https://t.me/${TELEGRAM_BOT_USERNAME}`, '_blank', 'noopener,noreferrer');
-      } catch (e) {
-        console.warn(e);
-        // OPEN IN NEW TAB
-        window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}`, '_blank', 'noopener,noreferrer');
+        const data = await generateConnectLink();
+        connectLink = data.link;
+
+        // Try to open in a new tab/window; detect popup blocked
+        const newWin = window.open(connectLink || '#', '_blank', 'noopener,noreferrer');
+        if (!newWin) {
+          // Popup blocked — inform the user with clear instructions
+          alert('Popup blocked. Please tap Connect again or allow popups for this site. Alternatively, open Telegram and paste the link shown to connect.');
+          // Optionally show preview for manual copy (admin only)
+          showPreviewToast(data);
+        } else {
+          // Focus the new window/tab if possible
+          try { newWin.focus(); } catch (e) {}
+        }
+      } catch (err) {
+        console.error('generateConnectLink error', err);
+        alert('Failed to create Telegram link. Try again or contact support.');
       } finally {
         isGeneratingLink = false;
+        connectBtn.removeAttribute('aria-busy');
+        connectBtn.disabled = false;
         loadingIndicator.classList.add('hidden');
       }
+    }
+
+    function showPreviewToast(data) {
+      // temporary small preview modal or console fallback for admins — non-intrusive
+      console.info('Preview link (admin):', data.link, 'token:', data.token);
+      // Small UI cue
+      connectionBannerText.textContent = 'Preview link available in console (admin).';
+      connectionBannerText.className = 'text-sm text-center text-gray-700';
     }
 
     // Event listeners
     connectTopBtn.addEventListener('click', () => {
       connectModal.classList.add('show');
+      // focus connect button for accessibility
+      setTimeout(()=>connectBtn.focus(), 200);
     });
+    connectBtn.addEventListener('click', handleConnectClick);
+    closeModalBtn.addEventListener('click', () => connectModal.classList.remove('show'));
+    connectModal.addEventListener('click', (e) => { if (e.target === connectModal) connectModal.classList.remove('show'); });
+    gameBtn.addEventListener('click', ()=>{ window.location.href = 'https://queuejoy.netlify.app/game.html'; });
 
-    connectBtn.addEventListener('click', handleConnect);
-
-    closeModalBtn.addEventListener('click', () => {
-      connectModal.classList.remove('show');
-    });
-
-    connectModal.addEventListener('click', (e) => {
-      if (e.target === connectModal) {
-        connectModal.classList.remove('show');
-      }
-    });
-
-    gameBtn.addEventListener('click', () => {
-      window.location.href = 'https://queuejoy.netlify.app/game.html';
-    });
-
-    // Show connect modal on load
-    setTimeout(() => {
-      connectModal.classList.add('show');
-      handleConnect();
-    }, 500);
+    // Show connect modal on load but DO NOT auto-open Telegram (avoids popup blockers)
+    setTimeout(()=>{ connectModal.classList.add('show'); }, 450);
 
     // Listen to queue data
     const queueRef = ref(db, `queue/${queueKey}`);
@@ -439,10 +338,9 @@
       const data = snap.val();
       const wasConnected = prevTelegramConnected;
       prevTelegramConnected = !!data.telegramConnected;
-      
+
       queueData = data;
       yourNumber.textContent = data.queueId || '--';
-      
       updateConnectionUI(!!data.telegramConnected);
 
       // Show confirmation when newly connected
@@ -453,19 +351,18 @@
         confirmCounter.textContent = data.counterId || 'TBD';
         connectModal.classList.remove('show');
         confirmModal.classList.add('show');
-        setTimeout(() => confirmModal.classList.remove('show'), 3000);
+        setTimeout(()=>confirmModal.classList.remove('show'), 3000);
       }
 
-      // Listen to counter
+      // Listen to counter updates
       if (data.counterId) {
         const counterRef = ref(db, `counters/${data.counterId}`);
         onValue(counterRef, async (counterSnap) => {
           if (!counterSnap.exists()) return;
-          
           const counterData = counterSnap.val();
           counterNameEl.textContent = counterData.name || data.counterId;
 
-          // Get average service time
+          // avg service time
           let avgTime = Number(counterData.avgServiceTime) || null;
           if (!avgTime) {
             try {
@@ -477,7 +374,7 @@
           }
           avgServiceTime = avgTime;
 
-          // Listen to now serving
+          // Listen to nowServing
           const servingRef = ref(db, `counters/${data.counterId}/nowServing`);
           onValue(servingRef, (nowSnap) => {
             const currentServing = Number(nowSnap.val() || 0);
@@ -488,28 +385,22 @@
             const ahead = Number.isFinite(yourNumericValue) ? Math.max(0, yourNumericValue - currentServing) : 0;
             peopleAheadEl.textContent = String(ahead);
 
-            // Calculate estimated wait using average service time
             if (ahead === 0) {
               estimatedWaitEl.textContent = "Your turn!";
               statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full pulse';
 
-              // Notify via Telegram
-              const notifyBody = data.chatId
-                ? { chatId: data.chatId, message: `🎟 It's now your turn!\nQueue: ${queueKey}` }
-                : { message: `🎟 It's now the customer's turn!\nQueue: ${queueKey}` };
+              // Notify via server/sendTelegram endpoint (best-effort)
+              try {
+                const notifyBody = data.chatId ? { chatId: data.chatId, message: `🎟 It's now your turn!\nQueue: ${queueKey}` } : { message: `🎟 It's now the customer's turn!\nQueue: ${queueKey}` };
+                fetch(SEND_TELEGRAM_ENDPOINT, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(notifyBody)
+                }).catch(()=>{});
+              } catch(e){}
 
-              fetch(SEND_TELEGRAM_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(notifyBody)
-              }).catch(() => {});
-
-              // Redirect to your turn page
-              setTimeout(() => {
-                try {
-                  window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}`;
-                } catch (e) {}
-              }, 1200);
+              // redirect to a "your turn" page after a short beat
+              setTimeout(()=>{ try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}` } catch(e){} }, 1200);
             } else {
               statusIndicator.className = 'w-3 h-3 bg-blue-500 rounded-full';
               const estimatedMinutes = Math.round(ahead * avgServiceTime);
@@ -520,25 +411,17 @@
       }
     });
 
-    // Listen to ad
+    // Ad listener
     const adRef = ref(db, "settings/adImage");
-    onValue(adRef, (snap) => {
+    onValue(adRef, (snap)=>{
       const adUrl = snap.val();
-      if (adUrl) {
-        adPanel.src = adUrl;
-        adPanel.classList.remove('hidden');
-        noAd.classList.add('hidden');
-      } else {
-        adPanel.classList.add('hidden');
-        noAd.classList.remove('hidden');
-      }
+      if (adUrl) { adPanel.src = adUrl; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
+      else { adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
     });
 
     // Cleanup
-    window.addEventListener('beforeunload', () => {
-      off(queueRef);
-      off(adRef);
-    });
+    window.addEventListener('beforeunload', ()=>{ off(queueRef); off(adRef); });
+
   </script>
 </body>
 </html>
