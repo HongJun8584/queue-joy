@@ -13,15 +13,18 @@
 
   <style>
     :root { --primary: 264 83% 62%; }
-    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial; margin:0; background: linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%); background-size:400% 400%; animation: gradientShift 15s linear infinite; }
+    * { scrollbar-width: thin; }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial; margin:0; background: linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#4facfe 75%,#00f2fe 100%); background-size:400% 400%; animation: gradientShift 15s ease infinite; }
     @keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-    .card{background:rgba(255,255,255,0.95);backdrop-filter:blur(18px);border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.35)}
-    .toast{position:fixed;top:20px;right:20px;padding:12px 16px;border-radius:12px;color:white;z-index:1000}
-    .spinner{border:2px solid rgba(255,255,255,0.3);border-top:2px solid hsl(var(--primary));border-radius:50%;width:18px;height:18px;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+    .card{background:rgba(255,255,255,0.95);backdrop-filter:blur(16px);border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.35)}
+    .toast{position:fixed;top:20px;right:20px;padding:12px 16px;border-radius:10px;color:#fff;z-index:1200}
+    .spinner{border:2px solid rgba(255,255,255,0.35);border-top:2px solid hsl(var(--primary));border-radius:50%;width:16px;height:16px;animation:spin .8s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle}
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-    .sidebar{position:fixed;left:0;top:0;height:100vh;width:260px;background:linear-gradient(180deg,rgba(99,102,241,0.95),rgba(139,92,246,0.95));padding:18px;box-shadow:8px 0 40px rgba(0,0,0,0.15)}
+    .sidebar{position:fixed;left:0;top:0;height:100vh;width:260px;background:linear-gradient(180deg,rgba(99,102,241,0.95),rgba(139,92,246,0.95));padding:18px;color:#fff;box-shadow:8px 0 40px rgba(0,0,0,0.15)}
     .main-content{margin-left:260px;padding:28px;min-height:100vh}
     @media(max-width:1024px){.main-content{margin-left:0}}
+    .hidden{display:none!important}
+    .small-muted{font-size:12px;color:#6b7280}
   </style>
 </head>
 <body>
@@ -29,15 +32,16 @@
   <aside class="sidebar">
     <div class="mb-6">
       <div class="flex items-center gap-3 mb-2">
-        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white font-bold">QJ</div>
-        <h1 class="text-white text-xl font-bold">QueueJoy</h1>
+        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">QJ</div>
+        <h1 class="text-lg font-bold">QueueJoy</h1>
       </div>
-      <p class="text-white/80 text-sm">Admin Panel</p>
+      <p class="small-muted">Admin Panel — no auth</p>
     </div>
+
     <nav class="space-y-2">
-      <div class="block p-3 text-white bg-white/10 rounded-md" id="navDashboard">🏠 Dashboard</div>
-      <div class="block p-3 text-white hover:bg-white/10 rounded-md" id="navAnalyst">📊 Analytics</div>
-      <div class="block p-3 text-white hover:bg-white/10 rounded-md" id="navHowTo">❓ How to Use</div>
+      <button id="navDashboard" class="w-full text-left p-3 rounded bg-white/10">🏠 Dashboard</button>
+      <button id="navAnalyst" class="w-full text-left p-3 rounded hover:bg-white/10">📊 Analytics</button>
+      <button id="navHowTo" class="w-full text-left p-3 rounded hover:bg-white/10">❓ How to Use</button>
     </nav>
   </aside>
 
@@ -45,69 +49,71 @@
   <div class="main-content">
     <div class="max-w-6xl mx-auto">
       <!-- Header -->
-      <header class="flex items-center justify-between gap-6 mb-8 mt-6">
+      <header class="flex items-center justify-between gap-6 mb-6 mt-6">
         <div class="flex items-center gap-4">
           <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white font-bold">QJ</div>
           <div>
-            <h2 id="headerName" class="text-2xl font-bold text-gray-900">QueueJoy Admin</h2>
-            <p class="text-sm text-gray-600">Real-time management dashboard</p>
+            <h2 id="headerName" class="text-2xl font-bold">QueueJoy Admin</h2>
+            <p class="small-muted">Live management for index.html</p>
           </div>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
           <button id="saveAllBtn" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg">💾 Save All Changes</button>
         </div>
       </header>
 
       <!-- Stats -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <div class="card">
-          <p class="text-sm text-gray-600">Total Queues</p>
-          <p id="totalQueues" class="text-3xl font-bold mt-2">0</p>
+          <p class="small-muted">Total Queues</p>
+          <p id="totalQueues" class="text-2xl font-bold mt-2">0</p>
         </div>
         <div class="card">
-          <p class="text-sm text-gray-600">Active (Waiting)</p>
-          <p id="waitingCount" class="text-3xl font-bold mt-2">0</p>
+          <p class="small-muted">Active (Waiting)</p>
+          <p id="activeQueues" class="text-2xl font-bold mt-2">0</p>
         </div>
         <div class="card">
-          <p class="text-sm text-gray-600">Average Wait Time</p>
-          <p id="avgWait" class="text-3xl font-bold mt-2">0 min</p>
+          <p class="small-muted">Average Wait</p>
+          <p id="avgWait" class="text-2xl font-bold mt-2">0 min</p>
         </div>
         <div class="card">
-          <p class="text-sm text-gray-600">Active Counters</p>
-          <p id="activeCounters" class="text-3xl font-bold mt-2">0</p>
+          <p class="small-muted">Active Counters</p>
+          <p id="activeCounters" class="text-2xl font-bold mt-2">0</p>
         </div>
       </div>
 
       <!-- Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Left: Settings -->
-        <div class="card space-y-6">
-          <h3 class="text-xl font-bold">⚙️ Business Settings</h3>
+        <!-- Settings -->
+        <div class="card space-y-4">
+          <h3 class="font-bold text-lg">⚙️ Business Settings</h3>
 
           <div>
-            <label class="text-sm text-gray-700">Business Name</label>
-            <input id="businessName" class="w-full mt-2 p-3 rounded border" placeholder="Your Business Name" />
+            <label class="small-muted block mb-1">Business Name</label>
+            <input id="businessName" class="w-full p-3 rounded border" placeholder="Your Business Name" />
           </div>
 
           <div>
-            <label class="text-sm text-gray-700">Welcome Message</label>
-            <textarea id="welcomeMessage" rows="3" class="w-full mt-2 p-3 rounded border" placeholder="Real-time queueing system..."></textarea>
+            <label class="small-muted block mb-1">Welcome Message</label>
+            <textarea id="welcomeMessage" rows="3" class="w-full p-3 rounded border" placeholder="Real-time queueing system..."></textarea>
           </div>
 
           <div>
-            <label class="text-sm text-gray-700">Logo (crop)</label>
-            <div class="flex gap-3 items-center mt-2">
+            <label class="small-muted block mb-1">Logo Image (square)</label>
+            <div class="flex items-center gap-3">
               <img id="logoPreview" src="" class="w-16 h-16 rounded object-cover hidden" alt="logo" />
               <input id="logoFile" type="file" accept="image/*" />
             </div>
+            <p class="small-muted mt-1">Click to crop and save. This writes to <code>/settings/logo</code>.</p>
           </div>
 
           <div>
-            <label class="text-sm text-gray-700">Ad Banner (crop)</label>
-            <div class="mt-2 flex gap-3 items-center">
+            <label class="small-muted block mb-1">Advertisement (landscape)</label>
+            <div class="flex items-center gap-3">
               <div id="adPreviewBox" class="w-32 h-20 rounded overflow-hidden hidden"></div>
               <input id="adFile" type="file" accept="image/*,video/*" />
             </div>
+            <p class="small-muted mt-1">Images can be cropped (16:9). Videos/GIFs bypass cropping.</p>
           </div>
 
           <div>
@@ -115,113 +121,115 @@
           </div>
         </div>
 
-        <!-- Right: Display & Announcement & Preview -->
-        <div class="space-y-6">
+        <!-- Display + Announce + Preview -->
+        <div class="space-y-4">
           <div class="card">
-            <h3 class="text-xl font-bold">🖥️ Display Settings</h3>
-            <div class="mt-3 space-y-3">
-              <div>
-                <label class="text-sm text-gray-700">Small Text (Subtitle)</label>
-                <input id="displaySmallText" class="w-full mt-2 p-2 rounded border" placeholder="Digital Queue System" />
-              </div>
-              <div>
-                <label class="text-sm text-gray-700">Logo URL (Centered)</label>
-                <input id="displayLogoUrl" class="w-full mt-2 p-2 rounded border" placeholder="https://.../logo.png" />
-              </div>
-              <div>
-                <label class="text-sm text-gray-700">Main Title</label>
-                <input id="displayMainTitle" class="w-full mt-2 p-2 rounded border" placeholder="Get your queue number" />
-              </div>
-              <p class="text-xs text-gray-500 mt-2">Saves to <code>/displaySettings</code>. Index page reads this for live updates.</p>
+            <h3 class="font-bold text-lg">🖥️ Display Settings</h3>
+            <div class="mt-3">
+              <label class="small-muted block mb-1">Small Text (subtitle)</label>
+              <input id="displaySmallText" class="w-full p-2 rounded border" placeholder="Digital Queue System" />
+            </div>
+            <div class="mt-3">
+              <label class="small-muted block mb-1">Centered Logo URL</label>
+              <input id="displayLogoUrl" class="w-full p-2 rounded border" placeholder="https://.../logo.png" />
+            </div>
+            <div class="mt-3">
+              <label class="small-muted block mb-1">Main Title</label>
+              <input id="displayMainTitle" class="w-full p-2 rounded border" placeholder="Get your queue number" />
+            </div>
+            <p class="small-muted mt-2">Saved to <code>/displaySettings</code> — index.html reads these live.</p>
+            <div class="mt-3">
+              <button id="saveDisplayBtn" class="w-full p-2 bg-indigo-600 text-white rounded">Save Display Settings</button>
             </div>
           </div>
 
           <div class="card">
-            <h3 class="text-xl font-bold">📢 Telegram Announcement</h3>
-            <textarea id="announcementMessage" class="w-full mt-2 p-3 rounded border" rows="3" placeholder="Announcement..."></textarea>
-            <div class="mt-3 flex gap-3 items-start">
+            <h3 class="font-bold text-lg">📢 Telegram Announcement</h3>
+            <textarea id="announcementMessage" class="w-full p-3 rounded border" rows="3" placeholder="Announcement..."></textarea>
+            <div class="mt-2 flex gap-3 items-start">
               <input id="announcementMedia" type="file" accept="image/*,video/*,.gif" />
               <div id="announcementPreview" class="hidden"></div>
             </div>
             <div class="mt-3">
-              <button id="sendAnnouncementBtn" class="p-2 bg-green-600 text-white rounded">📱 Send to Telegram</button>
-              <div id="announcementResult" class="mt-2 text-sm hidden"></div>
+              <button id="sendAnnouncementBtn" class="w-full p-2 bg-green-600 text-white rounded">📱 Send to Telegram</button>
+              <div id="announcementResult" class="mt-2 hidden"></div>
             </div>
           </div>
 
           <div class="card">
-            <h3 class="text-xl font-bold">👁️ Live Preview</h3>
+            <h3 class="font-bold text-lg">👁️ Live Preview</h3>
             <div class="flex items-center gap-3 mt-3">
               <div id="previewLogo" class="w-14 h-14 rounded bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white">QJ</div>
               <div>
                 <p id="previewName" class="font-bold">Your Business</p>
-                <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
+                <p id="previewIntro" class="small-muted">Real-time queueing system</p>
               </div>
             </div>
             <div class="mt-3">
-              <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
-              <img id="previewAd" src="" class="w-32 h-20 rounded object-cover hidden" alt="ad" />
+              <p class="small-muted mb-1">Advertisement preview</p>
+              <img id="previewAd" src="" class="w-32 h-20 rounded object-cover hidden" alt="ad">
+            </div>
+            <div class="mt-3">
+              <button class="w-full p-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded opacity-80 cursor-not-allowed">🎫 Get My Number (preview)</button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Analyst View (hidden by default) -->
-      <div id="analystArea" class="card mt-8 hidden">
-        <h3 class="text-xl font-bold mb-4">📊 Analytics Dashboard</h3>
+      <!-- Analyst area -->
+      <div id="analystArea" class="card mt-6 hidden">
+        <h3 class="font-bold text-lg mb-3">📊 Analytics</h3>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="card">
-            <h4 class="font-bold mb-2">Queue Trend (Last 7 Days)</h4>
+            <h4 class="font-semibold mb-2">Queue Trend (last 7 days)</h4>
             <canvas id="queueTrendChart" height="120"></canvas>
           </div>
-
           <div class="card">
-            <h4 class="font-bold mb-2">Counter Performance (served per counter)</h4>
+            <h4 class="font-semibold mb-2">Counter Performance (served)</h4>
             <canvas id="counterPerfChart" height="120"></canvas>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mt-6">
+        <div class="grid grid-cols-2 gap-4 mt-4">
           <div class="card">
-            <p class="text-sm text-gray-600">Completed</p>
-            <p id="completedCount" class="text-2xl font-bold mt-2">0</p>
+            <p class="small-muted">Completed</p>
+            <p id="analystCompleted" class="text-2xl font-bold">0</p>
           </div>
           <div class="card">
-            <p class="text-sm text-gray-600">Waiting</p>
-            <p id="waitingCount2" class="text-2xl font-bold mt-2">0</p>
+            <p class="small-muted">Waiting</p>
+            <p id="analystWaiting" class="text-2xl font-bold">0</p>
           </div>
           <div class="card">
-            <p class="text-sm text-gray-600">Serving</p>
-            <p id="servingCount" class="text-2xl font-bold mt-2">0</p>
+            <p class="small-muted">Serving</p>
+            <p id="analystServing" class="text-2xl font-bold">0</p>
           </div>
           <div class="card">
-            <p class="text-sm text-gray-600">Cancelled</p>
-            <p id="cancelledCount" class="text-2xl font-bold mt-2">0</p>
+            <p class="small-muted">Cancelled</p>
+            <p id="analystCancelled" class="text-2xl font-bold">0</p>
           </div>
         </div>
       </div>
 
-      <footer class="mt-8 text-center text-sm text-gray-600">🔥 Live sync with Firebase — changes update index.html in real time</footer>
+      <footer class="text-center small-muted mt-6">Live sync with Firebase — edits update index.html</footer>
     </div>
   </div>
 
-  <!-- Crop Modal -->
-  <div id="cropModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-40">
-    <div class="bg-white p-4 rounded-lg max-w-xl w-full">
-      <h4 class="font-bold mb-3">Crop Image</h4>
+  <!-- Crop modal -->
+  <div id="cropModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div class="bg-white p-4 rounded max-w-lg w-full">
+      <h4 class="font-bold mb-2" id="cropModalTitle">Crop Image</h4>
       <div class="mb-3"><img id="cropImage" src="" style="max-width:100%" /></div>
-      <div class="flex gap-3 justify-end">
+      <div class="flex justify-end gap-2">
         <button id="cropCancelBtn" class="px-3 py-2 bg-gray-200 rounded">Cancel</button>
-        <button id="cropSaveBtn" class="px-3 py-2 bg-purple-600 text-white rounded">Save</button>
+        <button id="cropSaveBtn" class="px-3 py-2 bg-indigo-600 text-white rounded">Save Crop</button>
       </div>
     </div>
   </div>
 
-  <!-- Scripts -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getDatabase, ref, onValue, get, update, set } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -236,24 +244,19 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // helpers
-    const $ = (id) => document.getElementById(id);
-    const showToast = (msg, ok=true) => {
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.style.background = ok ? 'linear-gradient(90deg,#16a34a,#059669)' : 'linear-gradient(90deg,#dc2626,#ef4444)';
-      t.textContent = (ok ? '✅ ' : '⚠️ ') + msg;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3500);
+    // Helpers
+    const $ = (id)=>document.getElementById(id);
+    const toast = (msg, ok=true) => {
+      const d = document.createElement('div');
+      d.className = 'toast';
+      d.style.background = ok ? 'linear-gradient(90deg,#16a34a,#059669)' : 'linear-gradient(90deg,#dc2626,#ef4444)';
+      d.textContent = (ok ? '✅ ' : '⚠️ ') + msg;
+      document.body.appendChild(d);
+      setTimeout(()=>d.remove(),3500);
     };
-    const fileToBase64 = (file) => new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
+    const fileToBase64 = (file)=>new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
 
-    // elements
+    // Elements
     const businessName = $('businessName');
     const welcomeMessage = $('welcomeMessage');
     const logoFile = $('logoFile');
@@ -266,6 +269,7 @@
     const displaySmallText = $('displaySmallText');
     const displayLogoUrl = $('displayLogoUrl');
     const displayMainTitle = $('displayMainTitle');
+    const saveDisplayBtn = $('saveDisplayBtn');
 
     const previewName = $('previewName');
     const previewIntro = $('previewIntro');
@@ -276,22 +280,29 @@
     const announcementMedia = $('announcementMedia');
     const announcementPreview = $('announcementPreview');
     const sendAnnouncementBtn = $('sendAnnouncementBtn');
+    const announcementResult = $('announcementResult');
 
     const totalQueuesEl = $('totalQueues');
-    const waitingCountEl = $('waitingCount');
-    const activeCountersEl = $('activeCounters');
+    const activeQueuesEl = $('activeQueues');
     const avgWaitEl = $('avgWait');
+    const activeCountersEl = $('activeCounters');
 
-    // analyst
     const analystArea = $('analystArea');
-    const navAnalyst = document.getElementById('navAnalyst');
-    const navDashboard = document.getElementById('navDashboard');
-    const navHowTo = document.getElementById('navHowTo');
+    const navAnalyst = $('navAnalyst');
+    const navDashboard = $('navDashboard');
+    const navHowTo = $('navHowTo');
 
-    const completedCountEl = $('completedCount');
-    const waitingCount2El = $('waitingCount2');
-    const servingCountEl = $('servingCount');
-    const cancelledCountEl = $('cancelledCount');
+    const analystCompleted = $('analystCompleted');
+    const analystWaiting = $('analystWaiting');
+    const analystServing = $('analystServing');
+    const analystCancelled = $('analystCancelled');
+
+    // crop modal refs
+    const cropModal = $('cropModal');
+    const cropImage = $('cropImage');
+    const cropSaveBtn = $('cropSaveBtn');
+    const cropCancelBtn = $('cropCancelBtn');
+    const cropModalTitle = $('cropModalTitle');
 
     // charts
     let queueTrendChart = null;
@@ -299,50 +310,54 @@
 
     function initCharts() {
       if (!queueTrendChart) {
-        const ctx = document.getElementById('queueTrendChart').getContext('2d');
-        queueTrendChart = new Chart(ctx, {
-          type: 'line',
-          data: { labels: [], datasets: [{ label: 'Queues', data: [], tension: 0.35, fill: true, backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgb(99,102,241)' }] },
-          options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+        const ctx = $('queueTrendChart')?.getContext?.('2d');
+        if (ctx) queueTrendChart = new Chart(ctx, {
+          type:'line',
+          data:{ labels:[], datasets:[{ label:'Queues', data:[], tension:0.35, backgroundColor:'rgba(99,102,241,0.12)', borderColor:'rgb(99,102,241)' }] },
+          options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } }
         });
       }
       if (!counterPerfChart) {
-        const ctx2 = document.getElementById('counterPerfChart').getContext('2d');
-        counterPerfChart = new Chart(ctx2, {
-          type: 'bar',
-          data: { labels: [], datasets: [{ label: 'Served', data: [], backgroundColor: [] }] },
-          options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+        const ctx2 = $('counterPerfChart')?.getContext?.('2d');
+        if (ctx2) counterPerfChart = new Chart(ctx2, {
+          type:'bar',
+          data:{ labels:[], datasets:[{ label:'Served', data:[], backgroundColor:[] }] },
+          options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } }
         });
       }
     }
 
-    // Utility: format minutes nicely
+    // Robust timestamp parser
+    function parseTs(ts) {
+      if (!ts && ts !== 0) return 0;
+      // numeric string?
+      if (typeof ts === 'string' && /^\d+$/.test(ts)) ts = Number(ts);
+      if (typeof ts === 'number') {
+        // if seconds (10-digit) convert
+        if (ts < 1e11) return ts * 1000; // likely seconds
+        if (ts < 1e15) return ts; // likely ms
+        // outlier — fallback
+        return ts;
+      }
+      // ISO-like string
+      const parsed = Date.parse(String(ts));
+      return isNaN(parsed) ? 0 : parsed;
+    }
+
     function humanizeMinutes(mins) {
       if (!isFinite(mins) || mins <= 0) return '0 min';
       if (mins < 60) return `${Math.round(mins)} min`;
-      const hours = mins / 60;
-      if (hours < 24) return `${(hours).toFixed(1)} hr`;
-      const days = hours / 24;
-      return `${days.toFixed(1)} day`;
+      const hrs = mins / 60;
+      if (hrs < 24) return `${hrs.toFixed(1)} hr`;
+      return `${(hrs/24).toFixed(1)} day`;
     }
 
-    // Apply display settings to preview
-    function applyDisplaySettings(obj={}) {
-      const smallText = obj.smallText ?? obj.displaySmallText ?? obj.name ?? '';
-      const logoUrl = obj.logoUrl ?? obj.displayLogoUrl ?? obj.logo ?? '';
-      const mainTitle = obj.mainTitle ?? obj.displayMainTitle ?? obj.introText ?? '';
-
-      if (smallText) { displaySmallText.value = smallText; previewName.textContent = smallText; }
-      if (mainTitle) { displayMainTitle.value = mainTitle; previewIntro.textContent = mainTitle; }
-      if (logoUrl) { displayLogoUrl.value = logoUrl; previewLogo.innerHTML = `<img src="${logoUrl}" class="w-full h-full object-cover rounded" />`; previewLogo.classList.remove('hidden'); }
-    }
-
-    // Read existing settings (live)
+    // Read settings -> UI
     onValue(ref(db, 'settings/name'), snap => {
       if (!snap.exists()) return;
       businessName.value = snap.val();
       previewName.textContent = snap.val();
-      $('headerName')?.textContent = snap.val();
+      $('headerName').textContent = snap.val();
     });
     onValue(ref(db, 'settings/introText'), snap => {
       if (!snap.exists()) return;
@@ -353,14 +368,20 @@
       if (!snap.exists()) return;
       const v = snap.val();
       logoPreview.src = v; logoPreview.classList.remove('hidden');
-      previewLogo.innerHTML = `<img src="${v}" class="w-full h-full object-cover rounded" />`;
-      headerLogo.innerHTML = `<img src="${v}" class="w-full h-full object-cover rounded" />`;
+      previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded object-cover">`;
+      $('headerLogo').innerHTML = `<img src="${v}" class="w-full h-full rounded object-cover">`;
     });
 
-    // displaySettings (primary for display)
+    // displaySettings binding
     onValue(ref(db, 'displaySettings'), snap => {
       if (!snap.exists()) return;
-      applyDisplaySettings(snap.val());
+      const v = snap.val();
+      displaySmallText.value = v.smallText || '';
+      displayLogoUrl.value = v.logoUrl || '';
+      displayMainTitle.value = v.mainTitle || '';
+      if (v.logoUrl) previewLogo.innerHTML = `<img src="${v.logoUrl}" class="w-full h-full rounded object-cover">`;
+      if (v.smallText) previewName.textContent = v.smallText;
+      if (v.mainTitle) previewIntro.textContent = v.mainTitle;
     });
 
     // ad image
@@ -368,160 +389,155 @@
       if (!snap.exists()) { adPreviewBox.classList.add('hidden'); previewAd.classList.add('hidden'); return; }
       const v = snap.val();
       if (typeof v === 'string' && v.startsWith('data:video/')) {
-        adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
+        adPreviewBox.innerHTML = `<video src="${v}" controls class="w-full h-full object-cover"></video>`;
       } else {
-        adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
+        adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover">`;
       }
       adPreviewBox.classList.remove('hidden');
       previewAd.src = v; previewAd.classList.remove('hidden');
     });
 
-    // Queue analytics listener (robust)
-    onValue(ref(db, 'queue'), snap => {
+    // Queue analytics — primary source
+    onValue(ref(db, 'queue'), async snap => {
       const raw = snap.exists() ? snap.val() : {};
-      // raw is object keyed by push-id => { queueId, timestamp, status, counterId, ... }
       const items = Object.keys(raw).map(k => ({ id:k, ...(raw[k]||{}) }));
 
-      // counts
-      const counts = { waiting:0, serving:0, completed:0, cancelled:0 };
+      // counters aggregation for "served per counter"
+      const completedStatuses = new Set(['done','served','completed']);
+      const waitingStatuses = new Set(['waiting','pending']);
+      const servingStatuses = new Set(['serving','called','in-service']);
+      let total = items.length;
+      let waiting = 0, serving = 0, completed = 0, cancelled = 0;
       const waitingTimestamps = [];
-      const completedPerCounter = {}; // served by counterId
-      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-      let todayCount = 0;
+      const completedPerCounter = {}; // { counterId: number }
+      const recentDates = {}; // YYYY-MM-DD -> count
 
-      // Build last7 days buckets (YYYY-MM-DD)
+      // prepare last 7 day buckets
       const buckets = {};
+      const today = new Date(); today.setHours(0,0,0,0);
       for (let i=6;i>=0;i--) {
-        const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i);
-        const key = d.toISOString().slice(0,10);
-        buckets[key] = 0;
+        const d = new Date(today.getTime() - i*24*60*60*1000);
+        buckets[d.toISOString().slice(0,10)] = 0;
       }
 
-      items.forEach(item => {
-        const status = String(item.status || '').toLowerCase();
-        const ts = Number(item.timestamp || item.time || 0) || (item.timestamp && Date.parse(item.timestamp) ? Date.parse(item.timestamp) : 0);
-        // status mapping
-        if (status === 'waiting' || status === 'pending') { counts.waiting++; if (ts) waitingTimestamps.push(ts); }
-        else if (status === 'serving' || status === 'called' || status === 'in-service') { counts.serving++; if (ts) waitingTimestamps.push(ts); }
-        else if (status === 'done' || status === 'served' || status === 'completed') { counts.completed++; if (item.counterId) completedPerCounter[item.counterId] = (completedPerCounter[item.counterId]||0) + 1; }
-        else if (status === 'cancelled' || status === 'canceled') { counts.cancelled++; }
-
+      items.forEach(it => {
+        const status = (it.status || '').toString().toLowerCase();
+        const tsRaw = it.timestamp ?? it.time ?? it.ts ?? 0;
+        const ts = parseTs(tsRaw);
+        if (waitingStatuses.has(status)) {
+          waiting++;
+          if (ts) waitingTimestamps.push(ts);
+        } else if (servingStatuses.has(status)) {
+          serving++;
+          if (ts) waitingTimestamps.push(ts);
+        } else if (completedStatuses.has(status)) {
+          completed++;
+          if (it.counterId) completedPerCounter[it.counterId] = (completedPerCounter[it.counterId]||0) + 1;
+        } else if (status === 'cancelled' || status === 'canceled') {
+          cancelled++;
+        }
         if (ts) {
           const key = new Date(ts).toISOString().slice(0,10);
           if (key in buckets) buckets[key] += 1;
-          if (new Date(ts).setHours(0,0,0,0) === todayStart.getTime()) todayCount++;
+          recentDates[key] = (recentDates[key]||0) + 1;
         }
       });
 
       // totals
-      totalQueuesEl.textContent = String(items.length || 0);
-      waitingCountEl.textContent = String(counts.waiting || 0);
-      $('waitingCount2').textContent = String(counts.waiting || 0);
-      servingCountEl.textContent = String(counts.serving || 0);
-      completedCountEl.textContent = String(counts.completed || 0);
-      cancelledCountEl.textContent = String(counts.cancelled || 0);
+      totalQueuesEl.textContent = String(total);
+      activeQueuesEl.textContent = String(waiting);
+      analystWaiting.textContent = String(waiting);
+      analystServing.textContent = String(serving);
+      analystCompleted.textContent = String(completed);
+      analystCancelled.textContent = String(cancelled);
 
-      // average wait in minutes from waiting items
+      // average wait (minutes) for waiting items
       const now = Date.now();
-      const minsArray = waitingTimestamps.map(t => (now - Number(t)) / 60000).filter(n => isFinite(n) && n >= 0);
-      const avg = minsArray.length ? (minsArray.reduce((a,b)=>a+b,0)/minsArray.length) : 0;
+      const minsArr = waitingTimestamps.map(t => Math.max(0, (now - t) / 60000)).filter(n => isFinite(n));
+      const avg = minsArr.length ? minsArr.reduce((a,b)=>a+b,0)/minsArr.length : 0;
       avgWaitEl.textContent = humanizeMinutes(avg);
+      // also set in small statistic if present
+      $('avgWait') && ($('avgWait').textContent = humanizeMinutes(avg));
 
-      // Build last7 arrays for chart
-      const labels = Object.keys(buckets).map(k => k.slice(5)); // MM-DD
-      const data = Object.keys(buckets).map(k => buckets[k]);
-
+      // charts: build last7 arrays
       initCharts();
       if (queueTrendChart) {
+        const labels = Object.keys(buckets).map(k => k.slice(5));
+        const data = Object.keys(buckets).map(k => buckets[k]);
         queueTrendChart.data.labels = labels;
         queueTrendChart.data.datasets[0].data = data;
         queueTrendChart.update();
       }
 
-      // Counter performance: if counters node exists, we'll use served counts derived from queue + fallback to lastIssued
-      // We'll fetch counters once and merge served counts with lastIssued if available
-      get(ref(db, 'counters')).then(countersSnap => {
-        const cdata = countersSnap.exists() ? countersSnap.val() : {};
-        const keys = Object.keys(cdata || {});
-        const labelsC = [];
-        const dataC = [];
+      // build counter performance: prefer counting completions by counterId. If counters node exists with lastIssued, we'll merge later.
+      // first, fetch counters to get names and active counts
+      try {
+        const cSnap = await get(ref(db, 'counters'));
+        const countersObj = cSnap.exists() ? cSnap.val() : {};
+        const keys = Object.keys(countersObj || {});
+        // label array and data array
+        const labels = [];
+        const dataArr = [];
         const colors = [];
         keys.forEach((k, idx) => {
-          const c = cdata[k] || {};
-          labelsC.push(c.name || (c.prefix ? `Counter ${c.prefix}` : `Counter ${idx+1}`));
-          // prefer computed served count if present otherwise fallback to lastIssued or 0
-          const served = completedPerCounter[k] || c.servedCount || c.lastIssued || 0;
-          dataC.push(served);
+          const c = countersObj[k] || {};
+          const name = c.name || c.label || (c.prefix ? `Counter ${c.prefix}` : k);
+          labels.push(name);
+          const servedCount = completedPerCounter[k] || 0;
+          dataArr.push(servedCount);
           const palette = ['rgba(99,102,241,0.85)','rgba(168,85,247,0.85)','rgba(236,72,153,0.85)','rgba(59,130,246,0.85)','rgba(16,185,129,0.85)'];
           colors.push(palette[idx % palette.length]);
         });
         if (counterPerfChart) {
-          counterPerfChart.data.labels = labelsC;
-          counterPerfChart.data.datasets[0].data = dataC;
+          counterPerfChart.data.labels = labels;
+          counterPerfChart.data.datasets[0].data = dataArr;
           counterPerfChart.data.datasets[0].backgroundColor = colors;
           counterPerfChart.update();
         }
-        activeCountersEl.textContent = String(keys.filter(k=>cdata[k] && cdata[k].active).length || 0);
-      }).catch(err=>{
-        console.error('counters read error', err);
-        activeCountersEl.textContent = '0';
-      });
-    }, err => {
-      console.error('queue listener error', err);
-    });
+        activeCountersEl.textContent = String(keys.filter(k=>countersObj[k] && countersObj[k].active).length || 0);
+        $('activeCounters') && ($('activeCounters').textContent = String(keys.filter(k=>countersObj[k] && countersObj[k].active).length || 0));
+        $('analystActiveCounters') && ($('analystActiveCounters').textContent = String(keys.filter(k=>countersObj[k] && countersObj[k].active).length || 0));
+      } catch (err) {
+        console.error('Failed reading counters for performance chart', err);
+      }
+    }, err => console.error('queue listener error', err));
 
-    // Counters listener for active counters in header (fallback)
+    // counters node listens to update activeCounters early
     onValue(ref(db, 'counters'), snap => {
       if (!snap.exists()) { activeCountersEl.textContent = '0'; return; }
       const obj = snap.val();
       const arr = Object.values(obj || {});
-      activeCountersEl.textContent = String(arr.filter(x => x && x.active).length || 0);
+      activeCountersEl.textContent = String(arr.filter(x=>x && x.active).length || 0);
     });
 
-    // Image cropping (Cropper)
-    let currentCropper = null;
-    let currentCropType = ''; // 'logo' or 'ad'
-    const cropModal = document.getElementById('cropModal');
-    const cropImage = document.getElementById('cropImage');
-    const cropSaveBtn = document.getElementById('cropSaveBtn');
-    const cropCancelBtn = document.getElementById('cropCancelBtn');
+    // Image cropping logic (Cropper.js)
+    let currentCropper = null, currentCropType = '';
     let adData = '';
-
     logoFile.addEventListener('change', async (e) => {
-      const f = e.target.files?.[0]; if (!f) return;
+      const file = e.target.files?.[0]; if (!file) return;
       currentCropType = 'logo';
-      const b64 = await fileToBase64(f);
-      cropImage.src = b64;
-      cropModal.classList.remove('hidden');
+      cropModalTitle.textContent = 'Crop Logo (1:1)';
+      const b64 = await fileToBase64(file);
+      cropImage.src = b64; cropModal.classList.remove('hidden');
       if (currentCropper) currentCropper.destroy();
-      currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 2, autoCropArea: 1 });
+      currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode:2, autoCropArea:1 });
     });
-
     adFile.addEventListener('change', async (e) => {
-      const f = e.target.files?.[0]; if (!f) return;
-      if (f.size > 50*1024*1024) { showToast('File too large (50MB max)', false); return; }
-      const b64 = await fileToBase64(f);
-      const t = f.type || '';
+      const file = e.target.files?.[0]; if (!file) return;
+      if (file.size > 50*1024*1024) { toast('File too large (50MB)', false); return; }
+      const b64 = await fileToBase64(file);
+      const t = file.type || '';
       if (t.startsWith('video/')) {
-        adData = b64;
-        adPreviewBox.innerHTML = `<video src="${b64}" controls class="w-full h-full object-cover"></video>`;
-        adPreviewBox.classList.remove('hidden');
-        previewAd.src = b64; previewAd.classList.remove('hidden');
-        return;
+        adData = b64; adPreviewBox.innerHTML = `<video src="${b64}" controls class="w-full h-full object-cover"></video>`; adPreviewBox.classList.remove('hidden'); previewAd.src = b64; previewAd.classList.remove('hidden'); return;
       }
       if (t === 'image/gif') {
-        adData = b64;
-        adPreviewBox.innerHTML = `<img src="${b64}" class="w-full h-full object-cover" />`;
-        adPreviewBox.classList.remove('hidden');
-        previewAd.src = b64; previewAd.classList.remove('hidden');
-        return;
+        adData = b64; adPreviewBox.innerHTML = `<img src="${b64}" class="w-full h-full object-cover">`; adPreviewBox.classList.remove('hidden'); previewAd.src = b64; previewAd.classList.remove('hidden'); return;
       }
-      // else crop image
       currentCropType = 'ad';
-      cropImage.src = b64;
-      cropModal.classList.remove('hidden');
+      cropModalTitle.textContent = 'Crop Ad Banner (16:9)';
+      cropImage.src = b64; cropModal.classList.remove('hidden');
       if (currentCropper) currentCropper.destroy();
-      currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
+      currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode:2, autoCropArea:1 });
     });
 
     cropSaveBtn.addEventListener('click', () => {
@@ -530,124 +546,133 @@
       const out = canvas.toDataURL('image/jpeg', 0.9);
       if (currentCropType === 'logo') {
         logoPreview.src = out; logoPreview.classList.remove('hidden');
-        previewLogo.innerHTML = `<img src="${out}" class="w-full h-full object-cover rounded" />`;
-        headerLogo.innerHTML = `<img src="${out}" class="w-full h-full object-cover rounded" />`;
+        previewLogo.innerHTML = `<img src="${out}" class="w-full h-full rounded object-cover">`;
+        $('headerLogo').innerHTML = `<img src="${out}" class="w-full h-full rounded object-cover">`;
       } else if (currentCropType === 'ad') {
         adData = out;
-        adPreviewBox.innerHTML = `<img src="${out}" class="w-full h-full object-cover" />`;
+        adPreviewBox.innerHTML = `<img src="${out}" class="w-full h-full object-cover">`;
         adPreviewBox.classList.remove('hidden');
         previewAd.src = out; previewAd.classList.remove('hidden');
       }
       cropModal.classList.add('hidden');
       currentCropper.destroy(); currentCropper = null;
-      showToast('Image cropped');
+      toast('Image cropped');
     });
 
     cropCancelBtn.addEventListener('click', () => {
-      cropModal.classList.add('hidden');
-      if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
+      cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
     });
 
-    // Save settings (atomic update)
+    // Save settings (writes to /settings and /displaySettings); no auth required
     updateSettingsBtn.addEventListener('click', async () => {
-      const updates = {};
-      updates['/settings/name'] = businessName.value || '';
-      updates['/settings/introText'] = welcomeMessage.value || '';
-      if (logoPreview.src && logoPreview.src.startsWith('data:')) updates['/settings/logo'] = logoPreview.src;
-      if (adData) updates['/settings/adImage'] = adData;
-
-      // display settings
-      updates['/displaySettings/smallText'] = displaySmallText.value || (businessName.value || 'Digital Queue System');
-      updates['/displaySettings/logoUrl'] = displayLogoUrl.value || (logoPreview.src && logoPreview.src.startsWith('http') ? logoPreview.src : '');
-      updates['/displaySettings/mainTitle'] = displayMainTitle.value || (welcomeMessage.value || 'Get your queue number');
-
+      updateSettingsBtn.disabled = true;
       try {
-        update(ref(db, '/'), updates);
-        showToast('Settings saved');
+        const updates = {};
+        updates['/settings/name'] = businessName.value || '';
+        updates['/settings/introText'] = welcomeMessage.value || '';
+        if (logoPreview.src && logoPreview.src.startsWith('data:')) updates['/settings/logo'] = logoPreview.src;
+        if (adData) updates['/settings/adImage'] = adData;
+
+        updates['/displaySettings/smallText'] = displaySmallText.value || '';
+        updates['/displaySettings/logoUrl'] = displayLogoUrl.value || '';
+        updates['/displaySettings/mainTitle'] = displayMainTitle.value || '';
+
+        await update(ref(db, '/'), updates);
+        toast('Settings saved');
       } catch (err) {
-        console.error('update error', err);
-        showToast('Failed to save settings: ' + (err.message || err), false);
+        console.error('Update failed', err);
+        toast('Failed to update settings: ' + (err.message || err), false);
+      } finally { updateSettingsBtn.disabled = false; }
+    });
+
+    saveDisplayBtn.addEventListener('click', async () => {
+      try {
+        await update(ref(db, '/displaySettings'), {
+          smallText: displaySmallText.value || '',
+          logoUrl: displayLogoUrl.value || '',
+          mainTitle: displayMainTitle.value || ''
+        });
+        toast('Display settings saved');
+      } catch (err) {
+        toast('Failed to save display settings', false);
       }
     });
 
     saveAllBtn.addEventListener('click', () => updateSettingsBtn.click());
 
-    // Announcement
-    let selectedMedia = null;
+    // Announcement functionality (calls serverless announce function)
+    let selectedMediaFile = null;
     announcementMedia.addEventListener('change', (e) => {
-      const f = e.target.files?.[0]; selectedMedia = f || null;
+      selectedMediaFile = e.target.files?.[0] || null;
       announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
-      if (!f) return;
-      if (f.size > 50*1024*1024) { showToast('Media too large (50MB max)', false); selectedMedia = null; return; }
-      const url = URL.createObjectURL(f);
-      if (f.type.startsWith('video/')) {
-        announcementPreview.innerHTML = `<video src="${url}" controls class="w-48 h-32 object-cover"></video>`;
-      } else {
-        announcementPreview.innerHTML = `<img src="${url}" class="w-48 h-32 object-cover" />`;
-      }
+      if (!selectedMediaFile) return;
+      if (selectedMediaFile.size > 50*1024*1024) { toast('Media too large (50MB)', false); selectedMediaFile = null; return; }
+      const url = URL.createObjectURL(selectedMediaFile);
+      if (selectedMediaFile.type.startsWith('video/')) announcementPreview.innerHTML = `<video src="${url}" controls class="w-48 h-32 object-cover"></video>`;
+      else announcementPreview.innerHTML = `<img src="${url}" class="w-48 h-32 object-cover">`;
       announcementPreview.classList.remove('hidden');
     });
 
     sendAnnouncementBtn.addEventListener('click', async () => {
       const msg = announcementMessage.value.trim();
-      if (!msg && !selectedMedia) { showToast('Please supply message or media', false); return; }
+      if (!msg && !selectedMediaFile) { toast('Enter message or attach media', false); return; }
       sendAnnouncementBtn.disabled = true;
       try {
         let mediaBase64 = '';
         let mediaType = '';
-        if (selectedMedia) { mediaBase64 = await fileToBase64(selectedMedia); mediaType = selectedMedia.type; }
-        const res = await fetch('/.netlify/functions/announce', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: msg, media: mediaBase64, mediaType }) });
+        if (selectedMediaFile) { mediaBase64 = await fileToBase64(selectedMediaFile); mediaType = selectedMediaFile.type; }
+        const res = await fetch('/.netlify/functions/announce', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ message: msg, media: mediaBase64, mediaType })
+        });
         const body = await res.json();
-        if (!res.ok) throw new Error(body.error || 'Failed to send');
-        showToast(body.message || 'Announcement sent');
-        announcementMessage.value = ''; announcementMedia.value = ''; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden'); selectedMedia = null;
+        if (!res.ok) throw new Error(body.error || 'Failed');
+        announcementResult.className = 'p-3 bg-green-50 text-green-700 rounded';
+        announcementResult.textContent = '✅ ' + (body.message || 'Sent');
+        announcementResult.classList.remove('hidden');
+        announcementMessage.value = ''; announcementMedia.value = ''; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden'); selectedMediaFile = null;
+        toast('Announcement sent');
       } catch (err) {
-        console.error(err);
-        showToast('Announcement failed: ' + (err.message || err), false);
-      } finally { sendAnnouncementBtn.disabled = false; }
+        console.error('Announcement error', err);
+        announcementResult.className = 'p-3 bg-red-50 text-red-700 rounded';
+        announcementResult.textContent = '⚠️ ' + (err.message || 'Failed');
+        announcementResult.classList.remove('hidden');
+        toast('Failed sending announcement', false);
+      } finally { sendAnnouncementBtn.disabled = false; setTimeout(()=>announcementResult.classList.add('hidden'),4000); }
     });
 
-    // Navigation toggles
-    navAnalyst.addEventListener('click', () => {
-      analystArea.classList.remove('hidden');
-      window.scrollTo({ top: analystArea.offsetTop - 100, behavior: 'smooth' });
-      initCharts();
-    });
-    navDashboard.addEventListener('click', () => {
-      analystArea.classList.add('hidden');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    navHowTo.addEventListener('click', () => {
-      alert('How to use: Upload/crop images, update display settings, send announcements. Index.html reads /displaySettings and /settings/* live.');
-    });
-
-    // Initialize charts area on load if needed
-    function initCharts() {
-      if (!queueTrendChart || !counterPerfChart) initChartsOnce();
-    }
-    function initChartsOnce() {
+    // Charts initialization (if analyst nav clicked)
+    function ensureCharts() {
       if (!queueTrendChart) {
-        const ctx = document.getElementById('queueTrendChart').getContext('2d');
-        queueTrendChart = new Chart(ctx, { type:'line', data:{ labels:[], datasets:[{ label:'Queues', data:[], tension:0.35, backgroundColor:'rgba(99,102,241,0.12)', borderColor:'rgb(99,102,241)' }] }, options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } } });
+        const el = $('queueTrendChart');
+        if (el) {
+          const ctx = el.getContext('2d');
+          queueTrendChart = new Chart(ctx, {
+            type:'line',
+            data:{ labels:[], datasets:[{ label:'Queues', data:[], tension:0.35, backgroundColor:'rgba(99,102,241,0.12)', borderColor:'rgb(99,102,241)'}] },
+            options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true }}}
+          });
+        }
       }
       if (!counterPerfChart) {
-        const ctx2 = document.getElementById('counterPerfChart').getContext('2d');
-        counterPerfChart = new Chart(ctx2, { type:'bar', data:{ labels:[], datasets:[{ label:'Served', data:[], backgroundColor:[] }] }, options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } } });
+        const el2 = $('counterPerfChart');
+        if (el2) {
+          const ctx2 = el2.getContext('2d');
+          counterPerfChart = new Chart(ctx2, {
+            type:'bar',
+            data:{ labels:[], datasets:[{ label:'Served', data:[], backgroundColor:[]}] },
+            options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true }}}
+          });
+        }
       }
     }
 
-    // small safety: initialize charts now
-    initChartsOnce();
+    navAnalyst.addEventListener('click', () => { analystArea.classList.remove('hidden'); ensureCharts(); window.scrollTo({top: analystArea.offsetTop-50, behavior:'smooth'}); });
+    navDashboard.addEventListener('click', () => { analystArea.classList.add('hidden'); window.scrollTo({top:0, behavior:'smooth'}); });
+    navHowTo.addEventListener('click', ()=> alert('Upload/crop images, edit displaySettings, and send announcements. index.html reads /displaySettings and /settings/* live.'));
 
-    // humanize minutes used earlier
-    function humanizeMinutes(mins) {
-      if (!isFinite(mins) || mins <= 0) return '0 min';
-      if (mins < 60) return `${Math.round(mins)} min`;
-      const hrs = mins / 60;
-      if (hrs < 24) return `${hrs.toFixed(1)} hr`;
-      const days = hrs / 24;
-      return `${days.toFixed(1)} day`;
-    }
+    // initial charts setup
+    ensureCharts();
   </script>
 </body>
 </html>
