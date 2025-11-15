@@ -1,6 +1,5 @@
-// /netlify/functions/createTelegramLink.js
-// POST { queueKey, queueId?, number?, queueNumber?, counterId?, counterName? } -> { link, token }
-// Env: BOT_USERNAME (optional), SITE_URL (optional)
+// createTelegramLink.js
+// POST { queueKey?, queueNumber?, queueId?, number?, counterId?, counterName? } -> { link, token, preview }
 
 exports.handler = async (event) => {
   try {
@@ -8,37 +7,41 @@ exports.handler = async (event) => {
       return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    const body = JSON.parse(event.body || '{}');
+    let body = {};
+    try { body = JSON.parse(event.body || '{}'); } catch (e) { body = {}; }
 
-    // Determine the primary identifier
-    const queueKey = body.queueKey || null; // Firebase push key if exists
-    const queueNumber = body.queueNumber || body.number || body.queueId || null; // human-readable number
+    const queueKey = body.queueKey || null;             // firebase push key (optional)
+    const queueNumber = body.queueNumber || body.queueId || body.number || null; // human readable number
     const counterId = body.counterId || null;
+    const counterName = body.counterName || null;
 
     if (!queueKey && !queueNumber) {
       return { statusCode: 400, body: 'Missing queueKey or queueNumber' };
     }
 
-    // Build payload
+    // Build payload (keep it minimal but useful)
     const payload = {};
-    if (queueKey) payload.queueKey = queueKey;
+    if (queueKey) payload.queueKey = String(queueKey);
     if (queueNumber) payload.queueId = String(queueNumber);
     if (counterId) payload.counterId = String(counterId);
+    if (counterName) payload.counterName = String(counterName);
 
-    // Encode as base64 safe for Telegram
     const json = JSON.stringify(payload);
-    const token = Buffer.from(json).toString('base64');
 
-    // Bot username
-    const BOT_USERNAME = process.env.BOT_USERNAME || 'QueueJoyBot';
+    // Base64url encode (URL-safe, no padding)
+    const token = Buffer.from(json).toString('base64')
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    const BOT_USERNAME = (process.env.BOT_USERNAME || '').trim() || 'QueueJoyBot';
     const link = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(token)}`;
 
-    // Optional preview link
+    // Optional preview link if you host a preview page
     const SITE_URL = (process.env.SITE_URL || '').replace(/\/$/, '');
     const preview = SITE_URL ? `${SITE_URL}/preview?token=${encodeURIComponent(token)}` : null;
 
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ link, token, preview }),
     };
   } catch (err) {
