@@ -95,7 +95,7 @@
       const getNumberBtn = q('#getNumberBtn');
       const introText = q('#introText');
       const siteTitleEl = q('#siteTitle');
-      const siteLogoEl = q('#siteLogo');
+      const logoPreviewEl = q('#logoPreview');
       const adPanel = q('#adPanel');
       const adLinkEl = q('#adLink');
       const adTextEl = q('#adText');
@@ -168,11 +168,11 @@
       // bind logo
       onValue(ref(db, 'settings/logo'), snap => {
         if (snap.exists() && snap.val()) {
-          siteLogoEl.src = snap.val();
-          siteLogoEl.classList.remove('hidden');
+          logoPreviewEl.src = snap.val();
+          logoPreviewEl.classList.remove('hidden');
         } else {
-          siteLogoEl.src = '';
-          siteLogoEl.classList.add('hidden');
+          logoPreviewEl.src = '';
+          logoPreviewEl.classList.add('hidden');
         }
       });
 
@@ -332,7 +332,7 @@
   <!-- Header: LOGO + SITE TITLE (real-time) - NO UI CHANGE -->
   <header class="w-full max-w-sm mb-4">
     <div class="bg-white rounded-2xl shadow-md p-4 flex items-center gap-3">
-      <img id="siteLogo" src="" alt="Logo" class="w-12 h-12 rounded-full hidden object-cover">
+      <img id="logoPreview" src="" alt="Logo" class="w-12 h-12 rounded-full hidden object-cover">
       <div class="flex-1 text-left">
         <h1 id="siteTitle" class="text-lg font-bold text-gray-800">Queue Joy</h1>
         <p class="text-xs text-gray-500 header-subtitle">Digital Queue System</p>
