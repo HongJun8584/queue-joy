@@ -6,45 +6,99 @@
   <title>Queue Joy - Your Queue Status</title>
   <meta name="description" content="Real-time queue status with Telegram notifications" />
 
+  <!-- Tailwind CDN (keeps your original look) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    :root{--bg-from:#f3f0ff;--bg-via:#eef2ff;--bg-to:#ecfeff}
-    html,body{height:100%}
-    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(135deg,var(--bg-from),var(--bg-to));-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-    .fade-in{animation:fadeIn .45s cubic-bezier(.2,.9,.2,1)}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    .spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:white;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:middle}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    /* Modal base */
-    .modal{display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px}
-    .modal.show{display:flex}
-    .modal-content{background:white;border-radius:14px;max-width:540px;width:100%;box-shadow:0 30px 80px rgba(2,6,23,.35);overflow:hidden;max-height:calc(100vh - 48px);display:flex;flex-direction:column}
-    .modal-body{padding:20px 22px 28px;overflow:auto}
-    .modal-header{padding:22px;background:linear-gradient(90deg,#2563eb,#8b5cf6);color:white}
-    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    /* 3-step styles */
-    .cj-steps { display:flex; gap:18px; align-items:stretch; justify-content:center; margin:0 auto; }
-    .cj-step { flex:0 0 260px; padding:20px; border-radius:14px; background:linear-gradient(180deg,#ffffff,#fbfdff); box-shadow:0 12px 30px rgba(12,20,50,0.06); transform:translateY(6px); transition:transform .32s cubic-bezier(.2,.9,.2,1),opacity .28s ease; opacity:.6; display:flex; flex-direction:column; align-items:center; text-align:center; }
-    .cj-step.active { transform:translateY(0); opacity:1; }
-    .cj-illustration { width:84px; height:84px; border-radius:18px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; background:linear-gradient(180deg,#fff,#f7fbff); box-shadow:0 6px 18px rgba(10,20,60,0.06); }
-    .cj-dot { width:10px;height:10px;border-radius:999px;background:#E6E7EE;margin:6px;display:inline-block;transition:all .18s ease; }
-    .cj-dot.active { width:18px;background:linear-gradient(90deg,#ff77c3,#6c63ff); }
-    .cj-step-number { width:48px;height:48px;border-radius:999px;background:#fff;border:2px solid #F3E6FB;display:flex;align-items:center;justify-content:center;font-weight:800;color:#6b21a8;margin-bottom:8px;font-size:16px;box-shadow:0 6px 18px rgba(99,102,241,0.08); }
-    .cj-title { font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px; }
-    .cj-desc { font-size:13px;color:#475569;line-height:1.45;max-width:260px;margin:0 auto; }
-    .cj-controls { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:16px; }
-    .cj-skip { background:transparent;border:none;color:#475569;font-weight:700;padding:8px 12px;border-radius:10px; cursor:pointer }
-    .cj-next { padding:10px 18px;border-radius:12px;background:linear-gradient(90deg,#6c63ff,#ff77c3);color:white;font-weight:700;border:none;box-shadow:0 8px 24px rgba(108,99,255,0.14); cursor:pointer }
-    @media (max-width:740px){ .cj-steps{flex-direction:row;overflow:hidden;gap:14px;justify-content:flex-start} .cj-step{flex:0 0 78%;min-width:78%} .modal-content{max-width:520px} }
-    @media (prefers-reduced-motion:reduce){.fade-in,.spinner{animation:none}}
-    /* make sure connect button is visible and large enough on mobile */
-    .primary-cta{display:block;width:100%;padding:14px;border-radius:12px;text-align:center;font-weight:700}
-    /* small helper for modal footer */
-    .modal-footer { padding:14px 20px 22px; background: #fff; gap:10px; display:flex; flex-direction:column }
+    :root {
+      --bg-from: #f3f0ff;
+      --bg-via:  #eef2ff;
+      --bg-to:   #ecfeff;
+    }
+
+    html,body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      margin: 0;
+      background: linear-gradient(135deg, var(--bg-from), var(--bg-to));
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Small, consistent animations */
+    .fade-in { animation: fadeIn .36s cubic-bezier(.2,.9,.2,1) both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* Spinner */
+    .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.25); border-top-color: white; border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Modal base - responsive & scroll-safe */
+    .modal { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.55); align-items: center; justify-content: center; padding: 20px; }
+    .modal.show { display: flex; }
+    .modal-content {
+      background: white;
+      border-radius: 14px;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 30px 80px rgba(2,6,23,.35);
+      overflow: hidden;
+      max-height: calc(100vh - 48px); /* never overflow viewport */
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header { padding: 18px; background: linear-gradient(90deg,#2563eb,#8b5cf6); color: white; text-align: center; }
+    .modal-body { padding: 18px; overflow: auto; }
+    .modal-footer { padding: 14px 18px 20px; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+
+    /* Steps UI (cards) */
+    .cj-steps { display: flex; gap: 14px; align-items: stretch; justify-content: center; margin: 0 auto; }
+    .cj-step {
+      flex: 0 0 260px;
+      padding: 18px;
+      border-radius: 12px;
+      background: linear-gradient(180deg,#fff,#fbfdff);
+      box-shadow: 0 12px 30px rgba(12,20,50,0.06);
+      transform: translateY(6px);
+      transition: transform .28s cubic-bezier(.2,.9,.2,1), opacity .26s ease;
+      opacity: 0.6;
+      display:flex;
+      flex-direction: column;
+      align-items: center;
+      text-align:center;
+    }
+    .cj-step.active { transform: translateY(0); opacity: 1; }
+    .cj-illustration { width: 84px; height: 84px; border-radius: 14px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; background: linear-gradient(180deg,#fff,#f7fbff); box-shadow: 0 6px 18px rgba(10,20,60,0.06); }
+    .cj-step-number { width:48px; height:48px; border-radius:999px; background:white; border:2px solid #F3E6FB; display:flex; align-items:center; justify-content:center; font-weight:800; color:#6b21a8; margin-bottom:10px; }
+    .cj-title { font-size: 16px; font-weight: 700; margin-bottom:6px; color: #0f172a; }
+    .cj-desc { font-size: 13px; color:#475569; line-height:1.45; max-width: 260px; margin: 0; }
+    .cj-dots { display:flex; gap:8px; justify-content:center; margin-top:12px; }
+    .cj-dot { width:10px; height:10px; border-radius:999px; background:#E6E7EE; transition: all .18s ease; }
+    .cj-dot.active { width:18px; background: linear-gradient(90deg,#ff77c3,#6c63ff); }
+
+    .cj-controls { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:14px; }
+    .cj-skip { background:transparent; border:none; color:#475569; font-weight:700; padding:8px 12px; border-radius:10px; cursor:pointer; }
+    .cj-next { padding:10px 18px; border-radius:12px; background: linear-gradient(90deg,#6c63ff,#ff77c3); color:white; font-weight:700; border:none; box-shadow: 0 8px 24px rgba(108,99,255,.14); cursor:pointer; }
+
+    /* Responsive tweaks */
+    @media (max-width: 740px) {
+      .cj-steps { gap: 12px; overflow: hidden; }
+      .cj-step { flex: 0 0 80%; min-width: 80%; }
+      .modal-content { max-width: 520px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-in, .spinner { animation: none; }
+    }
+
+    /* make primary button look nice on mobile */
+    .primary-cta { display:block; width:100%; padding:14px; border-radius:12px; text-align:center; font-weight:700; cursor:pointer; }
   </style>
 </head>
 <body class="min-h-screen">
 
+  <!-- Main UI (kept as you had it) -->
   <main class="min-h-screen flex items-center justify-center p-4 pb-28">
     <section class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 space-y-6 relative fade-in" aria-labelledby="pageTitle">
 
@@ -57,7 +111,9 @@
       <!-- Header -->
       <div class="space-y-3 text-center pt-8">
         <div class="w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
-          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
         </div>
         <h1 id="pageTitle" class="text-3xl font-bold text-gray-900">Queue Status</h1>
         <p id="counterName" class="text-sm text-gray-600">--</p>
@@ -86,11 +142,17 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div class="bg-gray-50 rounded-2xl p-5">
-            <div class="flex items-center gap-2 mb-2"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg><p class="text-sm text-gray-600">People Ahead</p></div>
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+              <p class="text-sm text-gray-600">People Ahead</p>
+            </div>
             <p id="peopleAhead" class="text-2xl font-bold text-gray-900">--</p>
           </div>
           <div class="bg-gray-50 rounded-2xl p-5">
-            <div class="flex items-center gap-2 mb-2"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><p class="text-sm text-gray-600">Est. Wait</p></div>
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <p class="text-sm text-gray-600">Est. Wait</p>
+            </div>
             <p id="estimatedWait" class="text-2xl font-bold text-gray-900">--</p>
           </div>
         </div>
@@ -119,52 +181,51 @@
     </div>
   </div>
 
-  <!-- Connect Telegram Modal (reworked, responsive, integrated JS below) -->
+  <!-- Connect Telegram Modal -->
   <div id="connectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
-    <div class="modal-content" role="document">
+    <div class="modal-content">
       <div class="modal-header">
         <div style="display:flex;align-items:center;justify-content:center;margin-bottom:8px">
-          <div style="width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,0.13);display:flex;align-items:center;justify-content:center">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <div style="width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
           </div>
         </div>
-        <h2 id="connectTitle" class="text-2xl font-bold text-center">Connect to QueueJoyBot</h2>
-        <p class="text-center text-blue-100 text-sm mt-1">Tap the button and follow these 3 quick steps</p>
+        <h2 id="connectTitle" class="text-2xl font-bold">Connect to QueueJoyBot</h2>
+        <p class="text-blue-100 text-sm mt-1">Tap the button and follow these 3 quick steps</p>
       </div>
 
       <div class="modal-body">
-        <!-- Steps carousel -->
         <div id="cjStepsWrap" class="cj-steps" role="list" aria-label="Connection steps">
-          <div class="cj-step active" role="listitem" data-step="0" aria-hidden="false">
+          <div class="cj-step active" data-step="0" role="listitem" aria-hidden="false">
             <div class="cj-step-number">1</div>
             <div class="cj-illustration" aria-hidden="true">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>
             </div>
             <div class="cj-title">Install Telegram App</div>
-            <div class="cj-desc">Install Telegram from the App Store / Play Store — the app receives background notifications reliably.</div>
+            <p class="cj-desc">Install Telegram from App Store / Play Store — only the app supports background notifications reliably.</p>
           </div>
 
-          <div class="cj-step" role="listitem" data-step="1" aria-hidden="true">
+          <div class="cj-step" data-step="1" role="listitem" aria-hidden="true">
             <div class="cj-step-number">2</div>
             <div class="cj-illustration" aria-hidden="true">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff77c3" stroke-width="1.6"><path d="M3 12h18"/><path d="M12 3v18"/></svg>
             </div>
             <div class="cj-title">Tap "Connect Telegram"</div>
-            <div class="cj-desc">Tap the Connect button below. Your device will open QueueJoyBot with a secure token — then press <strong>Start</strong> in Telegram.</div>
+            <p class="cj-desc">Press the button below. A Telegram chat will open to QueueJoyBot with a secure token. Tap "Start" in Telegram.</p>
           </div>
 
-          <div class="cj-step" role="listitem" data-step="2" aria-hidden="true">
+          <div class="cj-step" data-step="2" role="listitem" aria-hidden="true">
             <div class="cj-step-number">3</div>
             <div class="cj-illustration" aria-hidden="true">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00c853" stroke-width="1.6"><path d="M3 7h18v13H3z"/><path d="M12 7v10"/><path d="M3 7l4-4h10l4 4"/></svg>
             </div>
             <div class="cj-title">You're All Set</div>
-            <div class="cj-desc">QueueJoyBot will message you automatically when your number is called — you can close the page after connecting.</div>
+            <p class="cj-desc">QueueJoyBot will message you automatically when your number is called — you can then close this page.</p>
           </div>
         </div>
 
         <!-- dots -->
-        <div class="mt-5 flex items-center justify-center" aria-hidden="true">
+        <div class="cj-dots mt-5" aria-hidden="true">
           <span class="cj-dot active" data-dot="0"></span>
           <span class="cj-dot" data-dot="1"></span>
           <span class="cj-dot" data-dot="2"></span>
@@ -176,15 +237,15 @@
           <button id="cjNext" class="cj-next" aria-label="Next step">Next</button>
         </div>
 
-        <!-- loading indicator (hidden initially) -->
+        <!-- loading -->
         <div id="loadingIndicator" class="hidden text-center py-3">
           <span class="spinner" aria-hidden="true"></span>
           <span class="ml-2 text-gray-600 text-sm">Preparing secure link...</span>
         </div>
 
-        <!-- fallback link (hidden until popup blocked) -->
+        <!-- fallback -->
         <div id="fallbackArea" class="hidden mt-4 text-center">
-          <p class="text-sm text-gray-600 mb-2">If Telegram didn't open automatically, tap below to open QueueJoyBot:</p>
+          <p class="text-sm text-gray-600 mb-2">If Telegram didn't open automatically, tap below:</p>
           <a id="manualLink" class="inline-block px-4 py-3 bg-white border rounded-xl text-sm font-medium" target="_blank" rel="noopener noreferrer">Open QueueJoyBot</a>
         </div>
       </div>
@@ -196,7 +257,7 @@
     </div>
   </div>
 
-  <!-- Confirmation Modal (unchanged style) -->
+  <!-- Confirmation Modal (unchanged) -->
   <div id="confirmModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <div class="modal-content max-w-sm">
       <div class="text-center py-6 px-4">
@@ -212,19 +273,19 @@
     </div>
   </div>
 
-  <!-- Firebase + Client JS (module, consolidated) -->
+  <!-- Firebase + Client JS (single module — consolidated & robust) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // Endpoints
+    // Endpoints (unchanged)
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
     const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
 
-    // Force bot username
+    // Force target bot
     const PREFERRED_BOT_USERNAME = 'QueueJoyBot';
 
-    // DOM
+    // DOM refs
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServingEl = document.getElementById('nowServing');
@@ -250,13 +311,14 @@
     const fallbackArea = document.getElementById('fallbackArea');
     const manualLink = document.getElementById('manualLink');
 
+    // Carousel elements
     const cjStepsWrap = document.getElementById('cjStepsWrap');
     const cjSteps = Array.from(document.querySelectorAll('.cj-step'));
     const cjDots = Array.from(document.querySelectorAll('.cj-dot'));
     const cjPrev = document.getElementById('cjPrev');
     const cjNext = document.getElementById('cjNext');
 
-    // Firebase config (unchanged)
+    // Firebase config (same as yours)
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -275,10 +337,9 @@
     let avgServiceTime = 2;
     let isGeneratingLink = false;
     let prevTelegramConnected = false;
-    // Expose variables for debugging/fallback
-    window.lastTokenGenerated = null;
+    window.lastTokenGenerated = null; // exposed for debugging/fallback
 
-    // Extract queue key
+    // Read queueId from URL
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get('queueId');
     if (!queueKey) {
@@ -287,7 +348,7 @@
     }
 
     // UI helpers
-    function updateConnectionUI(connected){
+    function updateConnectionUI(connected) {
       if (connected) {
         telegramStatus.textContent = 'Connected to Telegram';
         telegramStatus.className = 'text-base font-semibold text-green-700';
@@ -305,83 +366,109 @@
       }
     }
 
-    // Generate token from server
-    async function generateConnectToken(){
+    // generate token via server
+    async function createTokenFromServer() {
       if (!queueKey) throw new Error('Missing queueKey');
-      let queueNumber = yourNumber.textContent && yourNumber.textContent !== '--' ? yourNumber.textContent : null;
+      const queueNumber = yourNumber.textContent && yourNumber.textContent !== '--' ? yourNumber.textContent : null;
       const payload = { queueKey: queueKey || null, queueNumber: queueNumber || null, counterId: queueData?.counterId || null };
       const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method:'POST',
-        headers: {'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
-        const txt = await res.text().catch(()=>null);
-        throw new Error('createTelegramLink failed: ' + (txt || res.status));
+        const t = await res.text().catch(()=>null);
+        throw new Error('createTelegramLink failed: ' + (t || res.status));
       }
       const json = await res.json();
-      // prefer explicit token field
+      // token field preferred
       const token = json?.token || null;
-      if (!token) {
-        if (json?.link) {
-          try {
-            const u = new URL(json.link);
-            const s = u.searchParams.get('start');
-            if (s) return { token: s, rawServerLink: json.link };
-          } catch(e){}
-        }
-        throw new Error('No token returned from createTelegramLink');
+      if (token) return { token, rawServerLink: json?.link || null };
+      // fallback: parse start= from server link
+      if (json?.link) {
+        try {
+          const u = new URL(json.link);
+          const s = u.searchParams.get('start');
+          if (s) return { token: s, rawServerLink: json.link };
+        } catch (e){}
       }
-      return { token, rawServerLink: json.link || null };
+      throw new Error('No token returned by createTelegramLink');
     }
 
-    // Build preferred bot deep link
-    function buildPreferredBotLink(token){
+    function buildPreferredLink(token) {
       return `https://t.me/${PREFERRED_BOT_USERNAME}?start=${encodeURIComponent(token)}`;
     }
 
-    // Show fallback manual link
-    function showFallbackLink(link){
+    // Fallback link UI
+    function showFallback(link) {
       manualLink.href = link;
       manualLink.textContent = `Open ${PREFERRED_BOT_USERNAME} in Telegram`;
       fallbackArea.classList.remove('hidden');
     }
-    function hideFallbackLink(){
+    function hideFallback() {
       fallbackArea.classList.add('hidden');
       manualLink.href = '#';
       manualLink.textContent = 'Open Telegram';
     }
 
-    // MAIN: handle connect click (exposed globally)
-    async function handleConnectClick(){
+    /**
+     * Robust connect flow:
+     * 1) Immediately open a blank tab/window (user gesture) -> win
+     * 2) Call server to create token
+     * 3) When token ready, navigate win.location to preferred bot link
+     * 4) If anything fails, show fallback manual link and close the blank tab if possible
+     */
+    async function handleConnectClick() {
       if (isGeneratingLink) return;
       isGeneratingLink = true;
+      hideFallback();
       connectBtn.disabled = true;
       loadingIndicator.classList.remove('hidden');
-      hideFallbackLink();
+
+      // open an about:blank tab immediately on user gesture -> avoids popup blocking
+      let win = null;
+      try {
+        win = window.open('about:blank', '_blank', 'noopener,noreferrer');
+      } catch (e) {
+        win = null;
+      }
 
       try {
-        const { token, rawServerLink } = await generateConnectToken();
-        window.lastTokenGenerated = token; // expose for fallback/manual copy
-        const preferredLink = buildPreferredBotLink(token);
+        const { token, rawServerLink } = await createTokenFromServer();
+        window.lastTokenGenerated = token;
+        const link = buildPreferredLink(token);
 
-        // Attempt to open via user click; this is a user gesture so window.open should not be blocked.
-        const newWin = window.open(preferredLink, '_blank', 'noopener,noreferrer');
-        if (!newWin) {
-          // Popup blocked: show clear fallback link inside modal
-          showFallbackLink(preferredLink);
-          console.warn('Popup blocked - showing fallback', { preferredLink, rawServerLink });
+        // if we have a window handle, navigate it; otherwise fall back to window.open (may be blocked)
+        if (win) {
+          try { win.location.href = link; win.focus(); }
+          catch (e) { /* in some browsers setting location on about:blank may be restricted */ 
+            try { win.close(); } catch(e) {}
+            win = window.open(link, '_blank', 'noopener,noreferrer');
+            if (win) try { win.focus(); } catch(e) {}
+          }
         } else {
-          try { newWin.focus(); } catch(e){}
+          // Attempt to open directly (may be blocked on some browsers if not considered user gesture)
+          win = window.open(link, '_blank', 'noopener,noreferrer');
+          if (!win) {
+            // popup blocked — show fallback and do not leave user hanging
+            showFallback(link);
+            console.warn('Popup blocked when opening preferred link; fallback shown', { link, rawServerLink });
+          } else {
+            try { win.focus(); } catch(e) {}
+          }
         }
+
       } catch (err) {
-        console.error('generateConnectToken error', err);
-        // Show fallback info
-        alert('Failed to create the Telegram connection link. Try again or use the manual link displayed below.');
-        // If token already available, fill manual link
+        console.error('connect flow error', err);
+        alert('Could not create the Telegram connection link. Use the manual link shown below or try again.');
+        // show manual fallback if token exists
         if (window.lastTokenGenerated) {
-          showFallbackLink(buildPreferredBotLink(window.lastTokenGenerated));
+          showFallback(buildPreferredLink(window.lastTokenGenerated));
+        } else {
+          // if server returned raw link earlier, optionally show that (we didn't capture here)
         }
+        // close blank window if it exists to avoid orphan about:blank
+        try { if (win && !win.closed) win.close(); } catch (e) {}
       } finally {
         isGeneratingLink = false;
         connectBtn.disabled = false;
@@ -389,71 +476,57 @@
       }
     }
 
-    // Expose for other scripts / debug
+    // Expose for debugging (optional)
     window.handleConnectClick = handleConnectClick;
 
-    // Carousel controls
-    (function setupCarousel(){
+    // Carousel logic - compact and robust
+    (function initCarousel(){
+      const steps = cjSteps;
+      const dots = cjDots;
       let idx = 0;
-      const show = (i) => {
-        cjSteps.forEach((s,j)=> {
-          s.classList.toggle('active', j===i);
-          s.setAttribute('aria-hidden', j===i? 'false':'true');
-        });
-        cjDots.forEach((d,j)=> d.classList.toggle('active', j===i));
-        cjNext.textContent = i === cjSteps.length -1 ? 'Connect & Open' : 'Next';
-      };
+      function show(i) {
+        steps.forEach((s,j) => { s.classList.toggle('active', j===i); s.setAttribute('aria-hidden', j===i? 'false':'true'); });
+        dots.forEach((d,j) => d.classList.toggle('active', j===i));
+        cjNext.textContent = i === steps.length -1 ? 'Connect & Open' : 'Next';
+      }
       show(idx);
-      cjPrev.addEventListener('click', ()=> { idx = Math.max(0, idx-1); show(idx); });
-      cjNext.addEventListener('click', ()=> {
-        if (idx < cjSteps.length -1) { idx++; show(idx); }
+      cjPrev?.addEventListener('click', ()=> { idx = Math.max(0, idx-1); show(idx); });
+      cjNext?.addEventListener('click', ()=> {
+        if (idx < steps.length -1) { idx += 1; show(idx); }
         else { connectBtn.focus(); }
       });
-      cjDots.forEach((d,j)=> d.addEventListener('click', ()=> { idx = j; show(idx); }));
-      // pointer swipe for mobile
-      let startX = null;
-      cjStepsWrap.addEventListener('pointerdown', e=> startX = e.clientX);
-      cjStepsWrap.addEventListener('pointerup', e=>{
-        if (startX === null) return;
-        const dx = e.clientX - startX;
-        if (dx < -40) idx = Math.min(cjSteps.length-1, idx+1);
-        if (dx > 40) idx = Math.max(0, idx-1);
-        show(idx);
-        startX = null;
-      });
+      dots.forEach((d,j)=> d.addEventListener('click', ()=> { idx = j; show(idx); }));
+      // pointer swipe
+      let sx = null;
+      cjStepsWrap?.addEventListener('pointerdown', e => sx = e.clientX);
+      cjStepsWrap?.addEventListener('pointerup', e => { if (sx === null) return; const dx = e.clientX - sx; if (dx < -40) idx = Math.min(steps.length-1, idx+1); if (dx > 40) idx = Math.max(0, idx-1); show(idx); sx = null; });
     })();
 
-    // Event listeners (modal open/close)
-    connectTopBtn.addEventListener('click', ()=> {
-      connectModal.classList.add('show');
-      // ensure body doesn't jump
-      setTimeout(()=> connectBtn.focus(), 250);
-    });
+    // UI event bindings
+    connectTopBtn.addEventListener('click', ()=> { connectModal.classList.add('show'); setTimeout(()=> connectBtn.focus(), 220); });
     closeModalBtn.addEventListener('click', ()=> connectModal.classList.remove('show'));
-    connectModal.addEventListener('click', (e)=> { if (e.target === connectModal) connectModal.classList.remove('show'); });
-    // ensure connect button uses our handler
-    connectBtn.addEventListener('click', (e)=> {
-      // ensure this is considered a user gesture
-      handleConnectClick();
-    });
+    connectModal.addEventListener('click', e => { if (e.target === connectModal) connectModal.classList.remove('show'); });
+    connectBtn.addEventListener('click', (e) => { /* user gesture */ handleConnectClick(); });
+    gameBtn.addEventListener('click', ()=> { window.location.href = 'https://queuejoy.netlify.app/game.html'; });
 
-    gameBtn.addEventListener('click', ()=> window.location.href = 'https://queuejoy.netlify.app/game.html');
-
-    // show modal on load but DO NOT auto open the bot (avoid popup blockers)
+    // show connect modal on load (only UI, does not auto-open Telegram)
     setTimeout(()=> connectModal.classList.add('show'), 450);
 
-    // Listen for queue data
+    // FIREBASE: listen to queue data and counters (kept as your existing logic)
     const queueRef = ref(db, `queue/${queueKey}`);
     onValue(queueRef, async (snap) => {
       if (!snap.exists()) {
         alert('Queue entry not found.');
         return;
       }
+
       const data = snap.val();
       const wasConnected = prevTelegramConnected;
       prevTelegramConnected = !!data.telegramConnected;
+
       queueData = data;
       yourNumber.textContent = data.queueId || '--';
+
       updateConnectionUI(!!data.telegramConnected);
 
       // Show confirmation when newly connected
@@ -485,7 +558,7 @@
           }
           avgServiceTime = avgTime;
 
-          // now serving
+          // Listen to nowServing
           const servingRef = ref(db, `counters/${data.counterId}/nowServing`);
           onValue(servingRef, (nowSnap) => {
             const currentServing = Number(nowSnap.val() || 0);
@@ -500,15 +573,18 @@
               estimatedWaitEl.textContent = "Your turn!";
               statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full pulse';
 
-              // notify via server
+              // Notify via server/sendTelegram endpoint (best-effort)
               try {
                 const notifyBody = data.chatId ? { chatId: data.chatId, message: `🎟 It's now your turn!\nQueue: ${queueKey}` } : { message: `🎟 It's now the customer's turn!\nQueue: ${queueKey}` };
                 fetch(SEND_TELEGRAM_ENDPOINT, {
-                  method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(notifyBody)
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(notifyBody)
                 }).catch(()=>{});
-              } catch(e){}
+              } catch(e) {}
 
-              setTimeout(()=> { try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}` } catch(e){} }, 1200);
+              // redirect to your_turn page
+              setTimeout(()=> { try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}` } catch(e) {} }, 1200);
             } else {
               statusIndicator.className = 'w-3 h-3 bg-blue-500 rounded-full';
               const estimatedMinutes = Math.round(ahead * avgServiceTime);
@@ -519,16 +595,16 @@
       }
     });
 
-    // Ad listener
+    // ad listener
     const adRef = ref(db, "settings/adImage");
-    onValue(adRef, (snap)=>{
+    onValue(adRef, (snap) => {
       const adUrl = snap.val();
       if (adUrl) { adPanel.src = adUrl; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
       else { adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
     });
 
-    // Cleanup
-    window.addEventListener('beforeunload', ()=>{ off(queueRef); off(adRef); });
+    // cleanup
+    window.addEventListener('beforeunload', ()=> { off(queueRef); off(adRef); });
 
   </script>
 </body>
