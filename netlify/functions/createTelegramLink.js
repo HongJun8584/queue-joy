@@ -16,7 +16,7 @@ export async function handler(event, context) {
     // Example: saveToken(token, queueKey, counterId);
 
     // Create Telegram deep link
-    const botUsername = process.env.TELEGRAM_BOT_USERNAME; // e.g. 'QueueJoyBot'
+    const botUsername = process.env.@QueueJoyBot; // e.g. 'QueueJoyBot'
     const telegramLink = `https://t.me/${botUsername}?start=${token}`;
 
     return {
