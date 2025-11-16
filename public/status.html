@@ -5,43 +5,207 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Queue Joy - Your Status</title>
 
-  <!-- Tailwind (dev CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
     body { font-family: 'Inter', sans-serif; }
     .fade-in { animation: fadeIn 0.45s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: translateY(0); } }
 
-    .modal-content { border-radius: 14px; box-shadow: 0 18px 60px rgba(10,10,30,0.12); border: none; overflow: hidden; }
-    .spinner-inline { width:18px;height:18px;border:2px solid rgba(255,255,255,0.18);border-top-color:rgba(255,255,255,0.95);border-radius:50%;display:inline-block;animation:spin .9s linear infinite;margin-right:8px }
-    @keyframes spin{to{transform:rotate(360deg)}}
-
     .circle-control { width:46px;height:46px;border-radius:9999px;background:white;display:inline-flex;align-items:center;justify-content:center;box-shadow: 0 8px 30px rgba(15,23,42,0.08);cursor:pointer;border:none }
     .top-controls { z-index:80; position:absolute; right:.75rem; top:.75rem; display:flex; gap:.5rem; }
 
-    /* make sure ads clickable and not covered */
     #adPanelContainer { z-index:40; }
-    /* small screens: move top controls inward */
-    @media (max-width:420px){ .top-controls{ right:.5rem; top:.5rem } .modal-dialog{ margin:10px } }
+    @media (max-width:420px){ .top-controls{ right:.5rem; top:.5rem } }
+
+    /* Onboarding Modal Styles */
+    .onboarding-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 1rem;
+    }
+
+    .onboarding-content {
+      background: white;
+      border-radius: 24px;
+      max-width: 400px;
+      width: 100%;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .onboarding-slide {
+      display: none;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      min-height: 480px;
+      background: linear-gradient(135deg, #f8f4ff 0%, #fdf2f8 100%);
+    }
+
+    .onboarding-slide.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: slideIn 0.4s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .onboarding-icon {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+      box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
+    }
+
+    .step-indicators {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 1.5rem 0;
+    }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d1d5db;
+      transition: all 0.3s ease;
+    }
+
+    .step-dot.active {
+      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+      width: 24px;
+      border-radius: 4px;
+    }
+
+    .gradient-button {
+      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+      color: white;
+      font-weight: 600;
+      padding: 1rem 2rem;
+      border-radius: 16px;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      font-size: 1rem;
+      box-shadow: 0 8px 20px rgba(236, 72, 153, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .gradient-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(236, 72, 153, 0.5);
+    }
+
+    .skip-button {
+      background: transparent;
+      color: #9ca3af;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .spinner-inline { 
+      width:18px;
+      height:18px;
+      border:2px solid rgba(255,255,255,0.3);
+      border-top-color:white;
+      border-radius:50%;
+      display:inline-block;
+      animation:spin .8s linear infinite;
+      margin-right:8px 
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4 pb-32">
 
+  <!-- Onboarding Modal -->
+  <div id="onboardingModal" class="onboarding-modal">
+    <div class="onboarding-content">
+      <!-- Slide 1 -->
+      <div class="onboarding-slide active" data-slide="0">
+        <div>
+          <div class="onboarding-icon">✉️</div>
+          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Connect Telegram</h2>
+          <p class="text-gray-600 leading-relaxed">Get notified instantly when it's your turn via Telegram. No need to keep this page open!</p>
+        </div>
+        <div>
+          <div class="step-indicators">
+            <div class="step-dot active"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+          </div>
+          <button class="gradient-button" onclick="nextSlide()">Next</button>
+          <button class="skip-button" onclick="skipOnboarding()">Skip</button>
+        </div>
+      </div>
+
+      <!-- Slide 2 -->
+      <div class="onboarding-slide" data-slide="1">
+        <div>
+          <div class="onboarding-icon">📱</div>
+          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Scan QR Code</h2>
+          <p class="text-gray-600 leading-relaxed">Open the Telegram app on your phone and scan the QR code, or tap the button below to connect directly.</p>
+        </div>
+        <div>
+          <div class="step-indicators">
+            <div class="step-dot"></div>
+            <div class="step-dot active"></div>
+            <div class="step-dot"></div>
+          </div>
+          <button class="gradient-button" onclick="nextSlide()">Next</button>
+          <button class="skip-button" onclick="skipOnboarding()">Skip</button>
+        </div>
+      </div>
+
+      <!-- Slide 3 -->
+      <div class="onboarding-slide" data-slide="2">
+        <div>
+          <div class="onboarding-icon">🎁</div>
+          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Enjoy Rewards!</h2>
+          <p class="text-gray-600 leading-relaxed mb-4">Relax and wait for your notification. You can even close this page and continue with your day!</p>
+          <p id="connectStatusText" class="text-sm text-gray-500 mb-2">Preparing connection...</p>
+        </div>
+        <div>
+          <div class="step-indicators">
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot active"></div>
+          </div>
+          <button id="finalConnectButton" class="gradient-button" onclick="connectTelegram()">
+            <span id="buttonText">Connect via Telegram</span>
+          </button>
+          <button class="skip-button" onclick="skipOnboarding()">Maybe Later</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
-
-    <!-- top controls -->
     <div class="top-controls">
-      <!-- Game: same-tab navigation -->
       <button id="gameBtn" title="Game" class="circle-control" type="button">🎮</button>
-
-      <!-- Connect top icon (ENVELOPE) -->
       <button id="connectTopBtn" title="Connect Telegram" class="circle-control" type="button">✉️</button>
     </div>
 
-    <!-- Header -->
     <div class="space-y-2">
       <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,18 +216,15 @@
       <p id="counterName" class="text-sm text-gray-600">--</p>
     </div>
 
-    <!-- Connection banner (shows clear instruction about background) -->
     <div id="connectionBanner" class="rounded-xl p-3 bg-yellow-50 border border-yellow-100 text-left text-sm">
       <span id="connectionBannerText">Checking notification status...</span>
     </div>
 
-    <!-- Your Number -->
     <div class="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-4 border-2 border-purple-200">
       <p class="text-sm text-purple-600 font-medium">Your Number</p>
       <p id="yourNumber" class="text-4xl font-bold text-purple-800">--</p>
     </div>
 
-    <!-- Status Info -->
     <div class="space-y-4">
       <div class="bg-gray-50 rounded-xl p-4">
         <div class="flex justify-between items-center mb-2">
@@ -102,7 +263,6 @@
     </div>
   </div>
 
-  <!-- ad -->
   <div id="adPanelContainer" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
@@ -111,58 +271,14 @@
     </div>
   </div>
 
-  <!-- Simplified Connect Modal -->
-  <div class="modal fade" id="simpleTelegramModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div style="background:linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%);color:white;padding:18px;text-align:center;">
-          <div style="font-weight:700;font-size:18px;">🔔 Connect Telegram</div>
-          <div style="opacity:0.95;margin-top:6px;font-size:13px;">Only the Telegram *app* receives background notifications — open Telegram after connecting</div>
-        </div>
-        <div style="padding:16px;text-align:center;">
-          <p id="simpleModalText" class="text-gray-700 mb-3">Connect Telegram to receive a DM when it's your turn. After connecting, you can leave this browser in the background.</p>
-
-          <div id="simpleModalSpinnerRow" style="display:none;align-items:center;justify-content:center;margin-bottom:12px;">
-            <span class="spinner-inline" style="border-top-color:#7c3aed"></span>
-            <span id="simpleModalSpinnerText" style="color:#374151;">Generating secure link…</span>
-          </div>
-
-          <div class="d-grid gap-2">
-            <button id="simpleModalConnectBtn" class="w-full py-2 rounded-xl" style="background:linear-gradient(90deg,#7c3aed,#06b6d4); color:white; font-weight:600;">
-              Connect via Telegram
-            </button>
-            <button id="simpleModalCloseBtn" class="w-full py-2 rounded-xl btn btn-outline-secondary">Close</button>
-          </div>
-
-          <p style="font-size:12px;color:#9CA3AF;margin-top:10px;">If link fails, open Telegram and send <code>/start &lt;TOKEN&gt;</code> to the bot.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- connected confirmation modal (auto-close) -->
-  <div class="modal fade" id="connectedConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-      <div class="modal-content text-center p-4">
-        <div style="font-weight:700;font-size:18px;color:#0f172a">✅ Connected</div>
-        <div style="color:#374151;margin-top:8px">Hey 👋<br><small id="connectedDetails" style="display:block;margin-top:6px"></small></div>
-        <div style="margin-top:12px;font-size:13px;color:#6b7280">You may keep this page in the background — Telegram will DM you when it's your turn.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- bootstrap -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- Firebase + logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // CONFIG - keep your working endpoints & bot username
-    const TELEGRAM_BOT_USERNAME = '@QueueJoyBot'; // fallback only
+    const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
-    // Firebase init
+    const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
+
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -175,7 +291,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // DOM
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServingEl = document.getElementById('nowServing');
@@ -185,37 +300,54 @@
     const errorMessage = document.getElementById('errorMessage');
     const adPanel = document.getElementById('adPanel');
     const noAd = document.getElementById('noAd');
-
     const telegramStatus = document.getElementById('telegramStatus');
     const telegramIcon = document.getElementById('telegramIcon');
     const connectionBannerText = document.getElementById('connectionBannerText');
-
     const connectTopBtn = document.getElementById('connectTopBtn');
     const gameBtn = document.getElementById('gameBtn');
+    const onboardingModal = document.getElementById('onboardingModal');
+    const connectStatusText = document.getElementById('connectStatusText');
+    const buttonText = document.getElementById('buttonText');
+    const finalConnectButton = document.getElementById('finalConnectButton');
 
-    const simpleModalEl = document.getElementById('simpleTelegramModal');
-    const bsSimpleModal = new bootstrap.Modal(simpleModalEl, { keyboard: true });
-    const simpleModalConnectBtn = document.getElementById('simpleModalConnectBtn');
-    const simpleModalCloseBtn = document.getElementById('simpleModalCloseBtn');
-    const simpleModalText = document.getElementById('simpleModalText');
-    const simpleModalSpinnerRow = document.getElementById('simpleModalSpinnerRow');
-    const simpleModalSpinnerText = document.getElementById('simpleModalSpinnerText');
-
-    const connectedConfirmEl = document.getElementById('connectedConfirmModal');
-    const bsConnectedConfirm = new bootstrap.Modal(connectedConfirmEl, { keyboard: false });
-    const connectedDetails = document.getElementById('connectedDetails');
-
-    // state
     let queueRef = null, counterRef = null, servingRef = null, adRef = null;
     let currentQueueKey = null;
     let currentQueueData = null;
     let currentCounterId = null;
     let latestConnectLink = null;
     let linkGenerating = false;
-    let prevTelegramConnected = false;
-    let avgServiceTimeForCounter = null; // minutes (number)
+    let avgServiceTimeForCounter = null;
+    let currentSlide = 0;
 
-    // helpers
+    window.nextSlide = function() {
+      const slides = document.querySelectorAll('.onboarding-slide');
+      slides[currentSlide].classList.remove('active');
+      currentSlide = (currentSlide + 1) % slides.length;
+      slides[currentSlide].classList.add('active');
+      
+      if (currentSlide === 2) {
+        triggerGenerateLink();
+      }
+    };
+
+    window.skipOnboarding = function() {
+      onboardingModal.style.display = 'none';
+    };
+
+    window.connectTelegram = async function() {
+      buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
+      finalConnectButton.disabled = true;
+      
+      setTimeout(() => {
+        const linkToOpen = latestConnectLink || TELEGRAM_BOT_URL;
+        window.open(linkToOpen, '_blank', 'noopener,noreferrer');
+        
+        setTimeout(() => {
+          onboardingModal.style.display = 'none';
+        }, 500);
+      }, 300);
+    };
+
     const showError = (msg) => {
       errorMessage.querySelector('p').textContent = msg;
       errorMessage.classList.remove('hidden');
@@ -224,11 +356,11 @@
 
     function setTelegramUIConnected(connected) {
       if (connected) {
-        telegramStatus.textContent = 'Connected — you’ll get Telegram notifications';
+        telegramStatus.textContent = 'Connected — you'll get Telegram notifications';
         telegramStatus.classList.remove('text-gray-600');
         telegramStatus.classList.add('text-green-700','font-semibold');
         telegramIcon.classList.add('bg-green-100');
-        connectionBannerText.textContent = 'Connected — you can leave this page in the background. Telegram app will DM you when it’s your turn.';
+        connectionBannerText.textContent = 'Connected — you can leave this page in the background. Telegram app will DM you when it's your turn.';
       } else {
         telegramStatus.textContent = 'Not connected — get notified by Telegram';
         telegramStatus.classList.remove('text-green-700','font-semibold');
@@ -238,7 +370,6 @@
       }
     }
 
-    // create secure link by calling serverless
     async function generateConnectLink() {
       if (!currentQueueKey) throw new Error('Missing queueKey');
       const res = await fetch(CREATE_LINK_ENDPOINT, {
@@ -258,62 +389,45 @@
     async function triggerGenerateLink() {
       if (linkGenerating) return;
       linkGenerating = true;
-      simpleModalSpinnerRow.style.display = 'flex';
-      simpleModalSpinnerText.textContent = 'Generating secure link…';
-      simpleModalText.textContent = 'Please open Telegram and press Start after connecting.';
+      connectStatusText.textContent = 'Generating secure link...';
       latestConnectLink = null;
       try {
         const link = await generateConnectLink();
         latestConnectLink = link;
-        simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Link ready — Tap Connect then open Telegram app and press Start.';
+        connectStatusText.textContent = 'Ready to connect! Tap the button below.';
       } catch (err) {
         latestConnectLink = null;
-        simpleModalSpinnerRow.style.display = 'none';
-        simpleModalText.textContent = 'Failed to generate link. Use fallback or try again.';
+        connectStatusText.textContent = 'Will use direct bot link.';
       } finally {
         linkGenerating = false;
       }
     }
 
-    // top connect opens modal and generate link
     connectTopBtn.addEventListener('click', () => {
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn.";
-      bsSimpleModal.show();
-      triggerGenerateLink();
+      const slides = document.querySelectorAll('.onboarding-slide');
+      slides.forEach(s => s.classList.remove('active'));
+      currentSlide = 0;
+      slides[0].classList.add('active');
+      onboardingModal.style.display = 'flex';
     });
 
-    // Connect button in modal: MUST open in NEW TAB (user requested)
-    simpleModalConnectBtn.addEventListener('click', async () => {
-      try {
-        if (!latestConnectLink && !linkGenerating) await triggerGenerateLink();
-        const linkToOpen = latestConnectLink || `https://t.me/${TELEGRAM_BOT_USERNAME}`;
-        // open in NEW tab
-        window.open(linkToOpen, '_blank', 'noopener,noreferrer');
-      } catch (e) {
-        console.warn(e);
-        window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}`, '_blank', 'noopener,noreferrer');
-      }
-    });
-
-    simpleModalCloseBtn.addEventListener('click', () => {
-      try { bsSimpleModal.hide(); } catch(e) {}
-    });
-
-    // game button: same tab navigation
     gameBtn.addEventListener('click', () => {
       window.location.href = 'https://queuejoy.netlify.app/game.html';
     });
 
-    // listen ads
     adRef = ref(db, "settings/adImage");
     onValue(adRef, (snap) => {
       const adUrl = snap.val();
-      if (adUrl) { adPanel.src = adUrl; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
-      else { adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
+      if (adUrl) { 
+        adPanel.src = adUrl; 
+        adPanel.classList.remove('hidden'); 
+        noAd.classList.add('hidden'); 
+      } else { 
+        adPanel.classList.add('hidden'); 
+        noAd.classList.remove('hidden'); 
+      }
     });
 
-    // compute estimated wait text helper using avgServiceTime (mins)
     function computeEstimatedWaitText(ahead, avgMins) {
       avgMins = Number(avgMins) || 2;
       if (ahead === 0) return 'Soon';
@@ -321,7 +435,6 @@
       return `${ahead} person${ahead>1?'s':''} — approx ${est} min`;
     }
 
-    // load queue & counter listeners
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const queueKey = params.get('queueId');
@@ -332,12 +445,6 @@
       }
       currentQueueKey = queueKey;
 
-      // show modal immediately on page load (user asked)
-      simpleModalText.textContent = "Connect Telegram to get a notification when it's your turn. Only Telegram app receives background notifications.";
-      bsSimpleModal.show();
-      triggerGenerateLink();
-
-      // attach queue listener
       queueRef = ref(db, `queue/${queueKey}`);
       onValue(queueRef, (snap) => {
         if (!snap.exists()) {
@@ -351,22 +458,13 @@
         const { counterId, queueId } = currentQueueData || {};
         yourNumber.textContent = queueId || '--';
 
-        // update connected UI & banner
         setTelegramUIConnected(!!currentQueueData.telegramConnected);
 
-        // detect transition: newly connected
         const nowConnected = !!currentQueueData.telegramConnected;
         if (nowConnected && !prevConnected) {
-          // show connected confirmation modal briefly
-          // include a short message telling they can background and relax
-          const prefix = String(queueId||'').match(/^[A-Za-z]*/)?.[0]||'';
-          const numberOnly = String(queueId||'').replace(prefix,'') || '';
-          connectedDetails.innerHTML = `🧾 Number • ${prefix}${numberOnly} &nbsp; • &nbsp; 🪑 Counter • ${counterId || 'TBD'}`;
-          try { bsConnectedConfirm.show(); } catch(e) {}
-          setTimeout(()=> { try { bsConnectedConfirm.hide(); } catch(e){} }, 3000);
+          onboardingModal.style.display = 'none';
         }
 
-        // attach counter details listener
         if (counterId && (!counterRef || currentCounterId !== counterId)) {
           if (counterRef) off(counterRef);
           currentCounterId = counterId;
@@ -376,10 +474,8 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || counterId;
 
-            // determine avg service time (minutes)
             avgServiceTimeForCounter = Number(counterData.avgServiceTime) || null;
             if (!avgServiceTimeForCounter) {
-              // try global settings
               try {
                 const sSnap = await get(ref(db, 'settings/avgServiceTime'));
                 if (sSnap.exists()) {
@@ -390,11 +486,9 @@
               } catch (e) { avgServiceTimeForCounter = 2; }
             }
 
-            // your numeric value
             const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
             const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix,''),10) : NaN;
 
-            // Now-serving listener
             if (servingRef) off(servingRef);
             servingRef = ref(db, `counters/${counterId}/nowServing`);
             onValue(servingRef, (nowSnap) => {
@@ -403,28 +497,21 @@
 
               const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
               peopleAheadEl.textContent = ahead;
-
-              // estimate using avgServiceTimeForCounter
               estimatedWaitEl.textContent = computeEstimatedWaitText(ahead, avgServiceTimeForCounter);
 
-              // indicator & behavior
               if (ahead === 0) {
                 indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
 
-                // If chatId known in db, server-side webhook expected to DM user when connected.
-                // Here we still trigger sendTelegram as fallback (admin CHAT_ID will also get a copy if set up server-side).
                 const body = currentQueueData && currentQueueData.chatId
                   ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` }
                   : { message: `🎟 It's now the customer's turn!\nQueue: ${currentQueueKey}` };
 
-                // fire-and-forget notify
                 fetch(SEND_TELEGRAM_ENDPOINT, {
                   method:'POST',
                   headers:{ 'Content-Type':'application/json' },
                   body: JSON.stringify(body)
-                }).then(r=>r.json().then(j=>console.log('notify result',j)).catch(()=>{})).catch(()=>{});
+                }).catch(()=>{});
 
-                // redirect client to your_turn page after short delay — only works if page is open
                 setTimeout(()=> {
                   try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
                 }, 1200);
@@ -435,11 +522,9 @@
             });
           });
         }
+      });
+    });
 
-      }); // onValue queue
-    }); // DOMContentLoaded
-
-    // cleanup listener on unload
     window.addEventListener('beforeunload', () => {
       try {
         if (queueRef) off(queueRef);
@@ -448,12 +533,6 @@
         if (adRef) off(adRef);
       } catch(e){}
     });
-
-    // warn fallback
-    if (!TELEGRAM_BOT_USERNAME || TELEGRAM_BOT_USERNAME === '@QueueJoyBot') {
-      console.warn('TELEGRAM_BOT_USERNAME placeholder in page; fallback link will use placeholder.');
-    }
-
   </script>
 </body>
 </html>
