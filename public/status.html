@@ -334,13 +334,12 @@
       onboardingModal.style.display = 'none';
     };
 
-    window.connectTelegram = async function() {
+      window.connectTelegram = async function() {
       buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
       finalConnectButton.disabled = true;
       
       setTimeout(() => {
-        const linkToOpen = latestConnectLink || TELEGRAM_BOT_URL;
-        window.open(linkToOpen, '_blank', 'noopener,noreferrer');
+        window.open(TELEGRAM_BOT_URL, '_blank', 'noopener,noreferrer');
         
         setTimeout(() => {
           onboardingModal.style.display = 'none';
@@ -354,13 +353,13 @@
       setTimeout(() => errorMessage.classList.add('hidden'), 5000);
     };
 
-    function setTelegramUIConnected(connected) {
+      function setTelegramUIConnected(connected) {
       if (connected) {
-        telegramStatus.textContent = 'Connected — you'll get Telegram notifications';
+        telegramStatus.textContent = "Connected — you'll get Telegram notifications";
         telegramStatus.classList.remove('text-gray-600');
         telegramStatus.classList.add('text-green-700','font-semibold');
         telegramIcon.classList.add('bg-green-100');
-        connectionBannerText.textContent = 'Connected — you can leave this page in the background. Telegram app will DM you when it's your turn.';
+        connectionBannerText.textContent = "Connected — you can leave this page in the background. Telegram app will DM you when it's your turn.";
       } else {
         telegramStatus.textContent = 'Not connected — get notified by Telegram';
         telegramStatus.classList.remove('text-green-700','font-semibold');
