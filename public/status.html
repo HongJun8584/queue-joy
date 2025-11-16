@@ -10,18 +10,40 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{--bg-from:#f3f0ff;--bg-via:#eef2ff;--bg-to:#ecfeff}
-    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0}
+    html,body{height:100%}
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(135deg,var(--bg-from),var(--bg-to));-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
     .fade-in{animation:fadeIn .45s cubic-bezier(.2,.9,.2,1)}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
     .spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:white;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:middle}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .modal{display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
+    /* Modal base */
+    .modal{display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px}
     .modal.show{display:flex}
-    .modal-content{background:white;border-radius:14px;max-width:520px;width:94%;box-shadow:0 20px 60px rgba(2,6,23,.25);overflow:hidden}
+    .modal-content{background:white;border-radius:14px;max-width:540px;width:100%;box-shadow:0 30px 80px rgba(2,6,23,.35);overflow:hidden;max-height:calc(100vh - 48px);display:flex;flex-direction:column}
+    .modal-body{padding:20px 22px 28px;overflow:auto}
+    .modal-header{padding:22px;background:linear-gradient(90deg,#2563eb,#8b5cf6);color:white}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* 3-step styles */
+    .cj-steps { display:flex; gap:18px; align-items:stretch; justify-content:center; margin:0 auto; }
+    .cj-step { flex:0 0 260px; padding:20px; border-radius:14px; background:linear-gradient(180deg,#ffffff,#fbfdff); box-shadow:0 12px 30px rgba(12,20,50,0.06); transform:translateY(6px); transition:transform .32s cubic-bezier(.2,.9,.2,1),opacity .28s ease; opacity:.6; display:flex; flex-direction:column; align-items:center; text-align:center; }
+    .cj-step.active { transform:translateY(0); opacity:1; }
+    .cj-illustration { width:84px; height:84px; border-radius:18px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; background:linear-gradient(180deg,#fff,#f7fbff); box-shadow:0 6px 18px rgba(10,20,60,0.06); }
+    .cj-dot { width:10px;height:10px;border-radius:999px;background:#E6E7EE;margin:6px;display:inline-block;transition:all .18s ease; }
+    .cj-dot.active { width:18px;background:linear-gradient(90deg,#ff77c3,#6c63ff); }
+    .cj-step-number { width:48px;height:48px;border-radius:999px;background:#fff;border:2px solid #F3E6FB;display:flex;align-items:center;justify-content:center;font-weight:800;color:#6b21a8;margin-bottom:8px;font-size:16px;box-shadow:0 6px 18px rgba(99,102,241,0.08); }
+    .cj-title { font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px; }
+    .cj-desc { font-size:13px;color:#475569;line-height:1.45;max-width:260px;margin:0 auto; }
+    .cj-controls { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:16px; }
+    .cj-skip { background:transparent;border:none;color:#475569;font-weight:700;padding:8px 12px;border-radius:10px; cursor:pointer }
+    .cj-next { padding:10px 18px;border-radius:12px;background:linear-gradient(90deg,#6c63ff,#ff77c3);color:white;font-weight:700;border:none;box-shadow:0 8px 24px rgba(108,99,255,0.14); cursor:pointer }
+    @media (max-width:740px){ .cj-steps{flex-direction:row;overflow:hidden;gap:14px;justify-content:flex-start} .cj-step{flex:0 0 78%;min-width:78%} .modal-content{max-width:520px} }
     @media (prefers-reduced-motion:reduce){.fade-in,.spinner{animation:none}}
+    /* make sure connect button is visible and large enough on mobile */
+    .primary-cta{display:block;width:100%;padding:14px;border-radius:12px;text-align:center;font-weight:700}
+    /* small helper for modal footer */
+    .modal-footer { padding:14px 20px 22px; background: #fff; gap:10px; display:flex; flex-direction:column }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-[#f3f0ff] via-[#eef2ff] to-[#ecfeff]">
+<body class="min-h-screen">
 
   <main class="min-h-screen flex items-center justify-center p-4 pb-28">
     <section class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 space-y-6 relative fade-in" aria-labelledby="pageTitle">
@@ -43,7 +65,7 @@
 
       <!-- Connection Banner -->
       <div id="connectionBanner" class="rounded-2xl p-4 border-2 bg-yellow-50 border-yellow-200">
-        <p id="connectionBannerText" class="text-sm text-center text-yellow-700">⚠️ Not connected. Keep this page open for updates.</p>
+        <p id="connectionBannerText" class="text-sm text-center text-yellow-700">⚠️ Not connected. Tap Connect to receive notifications.</p>
       </div>
 
       <!-- Your Number -->
@@ -97,173 +119,84 @@
     </div>
   </div>
 
-  <!-- Connect Telegram Modal -->
-<!-- Connect Telegram Modal (REPLACE the old modal with this block) -->
-<div id="connectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
-  <div class="modal-content">
-    <style>
-      /* Local modal-only styles for the 3-step carousel */
-      .cj-steps { display:flex; gap:18px; align-items:center; justify-content:center; }
-      .cj-step { min-width:260px; max-width:420px; padding:26px; border-radius:16px; background:white; box-shadow:0 10px 30px rgba(12,20,50,0.08); transform:translateY(6px); transition:transform .32s cubic-bezier(.2,.9,.2,1),opacity .28s ease; opacity:0.0; }
-      .cj-step.active { transform:translateY(0); opacity:1; }
-      .cj-illustration { width:84px; height:84px; border-radius:18px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; background:linear-gradient(180deg,#fff,#f7fbff); box-shadow:0 6px 18px rgba(10,20,60,0.06); }
-      .cj-dot { width:10px;height:10px;border-radius:999px;background:#E6E7EE;margin:6px;display:inline-block;transition:all .18s ease; }
-      .cj-dot.active { width:18px;background:linear-gradient(90deg,#ff77c3,#6c63ff); }
-      .cj-step-number { width:46px;height:46px;border-radius:999px;background:#fff;border:2px solid #F3E6FB;display:flex;align-items:center;justify-content:center;font-weight:700;color:#6b21a8;margin:0 auto 10px;box-shadow:0 6px 18px rgba(99,102,241,0.08); }
-      .cj-title { font-size:18px;font-weight:700;color:#0f172a;margin-bottom:6px;text-align:center; }
-      .cj-desc { font-size:13px;color:#475569;text-align:center;line-height:1.45;max-width:320px;margin:0 auto; }
-      .cj-controls { display:flex; gap:10px; align-items:center; justify-content:center; margin-top:14px; }
-      .cj-skip { background:transparent;border:none;color:#475569;font-weight:600;padding:8px 12px;border-radius:10px; }
-      .cj-next { padding:10px 18px;border-radius:12px;background:linear-gradient(90deg,#6c63ff,#ff77c3);color:white;font-weight:700;border:none;box-shadow:0 8px 24px rgba(108,99,255,0.14); }
-      @media (max-width:520px){ .cj-step{ min-width:86%; } .cj-step-number{width:40px;height:40px} }
-    </style>
-
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-lg">
-      <div class="flex items-center justify-center mb-3">
-        <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-        </div>
-      </div>
-      <h2 id="connectTitle" class="text-2xl font-bold text-center">Connect to QueueJoyBot</h2>
-      <p class="text-center text-blue-100 text-sm mt-2">Tap the button and follow these 3 quick steps</p>
-    </div>
-
-    <!-- Carousel / Steps -->
-    <div class="p-6">
-      <div id="cjStepsWrap" class="cj-steps" role="list" aria-label="Connection steps">
-        <!-- STEP 1 -->
-        <div class="cj-step active" role="listitem" data-step="0" aria-hidden="false">
-          <div class="cj-step-number">1</div>
-          <div class="cj-illustration" aria-hidden="true">
-            <!-- simple SVG phone + hand -->
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>
+  <!-- Connect Telegram Modal (reworked, responsive, integrated JS below) -->
+  <div id="connectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="connectTitle">
+    <div class="modal-content" role="document">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;justify-content:center;margin-bottom:8px">
+          <div style="width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,0.13);display:flex;align-items:center;justify-content:center">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
           </div>
-          <div class="cj-title">Install Telegram App</div>
-          <div class="cj-desc">If you don’t have Telegram, install it from your app store — only the app receives background notifications reliably.</div>
         </div>
+        <h2 id="connectTitle" class="text-2xl font-bold text-center">Connect to QueueJoyBot</h2>
+        <p class="text-center text-blue-100 text-sm mt-1">Tap the button and follow these 3 quick steps</p>
+      </div>
 
-        <!-- STEP 2 -->
-        <div class="cj-step" role="listitem" data-step="1" aria-hidden="true">
-          <div class="cj-step-number">2</div>
-          <div class="cj-illustration" aria-hidden="true">
-            <!-- SVG showing tap/connect -->
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff77c3" stroke-width="1.6"><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+      <div class="modal-body">
+        <!-- Steps carousel -->
+        <div id="cjStepsWrap" class="cj-steps" role="list" aria-label="Connection steps">
+          <div class="cj-step active" role="listitem" data-step="0" aria-hidden="false">
+            <div class="cj-step-number">1</div>
+            <div class="cj-illustration" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="17" r="1"/></svg>
+            </div>
+            <div class="cj-title">Install Telegram App</div>
+            <div class="cj-desc">Install Telegram from the App Store / Play Store — the app receives background notifications reliably.</div>
           </div>
-          <div class="cj-title">Tap “Connect Telegram”</div>
-          <div class="cj-desc">Press the Connect button below. Your device will open QueueJoyBot with a secure token — press <strong>Start</strong> inside the bot to finish.</div>
-        </div>
 
-        <!-- STEP 3 -->
-        <div class="cj-step" role="listitem" data-step="2" aria-hidden="true">
-          <div class="cj-step-number">3</div>
-          <div class="cj-illustration" aria-hidden="true">
-            <!-- gift/check svg -->
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00c853" stroke-width="1.6"><path d="M3 7h18v13H3z"/><path d="M12 7v10"/><path d="M3 7l4-4h10l4 4"/></svg>
+          <div class="cj-step" role="listitem" data-step="1" aria-hidden="true">
+            <div class="cj-step-number">2</div>
+            <div class="cj-illustration" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff77c3" stroke-width="1.6"><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+            </div>
+            <div class="cj-title">Tap "Connect Telegram"</div>
+            <div class="cj-desc">Tap the Connect button below. Your device will open QueueJoyBot with a secure token — then press <strong>Start</strong> in Telegram.</div>
           </div>
-          <div class="cj-title">You're All Set</div>
-          <div class="cj-desc">QueueJoyBot will message you automatically when your number is called — you can close this page and go about your day.</div>
+
+          <div class="cj-step" role="listitem" data-step="2" aria-hidden="true">
+            <div class="cj-step-number">3</div>
+            <div class="cj-illustration" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00c853" stroke-width="1.6"><path d="M3 7h18v13H3z"/><path d="M12 7v10"/><path d="M3 7l4-4h10l4 4"/></svg>
+            </div>
+            <div class="cj-title">You're All Set</div>
+            <div class="cj-desc">QueueJoyBot will message you automatically when your number is called — you can close the page after connecting.</div>
+          </div>
         </div>
-      </div>
 
-      <!-- Progress dots -->
-      <div class="mt-5 flex items-center justify-center" aria-hidden="true">
-        <span class="cj-dot active" data-dot="0"></span>
-        <span class="cj-dot" data-dot="1"></span>
-        <span class="cj-dot" data-dot="2"></span>
-      </div>
+        <!-- dots -->
+        <div class="mt-5 flex items-center justify-center" aria-hidden="true">
+          <span class="cj-dot active" data-dot="0"></span>
+          <span class="cj-dot" data-dot="1"></span>
+          <span class="cj-dot" data-dot="2"></span>
+        </div>
 
-      <!-- Controls -->
-      <div class="cj-controls mt-6">
-        <button id="cjPrev" class="cj-skip" aria-label="Previous step">Back</button>
-        <button id="cjNext" class="cj-next" aria-label="Next step">Next</button>
-      </div>
+        <!-- controls -->
+        <div class="cj-controls mt-6">
+          <button id="cjPrev" class="cj-skip" aria-label="Previous step">Back</button>
+          <button id="cjNext" class="cj-next" aria-label="Next step">Next</button>
+        </div>
 
-      <!-- Connect button & fallback (final action area) -->
-      <div class="mt-4 space-y-3">
-        <!-- Keep id connectBtn so your existing JS handles the action -->
-        <button id="connectBtn" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg">Connect Telegram</button>
-        <div id="fallbackArea" class="hidden mt-2 text-center">
-          <p class="text-sm text-gray-600 mb-2">If Telegram didn't open automatically, tap below:</p>
+        <!-- loading indicator (hidden initially) -->
+        <div id="loadingIndicator" class="hidden text-center py-3">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="ml-2 text-gray-600 text-sm">Preparing secure link...</span>
+        </div>
+
+        <!-- fallback link (hidden until popup blocked) -->
+        <div id="fallbackArea" class="hidden mt-4 text-center">
+          <p class="text-sm text-gray-600 mb-2">If Telegram didn't open automatically, tap below to open QueueJoyBot:</p>
           <a id="manualLink" class="inline-block px-4 py-3 bg-white border rounded-xl text-sm font-medium" target="_blank" rel="noopener noreferrer">Open QueueJoyBot</a>
         </div>
-        <button id="closeModalBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-xl transition-colors">Close</button>
+      </div>
+
+      <div class="modal-footer">
+        <button id="connectBtn" class="primary-cta bg-gradient-to-r from-pink-500 to-purple-600 text-white">Connect Telegram</button>
+        <button id="closeModalBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl">Close</button>
       </div>
     </div>
   </div>
-</div>
 
-<!-- small script to drive carousel (place with other scripts; this block depends only on element IDs above) -->
-<script>
-  (function(){
-    const steps = Array.from(document.querySelectorAll('.cj-step'));
-    const dots = Array.from(document.querySelectorAll('.cj-dot'));
-    const prev = document.getElementById('cjPrev');
-    const next = document.getElementById('cjNext');
-    const fallbackArea = document.getElementById('fallbackArea');
-    const manualLink = document.getElementById('manualLink');
-
-    let idx = 0;
-    function show(i){
-      steps.forEach((s, j)=> {
-        s.classList.toggle('active', j === i);
-        s.setAttribute('aria-hidden', j===i? 'false':'true');
-      });
-      dots.forEach((d,j)=> d.classList.toggle('active', j===i));
-      // update Next button text on last step
-      next.textContent = i === steps.length -1 ? 'Connect & Open' : 'Next';
-    }
-    show(idx);
-
-    prev.addEventListener('click', ()=> { idx = Math.max(0, idx-1); show(idx); });
-    next.addEventListener('click', ()=> {
-      if (idx < steps.length -1) { idx++; show(idx); }
-      else {
-        // final step: focus primary connect button so user can tap (or auto-scroll)
-        document.getElementById('connectBtn').focus();
-      }
-    });
-
-    // support dots click
-    dots.forEach((d, j)=> d.addEventListener('click', ()=> { idx = j; show(idx); }));
-
-    // swipe support (pointer)
-    let startX = null;
-    const wrap = document.getElementById('cjStepsWrap');
-    wrap.addEventListener('pointerdown', (e)=> { startX = e.clientX; });
-    wrap.addEventListener('pointerup', (e)=> {
-      if (startX === null) return;
-      const dx = e.clientX - startX;
-      if (dx < -40) { idx = Math.min(steps.length-1, idx+1); show(idx); }
-      if (dx > 40) { idx = Math.max(0, idx-1); show(idx); }
-      startX = null;
-    });
-
-    // When connectBtn is clicked, build preferred link if lastTokenGenerated exists (your existing logic sets lastTokenGenerated)
-    const connectBtn = document.getElementById('connectBtn');
-    connectBtn.addEventListener('click', ()=> {
-      // hide fallback by default, will be shown by existing popup-block logic
-      if (typeof handleConnectClick === 'function') {
-        handleConnectClick();
-      } else {
-        // fallback if your script isn't loaded yet
-        alert('Connecting... (handler missing)');
-      }
-      // set manualLink href if token exists (lastTokenGenerated is set by your existing code)
-      try {
-        if (window.lastTokenGenerated) {
-          const link = `https://t.me/QueueJoyBot?start=${encodeURIComponent(window.lastTokenGenerated)}`;
-          manualLink.href = link;
-        }
-      } catch(e){}
-    });
-
-    // Keep fallbackArea hidden initially; your existing popup-block detection will reveal it if needed.
-    fallbackArea.classList.add('hidden');
-  })();
-</script>
-
-  <!-- Confirmation Modal -->
+  <!-- Confirmation Modal (unchanged style) -->
   <div id="confirmModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <div class="modal-content max-w-sm">
       <div class="text-center py-6 px-4">
@@ -279,20 +212,19 @@
     </div>
   </div>
 
-  <!-- Firebase + Client JS -->
+  <!-- Firebase + Client JS (module, consolidated) -->
   <script type="module">
-    // Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ENDPOINTS (Netlify functions - do NOT change these functions)
+    // Endpoints
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
     const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
 
-    // Force connect to this bot username (overrides server-provided link)
-    const PREFERRED_BOT_USERNAME = 'QueueJoyBot'; // <- hard-coded to ensure correct bot
+    // Force bot username
+    const PREFERRED_BOT_USERNAME = 'QueueJoyBot';
 
-    // DOM references
+    // DOM
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServingEl = document.getElementById('nowServing');
@@ -305,6 +237,7 @@
     const connectionBannerText = document.getElementById('connectionBannerText');
     const adPanel = document.getElementById('adPanel');
     const noAd = document.getElementById('noAd');
+
     const connectModal = document.getElementById('connectModal');
     const confirmModal = document.getElementById('confirmModal');
     const connectTopBtn = document.getElementById('connectTopBtn');
@@ -317,7 +250,13 @@
     const fallbackArea = document.getElementById('fallbackArea');
     const manualLink = document.getElementById('manualLink');
 
-    // Your Firebase config — keep as before
+    const cjStepsWrap = document.getElementById('cjStepsWrap');
+    const cjSteps = Array.from(document.querySelectorAll('.cj-step'));
+    const cjDots = Array.from(document.querySelectorAll('.cj-dot'));
+    const cjPrev = document.getElementById('cjPrev');
+    const cjNext = document.getElementById('cjNext');
+
+    // Firebase config (unchanged)
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -335,21 +274,20 @@
     let queueData = null;
     let avgServiceTime = 2;
     let isGeneratingLink = false;
-    let connectLink = null;
     let prevTelegramConnected = false;
-    let lastTokenGenerated = null;
+    // Expose variables for debugging/fallback
+    window.lastTokenGenerated = null;
 
-    // Read queueId from URL
+    // Extract queue key
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get('queueId');
-
     if (!queueKey) {
       alert('Queue ID missing. Please scan the QR code again.');
       window.location.href = '/';
     }
 
-    // Update UI for connection
-    function updateConnectionUI(connected) {
+    // UI helpers
+    function updateConnectionUI(connected){
       if (connected) {
         telegramStatus.textContent = 'Connected to Telegram';
         telegramStatus.className = 'text-base font-semibold text-green-700';
@@ -367,132 +305,153 @@
       }
     }
 
-    // Generate token & link from server, but build final link using preferred bot username
-    async function generateConnectToken() {
+    // Generate token from server
+    async function generateConnectToken(){
       if (!queueKey) throw new Error('Missing queueKey');
-
-      // ensure human readable number known when possible
       let queueNumber = yourNumber.textContent && yourNumber.textContent !== '--' ? yourNumber.textContent : null;
-
-      const payload = {
-        queueKey: queueKey || null,
-        queueNumber: queueNumber || null,
-        counterId: queueData?.counterId || null
-      };
-
+      const payload = { queueKey: queueKey || null, queueNumber: queueNumber || null, counterId: queueData?.counterId || null };
       const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:'POST',
+        headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
-
       if (!res.ok) {
-        const text = await res.text().catch(()=>null);
-        throw new Error('Link creation failed: ' + (text || res.status));
+        const txt = await res.text().catch(()=>null);
+        throw new Error('createTelegramLink failed: ' + (txt || res.status));
       }
-
-      // server should return { link, token, preview } — we need token
       const json = await res.json();
+      // prefer explicit token field
       const token = json?.token || null;
-
       if (!token) {
-        // If server didn't return token but returned link, try to parse token from the returned link as fallback.
         if (json?.link) {
           try {
             const u = new URL(json.link);
-            const start = u.searchParams.get('start');
-            if (start) return { token: start, rawServerLink: json.link };
+            const s = u.searchParams.get('start');
+            if (s) return { token: s, rawServerLink: json.link };
           } catch(e){}
         }
         throw new Error('No token returned from createTelegramLink');
       }
-
       return { token, rawServerLink: json.link || null };
     }
 
-    // Build deep link to preferred bot using token
-    function buildPreferredBotLink(token) {
-      // token should be URL-safe already; ensure encodeURIComponent just in case
+    // Build preferred bot deep link
+    function buildPreferredBotLink(token){
       return `https://t.me/${PREFERRED_BOT_USERNAME}?start=${encodeURIComponent(token)}`;
     }
 
-    // Show fallback UI when popup blocked
-    function showFallbackLink(link) {
+    // Show fallback manual link
+    function showFallbackLink(link){
       manualLink.href = link;
       manualLink.textContent = `Open ${PREFERRED_BOT_USERNAME} in Telegram`;
       fallbackArea.classList.remove('hidden');
     }
-
-    // Hide fallback UI
-    function hideFallbackLink() {
+    function hideFallbackLink(){
       fallbackArea.classList.add('hidden');
       manualLink.href = '#';
       manualLink.textContent = 'Open Telegram';
     }
 
-    // Handle connect click (user gesture)
-    async function handleConnectClick() {
+    // MAIN: handle connect click (exposed globally)
+    async function handleConnectClick(){
       if (isGeneratingLink) return;
       isGeneratingLink = true;
-      connectBtn.setAttribute('aria-busy', 'true');
       connectBtn.disabled = true;
       loadingIndicator.classList.remove('hidden');
       hideFallbackLink();
 
       try {
         const { token, rawServerLink } = await generateConnectToken();
-        lastTokenGenerated = token;
+        window.lastTokenGenerated = token; // expose for fallback/manual copy
         const preferredLink = buildPreferredBotLink(token);
 
-        // Try to open preferred bot link (QueueJoyBot)
+        // Attempt to open via user click; this is a user gesture so window.open should not be blocked.
         const newWin = window.open(preferredLink, '_blank', 'noopener,noreferrer');
-
-        // If blocked OR null returned, show fallback UI with manual link
         if (!newWin) {
-          // Popup blocked or failed — show clear manual link inside modal (tappable)
+          // Popup blocked: show clear fallback link inside modal
           showFallbackLink(preferredLink);
-          // Also fallback to server link (if server returned raw link pointing to other bot) only for diagnostics — but prefer preferredLink
-          console.warn('Popup blocked. Preferred link shown in fallback UI.', { preferredLink, rawServerLink });
+          console.warn('Popup blocked - showing fallback', { preferredLink, rawServerLink });
         } else {
           try { newWin.focus(); } catch(e){}
         }
       } catch (err) {
         console.error('generateConnectToken error', err);
-        // show helpful message to the user
-        alert('Failed to create Telegram connection link. Please try again.');
+        // Show fallback info
+        alert('Failed to create the Telegram connection link. Try again or use the manual link displayed below.');
+        // If token already available, fill manual link
+        if (window.lastTokenGenerated) {
+          showFallbackLink(buildPreferredBotLink(window.lastTokenGenerated));
+        }
       } finally {
         isGeneratingLink = false;
-        connectBtn.removeAttribute('aria-busy');
         connectBtn.disabled = false;
         loadingIndicator.classList.add('hidden');
       }
     }
 
-    // Event listeners
-    connectTopBtn.addEventListener('click', () => {
+    // Expose for other scripts / debug
+    window.handleConnectClick = handleConnectClick;
+
+    // Carousel controls
+    (function setupCarousel(){
+      let idx = 0;
+      const show = (i) => {
+        cjSteps.forEach((s,j)=> {
+          s.classList.toggle('active', j===i);
+          s.setAttribute('aria-hidden', j===i? 'false':'true');
+        });
+        cjDots.forEach((d,j)=> d.classList.toggle('active', j===i));
+        cjNext.textContent = i === cjSteps.length -1 ? 'Connect & Open' : 'Next';
+      };
+      show(idx);
+      cjPrev.addEventListener('click', ()=> { idx = Math.max(0, idx-1); show(idx); });
+      cjNext.addEventListener('click', ()=> {
+        if (idx < cjSteps.length -1) { idx++; show(idx); }
+        else { connectBtn.focus(); }
+      });
+      cjDots.forEach((d,j)=> d.addEventListener('click', ()=> { idx = j; show(idx); }));
+      // pointer swipe for mobile
+      let startX = null;
+      cjStepsWrap.addEventListener('pointerdown', e=> startX = e.clientX);
+      cjStepsWrap.addEventListener('pointerup', e=>{
+        if (startX === null) return;
+        const dx = e.clientX - startX;
+        if (dx < -40) idx = Math.min(cjSteps.length-1, idx+1);
+        if (dx > 40) idx = Math.max(0, idx-1);
+        show(idx);
+        startX = null;
+      });
+    })();
+
+    // Event listeners (modal open/close)
+    connectTopBtn.addEventListener('click', ()=> {
       connectModal.classList.add('show');
-      setTimeout(()=>connectBtn.focus(), 200);
+      // ensure body doesn't jump
+      setTimeout(()=> connectBtn.focus(), 250);
     });
-    connectBtn.addEventListener('click', handleConnectClick);
-    closeModalBtn.addEventListener('click', () => connectModal.classList.remove('show'));
-    connectModal.addEventListener('click', (e) => { if (e.target === connectModal) connectModal.classList.remove('show'); });
-    gameBtn.addEventListener('click', ()=>{ window.location.href = 'https://queuejoy.netlify.app/game.html'; });
+    closeModalBtn.addEventListener('click', ()=> connectModal.classList.remove('show'));
+    connectModal.addEventListener('click', (e)=> { if (e.target === connectModal) connectModal.classList.remove('show'); });
+    // ensure connect button uses our handler
+    connectBtn.addEventListener('click', (e)=> {
+      // ensure this is considered a user gesture
+      handleConnectClick();
+    });
 
-    // Show connect modal on load but DO NOT auto-open Telegram
-    setTimeout(()=>{ connectModal.classList.add('show'); }, 450);
+    gameBtn.addEventListener('click', ()=> window.location.href = 'https://queuejoy.netlify.app/game.html');
 
-    // Listen to queue data
+    // show modal on load but DO NOT auto open the bot (avoid popup blockers)
+    setTimeout(()=> connectModal.classList.add('show'), 450);
+
+    // Listen for queue data
     const queueRef = ref(db, `queue/${queueKey}`);
     onValue(queueRef, async (snap) => {
       if (!snap.exists()) {
         alert('Queue entry not found.');
         return;
       }
-
       const data = snap.val();
       const wasConnected = prevTelegramConnected;
       prevTelegramConnected = !!data.telegramConnected;
-
       queueData = data;
       yourNumber.textContent = data.queueId || '--';
       updateConnectionUI(!!data.telegramConnected);
@@ -505,7 +464,7 @@
         confirmCounter.textContent = data.counterId || 'TBD';
         connectModal.classList.remove('show');
         confirmModal.classList.add('show');
-        setTimeout(()=>confirmModal.classList.remove('show'), 3000);
+        setTimeout(()=> confirmModal.classList.remove('show'), 3000);
       }
 
       // Listen to counter
@@ -513,7 +472,6 @@
         const counterRef = ref(db, `counters/${data.counterId}`);
         onValue(counterRef, async (counterSnap) => {
           if (!counterSnap.exists()) return;
-
           const counterData = counterSnap.val();
           counterNameEl.textContent = counterData.name || data.counterId;
 
@@ -523,20 +481,18 @@
             try {
               const settingsSnap = await get(ref(db, 'settings/avgServiceTime'));
               avgTime = settingsSnap.exists() ? Number(settingsSnap.val()) || 2 : 2;
-            } catch (e) {
-              avgTime = 2;
-            }
+            } catch (e) { avgTime = 2; }
           }
           avgServiceTime = avgTime;
 
-          // Listen to now serving
+          // now serving
           const servingRef = ref(db, `counters/${data.counterId}/nowServing`);
           onValue(servingRef, (nowSnap) => {
             const currentServing = Number(nowSnap.val() || 0);
             const prefix = counterData.prefix || String(data.queueId || '').match(/^[A-Za-z]+/)?.[0] || "";
-            nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3, '0')}`;
+            nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
 
-            const yourNumericValue = data.queueId ? parseInt(String(data.queueId).replace(prefix, ''), 10) : NaN;
+            const yourNumericValue = data.queueId ? parseInt(String(data.queueId).replace(prefix,''), 10) : NaN;
             const ahead = Number.isFinite(yourNumericValue) ? Math.max(0, yourNumericValue - currentServing) : 0;
             peopleAheadEl.textContent = String(ahead);
 
@@ -544,18 +500,15 @@
               estimatedWaitEl.textContent = "Your turn!";
               statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full pulse';
 
-              // Notify via server/sendTelegram endpoint (best-effort)
+              // notify via server
               try {
                 const notifyBody = data.chatId ? { chatId: data.chatId, message: `🎟 It's now your turn!\nQueue: ${queueKey}` } : { message: `🎟 It's now the customer's turn!\nQueue: ${queueKey}` };
                 fetch(SEND_TELEGRAM_ENDPOINT, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(notifyBody)
+                  method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(notifyBody)
                 }).catch(()=>{});
               } catch(e){}
 
-              // redirect to your_turn page
-              setTimeout(()=>{ try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}` } catch(e){} }, 1200);
+              setTimeout(()=> { try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(queueKey)}` } catch(e){} }, 1200);
             } else {
               statusIndicator.className = 'w-3 h-3 bg-blue-500 rounded-full';
               const estimatedMinutes = Math.round(ahead * avgServiceTime);
