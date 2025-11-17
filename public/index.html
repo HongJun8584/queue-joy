@@ -112,8 +112,8 @@
         });
 
         // --- site title (document title + page heading)
-        const titleRef = ref(db, 'settings/title');
-        const nameRef = ref(db, 'settings/name');
+        const titleRef = ref(db, 'settings/mainTitle');
+        const nameRef = ref(db, 'settings/smallText');
         
         function applySiteTitle(val) {
           const title = (typeof val === 'string' && val.trim()) ? val.trim() : 'Queue Joy';
@@ -121,7 +121,7 @@
           if (siteTitleEl) siteTitleEl.textContent = title;
         }
         
-        // Try settings/title first; if empty, use settings/name
+        // Try settings/mainTitle first; if empty, use settings/name
         onValue(titleRef, snap => {
           if (snap.exists() && snap.val()?.trim()) {
             applySiteTitle(snap.val());
@@ -138,7 +138,7 @@
 
 
         // --- site logo (small header logo)
-        const logoRef = ref(db, 'settings/logo');
+        const logoRef = ref(db, 'settings/logoUrl');
         onValue(logoRef, snap => {
           if (snap.exists() && snap.val()) {
             siteLogoEl.src = snap.val();
