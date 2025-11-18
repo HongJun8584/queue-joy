@@ -3,8 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy</title>
-  
+  <title>Queue Joy - Digital Queue System</title>
+
+  <!-- Tailwind CDN for quick styling (dev) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --card-radius: 1rem; }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+    .fade-in { animation: fadeIn 0.45s cubic-bezier(.2,.9,.2,1); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+    .db-image { max-height: 180px; object-fit: cover; }
+  </style>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -18,6 +30,7 @@
       runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // ----- Firebase config (keep as-is or replace with your project) -----
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -30,416 +43,295 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    window._db = db; // dev hook
 
+    // small helper utilities
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    // resilient transaction helper (with exponential backoff)
+    async function runTxWithRetries(path, updater, maxRetries = 6) {
+      const node = ref(db, path);
+      let lastErr = null;
+      for (let i = 1; i <= maxRetries; i++) {
+        try {
+          const res = await runTransaction(node, updater, { applyLocally: false });
+          if (res && res.committed) return res;
+          lastErr = new Error(`Transaction not committed (attempt ${i})`);
+        } catch (err) {
+          lastErr = err;
+        }
+        // jittered backoff
+        await sleep(100 * Math.pow(2, i - 1) + Math.floor(Math.random() * 120));
+      }
+      throw lastErr || new Error('Transaction failed after retries');
+    }
+
+    // main DOM ready
     document.addEventListener('DOMContentLoaded', () => {
-      const siteLogo = document.getElementById('siteLogo');
-      const topTitle = document.getElementById('topTitle');
-      const topSmallText = document.getElementById('topSmallText');
-      const midLogo = document.getElementById('midLogo');
-      const midIcon = document.getElementById('midIcon');
-      const midTitle = document.getElementById('midTitle');
+      // UI refs
+      const siteTitleEl = document.getElementById('siteTitle');
+      const siteLogoEl = document.getElementById('siteLogo');
+      const centerLogoImg = document.getElementById('centerLogo');
+      const centerIcon = document.getElementById('centerIcon');
+      const mainHeading = document.getElementById('mainHeading');
       const introText = document.getElementById('introText');
-      const adPanel = document.getElementById('adPanel');
-      const adText = document.getElementById('adText');
-      const noAd = document.getElementById('noAd');
-      const adLink = document.getElementById('adLink');
-
-      const getBtn = document.getElementById('getBtn');
+      const getNumberBtn = document.getElementById('getNumberBtn');
       const btnText = document.getElementById('btnText');
-      const btnSpin = document.getElementById('btnSpin');
-      const errBox = document.getElementById('errBox');
+      const btnSpinner = document.getElementById('btnSpinner');
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const adLinkEl = document.getElementById('adLink');
+      const adPanel = document.getElementById('adPanel');
+      const noAd = document.getElementById('noAd');
+      const adTextEl = document.getElementById('adText');
 
-      function showError(t) {
-        errBox.textContent = t;
-        errBox.classList.remove('hidden');
-        setTimeout(() => errBox.classList.add('hidden'), 5000);
+      function showError(msg) {
+        console.warn(msg);
+        errorMessage.querySelector('p').textContent = msg;
+        errorMessage.classList.remove('hidden');
+        successMessage.classList.add('hidden');
+        setTimeout(() => errorMessage.classList.add('hidden'), 6000);
       }
-
-      function loading(flag) {
-        getBtn.disabled = flag;
+      function showSuccess(msg) {
+        successMessage.querySelector('p').textContent = msg;
+        successMessage.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+        setTimeout(() => successMessage.classList.add('hidden'), 6000);
+      }
+      function setLoading(flag) {
+        getNumberBtn.disabled = flag;
         btnText.classList.toggle('hidden', flag);
-        btnSpin.classList.toggle('hidden', !flag);
+        btnSpinner.classList.toggle('hidden', !flag);
+        getNumberBtn.setAttribute('aria-busy', String(flag));
       }
 
-      // SETTINGS LISTENER
-      onValue(ref(db, 'settings'), snap => {
+      // SETTINGS -> single source of truth
+      const settingsRef = ref(db, 'settings');
+      onValue(settingsRef, snap => {
         const s = snap.exists() ? snap.val() : {};
 
-        // title
-        const mainTitle = s.mainTitle?.trim() || 'Queue Joy';
-        document.title = mainTitle;
-        topTitle.textContent = mainTitle;
-
-        // smallTextOnTop
-        topSmallText.textContent = s.smallTextOnTop?.trim() || '';
-
-        // header logo
+        // header logo (settings.logo)
         if (s.logo) {
-          siteLogo.src = s.logo;
-          siteLogo.classList.remove('hidden');
-        } else siteLogo.classList.add('hidden');
-
-        // mid logo
-        if (s.logoUrl) {
-          midLogo.src = s.logoUrl;
-          midLogo.classList.remove('hidden');
-          midIcon.classList.add('hidden');
+          siteLogoEl.src = s.logo;
+          siteLogoEl.classList.remove('hidden');
         } else {
-          midLogo.classList.add('hidden');
-          midIcon.classList.remove('hidden');
+          siteLogoEl.src = '';
+          siteLogoEl.classList.add('hidden');
         }
 
-        // middle title
-        midTitle.textContent = s.titleinmiddle?.trim() || 'Get your queue number';
+        // Top title (mainTitle or fallback to site name)
+        const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+        const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
+        siteTitleEl.textContent = topTitle;
+        document.title = topTitle + ' - Digital Queue System';
 
-        // intro text
-        introText.textContent = s.introText?.trim() || '';
+        // small text under top title
+        const smallTop = pick(s.smallTextOnTop) || pick(s.smallText) || 'Digital Queue System';
+        document.getElementById('smallTopText').textContent = smallTop;
 
-        // ad
+        // center logo (logoUrl takes priority)
+        if (s.logoUrl) {
+          centerLogoImg.src = s.logoUrl;
+          centerLogoImg.alt = (s.mainTitle ? s.mainTitle + ' logo' : 'Logo');
+          centerLogoImg.classList.remove('hidden');
+          centerIcon.classList.add('hidden');
+        } else if (s.logo) {
+          // fallback to same image
+          centerLogoImg.src = s.logo;
+          centerLogoImg.alt = (s.mainTitle ? s.mainTitle + ' logo' : 'Logo');
+          centerLogoImg.classList.remove('hidden');
+          centerIcon.classList.add('hidden');
+        } else {
+          centerLogoImg.src = '';
+          centerLogoImg.classList.add('hidden');
+          centerIcon.classList.remove('hidden');
+        }
+
+        // center title (titleinmiddle)
+        const centerTitle = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
+        mainHeading.textContent = centerTitle;
+
+        // intro text (introText or smallTextOnTop)
+        const intro = pick(s.introText) || pick(s.smallTextOnTop) || pick(s.smallText) || 'Real-time queueing system. Mobile-friendly. No app needed.';
+        introText.textContent = intro;
+
+        // CTA text
+        const cta = pick(s.ctaText) || 'Get your queue number';
+        btnText.textContent = '🎫 ' + cta;
+
+        // advertisement image (adImage) - support base64 and absolute URLs
         if (s.adImage) {
           adPanel.src = s.adImage;
           adPanel.classList.remove('hidden');
           noAd.classList.add('hidden');
+        } else if (s.adImageUrl) {
+          adPanel.src = s.adImageUrl;
+          adPanel.classList.remove('hidden');
+          noAd.classList.add('hidden');
         } else {
+          adPanel.src = '';
           adPanel.classList.add('hidden');
           noAd.classList.remove('hidden');
         }
-        adText.textContent = s.adText?.trim() || '';
 
+        // ad text and link
+        const at = pick(s.adText) || '';
+        adTextEl.textContent = at;
+        adTextEl.classList.toggle('hidden', !at);
         if (s.adLink) {
-          adLink.href = s.adLink;
-          adLink.target = '_blank';
+          adLinkEl.href = s.adLink;
+          adLinkEl.target = '_blank';
+          adLinkEl.rel = 'noopener noreferrer';
         } else {
-          adLink.href = '#';
-          adLink.removeAttribute('target');
+          adLinkEl.href = '#';
+          adLinkEl.removeAttribute('target');
+          adLinkEl.removeAttribute('rel');
         }
-      });
 
+      }, err => console.warn('settings read failed', err));
+
+      // --- Auto-redirect if user has an active waiting queue
+      (async function () {
+        try {
+          const lastQueueId = sessionStorage.getItem('lastQueueId');
+          if (!lastQueueId) return;
+          const q = await get(child(ref(db), `queue/${lastQueueId}`));
+          if (q.exists() && q.val().status === 'waiting') {
+            window.location.href = `status.html?queueId=${lastQueueId}`;
+          }
+        } catch (e) { console.warn('auto redirect check failed', e); }
+      })();
+
+      // fetch active counters helper
       async function fetchActiveCounters() {
         const snap = await get(ref(db, 'counters'));
         if (!snap.exists()) return [];
         const arr = [];
         snap.forEach(s => arr.push({ id: s.key, ...s.val() }));
-        return arr.filter(x => x.active);
+        arr.sort((a, b) => {
+          const ai = a.id, bi = b.id;
+          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
+          return String(ai).localeCompare(String(bi), undefined, { numeric: true });
+        });
+        return arr.filter(c => c && c.active !== false);
       }
 
-      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-      async function tx(path, fn, tries = 6) {
-        const rp = ref(db, path);
-        let last;
-        for (let i = 1; i <= tries; i++) {
-          try {
-            const r = await runTransaction(rp, fn, { applyLocally: false });
-            if (r.committed) return r;
-            last = new Error('not committed');
-          } catch (e) { last = e; }
-          await sleep(80 * i);
-        }
-        throw last;
-      }
-
-      async function getQueue() {
-        loading(true);
-        try {
-          const counters = await fetchActiveCounters();
-          if (!counters.length) throw new Error('No active counters');
-
-          const rr = await tx('settings/lastCounterIndex', c => (c || 0) + 1);
-          const idx = (rr.snapshot.val() - 1) % counters.length;
-          const c = counters[idx];
-          if (!c) throw new Error('Counter error');
-
-          const li = await tx(`counters/${c.id}/lastIssued`, x => (x || 0) + 1);
-          const num = li.snapshot.val();
-
-          const prefix = c.prefix || 'Q';
-          const qid = `${prefix}${String(num).padStart(3, '0')}`;
-
-          const nref = push(ref(db, 'queue'));
-          await set(nref, {
-            counterId: c.id,
-            queueId: qid,
-            timestamp: Date.now(),
-            status: 'waiting'
-          });
-
-          sessionStorage.setItem('lastQueueId', nref.key);
-          setTimeout(() => window.location.href = `status.html?queueId=${nref.key}`, 600);
-
-        } catch (err) {
-          showError(err.message || 'Failed');
-        }
-        loading(false);
-      }
-
-      getBtn.addEventListener('click', e => {
-        e.preventDefault();
-        getQueue();
-      });
-    });
-  </script>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-
-</head>
-<body class="min-h-screen bg-gray-100 p-4 flex flex-col items-center">
-
-<header class="w-full max-w-2xl mb-4">
-  <div class="bg-white rounded-xl shadow p-4 flex items-center gap-4">
-    <img id="siteLogo" class="w-12 h-12 rounded-full hidden object-cover border" />
-    <div>
-      <h1 id="topTitle" class="text-lg font-bold"></h1>
-      <p id="topSmallText" class="text-xs text-gray-500"></p>
-    </div>
-    <span class="text-xs text-gray-400 ml-auto">Powered by Queue Joy</span>
-  </div>
-</header>
-
-<main class="w-full max-w-md bg-white rounded-2xl shadow p-6 space-y-6 text-center">
-
-  <img id="midLogo" class="w-20 h-20 rounded-full object-cover hidden mx-auto border shadow" />
-  <div id="midIcon" class="w-20 h-20 bg-purple-600 rounded-full mx-auto flex items-center justify-center">
-    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14v14H5z"/></svg>
-  </div>
-
-  <h2 id="midTitle" class="text-2xl font-bold"></h2>
-  <p id="introText" class="text-gray-600 text-sm"></p>
-
-  <button id="getBtn" class="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold shadow">
-    <span id="btnText">Get queue</span>
-    <span id="btnSpin" class="hidden text-sm">Loading...</span>
-  </button>
-
-  <div id="errBox" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 p-2 rounded"></div>
-
-</main>
-
-<div class="w-full max-w-md bg-white rounded-xl shadow p-3 mt-6 text-center">
-  <p class="text-xs text-gray-500">Advertisement</p>
-  <a id="adLink" href="#" class="block mt-2">
-    <img id="adPanel" class="w-full rounded hidden" />
-  </a>
-  <div id="noAd" class="text-gray-400 text-sm py-4">No advertisement</div>
-  <div id="adText" class="text-xs text-gray-600 mt-2"></div>
-</div>
-
-</body>
-</html><!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy - Digital Queue System</title>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      set,
-      get,
-      child,
-      push,
-      onValue,
-      runTransaction
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.appspot.com",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    document.addEventListener('DOMContentLoaded', () => {
-
-      const getNumberBtn = document.getElementById('getNumberBtn');
-      const btnText = document.getElementById('btnText');
-      const btnSpinner = document.getElementById('btnSpinner');
-
-      const siteLogoEl = document.getElementById('siteLogo');
-      const siteTitleEl = document.getElementById('siteTitle');
-      const siteSmallText = document.getElementById('siteSmallText');
-
-      const centerLogoImg = document.getElementById('centerLogo');
-      const centerIcon = document.getElementById('centerIcon');
-
-      const middleTitle = document.getElementById('middleTitle');
-      const introText = document.getElementById('introText');
-
-      const adPanel = document.getElementById('adPanel');
-      const noAd = document.getElementById('noAd');
-
-      // SETTINGS LISTENER
-      const settingsRef = ref(db, 'settings');
-      onValue(settingsRef, snap => {
-        const s = snap.exists() ? snap.val() : {};
-
-        const clean = v => (typeof v === 'string' && v.trim() ? v.trim() : null);
-
-        // header logo
-        if (s.logo) {
-          siteLogoEl.src = s.logo;
-          siteLogoEl.classList.remove('hidden');
-        } else {
-          siteLogoEl.classList.add('hidden');
-        }
-
-        // top block title
-        const topTitle = clean(s.mainTitle) || 'Queue Joy';
-        siteTitleEl.textContent = topTitle;
-        document.title = topTitle;
-
-        // top block small text
-        siteSmallText.textContent = clean(s.smallTextOnTop) || 'Digital Queue System';
-
-        // center logo
-        if (s.logoUrl) {
-          centerLogoImg.src = s.logoUrl;
-          centerLogoImg.classList.remove('hidden');
-          centerIcon.classList.add('hidden');
-        } else {
-          centerLogoImg.classList.add('hidden');
-          centerIcon.classList.remove('hidden');
-        }
-
-        // middle title
-        middleTitle.textContent = clean(s.titleinmiddle) || 'Get your queue number';
-
-        // intro
-        introText.textContent = clean(s.introText) || 'Real-time queueing system. Mobile-friendly. No app needed.';
-
-        // advertisement
-        if (s.adImage) {
-          adPanel.src = s.adImage;
-          adPanel.classList.remove('hidden');
-          noAd.classList.add('hidden');
-        } else {
-          adPanel.classList.add('hidden');
-          noAd.classList.remove('hidden');
-        }
-      });
-
-      function setLoading(f) {
-        getNumberBtn.disabled = f;
-        btnText.classList.toggle('hidden', f);
-        btnSpinner.classList.toggle('hidden', !f);
-      }
-
-      async function fetchActiveCounters() {
-        const snap = await get(ref(db, 'counters'));
-        if (!snap.exists()) return [];
-        const list = [];
-        snap.forEach(s => list.push({ id: s.key, ...s.val() }));
-        return list.filter(c => c.active);
-      }
-
-      function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-
-      async function runTx(path, fn) {
-        const r = ref(db, path);
-        for (let i=0;i<6;i++){
-          try {
-            const out = await runTransaction(r, fn, {applyLocally:false});
-            if (out.committed) return out;
-          } catch {}
-          await sleep(80 + Math.random()*50);
-        }
-        throw new Error('Transaction failed: '+path);
-      }
-
-      async function getQueueNumber(){
+      async function getQueueNumber() {
         setLoading(true);
         try {
           const counters = await fetchActiveCounters();
-          if (!counters.length) throw new Error('No active counters available.');
+          if (!counters || counters.length === 0) {
+            showError('No active counters available at the moment. Try again later.');
+            return;
+          }
 
-          // global round robin
-          const r = await runTx('settings/lastCounterIndex', cur => (cur||0)+1);
-          const g = r.snapshot.val();
-          const idx = (g-1) % counters.length;
-          const chosen = counters[idx];
+          // Try round robin using several possible global counters (settings/lastCounterIndex preferred)
+          const candidates = ['settings/lastCounterIndex', 'lastAssignedCounter', 'system/lastAssignedCounter'];
+          let rr = null;
+          let rrPath = null;
+          for (const p of candidates) {
+            try {
+              rr = await runTxWithRetries(p, cur => (Number(cur) || 0) + 1, 6);
+              if (rr && rr.committed) { rrPath = p; break; }
+            } catch (e) {
+              console.warn('rr tx failed for', p, e && e.message);
+            }
+          }
+          if (!rr || !rr.committed) throw new Error('Failed to select a counter (please try again).');
 
-          // increment local
-          const r2 = await runTx(`counters/${chosen.id}/lastIssued`, cur => (cur||0)+1);
-          const num = r2.snapshot.val();
-          const queueId = (chosen.prefix||'Q') + String(num).padStart(3,'0');
+          const globalCounter = Number(rr.snapshot.val());
+          const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
+          const chosen = counters[index];
+          if (!chosen || !chosen.id) throw new Error('Selected counter missing.');
 
-          const newRef = push(ref(db,'queue'));
-          await set(newRef,{
-            counterId: chosen.id,
-            queueId,
-            timestamp: Date.now(),
-            status:'waiting'
-          });
+          // increment the selected counter's lastIssued
+          const lastIssuedPath = `counters/${chosen.id}/lastIssued`;
+          const lastIssuedRes = await runTxWithRetries(lastIssuedPath, cur => (Number(cur) || 0) + 1, 6);
+          if (!lastIssuedRes || !lastIssuedRes.committed) throw new Error('Failed to issue number.');
 
-          sessionStorage.setItem('lastQueueId',newRef.key);
-          window.location.href = `status.html?queueId=${newRef.key}`;
+          const nextNumber = Number(lastIssuedRes.snapshot.val());
+          const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
+          const queueIdStr = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-        } catch(err){
-          alert(err.message||'Error');
+          // push queue entry
+          const newRef = push(ref(db, 'queue'));
+          const entry = { counterId: chosen.id, queueId: queueIdStr, timestamp: Date.now(), status: 'waiting' };
+          await set(newRef, entry);
+
+          // persist lastQueueId in session so user is redirected to status later
+          try { sessionStorage.setItem('lastQueueId', newRef.key); } catch (e) { /* ignore */ }
+
+          showSuccess(`You're number ${queueIdStr} — Opening status...`);
+          // small delay so the user sees success message
+          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 850);
+
+        } catch (err) {
+          console.error('getQueueNumber error', err);
+          const msg = err && err.message ? err.message : 'Failed to get queue number. Please try again.';
+          showError(msg);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       }
 
-      getNumberBtn.onclick = e => {
+      getNumberBtn.addEventListener('click', e => {
         e.preventDefault();
         getQueueNumber();
-      };
+      });
 
     });
+
   </script>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-  </style>
 </head>
-<body class="min-h-screen bg-gray-50 flex flex-col items-center p-6">
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-rose-50 flex flex-col items-center p-6 pb-20">
 
-  <header class="w-full max-w-2xl mb-6">
-    <div class="bg-white rounded-2xl shadow p-4 flex items-center gap-4">
-      <img id="siteLogo" class="w-12 h-12 rounded-full hidden object-cover border" />
-      <div>
+  <!-- Header -->
+  <header class="w-full max-w-3xl mb-6">
+    <div class="bg-white rounded-2xl shadow-md p-4 flex items-center gap-4">
+      <img id="siteLogo" src="" alt="Site logo" class="w-12 h-12 rounded-full hidden object-cover border" />
+      <div class="flex-1 text-left">
         <h1 id="siteTitle" class="text-lg font-bold text-gray-800">Queue Joy</h1>
-        <p id="siteSmallText" class="text-xs text-gray-500">Digital Queue System</p>
+        <p id="smallTopText" class="text-xs text-gray-500">Digital Queue System</p>
       </div>
-      <div class="ml-auto text-xs text-gray-400">Powered by Queue Joy</div>
+      <div class="text-right text-xs text-gray-400">Powered by Queue Joy</div>
     </div>
   </header>
 
-  <main class="w-full max-w-2xl flex flex-col items-center gap-8">
-    <div class="w-full max-w-md bg-white rounded-2xl shadow p-6 text-center space-y-4">
-      <div>
-        <img id="centerLogo" class="w-16 h-16 rounded-full object-cover hidden mx-auto" />
-        <div id="centerIcon" class="w-16 h-16 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
-          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14v14H5z"/></svg>
+  <!-- Main card -->
+  <main class="w-full max-w-3xl flex flex-col items-center gap-8">
+
+    <section class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
+      <div class="mx-auto">
+        <img id="centerLogo" class="w-20 h-20 rounded-full object-cover hidden mx-auto shadow-sm border" alt="center logo"/>
+        <div id="centerIcon" class="w-20 h-20 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+          <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
         </div>
       </div>
 
-      <h2 id="middleTitle" class="text-2xl font-bold text-gray-800">Get your queue number</h2>
-      <p id="introText" class="text-gray-600 text-sm">Real-time queueing system. Mobile-friendly. No app needed.</p>
+      <div class="space-y-2">
+        <h2 id="mainHeading" class="text-2xl font-bold text-gray-800">Get your queue number</h2>
+        <p id="introText" class="text-gray-600">Real-time queueing system. Mobile-friendly. No app needed.</p>
+      </div>
 
-      <button id="getNumberBtn" class="w-full py-3 bg-purple-600 text-white rounded-xl font-semibold shadow hover:opacity-90 transition">
+      <button id="getNumberBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-400 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
         <span id="btnText">🎫 Get your queue number</span>
-        <span id="btnSpinner" class="hidden">Loading...</span>
+        <span id="btnSpinner" class="hidden inline-flex items-center ml-2"><svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg> Getting your number...</span>
       </button>
-    </div>
 
-    <div class="w-full max-w-md bg-white rounded-xl shadow p-4">
+      <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg"><p class="text-red-600 text-sm"></p></div>
+      <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
+    </section>
+
+    <!-- Advertisement card -->
+    <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <img id="adPanel" class="w-full rounded hidden" />
-      <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
-    </div>
+      <a id="adLink" href="#" class="block">
+        <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden db-image">
+      </a>
+      <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
+      <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
+    </aside>
+
   </main>
 
 </body>
