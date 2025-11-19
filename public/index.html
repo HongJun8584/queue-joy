@@ -216,47 +216,93 @@
         return arr.filter(c => c && c.active !== false);
       }
 
-      async function getQueueNumber() {
-        setLoading(true);
-        try {
-          const counters = await fetchActiveCounters();
-
-          // debug logs to help diagnose rotation issues
-          console.log('fetchActiveCounters ->', counters.map(c => ({ id: c.id, active: c.active, order: c.order }))); 
-
-          // --- verify counters exist (IMPORTANT)
-          if (!counters || counters.length === 0) {
-            showError('No active counters available at the moment. Try again later.');
-            return;
-          }
-
-          // --- GLOBAL ROUND ROBIN COUNTER
-          // Use a single canonical key (settings/lastCounterIndex). This transaction is atomic.
-          let rr;
+        async function getQueueNumber() {
+          setLoading(true);
+        
           try {
-            rr = await runTransaction(
-              ref(db, 'settings/lastCounterIndex'),
-              cur => (cur || 0) + 1,
-              { applyLocally: false }
-            );
-          } catch (e) {
-            console.error('Round-robin transaction failed', e);
-            showError('System busy. Please try again.');
-            return;
+            // --- Fetch active counters sorted by "order"
+            const countersSnap = await get(ref(db, "counters"));
+            if (!countersSnap.exists()) {
+              showError("No counters found.");
+              return setLoading(false);
+            }
+        
+            const counters = [];
+            countersSnap.forEach(s => counters.push({ id: s.key, ...s.val() }));
+        
+            const activeCounters = counters
+              .filter(c => c.active === true)
+              .sort((a, b) => {
+                const ao = Number(a.order || 9999);
+                const bo = Number(b.order || 9999);
+                return ao - bo;
+              });
+        
+            if (activeCounters.length === 0) {
+              showError("No active counters available.");
+              return setLoading(false);
+            }
+        
+            // --- Round Robin: increment ONLY ONE GLOBAL KEY
+            const rrPath = ref(db, "settings/lastCounterIndex");
+        
+            const rrResult = await runTransaction(rrPath, current => {
+              return (current || 0) + 1;
+            }, { applyLocally: false });
+        
+            if (!rrResult.committed) {
+              throw new Error("RR transaction failed.");
+            }
+        
+            const globalCounter = rrResult.snapshot.val();
+        
+            // --- Correct modulo: ALWAYS cycles A-B-C-A-B-C…
+            const index = globalCounter % activeCounters.length;
+            const chosen = activeCounters[index];
+        
+            console.log("RR:", {
+              globalCounter,
+              index,
+              chosen: chosen.id
+            });
+        
+            // --- Increment lastIssued for this counter
+            const lastIssuedPath = ref(db, `counters/${chosen.id}/lastIssued`);
+        
+            const lastIssuedTx = await runTransaction(lastIssuedPath, cur => {
+              return (cur || 0) + 1;
+            }, { applyLocally: false });
+        
+            if (!lastIssuedTx.committed) {
+              throw new Error("Failed to increment lastIssued.");
+            }
+        
+            const number = lastIssuedTx.snapshot.val();
+            const prefix = chosen.prefix || "Q";
+            const queueId = `${prefix}${String(number).padStart(3, "0")}`;
+        
+            // Create queue record
+            const newNode = push(ref(db, "queue"));
+            await set(newNode, {
+              counterId: chosen.id,
+              queueId,
+              timestamp: Date.now(),
+              status: "waiting"
+            });
+        
+            sessionStorage.setItem("lastQueueId", newNode.key);
+        
+            showSuccess(`You're number ${queueId}`);
+            setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 700);
+        
+          } catch (err) {
+            console.error(err);
+            showError(err.message || "Error generating queue number.");
           }
+        
+          setLoading(false);
+        }
 
-          if (!rr || !rr.committed) {
-            console.error('Round-robin tx did not commit', rr);
-            showError('Unable to assign counter. Try again.');
-            return;
-          }
-
-          const globalCounter = Number(rr.snapshot.val());
-          if (!Number.isFinite(globalCounter)) {
-            console.error('globalCounter invalid', rr);
-            showError('System error. Try again.');
-            return;
-          }
 
           // compute index deterministically
           const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
