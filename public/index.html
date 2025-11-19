@@ -234,10 +234,10 @@
           // Use a single canonical key (settings/lastCounterIndex). This transaction is atomic.
           let rr;
           try {
-            rr = await runTxWithRetries(
-              'settings/lastCounterIndex',        // canonical key
-              cur => (Number(cur) || 0) + 1,
-              12                                  // retries (higher reliability)
+            rr = await runTransaction(
+              ref(db, 'settings/lastCounterIndex'),
+              cur => (cur || 0) + 1,
+              { applyLocally: false }
             );
           } catch (e) {
             console.error('Round-robin transaction failed', e);
