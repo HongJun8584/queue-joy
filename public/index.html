@@ -220,52 +220,43 @@
         setLoading(true);
         try {
           const counters = await fetchActiveCounters();
-// --- verify we actually have counters
-if (!counters || counters.length === 0) {
-  showError('No active counters available at the moment. Try again later.');
-  return;
-}
 
-// --- single global round-robin counter (atomic via transaction)
-let rr;
-try {
-  rr = await runTxWithRetries(
-    'settings/lastCounterIndex',        // single canonical key
-    cur => (Number(cur) || 0) + 1,     // increment
-    10                                  // retry attempts (increased for reliability)
-  );
-} catch (e) {
-  console.error("Round-robin transaction failed:", e);
-  showError("System busy. Please try again.");
-  return;
-}
+          // --- verify counters exist (IMPORTANT)
+          if (!counters || counters.length === 0) {
+            showError('No active counters available at the moment. Try again later.');
+            return;
+          }
 
-if (!rr || !rr.committed) {
-  console.error("Round-robin tx did not commit:", rr);
-  showError("Unable to assign counter. Try again.");
-  return;
-}
+          // --- GLOBAL ROUND ROBIN COUNTER (final version)
+          let rr;
+          try {
+            rr = await runTxWithRetries(
+              'settings/lastCounterIndex',        // fixed canonical key
+              cur => (Number(cur) || 0) + 1,      // increment
+              10                                  // retries
+            );
+          } catch (e) {
+            console.error("Round-robin transaction failed:", e);
+            showError("System busy. Please try again.");
+            return;
+          }
 
-// compute index safely and pick the counter
-const globalCounter = Number(rr.snapshot.val());
-const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
-const chosen = counters[index];
+          if (!rr || !rr.committed) {
+            console.error("Round-robin tx did not commit:", rr);
+            showError("Unable to assign counter. Try again.");
+            return;
+          }
 
-if (!chosen || !chosen.id) {
-  console.error("Chosen counter is invalid", { globalCounter, index, counters });
-  showError("Service temporarily unavailable. Try again.");
-  return;
-}
-
-// chosen is ready — proceed to increment chosen.lastIssued next
-          
-          // Safe modulo to avoid negative or overflow
+          const globalCounter = Number(rr.snapshot.val());
           const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
           const chosen = counters[index];
-          
+
           if (!chosen || !chosen.id) {
-            throw new Error("Invalid counter selected.");
+            console.error("Invalid chosen counter", { globalCounter, index, counters });
+            showError("Service temporarily unavailable. Try again.");
+            return;
           }
+
           const lastIssuedPath = `counters/${chosen.id}/lastIssued`;
           const lastIssuedRes = await runTxWithRetries(lastIssuedPath, cur => (Number(cur) || 0) + 1, 6);
           if (!lastIssuedRes || !lastIssuedRes.committed) throw new Error('Failed to issue number.');
