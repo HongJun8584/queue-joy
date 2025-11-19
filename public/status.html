@@ -334,18 +334,39 @@
       onboardingModal.style.display = 'none';
     };
 
-      window.connectTelegram = async function() {
-      buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
-      finalConnectButton.disabled = true;
-      
-      setTimeout(() => {
-        window.open(TELEGRAM_BOT_URL, '_blank', 'noopener,noreferrer');
-        
-        setTimeout(() => {
-          onboardingModal.style.display = 'none';
-        }, 500);
-      }, 300);
-    };
+window.connectTelegram = async function() {
+  if (!latestConnectLink) {
+    buttonText.innerHTML = '<span class="spinner-inline"></span>Generating link...';
+    try {
+      latestConnectLink = await generateConnectLink();
+    } catch(e) {
+      latestConnectLink = TELEGRAM_BOT_URL; // fallback
+    }
+  }
+
+  buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
+  finalConnectButton.disabled = true;
+
+  // Open the bot link with the unique token
+  const win = window.open(latestConnectLink, '_blank', 'noopener,noreferrer');
+
+  // Mark in Firebase that the user clicked connect (so the bot can associate chatId later)
+  if (currentQueueKey) {
+    const token = latestConnectLink.split('start=')[1] || null;
+    if (token) {
+      try {
+        await fetch(`/.netlify/functions/markTokenUsed`, {  // optional, if you implement this
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queueKey: currentQueueKey, token })
+        });
+      } catch(e) {}
+    }
+  }
+
+  setTimeout(() => onboardingModal.style.display = 'none', 500);
+};
+
 
     const showError = (msg) => {
       errorMessage.querySelector('p').textContent = msg;
