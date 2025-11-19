@@ -220,31 +220,35 @@
         setLoading(true);
         try {
           const counters = await fetchActiveCounters();
-          if (!counters || counters.length === 0) {
-            showError('No active counters available at the moment. Try again later.');
-            return;
+          // ————————————————
+          // GLOBAL ROUND ROBIN COUNTER
+          // ————————————————
+          let rr;
+          
+          try {
+            rr = await runTxWithRetries(
+              'settings/lastCounterIndex',
+              cur => (Number(cur) || 0) + 1,
+              10
+            );
+          } catch (e) {
+            console.error("Round-robin transaction failed:", e);
+            throw new Error("System busy. Please try again.");
           }
-
-          // Try round robin using several possible global counters (settings/lastCounterIndex preferred)
-          const candidates = ['settings/lastCounterIndex', 'lastAssignedCounter', 'system/lastAssignedCounter'];
-          let rr = null;
-          let rrPath = null;
-          for (const p of candidates) {
-            try {
-              rr = await runTxWithRetries(p, cur => (Number(cur) || 0) + 1, 6);
-              if (rr && rr.committed) { rrPath = p; break; }
-            } catch (e) {
-              console.warn('rr tx failed for', p, e && e.message);
-            }
+          
+          if (!rr || !rr.committed) {
+            throw new Error("Unable to assign counter. Try again.");
           }
-          if (!rr || !rr.committed) throw new Error('Failed to select a counter (please try again).');
-
+          
           const globalCounter = Number(rr.snapshot.val());
+          
+          // Safe modulo to avoid negative or overflow
           const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
           const chosen = counters[index];
-          if (!chosen || !chosen.id) throw new Error('Selected counter missing.');
-
-          // increment the selected counter's lastIssued
+          
+          if (!chosen || !chosen.id) {
+            throw new Error("Invalid counter selected.");
+          }
           const lastIssuedPath = `counters/${chosen.id}/lastIssued`;
           const lastIssuedRes = await runTxWithRetries(lastIssuedPath, cur => (Number(cur) || 0) + 1, 6);
           if (!lastIssuedRes || !lastIssuedRes.committed) throw new Error('Failed to issue number.');
