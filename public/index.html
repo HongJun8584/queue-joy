@@ -220,27 +220,44 @@
         setLoading(true);
         try {
           const counters = await fetchActiveCounters();
-          // ————————————————
-          // GLOBAL ROUND ROBIN COUNTER
-          // ————————————————
-          let rr;
-          
-          try {
-            rr = await runTxWithRetries(
-              'settings/lastCounterIndex',
-              cur => (Number(cur) || 0) + 1,
-              10
-            );
-          } catch (e) {
-            console.error("Round-robin transaction failed:", e);
-            throw new Error("System busy. Please try again.");
-          }
-          
-          if (!rr || !rr.committed) {
-            throw new Error("Unable to assign counter. Try again.");
-          }
-          
-          const globalCounter = Number(rr.snapshot.val());
+// --- verify we actually have counters
+if (!counters || counters.length === 0) {
+  showError('No active counters available at the moment. Try again later.');
+  return;
+}
+
+// --- single global round-robin counter (atomic via transaction)
+let rr;
+try {
+  rr = await runTxWithRetries(
+    'settings/lastCounterIndex',        // single canonical key
+    cur => (Number(cur) || 0) + 1,     // increment
+    10                                  // retry attempts (increased for reliability)
+  );
+} catch (e) {
+  console.error("Round-robin transaction failed:", e);
+  showError("System busy. Please try again.");
+  return;
+}
+
+if (!rr || !rr.committed) {
+  console.error("Round-robin tx did not commit:", rr);
+  showError("Unable to assign counter. Try again.");
+  return;
+}
+
+// compute index safely and pick the counter
+const globalCounter = Number(rr.snapshot.val());
+const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
+const chosen = counters[index];
+
+if (!chosen || !chosen.id) {
+  console.error("Chosen counter is invalid", { globalCounter, index, counters });
+  showError("Service temporarily unavailable. Try again.");
+  return;
+}
+
+// chosen is ready — proceed to increment chosen.lastIssued next
           
           // Safe modulo to avoid negative or overflow
           const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
