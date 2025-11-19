@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -10,20 +10,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
-    :root { --radius: 1rem; --accent-from: #7c3aed; --accent-to: #6d28d9; }
-    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%); }
-    .card { border-radius: var(--radius); box-shadow: 0 8px 30px rgba(2,6,23,0.06); background: white; }
-    .btn-main { background: linear-gradient(90deg,var(--accent-from),var(--accent-to)); }
-    .fade-in { animation: fadeIn .42s cubic-bezier(.2,.9,.2,1); }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .db-image { max-height: 160px; object-fit: cover; border-radius: 0.75rem; }
-    .muted { color: #6b7280; }
+    :root { --card-radius: 1rem; }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+    .fade-in { animation: fadeIn 0.45s cubic-bezier(.2,.9,.2,1); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+    .db-image { max-height: 180px; object-fit: cover; }
   </style>
 
+  <!-- Firebase v10 (module) -->
   <script type="module">
-    // Developer note: local DB export path (for your tooling)
-    // /mnt/data/queue-joy-aa21b-default-rtdb-export (6).json
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getDatabase,
@@ -36,6 +31,11 @@
       runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // === Local DB export path (for your reference) ===
+    // Developer: uploaded file path — you can convert/serve this file as needed:
+    const LOCAL_DB_EXPORT_PATH = "/mnt/data/queue-joy-aa21b-default-rtdb-export (6).json";
+
+    // ----- Firebase config (unchanged) -----
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -48,39 +48,60 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window._db = db;
+    window._db = db; // debug hook if needed in console
 
+    /* ---------------- Helpers ---------------- */
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    // transaction with retries + jittered backoff
+    async function runTxWithRetries(pathRef, updater, maxRetries = 6) {
+      let lastErr = null;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await runTransaction(pathRef, updater, { applyLocally: false });
+          if (result && result.committed) return result;
+          lastErr = new Error(`Transaction not committed (attempt ${attempt})`);
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[tx] attempt ${attempt} failed`, err);
+        }
+        const backoff = 100 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 120);
+        await sleep(backoff);
+      }
+      throw lastErr || new Error('Transaction failed after retries');
+    }
+
+    /* ---------------- DOM Ready ---------------- */
     document.addEventListener('DOMContentLoaded', () => {
-      // UI refs
+      // UI elements
+      const siteTitleEl = document.getElementById('siteTitle');
+      const siteLogoEl = document.getElementById('siteLogo');
+      const centerLogoImg = document.getElementById('centerLogo');
+      const centerIcon = document.getElementById('centerIcon');
+      const mainHeading = document.getElementById('mainHeading');
+      const introText = document.getElementById('introText');
       const getNumberBtn = document.getElementById('getNumberBtn');
       const btnText = document.getElementById('btnText');
       const btnSpinner = document.getElementById('btnSpinner');
       const errorMessage = document.getElementById('errorMessage');
       const successMessage = document.getElementById('successMessage');
-
-      // new / enhanced UI refs
-      const siteTitleEl = document.getElementById('siteTitle');
-      const siteLogoEl = document.getElementById('siteLogo');
-      const centerLogoEl = document.getElementById('centerLogo');
-      const centerIcon = document.getElementById('centerIcon');
-      const mainHeading = document.getElementById('mainHeading');
-      const introText = document.getElementById('introText');
       const adLinkEl = document.getElementById('adLink');
       const adPanel = document.getElementById('adPanel');
-      const adTextEl = document.getElementById('adText');
       const noAd = document.getElementById('noAd');
+      const adTextEl = document.getElementById('adText');
 
       function showError(msg) {
         console.warn(msg);
         errorMessage.querySelector('p').textContent = msg;
         errorMessage.classList.remove('hidden');
         successMessage.classList.add('hidden');
-        setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+        setTimeout(() => errorMessage.classList.add('hidden'), 6000);
       }
       function showSuccess(msg) {
         successMessage.querySelector('p').textContent = msg;
         successMessage.classList.remove('hidden');
         errorMessage.classList.add('hidden');
+        setTimeout(() => successMessage.classList.add('hidden'), 6000);
       }
       function setLoading(flag) {
         getNumberBtn.disabled = flag;
@@ -89,146 +110,46 @@
         getNumberBtn.setAttribute('aria-busy', String(flag));
       }
 
-      // ------------------
-      // NEW: listeners updated to match newest settings keys
-      // Priority rules (new fields):
-      // header title: settings.mainTitle > settings.name
-      // center heading: settings.titleinmiddle > settings.ctaTitle
-      // intro: settings.introText > settings.smallTextOnTop > settings.smallText
-      // logo: settings.logoUrl (big) then settings.logo (fallback)
-      // cta text: settings.ctaText
-      // ad image: settings.adImage
-      // ------------------
+      /* -------- Settings listener (single source) -------- */
+      const settingsRef = ref(db, 'settings');
+      onValue(settingsRef, snap => {
+        const s = snap.exists() ? snap.val() : {};
 
-      (function setupListeners() {
-        const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+        const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
 
-        // MAIN TITLE (preferred: settings/mainTitle then settings/name)
-        const mainTitleRef = ref(db, 'settings/mainTitle');
-        const nameRef = ref(db, 'settings/name');
-        let hasMainTitle = false;
-        onValue(mainTitleRef, snap => {
-          if (snap.exists() && pick(snap.val())) {
-            siteTitleEl.textContent = pick(snap.val());
-            document.title = pick(snap.val()) + ' - Queue Joy';
-            hasMainTitle = true;
-          } else {
-            hasMainTitle = false;
-            // fallback to name (listen)
-            get(nameRef).then(snap2 => {
-              if (snap2.exists() && pick(snap2.val())) {
-                siteTitleEl.textContent = pick(snap2.val());
-                document.title = pick(snap2.val()) + ' - Queue Joy';
-              } else {
-                siteTitleEl.textContent = 'Queue Joy';
-                document.title = 'Queue Joy - Digital Queue System';
-              }
-            }).catch(() => {
-              siteTitleEl.textContent = 'Queue Joy';
-            });
-          }
-        });
+        // header logo
+        if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); }
+        else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
 
-        // CENTER HEADING (titleinmiddle or ctaTitle)
-        const centerTitleRef = ref(db, 'settings/titleinmiddle');
-        const ctaTitleRef = ref(db, 'settings/ctaTitle');
-        onValue(centerTitleRef, snap => {
-          if (snap.exists() && pick(snap.val())) mainHeading.textContent = pick(snap.val());
-          else {
-            get(ctaTitleRef).then(snap2 => {
-              if (snap2.exists() && pick(snap2.val())) mainHeading.textContent = pick(snap2.val());
-              else mainHeading.textContent = 'Get your queue number';
-            });
-          }
-        });
+        // page title
+        const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
+        siteTitleEl.textContent = topTitle;
+        document.title = topTitle + ' - Digital Queue System';
 
-        // INTRO TEXT - prefer introText, then smallTextOnTop, then smallText
-        const introRef = ref(db, 'settings/introText');
-        const smallTopRef = ref(db, 'settings/smallTextOnTop');
-        const smallRef = ref(db, 'settings/smallText');
-        onValue(introRef, snap => {
-          if (snap.exists() && pick(snap.val())) introText.textContent = pick(snap.val());
-          else {
-            get(smallTopRef).then(snap2 => {
-              if (snap2.exists() && pick(snap2.val())) introText.textContent = pick(snap2.val());
-              else {
-                get(smallRef).then(snap3 => {
-                  if (snap3.exists() && pick(snap3.val())) introText.textContent = pick(snap3.val());
-                  else introText.textContent = 'Real-time queueing system. Mobile-friendly. No app needed.';
-                });
-              }
-            });
-          }
-        });
+        // center logo (big)
+        if (s.logoUrl) {
+          centerLogoImg.src = s.logoUrl; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
+        } else if (s.logo) {
+          centerLogoImg.src = s.logo; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
+        } else {
+          centerLogoImg.src = ''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden');
+        }
 
-        // SITE LOGO (prefer logoUrl for center/big, but header small uses settings/logo)
-        const logoUrlRef = ref(db, 'settings/logoUrl');
-        const logoRef = ref(db, 'settings/logo');
-        onValue(logoUrlRef, snap => {
-          if (snap.exists() && snap.val()) {
-            centerLogoEl.src = snap.val();
-            centerLogoEl.classList.remove('hidden');
-            centerIcon.classList.add('hidden');
-          } else {
-            centerLogoEl.src = '';
-            centerLogoEl.classList.add('hidden');
-            centerIcon.classList.remove('hidden');
-          }
-        });
-        onValue(logoRef, snap => {
-          if (snap.exists() && snap.val()) {
-            siteLogoEl.src = snap.val();
-            siteLogoEl.classList.remove('hidden');
-          } else {
-            siteLogoEl.src = '';
-            siteLogoEl.classList.add('hidden');
-          }
-        });
+        // main headline & intro
+        mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
+        introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
+        btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // CTA text (button label)
-        const ctaTextRef = ref(db, 'settings/ctaText');
-        onValue(ctaTextRef, snap => {
-          const t = (snap.exists() && pick(snap.val())) ? pick(snap.val()) : 'Get My Number';
-          btnText.textContent = '🎫 ' + t;
-        });
+        // ad
+        if (s.adImage) { adPanel.src = s.adImage; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
+        else { adPanel.src = ''; adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
+        adTextEl.textContent = pick(s.adText) || ''; adTextEl.classList.toggle('hidden', !adTextEl.textContent);
+        if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
+        else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
+      }, err => console.warn('settings read failed', err));
 
-        // Advertisement: image (adImage), text (adText), link (adLink)
-        const adImageRef = ref(db, 'settings/adImage');
-        onValue(adImageRef, snap => {
-          if (snap.exists() && snap.val()) {
-            adPanel.src = snap.val();
-            adPanel.classList.remove('hidden');
-            noAd.classList.add('hidden');
-          } else {
-            adPanel.src = '';
-            adPanel.classList.add('hidden');
-            noAd.classList.remove('hidden');
-          }
-        });
-
-        const adTextRef = ref(db, 'settings/adText');
-        onValue(adTextRef, snap => {
-          const v = (snap.exists() && typeof snap.val() === 'string') ? snap.val().trim() : '';
-          adTextEl.textContent = v;
-          adTextEl.classList.toggle('hidden', !v);
-        });
-
-        const adLinkRef = ref(db, 'settings/adLink');
-        onValue(adLinkRef, snap => {
-          if (snap.exists() && snap.val()) {
-            adLinkEl.href = snap.val();
-            adLinkEl.target = '_blank';
-            adLinkEl.rel = 'noopener noreferrer';
-          } else {
-            adLinkEl.href = '#';
-            adLinkEl.removeAttribute('target');
-            adLinkEl.removeAttribute('rel');
-          }
-        });
-      })();
-
-      // --- auto redirect if lastQueueId still waiting (unchanged logic)
-      (async function autoRedirectIfActiveQueue() {
+      /* --- auto-redirect if lastQueueId still waiting --- */
+      (async function autoRedirect() {
         try {
           const lastQueueId = sessionStorage.getItem('lastQueueId');
           if (!lastQueueId) return;
@@ -236,188 +157,199 @@
           if (snap.exists() && snap.val().status === 'waiting') {
             window.location.href = `status.html?queueId=${lastQueueId}`;
           }
-        } catch (err) {
-          console.warn('autoRedirect failed', err);
+        } catch (e) {
+          console.warn('autoRedirect check failed', e);
         }
       })();
 
-      // fetchActiveCounters and runTransactionWithRetries kept unchanged so round-robin behavior is preserved
+      /* ------------ fetch active counters (deterministic) ------------ */
       async function fetchActiveCounters() {
-        const countersSnap = await get(ref(db, 'counters'));
-        if (!countersSnap.exists()) return [];
+        const snap = await get(ref(db, 'counters'));
+        if (!snap.exists()) return [];
 
-        const items = [];
-        countersSnap.forEach(s => items.push({ id: s.key, ...s.val() }));
+        const raw = [];
+        snap.forEach(s => {
+          const val = s.val() || {};
+          // normalize active: treat undefined -> active, 'false'/'0'/0 -> inactive
+          const activeRaw = val.active;
+          const active =
+            activeRaw === undefined ||
+            activeRaw === null ||
+            activeRaw === true ||
+            activeRaw === 'true' ||
+            activeRaw === 1 ||
+            activeRaw === '1' ||
+            String(activeRaw).toLowerCase() === 'yes' ||
+            String(activeRaw).toLowerCase() === 'y';
 
-        items.sort((a, b) => {
-          const ai = a.id, bi = b.id;
-          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) {
-            return Number(ai) - Number(bi);
-          }
-          return String(ai).localeCompare(String(bi), undefined, { numeric: true });
+          raw.push({ id: s.key, ...val, _active: !!active });
         });
 
-        return items.filter(c => c && c.active);
+        // Only counters that are active
+        const activeList = raw.filter(c => c && c._active);
+
+        // stable deterministic sort:
+        // 1) explicit numeric 'order' (smallest first). Missing order -> push to end.
+        // 2) numeric id if both numeric
+        // 3) localeCompare (numeric aware)
+        activeList.sort((a, b) => {
+          const ao = (a.order !== undefined && a.order !== '' && a.order !== null) ? Number(a.order) : Number.POSITIVE_INFINITY;
+          const bo = (b.order !== undefined && b.order !== '' && b.order !== null) ? Number(b.order) : Number.POSITIVE_INFINITY;
+          if (ao !== bo) return ao - bo;
+
+          const ai = a.id, bi = b.id;
+          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
+
+          return String(ai).localeCompare(String(bi), undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        return activeList;
       }
 
-      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-      async function runTransactionWithRetries(path, updater, maxRetries = 6) {
-        const refPath = ref(db, path);
-        let lastErr = null;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.debug(`[tx] attempt #${attempt} on`, path);
-            const result = await runTransaction(refPath, updater, { applyLocally: false });
-            if (result && result.committed) {
-              console.debug(`[tx] success on ${path} value=`, result.snapshot.val());
-              return result;
-            }
-            lastErr = new Error(`Transaction not committed on ${path} (attempt ${attempt})`);
-            console.warn(lastErr);
-          } catch (txErr) {
-            lastErr = txErr;
-            console.warn(`[tx] error on ${path} attempt ${attempt}`, txErr);
-          }
-          const backoff = 100 * Math.pow(2, attempt - 1);
-          await sleep(backoff + Math.floor(Math.random() * 60));
-        }
-        throw lastErr || new Error(`Transaction failed on ${path} after ${maxRetries} attempts`);
-      }
-
-      // getQueueNumber function left untouched (logic preserved) — UI only changed above
+      /* ---------------- core: getQueueNumber ---------------- */
       async function getQueueNumber() {
         setLoading(true);
+
         try {
-          const counters = await fetchActiveCounters();
-          console.debug('Active counters:', counters);
-          if (!counters || counters.length === 0) {
-            setLoading(false);
-            return showError('No active counters available right now.');
+          // 1) get active counters (snapshot)
+          const activeCounters = await fetchActiveCounters();
+          console.debug('Active counters:', activeCounters.map(c => ({ id: c.id, order: c.order, active: c._active })));
+
+          if (!activeCounters || activeCounters.length === 0) {
+            showError('No active counters available right now.');
+            return;
           }
 
-          const globalCounterCandidates = [
-            'settings/lastCounterIndex',
-            'lastAssignedCounter',
-            'system/lastAssignedCounter'
-          ];
+          // 2) Increment the global RR counter (atomic)
+          const rrRef = ref(db, 'settings/lastCounterIndex');
 
-          let rrResult = null;
-          let usedPath = null;
-          for (const p of globalCounterCandidates) {
-            try {
-              rrResult = await runTransactionWithRetries(p, current => (current || 0) + 1, 6);
-              if (rrResult && rrResult.committed) {
-                usedPath = p;
-                break;
-              }
-            } catch (err) {
-              console.warn(`Global counter attempt failed for ${p}:`, err.message || err);
-            }
+          const rrResult = await runTxWithRetries(rrRef, cur => {
+            const ncur = Number(cur) || 0;
+            return ncur + 1;
+          }, 8);
+
+          if (!rrResult || rrResult.committed !== true) {
+            throw new Error('Round-robin transaction failed to commit.');
           }
 
-          if (!rrResult || !rrResult.committed) {
-            throw new Error('Round-robin transaction failed for all candidate paths');
+          const rrVal = rrResult.snapshot && rrResult.snapshot.val();
+          const globalCounter = Number(rrVal);
+          if (!Number.isFinite(globalCounter)) {
+            throw new Error('Invalid round-robin counter value returned.');
           }
 
-          const globalCounter = Number(rrResult.snapshot.val());
-          if (!Number.isFinite(globalCounter)) throw new Error('Global counter returned invalid value');
-          const index = ((globalCounter - 1) % counters.length + counters.length) % counters.length;
-          const counter = counters[index];
-          if (!counter || !counter.id) {
-            console.error('Invalid counter selected', index, counters);
-            throw new Error('Selected counter not found');
-          }
-          console.debug(`Selected counter (index ${index}) id=${counter.id}`);
+          // 3) compute index robustly:  A-B-C-A...
+          const n = activeCounters.length;
+          const index = ((globalCounter - 1) % n + n) % n; // safe modulo
+          let chosen = activeCounters[index];
 
-          const lastIssuedPath = `counters/${counter.id}/lastIssued`;
-          const lastIssuedResult = await runTransactionWithRetries(lastIssuedPath, current => (current || 0) + 1, 6);
-          if (!lastIssuedResult || !lastIssuedResult.committed) {
-            throw new Error('Failed to increment selected counter lastIssued');
+          // Safety fallback: if chosen missing (shouldn't happen), pick first active
+          if (!chosen) {
+            console.warn('Round-robin: chosen counter missing for index, falling back to first active counter', { globalCounter, index, n });
+            chosen = activeCounters[0];
           }
 
-          const nextNumber = Number(lastIssuedResult.snapshot.val());
-          if (!Number.isFinite(nextNumber)) throw new Error('Invalid lastIssued value after increment');
+          console.info('Round-robin selected:', { globalCounter, index, chosenId: chosen.id });
 
-          const prefix = (counter.prefix && String(counter.prefix)) || 'Q';
+          // 4) increment chosen.lastIssued atomically (per-counter)
+          const lastIssuedRef = ref(db, `counters/${chosen.id}/lastIssued`);
+          const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
+          if (!lastIssuedTx || lastIssuedTx.committed !== true) {
+            throw new Error('Failed to increment counter issued number.');
+          }
+
+          const nextNumber = Number(lastIssuedTx.snapshot && lastIssuedTx.snapshot.val());
+          if (!Number.isFinite(nextNumber)) throw new Error('Invalid nextNumber from counter transaction.');
+
+          const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          const newRef = push(ref(db, 'queue'));
-          const entry = {
-            counterId: counter.id,
+          // 5) push queue entry (single write)
+          const newNode = push(ref(db, 'queue'));
+          await set(newNode, {
+            counterId: chosen.id,
             queueId,
             timestamp: Date.now(),
             status: 'waiting'
-          };
+          });
 
-          try {
-            await set(newRef, entry);
-          } catch (err) {
-            console.warn('Failed to set queue entry', err);
-          }
+          // store for auto-redirect
+          try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
 
-          setTimeout(() => window.location.href = `status.html?queueId=${newRef.key}`, 900);
+          showSuccess(`You're number ${queueId}`);
+          // small delay so user sees the confirmation
+          setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 750);
 
         } catch (err) {
           console.error('getQueueNumber error', err);
-          const msg = (err && err.message) ? err.message : 'Failed to get queue number. Try again.';
-          showError(msg);
+          showError(err && err.message ? err.message : 'Failed to get queue number. Try again.');
         } finally {
           setLoading(false);
         }
       }
 
-      getNumberBtn.addEventListener('click', e => {
-        e.preventDefault();
-        getQueueNumber();
-      });
-    });
+      // wire button
+      getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
+
+    }); // DOMContentLoaded end
   </script>
 </head>
 
-<body class="min-h-screen flex items-center justify-center p-6">
-  <div class="w-full max-w-sm space-y-6">
-    <!-- header -->
-    <header class="card p-4 flex items-center gap-3">
-      <img id="siteLogo" src="" alt="Logo" class="w-12 h-12 rounded-full object-cover hidden border" />
-      <div>
-        <h1 id="siteTitle" class="text-lg font-semibold">Queue Joy</h1>
-        <p class="text-xs muted">Digital Queue System</p>
-      </div>
-    </header>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-rose-50 flex flex-col items-center p-6 pb-20">
 
-    <!-- main card -->
-    <main class="card p-6 text-center fade-in">
-      <div class="mx-auto mb-4">
-        <img id="centerLogo" src="" alt="" class="w-20 h-20 rounded-full object-cover hidden mx-auto border" />
-        <div id="centerIcon" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center" style="background: linear-gradient(90deg,var(--accent-from),var(--accent-to));">
-          <svg class="w-9 h-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
+  <!-- Header -->
+  <header class="w-full max-w-3xl mb-6">
+    <div class="bg-white rounded-2xl shadow-md p-4 flex items-center gap-4">
+      <img id="siteLogo" src="" alt="Site logo" class="w-12 h-12 rounded-full hidden object-cover border" />
+      <div class="flex-1 text-left">
+        <h1 id="siteTitle" class="text-lg font-bold text-gray-800">Queue Joy</h1>
+        <p id="smallTopText" class="text-xs text-gray-500">Digital Queue System</p>
+      </div>
+      <div class="text-right text-xs text-gray-400">Powered by Queue Joy</div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="w-full max-w-3xl flex flex-col items-center gap-8">
+    <section class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-6 text-center fade-in relative">
+      <div class="mx-auto">
+        <img id="centerLogo" class="w-20 h-20 rounded-full object-cover hidden mx-auto shadow-sm border" alt="center logo"/>
+        <div id="centerIcon" class="w-20 h-20 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
+          <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
+          </svg>
         </div>
       </div>
 
-      <h2 id="mainHeading" class="text-2xl font-bold mb-2">Get your queue number</h2>
-      <p id="introText" class="muted mb-6">Real-time queueing system. Mobile-friendly. No app needed.</p>
+      <div class="space-y-2">
+        <h2 id="mainHeading" class="text-2xl font-bold text-gray-800">Get your queue number</h2>
+        <p id="introText" class="text-gray-600">Real-time queueing system. Mobile-friendly. No app needed.</p>
+      </div>
 
-      <button id="getNumberBtn" class="btn-main text-white w-full py-3 rounded-xl font-semibold shadow-lg hover:scale-[1.02] transition-transform">
-        <span id="btnText">🎫 Get My Number</span>
-        <span id="btnSpinner" class="hidden ml-3 inline-flex items-center">
-          <svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Getting your number...
+      <button id="getNumberBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-400 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+        <span id="btnText">🎫 Get your queue number</span>
+        <span id="btnSpinner" class="hidden inline-flex items-center ml-2">
+          <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          Getting your number...
         </span>
       </button>
 
-      <div id="errorMessage" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"><p class="text-red-600 text-sm"></p></div>
-      <div id="successMessage" class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
-    </main>
+      <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg"><p class="text-red-600 text-sm"></p></div>
+      <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
+    </section>
 
-    <!-- ad footer -->
-    <footer class="card p-3 text-center">
-      <p class="text-xs muted mb-2">Advertisement</p>
+    <!-- Advertisement card -->
+    <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
+      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
       <a id="adLink" href="#" class="block">
-        <img id="adPanel" src="" alt="Ad" class="hidden w-full db-image mb-2" />
+        <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden db-image">
       </a>
-      <div id="noAd" class="text-sm muted py-3">No advertisement available</div>
-      <div id="adText" class="text-xs muted hidden mt-2"></div>
-    </footer>
-  </div>
+      <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
+      <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
+    </aside>
+  </main>
 </body>
 </html>
