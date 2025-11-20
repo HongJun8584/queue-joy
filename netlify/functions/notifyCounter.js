@@ -1,4 +1,8 @@
 // netlify/functions/notifyCounter.js
+// Notifier: notifies (a) the called number (served) and (b) the number immediately before (next).
+// Envs:
+//  - BOT_TOKEN (required)
+//  - REDIS_URL (optional, recommended for persistence)
 // POST JSON body:
 // {
 //   "calledFull": "VANILLA002",
@@ -7,53 +11,36 @@
 //     { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
 //   ]
 // }
-// Envs:
-//  - BOT_TOKEN (required)
-//  - REDIS_URL (optional, recommended for persistence)
-// Notes:
-//  - If REDIS_URL set -> uses Redis (ioredis). Install ioredis in package.json.
-//  - Else -> uses ephemeral JSON file in /tmp (not durable across cold starts).
-//  - The function will mark tickets as served when it sends the "it's your turn" message and update per-series stats.
+// Behavior:
+//  - Only sends to recipients whose `theirNumber` equals calledFull (served) OR equals previous number (next).
+//  - Marks served tickets as served (persisted) and deletes active ticket entry.
+//  - Updates series stats (totalServed, totalServiceMs, lastServedAt).
+//  - Minimal inline keyboard: [Status] [Help]
 
-const fetch = globalThis.fetch || require('node-fetch');
-const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
+const TMP_STORE = '/tmp/queuejoy_store.json';
 
-// Optional Redis. If you use Redis, set REDIS_URL env var (e.g. redis://:pass@host:port)
+const BOT_TOKEN = process.env.BOT_TOKEN || null;
+const REDIS_URL = process.env.REDIS_URL || null;
+
 let RedisClient = null;
 let useRedis = false;
-const REDIS_URL = process.env.REDIS_URL || null;
 if (REDIS_URL) {
-  useRedis = true;
-  // lazy require to avoid module errors if not installed
   try {
     const IORedis = require('ioredis');
     RedisClient = new IORedis(REDIS_URL);
+    useRedis = true;
   } catch (e) {
-    console.warn('ioredis not installed or cannot connect. Falling back to ephemeral file storage.', e.message);
+    console.warn('ioredis not available/failed — falling back to ephemeral /tmp storage.', e.message);
     useRedis = false;
     RedisClient = null;
   }
 }
 
-// ------------------- Persistence layer (abstracted) -------------------
-/*
-Schema (Redis):
-  ticket:{ticketKey} -> JSON string { ticketId, chatId, theirNumber, series, createdAt, notifiedAt, servedAt }
-  stats:{series} -> JSON string { totalServed, totalServiceMs, lastServedAt }
-
-Ephemeral JSON fallback shape:
-{
-  tickets: { "<ticketKey>": { ... } },
-  stats: { "<series>": { totalServed: n, totalServiceMs: ms, lastServedAt: iso } }
-}
-ticketKey fallback = ticketId || chatId + '|' + theirNumber
-*/
-
-const fs = require('fs');
-const TMP_STORE = '/tmp/queuejoy_store.json';
-
+// ---------- Helpers: persistence ----------
 async function loadStore() {
-  if (useRedis) return null; // Redis doesn't need this
+  if (useRedis) return null;
   try {
     if (fs.existsSync(TMP_STORE)) {
       const raw = fs.readFileSync(TMP_STORE, 'utf8');
@@ -69,7 +56,6 @@ async function saveStore(obj) {
   } catch (e) { console.warn('saveStore error', e.message); }
 }
 
-// Helpers for Redis
 async function redisGet(key) {
   if (!RedisClient) return null;
   const v = await RedisClient.get(key);
@@ -83,27 +69,45 @@ async function redisDel(key) {
   if (!RedisClient) return;
   await RedisClient.del(key);
 }
-async function redisHGetAll(prefix) {
-  if (!RedisClient) return {};
-  // Not used here; kept for completeness
-  return {};
-}
 
-// ------------------- Utility helpers -------------------
+// ---------- Utility ----------
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
 };
 
+function nowIso() { return new Date().toISOString(); }
+
 function seriesOf(numberStr) {
-  // Extract the leading letters (series) from tickets like "VANILLA002" -> "VANILLA"
   if (!numberStr) return '';
   const m = String(numberStr).match(/^([A-Za-z\-_.]+)[0-9]*$/);
   if (m) return m[1].toUpperCase();
-  // fallback: try to split non-digit/digit boundary
   const parts = String(numberStr).split(/(\d+)/).filter(Boolean);
   return (parts[0] || '').toUpperCase();
+}
+
+function parseTicket(full) {
+  if (!full) return null;
+  const m = String(full).match(/^(.+?)(\d+)$/);
+  if (!m) return null;
+  const prefix = m[1];
+  const numStr = m[2];
+  const num = parseInt(numStr, 10);
+  if (isNaN(num)) return null;
+  return { prefix, numStr, num, pad: numStr.length };
+}
+function previousTicket(full) {
+  const p = parseTicket(full);
+  if (!p) return null;
+  const prev = p.num - 1;
+  if (prev < 0) return null;
+  const prevStr = String(prev).padStart(p.pad, '0');
+  return `${p.prefix}${prevStr}`;
+}
+function ticketKeyFor({ ticketId, chatId, theirNumber }) {
+  if (ticketId) return String(ticketId);
+  return `${String(chatId)}|${String(theirNumber)}`;
 }
 function formatDurationMs(ms) {
   if (ms == null || isNaN(ms)) return '-';
@@ -113,23 +117,13 @@ function formatDurationMs(ms) {
   const remS = s % 60;
   return `${m}m ${remS}s`;
 }
-function nowIso() { return new Date().toISOString(); }
 
-// Build unique ticket key
-function ticketKeyFor({ ticketId, chatId, theirNumber }) {
-  if (ticketId) return String(ticketId);
-  return `${String(chatId)}|${String(theirNumber)}`;
-}
+// ---------- Telegram send ----------
+const fetchFn = globalThis.fetch || (typeof require === 'function' ? require('node-fetch') : null);
+if (!fetchFn) throw new Error('fetch is required in runtime');
 
-// ------------------- Telegram send -------------------
-const BOT_TOKEN = process.env.BOT_TOKEN || null;
-if (!BOT_TOKEN) {
-  console.warn('Missing BOT_TOKEN env — function will early-return errors without it.');
-}
-async function tgSendMessage(chatId, text, reply_markup) {
-  if (!BOT_TOKEN) {
-    return { ok: false, error: 'Missing BOT_TOKEN env' };
-  }
+async function tgSendMessage(chatId, text, inlineKeyboard = null) {
+  if (!BOT_TOKEN) return { ok: false, error: 'Missing BOT_TOKEN env' };
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const body = {
     chat_id: String(chatId),
@@ -137,29 +131,46 @@ async function tgSendMessage(chatId, text, reply_markup) {
     parse_mode: 'HTML',
     disable_web_page_preview: true,
   };
-  if (reply_markup) body.reply_markup = reply_markup;
-  else body.reply_markup = {
-    inline_keyboard: [
-      [{ text: 'ℹ️ Status', callback_data: '/status' }, { text: '✖️ Unsubscribe', callback_data: '/unsubscribe' }],
-    ],
-  };
+  if (inlineKeyboard) body.reply_markup = { inline_keyboard: inlineKeyboard };
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchFn(url, {
       method: 'POST',
-      body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
-    const textResp = await res.text().catch(() => null);
+    const txt = await res.text().catch(()=>null);
     let json = null;
-    try { json = textResp ? JSON.parse(textResp) : null; } catch (e) {}
-    return { ok: res.ok, status: res.status, bodyText: textResp, bodyJson: json };
+    try { json = txt ? JSON.parse(txt) : null; } catch(e){}
+    return { ok: res.ok, status: res.status, bodyText: txt, bodyJson: json };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
 }
 
-// ------------------- Main handler -------------------
+async function sendWithRetry(chatId, text, inlineKeyboard = null) {
+  const maxRetries = 2;
+  let attempt = 0;
+  let lastErr = null;
+  while (attempt <= maxRetries) {
+    try {
+      return await tgSendMessage(chatId, text, inlineKeyboard);
+    } catch (e) {
+      lastErr = e;
+      const msg = String(e && e.message ? e.message : e);
+      // permanent failures: blocked / chat not found — stop retrying
+      if (/blocked|user is deactivated|chat not found|not_found|have no rights/i.test(msg)) {
+        throw e;
+      }
+      // backoff
+      await new Promise(r => setTimeout(r, 150 + attempt * 200));
+      attempt++;
+    }
+  }
+  throw lastErr || new Error('Unknown send error');
+}
+
+// ---------- Main handler ----------
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Only POST allowed' }) };
@@ -176,54 +187,58 @@ exports.handler = async function (event) {
   const calledFull = String(payload.calledFull || '').trim();
   const counterName = payload.counterName ? String(payload.counterName).trim() : '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
+
   if (!calledFull) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
   }
 
-  // filter recipients to only those in same series as calledFull
   const calledSeries = seriesOf(calledFull);
+  const prevFull = previousTicket(calledFull); // may be null
 
-  // load ephemeral store if needed
+  // load ephemeral store if Redis not used
   let store = null;
   if (!useRedis) store = await loadStore();
 
-  // normalize recipients and dedupe by chatId (one per chat)
+  // normalize recipients and dedupe by chatId
   const dedupe = new Map();
   for (const r of rawRecipients) {
     const chatId = r?.chatId || r?.chat_id || r?.id;
     if (!chatId) continue;
-    const theirNumber = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '').toString();
-    const ticketId = r?.ticketId || r?.ticket || null;
-    // Only keep recipients with same series as the called number
+    const theirNumber = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '').toString().trim();
+    if (!theirNumber) continue;
+    // Optional: only same series (safer). If theirNumber has no series, we skip.
     const recipientSeries = seriesOf(theirNumber);
-    if (!recipientSeries) continue; // can't determine series
-    if (recipientSeries !== calledSeries) continue; // skip other series
-
+    if (!recipientSeries) continue;
+    // allow only same series: this prevents cross-series notifications
+    if (recipientSeries !== calledSeries) continue;
     const key = String(chatId);
-    // If multiple entries for same chat, prefer exact match to calledFull
+    // prefer an entry where theirNumber exactly equals prevFull or calledFull (if multiple per chat)
     const existing = dedupe.get(key);
-    if (!existing) dedupe.set(key, { chatId: key, theirNumber, ticketId, createdAt: r?.createdAt || null });
+    if (!existing) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
     else {
-      const existingMatches = existing.theirNumber && existing.theirNumber.toLowerCase() === calledFull.toLowerCase();
-      const thisMatches = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
-      if (!existingMatches && thisMatches) {
-        dedupe.set(key, { chatId: key, theirNumber, ticketId, createdAt: r?.createdAt || null });
-      }
+      const existingPriority = (existing.theirNumber.toLowerCase() === calledFull.toLowerCase() || existing.theirNumber.toLowerCase() === (prevFull || '').toLowerCase()) ? 1 : 0;
+      const thisPriority = (theirNumber.toLowerCase() === calledFull.toLowerCase() || theirNumber.toLowerCase() === (prevFull || '').toLowerCase()) ? 1 : 0;
+      if (thisPriority > existingPriority) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
     }
   }
 
   if (!dedupe.size) {
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull, counterName, sent: 0, message: 'No recipients in same series' }) };
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull, prevFull, sent: 0, message: 'No recipients matched series or no recipients provided' }) };
   }
 
   const results = [];
-  // process each unique chat
+
+  // Inline keyboard (minimal) — two buttons: Status and Help (callback_data)
+  const inlineKeyboard = [
+    [{ text: 'ℹ️ Status', callback_data: '/status' }, { text: '❓ Help', callback_data: '/help' }]
+  ];
+
   for (const [chatId, item] of dedupe.entries()) {
     const theirNumber = item.theirNumber || '';
     const ticketId = item.ticketId || null;
     const key = ticketKeyFor({ ticketId, chatId, theirNumber });
 
-    // Load or create ticket record from persistence
+    // Load ticket if exists
     let ticket = null;
     if (useRedis) {
       ticket = await redisGet(`ticket:${key}`);
@@ -231,8 +246,8 @@ exports.handler = async function (event) {
       ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
     }
 
+    // If no ticket record, create baseline
     if (!ticket) {
-      // create a new ticket record using provided createdAt if present, else now
       ticket = {
         ticketKey: key,
         ticketId: ticketId || null,
@@ -240,47 +255,43 @@ exports.handler = async function (event) {
         theirNumber,
         series: seriesOf(theirNumber) || calledSeries,
         createdAt: item.createdAt || nowIso(),
-        notifiedStayAt: null,
+        notifiedAt: null,
         calledAt: null,
         servedAt: null,
       };
     }
 
-    // If theirNumber exactly matches calledFull => it's your turn
-    const isMatch = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
+    let action = null;
+    let messageText = null;
 
-    // We only send one message — either urgent or stay tuned — per chat for this invocation.
-    let text;
-    if (isMatch) {
-      // mark called and served
+    if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
+      // It's your turn
+      action = 'served';
       ticket.calledAt = nowIso();
       ticket.servedAt = nowIso();
-      text = `🎯 <b>Number ${calledFull} — it’s your turn!</b>\nPlease go to${counterName ? ' ' + counterName : ' the counter'} now. Thanks!`;
+
+      // concise message
+      messageText = `🎯 <b>${calledFull}</b> — it’s your turn.\nPlease go to${counterName ? ' ' + counterName : ' the counter'} now.`;
+    } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
+      // You're next
+      action = 'next';
+      ticket.notifiedAt = nowIso();
+      messageText = `⏳ <b>${theirNumber}</b> — you're next. Please be ready to approach the counter soon.`;
     } else {
-      // stay tuned
-      ticket.calledAt = ticket.calledAt || nowIso();
-      ticket.notifiedStayAt = nowIso();
-      text = `🔔 Heads-up!\nNumber <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b> (series <code>${calledSeries}</code>). We'll notify you again when it's your turn.`;
+      // not relevant to this run: skip
+      results.push({ chatId, theirNumber, skipped: true });
+      continue;
     }
 
-    // Persist ticket (served or updated)
-    if (useRedis) {
-      await redisSet(`ticket:${key}`, ticket);
-    } else {
-      store.tickets = store.tickets || {};
-      store.tickets[key] = ticket;
-      await saveStore(store);
-    }
-
-    // If served, update series stats and clean ticket (remove or mark served)
-    let statUpdate = null;
-    if (ticket.servedAt) {
-      // compute service time = servedAt - createdAt
-      const createdMs = (new Date(ticket.createdAt)).getTime();
-      const servedMs = (new Date(ticket.servedAt)).getTime();
+    // Persist ticket update: mark served or update notified time
+    if (action === 'served') {
+      // update stats and remove active ticket
+      // compute serviceMs
+      const createdMs = new Date(ticket.createdAt).getTime();
+      const servedMs = new Date(ticket.servedAt).getTime();
       const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
 
-      // update stats for series
+      // update stats key
       const statKey = `stats:${ticket.series}`;
       let stats = null;
       if (useRedis) {
@@ -289,55 +300,83 @@ exports.handler = async function (event) {
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         await redisSet(statKey, stats);
+        // clean active ticket entry
+        await redisDel(`ticket:${key}`);
       } else {
+        store.tickets = store.tickets || {};
         store.stats = store.stats || {};
         stats = store.stats[ticket.series] || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
         stats.totalServed = (stats.totalServed || 0) + 1;
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         store.stats[ticket.series] = stats;
-        await saveStore(store);
-      }
-
-      // "clean the number" from active tickets (we remove it from store.tickets or mark served)
-      if (useRedis) {
-        // keep history optionally; here we delete the active ticket to clean it.
-        await redisDel(`ticket:${key}`);
-      } else {
-        // delete from ephemeral active list
+        // remove ticket from active tickets
         delete store.tickets[key];
         await saveStore(store);
       }
-
-      statUpdate = {
-        series: ticket.series,
-        totalServed: stats.totalServed,
-        totalServiceMs: stats.totalServiceMs,
-        avgServiceMs: Math.round((stats.totalServiceMs || 0) / (stats.totalServed || 1)),
-        avgFormatted: formatDurationMs(Math.round((stats.totalServiceMs || 0) / (stats.totalServed || 1))),
-        lastServedAt: stats.lastServedAt,
-        lastServiceMs: serviceMs,
-        lastServiceFormatted: formatDurationMs(serviceMs),
-      };
+    } else {
+      // action === 'next' -> persist ticket notifiedAt
+      if (useRedis) {
+        await redisSet(`ticket:${key}`, ticket);
+      } else {
+        store.tickets = store.tickets || {};
+        store.tickets[key] = ticket;
+        await saveStore(store);
+      }
     }
 
-    // send telegram message
-    const sendRes = await tgSendMessage(chatId, text);
+    // Send message with inline keyboard
+    let sendRes;
+    try {
+      sendRes = await sendWithRetry(chatId, messageText, inlineKeyboard);
+    } catch (err) {
+      sendRes = { ok: false, error: String(err) };
+    }
+
+    // Attach stat snapshot if served
+    let statUpdate = null;
+    if (action === 'served') {
+      if (useRedis) {
+        const s = await redisGet(`stats:${ticket.series}`);
+        statUpdate = s ? {
+          series: ticket.series,
+          totalServed: s.totalServed || 0,
+          totalServiceMs: s.totalServiceMs || 0,
+          avgServiceMs: s.totalServed ? Math.round((s.totalServiceMs || 0) / s.totalServed) : null,
+          avgFormatted: s.totalServed ? formatDurationMs(Math.round((s.totalServiceMs || 0) / s.totalServed)) : '-',
+          lastServedAt: s.lastServedAt || null
+        } : null;
+      } else {
+        const sObj = store.stats && store.stats[ticket.series] ? store.stats[ticket.series] : null;
+        if (sObj) {
+          statUpdate = {
+            series: ticket.series,
+            totalServed: sObj.totalServed || 0,
+            totalServiceMs: sObj.totalServiceMs || 0,
+            avgServiceMs: sObj.totalServed ? Math.round((sObj.totalServiceMs || 0) / sObj.totalServed) : null,
+            avgFormatted: sObj.totalServed ? formatDurationMs(Math.round((sObj.totalServiceMs || 0) / sObj.totalServed)) : '-',
+            lastServedAt: sObj.lastServedAt || null
+          };
+        }
+      }
+    }
+
     results.push({
       chatId,
       theirNumber,
       ticketKey: key,
-      action: isMatch ? 'served' : 'notified',
+      action,
       sendRes,
-      statUpdate,
+      statUpdate
     });
-  } // end for each chat
 
-  // return data useful for admin.html plus debug results
-  // If using ephemeral store, include a snapshot of stats for admin convenience
+    // gentle pause to reduce rate limit impact
+    await new Promise(r => setTimeout(r, 90));
+  } // end for
+
+  // prepare stats snapshot for calledSeries
   let statsSnapshot = null;
   if (useRedis) {
-    // attempt to fetch stats for calledSeries
     try {
       const s = await redisGet(`stats:${calledSeries}`);
       if (s) statsSnapshot = {
@@ -345,16 +384,16 @@ exports.handler = async function (event) {
         totalServed: s.totalServed || 0,
         avgServiceMs: s.totalServed ? Math.round((s.totalServiceMs || 0) / s.totalServed) : null,
         avgFormatted: s.totalServed ? formatDurationMs(Math.round((s.totalServiceMs || 0) / s.totalServed)) : '-',
-        lastServedAt: s.lastServedAt || null,
+        lastServedAt: s.lastServedAt || null
       };
     } catch (e) { /* ignore */ }
   } else {
     statsSnapshot = store.stats && store.stats[calledSeries] ? {
       series: calledSeries,
       totalServed: store.stats[calledSeries].totalServed || 0,
-      avgServiceMs: (store.stats[calledSeries].totalServed ? Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed) : null),
-      avgFormatted: (store.stats[calledSeries].totalServed ? formatDurationMs(Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed)) : '-'),
-      lastServedAt: store.stats[calledSeries].lastServedAt || null,
+      avgServiceMs: store.stats[calledSeries].totalServed ? Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed) : null,
+      avgFormatted: store.stats[calledSeries].totalServed ? formatDurationMs(Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed)) : '-',
+      lastServedAt: store.stats[calledSeries] ? store.stats[calledSeries].lastServedAt : null
     } : { series: calledSeries, totalServed: 0, avgServiceMs: null, avgFormatted: '-', lastServedAt: null };
   }
 
@@ -364,12 +403,12 @@ exports.handler = async function (event) {
     body: JSON.stringify({
       ok: true,
       calledFull,
-      calledSeries,
+      prevFull: prevFull || null,
       counterName,
-      sent: results.length,
+      sent: results.filter(r => !r.skipped).length,
       results,
       statsSnapshot,
-      persistence: useRedis ? 'redis' : 'ephemeral-file',
-    }),
+      persistence: useRedis ? 'redis' : 'ephemeral-file'
+    })
   };
 };
