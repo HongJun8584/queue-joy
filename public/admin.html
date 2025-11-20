@@ -5,22 +5,16 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>QueueJoy Admin — Real-Time Queue Management</title>
     <meta name="description" content="QueueJoy Admin Panel - Manage queues, announcements, and analytics in real-time" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
     <meta property="og:title" content="QueueJoy Admin — Real-Time Queue Management" />
     <meta property="og:description" content="Manage queues, send announcements, and view analytics in real-time" />
     <link rel="canonical" href="/admin.html" />
-
     <style>
-      :root {
-        --primary: 264 83% 62%;
-        --accent: 197 92% 44%;
-        --muted: 220 14% 56%;
-      }
+      :root { --primary: 264 83% 62%; --accent: 197 92% 44%; --muted: 220 14% 56%; }
       * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.3) transparent; }
       *::-webkit-scrollbar { width: 8px; height: 8px; }
       *::-webkit-scrollbar-track { background: transparent; }
@@ -54,14 +48,17 @@
       .modal-content { background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y:auto; padding:32px; box-shadow: 0 30px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
       .glass-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius:16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
       .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-      .stat-card { position:relative; overflow:hidden; }
+      .stat-card { position:relative; overflow:hidden; transition: all 0.3s ease; }
       .stat-card::before { content:''; position:absolute; top:-50%; right:-50%; width:200%; height:200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: shimmer 3s infinite; }
       @keyframes shimmer { 0%,100%{ transform: translate(0,0);} 50%{ transform: translate(-20%,-20%);} }
       .cropper-container { max-height: 400px; margin: 20px 0; }
+      .pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+      @keyframes pulseGlow { 0%, 100% { box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset; } 50% { box-shadow: 0 25px 70px rgba(139,92,246,0.3), 0 0 0 1px rgba(255,255,255,0.7) inset; } }
+      .stat-icon { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+      .chart-container { position: relative; height: 300px; }
     </style>
   </head>
   <body class="min-h-screen">
-    <!-- Sidebar -->
     <aside id="sidebar" class="sidebar sidebar-mobile-closed lg:transform-none">
       <div class="p-8 border-b border-white/20">
         <div class="flex items-center gap-3 mb-2">
@@ -77,17 +74,13 @@
       </nav>
     </aside>
 
-    <!-- Mobile Menu Toggle -->
     <button id="mobileMenuBtn" class="lg:hidden fixed top-4 left-4 z-40 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-2xl hover:scale-110 transition-all duration-300">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
 
-    <!-- Main Content -->
     <div class="main-content">
-      <div class="max-w-6xl mx-auto p-4 pb-20 fade-in">
-        <!-- Dashboard View -->
+      <div class="max-w-7xl mx-auto p-4 pb-20 fade-in">
         <div id="dashboardView">
-          <!-- Header -->
           <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 mt-16 lg:mt-6">
             <div class="flex items-center gap-4">
               <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl ring-4 ring-white/30">QJ</div>
@@ -99,7 +92,6 @@
             <button id="saveAllBtn" class="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">💾 Save All Changes</button>
           </header>
 
-          <!-- Analytics Panel -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
@@ -107,25 +99,25 @@
                   <p class="text-sm font-semibold text-gray-600 mb-3">Total Queues</p>
                   <p id="totalQueues" class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl shadow-xl">📊</div>
+                <div class="stat-icon bg-gradient-to-br from-blue-500 to-cyan-500 text-white">📊</div>
               </div>
             </div>
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Queues</p>
+                  <p class="text-sm font-semibold text-gray-600 mb-3">Waiting Now</p>
                   <p id="activeQueues" class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-xl">🎫</div>
+                <div class="stat-icon bg-gradient-to-br from-purple-500 to-pink-500 text-white">⏳</div>
               </div>
             </div>
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Today's Queues</p>
+                  <p class="text-sm font-semibold text-gray-600 mb-3">Served Today</p>
                   <p id="todayQueues" class="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-xl">📈</div>
+                <div class="stat-icon bg-gradient-to-br from-green-500 to-emerald-500 text-white">✅</div>
               </div>
             </div>
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
@@ -134,14 +126,12 @@
                   <p class="text-sm font-semibold text-gray-600 mb-3">Active Counters</p>
                   <p id="activeCounters" class="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-2xl shadow-xl">🏪</div>
+                <div class="stat-icon bg-gradient-to-br from-orange-500 to-red-500 text-white">🏪</div>
               </div>
             </div>
           </div>
 
-          <!-- Main Content Grid -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Business Settings Card -->
             <div class="card p-8 space-y-6">
               <h3 class="text-2xl font-bold gradient-text mb-6">⚙️ Business Settings</h3>
               <div>
@@ -174,13 +164,8 @@
                   </div>
                 </div>
               </div>
-              <button id="updateSettingsBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
-                <span id="updateBtnText">✨ Update Settings</span>
-                <span id="updateBtnSpinner" class="hidden"><span class="spinner"></span> Updating...</span>
-              </button>
             </div>
 
-            <!-- Display Settings Card -->
             <div class="card p-8 space-y-6">
               <h3 class="text-2xl font-bold gradient-text mb-6">🖥️ Display Settings</h3>
               <div>
@@ -189,16 +174,19 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL (Centered)</label>
-                <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+                <div class="space-y-2">
+                  <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+                  <input id="displayLogoFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-600 file:font-semibold hover:file:bg-indigo-100 cursor-pointer"/>
+                  <p class="text-xs text-gray-500">Choose file to upload, or paste URL above</p>
+                </div>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Main Title</label>
                 <input id="displayMainTitle" type="text" placeholder="Get your queue number" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
               </div>
-              <p class="text-xs text-gray-500">These values are saved to <code>/displaySettings</code> without touching your queue schema.</p>
+              <p class="text-xs text-gray-500">These values are saved to <code class="bg-gray-100 px-2 py-1 rounded">/displaySettings</code> without touching your queue schema.</p>
             </div>
 
-            <!-- Right Column: Announcement + Live Preview -->
             <div class="space-y-6">
               <div class="card p-8">
                 <h3 class="text-2xl font-bold gradient-text mb-6">📢 Telegram Announcement</h3>
@@ -218,7 +206,7 @@
               </div>
 
               <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">👁️ Live Preview</h3>
+                <h3 class="text-2xl font-bold gradient-text mb-6">👁️ Live Preview (Demo)</h3>
                 <div class="space-y-4">
                   <div class="flex items-center gap-4">
                     <div id="previewLogo" class="w-14 h-14 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
@@ -238,6 +226,13 @@
                 </div>
               </div>
             </div>
+
+            <div class="card p-8">
+              <button id="updateSettingsBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
+                <span id="updateBtnText">✨ Update Settings</span>
+                <span id="updateBtnSpinner" class="hidden"><span class="spinner"></span> Updating...</span>
+              </button>
+            </div>
           </div>
 
           <footer class="text-center text-sm font-medium text-gray-700 mt-12 p-6 card">
@@ -245,41 +240,67 @@
           </footer>
         </div>
 
-        <!-- Analyst View -->
         <div id="analystView" class="hidden">
           <div class="mt-16 lg:mt-6">
             <h2 class="text-3xl font-bold text-white mb-8 bg-gradient-to-r from-purple-600 to-indigo-500 p-6 rounded-2xl shadow-lg">📊 Analytics Dashboard</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div class="card p-6 bg-gradient-to-br from-purple-600 to-purple-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Total Customers Served</p>
-                <p id="analystTotalServed" class="text-4xl font-bold">0</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <div class="card p-6 bg-gradient-to-br from-purple-600 to-purple-400 text-white pulse-glow">
+                <p class="text-sm opacity-90 mb-2 font-semibold">Total Served</p>
+                <p id="analystTotalServed" class="text-5xl font-extrabold">0</p>
+                <p class="text-xs opacity-75 mt-2">All completed queues</p>
               </div>
-              <div class="card p-6 bg-gradient-to-br from-indigo-600 to-indigo-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Average Wait Time</p>
-                <p class="text-4xl font-bold"><span id="analystAvgWait">0</span><span class="text-lg ml-1">min</span></p>
+              <div class="card p-6 bg-gradient-to-br from-indigo-600 to-indigo-400 text-white pulse-glow">
+                <p class="text-sm opacity-90 mb-2 font-semibold">Waiting Now</p>
+                <p id="analystWaiting" class="text-5xl font-extrabold">0</p>
+                <p class="text-xs opacity-75 mt-2">Currently in queue</p>
               </div>
-              <div class="card p-6 bg-gradient-to-br from-pink-600 to-pink-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Active Counters</p>
-                <p id="analystActiveCounters" class="text-4xl font-bold">0</p>
+              <div class="card p-6 bg-gradient-to-br from-pink-600 to-pink-400 text-white pulse-glow">
+                <p class="text-sm opacity-90 mb-2 font-semibold">Being Served</p>
+                <p id="analystServing" class="text-5xl font-extrabold">0</p>
+                <p class="text-xs opacity-75 mt-2">At counters now</p>
+              </div>
+              <div class="card p-6 bg-gradient-to-br from-teal-600 to-teal-400 text-white pulse-glow">
+                <p class="text-sm opacity-90 mb-2 font-semibold">Active Counters</p>
+                <p id="analystActiveCounters" class="text-5xl font-extrabold">0</p>
+                <p class="text-xs opacity-75 mt-2">Currently open</p>
               </div>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Trend (Last 7 Days)</h3>
-                <canvas id="queueTrendChart"></canvas>
+                <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><span class="text-2xl">📈</span> Queue Trend (Last 7 Days)</h3>
+                <div class="chart-container"><canvas id="queueTrendChart"></canvas></div>
               </div>
               <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Counter Performance</h3>
-                <canvas id="counterPerfChart"></canvas>
+                <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><span class="text-2xl">🏆</span> Counter Performance</h3>
+                <div class="chart-container"><canvas id="counterPerfChart"></canvas></div>
               </div>
             </div>
-            <div class="card p-6 mt-6">
-              <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Status Breakdown</h3>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center"><p class="text-3xl font-bold text-green-600" id="analystCompleted">0</p><p class="text-sm text-gray-600 mt-1">Completed</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-blue-600" id="analystWaiting">0</p><p class="text-sm text-gray-600 mt-1">Waiting</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-purple-600" id="analystServing">0</p><p class="text-sm text-gray-600 mt-1">Serving</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-gray-600" id="analystCancelled">0</p><p class="text-sm text-gray-600 mt-1">Cancelled</p></div>
+
+            <div class="card p-8">
+              <h3 class="text-2xl font-bold gradient-text mb-6 flex items-center gap-2"><span class="text-2xl">📊</span> Queue Status Breakdown</h3>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 hover:scale-105 transition-all cursor-pointer">
+                  <div class="text-5xl mb-2">✅</div>
+                  <p class="text-4xl font-extrabold text-green-600" id="analystCompleted">0</p>
+                  <p class="text-sm text-gray-600 mt-2 font-semibold">Completed</p>
+                </div>
+                <div class="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 hover:scale-105 transition-all cursor-pointer">
+                  <div class="text-5xl mb-2">⏳</div>
+                  <p class="text-4xl font-extrabold text-blue-600" id="analystWaitingDetail">0</p>
+                  <p class="text-sm text-gray-600 mt-2 font-semibold">Waiting</p>
+                </div>
+                <div class="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 hover:scale-105 transition-all cursor-pointer">
+                  <div class="text-5xl mb-2">🔄</div>
+                  <p class="text-4xl font-extrabold text-purple-600" id="analystServingDetail">0</p>
+                  <p class="text-sm text-gray-600 mt-2 font-semibold">Serving</p>
+                </div>
+                <div class="text-center p-6 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-gray-200 hover:scale-105 transition-all cursor-pointer">
+                  <div class="text-5xl mb-2">❌</div>
+                  <p class="text-4xl font-extrabold text-gray-600" id="analystCancelled">0</p>
+                  <p class="text-sm text-gray-600 mt-2 font-semibold">Cancelled</p>
+                </div>
               </div>
             </div>
           </div>
@@ -287,7 +308,6 @@
       </div>
     </div>
 
-    <!-- Crop Modal -->
     <div id="cropModal" class="modal hidden">
       <div class="modal-content">
         <h3 class="text-xl font-bold text-gray-800 mb-4" id="cropModalTitle">Crop Image</h3>
@@ -299,7 +319,6 @@
       </div>
     </div>
 
-    <!-- How to Use Modal -->
     <div id="howToUseModal" class="modal hidden">
       <div class="modal-content">
         <div class="flex justify-between items-center mb-4">
@@ -312,6 +331,7 @@
             <ul class="list-disc list-inside space-y-1 text-sm">
               <li>Edit your business name and welcome message</li>
               <li>Upload and crop logo (square) and ad banner (landscape)</li>
+              <li>Logo URL accepts file upload or direct URL input</li>
               <li>Send Telegram announcements with optional media</li>
               <li>View live preview of how customers see your page</li>
             </ul>
@@ -327,12 +347,12 @@
             </ul>
           </div>
           <div class="p-4 bg-pink-50 rounded-lg">
-            <h4 class="font-bold text-pink-700 mb-2">📊 Analyst View</h4>
+            <h4 class="font-bold text-pink-700 mb-2">📊 Analytics View</h4>
             <ul class="list-disc list-inside space-y-1 text-sm">
-              <li>View total customers served and active counters</li>
-              <li>See queue trends over the last 7 days</li>
-              <li>Track counter performance with charts</li>
-              <li>Monitor queue status breakdown in real-time</li>
+              <li>View real-time queue statistics from Firebase</li>
+              <li>Monitor completed, waiting, serving, and cancelled queues</li>
+              <li>Track counter performance with live charts</li>
+              <li>All data synced directly from your Firebase database</li>
             </ul>
           </div>
           <div class="p-4 bg-green-50 rounded-lg">
@@ -344,23 +364,14 @@
               <li>Changes appear instantly on your public queue page</li>
             </ul>
           </div>
-          <div class="p-4 bg-blue-50 rounded-lg">
-            <h4 class="font-bold text-blue-700 mb-2">📱 Telegram Announcements</h4>
-            <ul class="list-disc list-inside space-y-1 text-sm">
-              <li>Type your message in the announcement box</li>
-              <li>Attach optional media (image/video/GIF)</li>
-              <li>Click "Send to Telegram" to broadcast</li>
-            </ul>
-          </div>
         </div>
         <button id="closeHowToUseBtn" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">Got it!</button>
       </div>
     </div>
 
-    <!-- Firebase & App Script -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-      import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+      import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -375,7 +386,6 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // Toast
       const showToast = (message, type = 'success') => {
         const toast = document.createElement('div');
         toast.className = `toast ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
@@ -384,7 +394,6 @@
         setTimeout(() => toast.remove(), 3000);
       };
 
-      // File -> base64
       const fileToBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -392,7 +401,6 @@
         reader.readAsDataURL(file);
       });
 
-      // Elements
       const businessName = document.getElementById('businessName');
       const welcomeMessage = document.getElementById('welcomeMessage');
       const logoFile = document.getElementById('logoFile');
@@ -403,9 +411,9 @@
       const updateBtnText = document.getElementById('updateBtnText');
       const updateBtnSpinner = document.getElementById('updateBtnSpinner');
       const saveAllBtn = document.getElementById('saveAllBtn');
-      // Display settings inputs
       const displaySmallText = document.getElementById('displaySmallText');
       const displayLogoUrl = document.getElementById('displayLogoUrl');
+      const displayLogoFile = document.getElementById('displayLogoFile');
       const displayMainTitle = document.getElementById('displayMainTitle');
 
       const previewName = document.getElementById('previewName');
@@ -446,17 +454,16 @@
       const activeCountersEl = document.getElementById('activeCounters');
 
       const analystTotalServed = document.getElementById('analystTotalServed');
-      const analystAvgWait = document.getElementById('analystAvgWait');
-      const analystActiveCounters = document.getElementById('analystActiveCounters');
-      const analystCompleted = document.getElementById('analystCompleted');
       const analystWaiting = document.getElementById('analystWaiting');
       const analystServing = document.getElementById('analystServing');
+      const analystActiveCounters = document.getElementById('analystActiveCounters');
+      const analystCompleted = document.getElementById('analystCompleted');
+      const analystWaitingDetail = document.getElementById('analystWaitingDetail');
+      const analystServingDetail = document.getElementById('analystServingDetail');
       const analystCancelled = document.getElementById('analystCancelled');
 
-      // Mobile Menu
       mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('sidebar-mobile-closed'));
 
-      // Switch views
       sidebarItems.forEach(item => {
         item.addEventListener('click', () => {
           const view = item.dataset.view;
@@ -474,41 +481,44 @@
         });
       });
 
-      // How to Use
       howToUseBtn.addEventListener('click', () => { howToUseModal.classList.remove('hidden'); sidebar.classList.add('sidebar-mobile-closed'); });
       closeHowToUse.addEventListener('click', () => howToUseModal.classList.add('hidden'));
       closeHowToUseBtn.addEventListener('click', () => howToUseModal.classList.add('hidden'));
 
-      // Real-time Analytics Updates
+      // Real-time Queue Analytics
+      let queueData = {};
       onValue(ref(db, 'queue'), (snapshot) => {
         if (snapshot.exists()) {
-          const queues = Object.values(snapshot.val());
+          queueData = snapshot.val();
+          const queues = Object.values(queueData);
           const total = queues.length;
           const waiting = queues.filter(q => q.status === 'waiting').length;
-          const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
           const serving = queues.filter(q => q.status === 'serving').length;
+          const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
           const cancelled = queues.filter(q => q.status === 'cancelled').length;
 
           totalQueuesEl.textContent = total;
           activeQueuesEl.textContent = waiting;
 
           const today = new Date().setHours(0,0,0,0);
-          const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
+          const todayCount = queues.filter(q => {
+            const ts = q.timestamp;
+            if (!ts) return false;
+            return new Date(ts).setHours(0,0,0,0) === today && (q.status === 'done' || q.status === 'served');
+          }).length;
           todayQueuesEl.textContent = todayCount;
 
-          // Analyst view
           analystTotalServed.textContent = completed;
           analystCompleted.textContent = completed;
           analystWaiting.textContent = waiting;
+          analystWaitingDetail.textContent = waiting;
           analystServing.textContent = serving;
+          analystServingDetail.textContent = serving;
           analystCancelled.textContent = cancelled;
 
-          // Average wait time (current waiting customers)
-          const waitingQueuesForAvg = queues.filter(q => q.status === 'waiting' && q.timestamp);
-          const avgWait = waitingQueuesForAvg.length > 0 ? Math.round(waitingQueuesForAvg.reduce((acc, q) => acc + ((Date.now() - new Date(q.timestamp)) / 60000), 0) / waitingQueuesForAvg.length) : 0;
-          analystAvgWait.textContent = String(isFinite(avgWait) ? Math.max(0, avgWait) : 0);
+          updateCharts();
         } else {
-          [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, analystCompleted, analystWaiting, analystServing, analystCancelled, analystAvgWait].forEach(el => el.textContent = '0');
+          [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, analystCompleted, analystWaiting, analystWaitingDetail, analystServing, analystServingDetail, analystCancelled].forEach(el => el.textContent = '0');
         }
       });
 
@@ -524,11 +534,9 @@
         }
       });
 
-      // Settings sync
       onValue(ref(db, 'settings/name'), (snap) => { if (snap.exists()) { const v = snap.val(); businessName.value = v; previewName.textContent = v; headerName.textContent = v; } });
       onValue(ref(db, 'settings/introText'), (snap) => { if (snap.exists()) { const v = snap.val(); welcomeMessage.value = v; previewIntro.textContent = v; } });
       onValue(ref(db, 'settings/logo'), (snap) => { if (snap.exists()) { const v = snap.val(); logoPreview.src = v; logoPreview.classList.remove('hidden'); previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; } });
-      // Display settings sync
       onValue(ref(db, 'displaySettings'), (snap) => {
         if (snap.exists()) { const v = snap.val(); displaySmallText.value = v.smallText || ''; displayLogoUrl.value = v.logoUrl || ''; displayMainTitle.value = v.mainTitle || ''; }
       });
@@ -548,7 +556,15 @@
         } 
       });
 
-      // Cropping
+      // Display Logo File Upload
+      displayLogoFile.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const base64 = await fileToBase64(file);
+        displayLogoUrl.value = base64;
+        showToast('Logo file loaded! Click Save to update.');
+      });
+
       let currentCropper = null; let currentCropType = '';
       let adData = '';
       logoFile.addEventListener('change', async (e) => {
@@ -560,7 +576,6 @@
       });
       adFile.addEventListener('change', async (e) => {
         const file = e.target.files?.[0]; if (!file) return;
-        // 50MB max
         if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); return; }
         const base64 = await fileToBase64(file);
         const type = file.type || '';
@@ -571,12 +586,11 @@
           return;
         }
         if (type === 'image/gif') {
-          adData = base64; // don't crop GIFs
+          adData = base64;
           adPreviewBox.innerHTML = `<img src="${base64}" class="w-full h-full object-cover" />`;
           adPreviewBox.classList.remove('hidden');
           return;
         }
-        // Crop images
         currentCropType = 'ad'; cropModalTitle.textContent = 'Crop Ad Banner (Landscape)';
         cropImage.src = base64; cropModal.classList.remove('hidden');
         if (currentCropper) currentCropper.destroy();
@@ -599,7 +613,6 @@
       });
       cropCancelBtn.addEventListener('click', () => { cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; } if (currentCropType === 'logo') logoFile.value=''; else if (currentCropType === 'ad') adFile.value=''; });
 
-      // Save settings
       const updateSettings = async () => {
         updateBtnText.classList.add('hidden'); updateBtnSpinner.classList.remove('hidden'); updateSettingsBtn.disabled = true;
         try {
@@ -607,7 +620,6 @@
           if (logoPreview.src && logoPreview.src.startsWith('data:')) updates.logo = logoPreview.src;
           if (adData && typeof adData === 'string' && adData.startsWith('data:')) updates.adImage = adData;
           await set(ref(db, 'settings'), updates);
-          // Save display settings separately
           await set(ref(db, 'displaySettings'), {
             smallText: displaySmallText.value || 'Digital Queue System',
             logoUrl: displayLogoUrl.value || '',
@@ -620,7 +632,6 @@
       updateSettingsBtn.addEventListener('click', updateSettings);
       saveAllBtn.addEventListener('click', updateSettings);
 
-      // Announcement with media support
       let selectedMediaFile = null;
       announcementMedia.addEventListener('change', (e) => {
         const file = e.target.files?.[0]; selectedMediaFile = file || null; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
@@ -666,21 +677,121 @@
 
       // Charts
       let queueTrendChart = null; let counterPerfChart = null;
+
+      function getLast7DaysData() {
+        const days = [];
+        const counts = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const nextDay = new Date(date);
+          nextDay.setDate(nextDay.getDate() + 1);
+          
+          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+          days.push(dayName);
+          
+          const queues = Object.values(queueData);
+          const dayCount = queues.filter(q => {
+            const ts = q.timestamp;
+            if (!ts) return false;
+            const qDate = new Date(ts);
+            return qDate >= date && qDate < nextDay && (q.status === 'done' || q.status === 'served');
+          }).length;
+          counts.push(dayCount);
+        }
+        return { days, counts };
+      }
+
+      async function getCounterPerformance() {
+        const countersSnapshot = await get(ref(db, 'counters'));
+        if (!countersSnapshot.exists()) return { names: [], counts: [] };
+        
+        const counters = countersSnapshot.val();
+        const counterIds = Object.keys(counters);
+        const names = [];
+        const counts = [];
+        
+        counterIds.forEach(counterId => {
+          const counter = counters[counterId];
+          names.push(counter.name || counterId);
+          
+          const queues = Object.values(queueData);
+          const servedCount = queues.filter(q => 
+            q.counterId === counterId && (q.status === 'done' || q.status === 'served')
+          ).length;
+          counts.push(servedCount);
+        });
+        
+        return { names, counts };
+      }
+
+      function updateCharts() {
+        if (queueTrendChart) {
+          const { days, counts } = getLast7DaysData();
+          queueTrendChart.data.labels = days;
+          queueTrendChart.data.datasets[0].data = counts;
+          queueTrendChart.update();
+        }
+        
+        if (counterPerfChart) {
+          getCounterPerformance().then(({ names, counts }) => {
+            counterPerfChart.data.labels = names;
+            counterPerfChart.data.datasets[0].data = counts;
+            counterPerfChart.update();
+          });
+        }
+      }
+
       function initializeCharts() {
         const queueCtx = document.getElementById('queueTrendChart');
         if (queueCtx && !queueTrendChart) {
+          const { days, counts } = getLast7DaysData();
           queueTrendChart = new Chart(queueCtx, {
             type: 'line',
-            data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Customers Served', data: [12,19,15,25,22,30,28], borderColor: 'rgb(168,85,247)', backgroundColor: 'rgba(168,85,247,0.1)', tension: 0.4, fill: true }] },
-            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
+            data: { 
+              labels: days, 
+              datasets: [{ 
+                label: 'Customers Served', 
+                data: counts, 
+                borderColor: 'rgb(168,85,247)', 
+                backgroundColor: 'rgba(168,85,247,0.1)', 
+                tension: 0.4, 
+                fill: true,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 7
+              }] 
+            },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { legend: { display: true, labels: { font: { size: 14, weight: 'bold' } } } }, 
+              scales: { y: { beginAtZero: true, ticks: { font: { size: 12 } } }, x: { ticks: { font: { size: 12 } } } } 
+            }
           });
         }
+        
         const counterCtx = document.getElementById('counterPerfChart');
         if (counterCtx && !counterPerfChart) {
-          counterPerfChart = new Chart(counterCtx, {
-            type: 'bar',
-            data: { labels: ['Counter 1','Counter 2','Counter 3','Counter 4'], datasets: [{ label: 'Customers Served', data: [45,38,52,41], backgroundColor: ['rgba(99,102,241,0.8)','rgba(168,85,247,0.8)','rgba(236,72,153,0.8)','rgba(59,130,246,0.8)'] }] },
-            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+          getCounterPerformance().then(({ names, counts }) => {
+            counterPerfChart = new Chart(counterCtx, {
+              type: 'bar',
+              data: { 
+                labels: names, 
+                datasets: [{ 
+                  label: 'Customers Served', 
+                  data: counts, 
+                  backgroundColor: ['rgba(99,102,241,0.8)','rgba(168,85,247,0.8)','rgba(236,72,153,0.8)','rgba(59,130,246,0.8)'] 
+                }] 
+              },
+              options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { y: { beginAtZero: true, ticks: { font: { size: 12 } } }, x: { ticks: { font: { size: 11 } } } } 
+              }
+            });
           });
         }
       }
