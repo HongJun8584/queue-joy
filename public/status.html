@@ -145,8 +145,8 @@
       <div class="onboarding-slide active" data-slide="0">
         <div>
           <div class="onboarding-icon">1️⃣</div>
-          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Open Telegram</h2>
-          <p class="text-gray-600 leading-relaxed">You must use the Telegram app on your phone — not the web version.</p>
+          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Connect Telegram</h2>
+          <p class="text-gray-600 leading-relaxed">Get notified instantly when it's your turn with Telegram. No need to keep this page open! You must use the Telegram app on your phone</p>
         </div>
         <div>
           <div class="step-indicators">
@@ -380,7 +380,7 @@ window.connectTelegram = async function() {
         telegramStatus.classList.remove('text-gray-600');
         telegramStatus.classList.add('text-green-700','font-semibold');
         telegramIcon.classList.add('bg-green-100');
-        connectionBannerText.textContent = "Connected — you can leave this page in the background. Telegram app will DM you when it's your turn.";
+        connectionBannerText.textContent = "Connected ✅ You can close both your browser and Telegram. You’ll get notified when it’s your turn.";
       } else {
         telegramStatus.textContent = 'Not connected — get notified by Telegram';
         telegramStatus.classList.remove('text-green-700','font-semibold');
