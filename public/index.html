@@ -89,6 +89,7 @@
       const adPanel = document.getElementById('adPanel');
       const noAd = document.getElementById('noAd');
       const adTextEl = document.getElementById('adText');
+      const smallTopText = document.getElementById('smallTopText');
 
       function showError(msg) {
         console.warn(msg);
@@ -122,9 +123,9 @@
         else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
 
         // page title
-        const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
-        siteTitleEl.textContent = topTitle;
-        document.title = topTitle + ' - Digital Queue System';
+        const  smallTopText = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
+        siteTitleEl.textContent =  smallTopText;
+        document.title =  smallTopText;
 
         // center logo (big)
         if (s.logoUrl) {
@@ -303,7 +304,7 @@
       <img id="siteLogo" src="" alt="Site logo" class="w-12 h-12 rounded-full hidden object-cover border" />
       <div class="flex-1 text-left">
         <h1 id="siteTitle" class="text-lg font-bold text-gray-800">Queue Joy</h1>
-        <p id="smallTopText" class="text-xs text-gray-500">Digital Queue System</p>
+        <p id="smallTopText" class="text-xs text-gray-500"></p>
       </div>
       <div class="text-right text-xs text-gray-400">Powered by Queue Joy</div>
     </div>
