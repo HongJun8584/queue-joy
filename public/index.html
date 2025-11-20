@@ -89,6 +89,7 @@
       const adPanel = document.getElementById('adPanel');
       const noAd = document.getElementById('noAd');
       const adTextEl = document.getElementById('adText');
+      const smallTopTextEl = document.getElementById('smallTopText'); // <- NEW: top small text element mapping
 
       function showError(msg) {
         console.warn(msg);
@@ -121,10 +122,15 @@
         if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); }
         else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
 
-        // page title
+        // page title — use new key mainTitle if present
         const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
         siteTitleEl.textContent = topTitle;
         document.title = topTitle + ' - Digital Queue System';
+
+        // small text on top (NEW: map settings.smallTextOnTop -> #smallTopText)
+        if (smallTopTextEl) {
+          smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
+        }
 
         // center logo (big)
         if (s.logoUrl) {
@@ -136,8 +142,11 @@
         }
 
         // main headline & intro
+        // main heading uses the new key titleinmiddle (fallbacks preserved)
         mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
+        // intro text uses introText first, otherwise use smallTextOnTop if that's where you put it
         introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
+        // button text keeps CTA override if present
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
         // ad
@@ -221,6 +230,7 @@
           }
 
           // 2) Increment the global RR counter (atomic)
+          // <-- uses settings/lastCounterIndex which matches the new key in your DB
           const rrRef = ref(db, 'settings/lastCounterIndex');
 
           const rrResult = await runTxWithRetries(rrRef, cur => {
