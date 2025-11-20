@@ -1,8 +1,10 @@
 // netlify/functions/notifyCounter.js
-// Notifier: notifies (a) the called number (served) and (b) the number immediately before (next).
+// Notifier: polite notifications for (a) the called number (served) and (b) the number immediately before it (next).
 // Envs:
 //  - BOT_TOKEN (required)
-//  - REDIS_URL (optional, recommended for persistence)
+//  - REDIS_URL (optional)
+//  - FIREBASE_DB_URL (optional) - e.g. https://your-app-default-rtdb.region.firebasedatabase.app
+//
 // POST JSON body:
 // {
 //   "calledFull": "VANILLA002",
@@ -11,18 +13,20 @@
 //     { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
 //   ]
 // }
-// Behavior:
-//  - Only sends to recipients whose `theirNumber` equals calledFull (served) OR equals previous number (next).
-//  - Marks served tickets as served (persisted) and deletes active ticket entry.
-//  - Updates series stats (totalServed, totalServiceMs, lastServedAt).
-//  - Minimal inline keyboard: [Status] [Help]
+//
+// Behavior summary:
+// - Notify only recipients whose `theirNumber` equals calledFull (served) OR equals previous number (next).
+// - Persist served/notified state in Redis or /tmp fallback, update per-series stats.
+// - If FIREBASE_DB_URL is set, attempt to remove matching active queue entries (clean numbers).
+// - Polite message wording and small inline keyboard [Status] [Help] (callback_data).
+// - Returns a JSON result including firebaseCleanSummary.
 
 const fs = require('fs');
-const path = require('path');
 const TMP_STORE = '/tmp/queuejoy_store.json';
 
 const BOT_TOKEN = process.env.BOT_TOKEN || null;
 const REDIS_URL = process.env.REDIS_URL || null;
+const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || null;
 
 let RedisClient = null;
 let useRedis = false;
@@ -38,7 +42,7 @@ if (REDIS_URL) {
   }
 }
 
-// ---------- Helpers: persistence ----------
+// ---------------- Persistence helpers ----------------
 async function loadStore() {
   if (useRedis) return null;
   try {
@@ -70,7 +74,7 @@ async function redisDel(key) {
   await RedisClient.del(key);
 }
 
-// ---------- Utility ----------
+// ---------------- Utilities ----------------
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -97,6 +101,7 @@ function parseTicket(full) {
   if (isNaN(num)) return null;
   return { prefix, numStr, num, pad: numStr.length };
 }
+
 function previousTicket(full) {
   const p = parseTicket(full);
   if (!p) return null;
@@ -105,10 +110,12 @@ function previousTicket(full) {
   const prevStr = String(prev).padStart(p.pad, '0');
   return `${p.prefix}${prevStr}`;
 }
+
 function ticketKeyFor({ ticketId, chatId, theirNumber }) {
   if (ticketId) return String(ticketId);
   return `${String(chatId)}|${String(theirNumber)}`;
 }
+
 function formatDurationMs(ms) {
   if (ms == null || isNaN(ms)) return '-';
   ms = Math.max(0, Math.round(ms));
@@ -118,10 +125,10 @@ function formatDurationMs(ms) {
   return `${m}m ${remS}s`;
 }
 
-// ---------- Telegram send ----------
 const fetchFn = globalThis.fetch || (typeof require === 'function' ? require('node-fetch') : null);
 if (!fetchFn) throw new Error('fetch is required in runtime');
 
+// ---------------- Telegram send ----------------
 async function tgSendMessage(chatId, text, inlineKeyboard = null) {
   if (!BOT_TOKEN) return { ok: false, error: 'Missing BOT_TOKEN env' };
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
@@ -158,11 +165,9 @@ async function sendWithRetry(chatId, text, inlineKeyboard = null) {
     } catch (e) {
       lastErr = e;
       const msg = String(e && e.message ? e.message : e);
-      // permanent failures: blocked / chat not found — stop retrying
       if (/blocked|user is deactivated|chat not found|not_found|have no rights/i.test(msg)) {
         throw e;
       }
-      // backoff
       await new Promise(r => setTimeout(r, 150 + attempt * 200));
       attempt++;
     }
@@ -170,7 +175,84 @@ async function sendWithRetry(chatId, text, inlineKeyboard = null) {
   throw lastErr || new Error('Unknown send error');
 }
 
-// ---------- Main handler ----------
+// ---------------- Firebase cleaning ----------------
+async function firebaseFetchQueueAll(firebaseUrl) {
+  try {
+    const url = `${firebaseUrl.replace(/\/$/,'')}/queue.json`;
+    const res = await fetchFn(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json; // object keyed by queue id
+  } catch (e) {
+    return null;
+  }
+}
+async function firebaseDeletePath(firebaseUrl, path) {
+  try {
+    // path should not start with leading slash, e.g. 'queue/abc123'
+    const cleanBase = firebaseUrl.replace(/\/$/,'');
+    const url = `${cleanBase}/${path}.json`;
+    const res = await fetchFn(url, { method: 'DELETE' });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+/*
+  firebaseCleanByTicket attempts to remove any queue entries that match:
+    - ticketId (if provided) => deletes queue/{ticketId}.json
+    - otherwise scans queue and deletes entries where any of these fields match calledFull:
+        theirNumber, number, fullNumber, ticketNumber, code
+*/
+
+async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
+  if (!firebaseUrl) return { ok: false, reason: 'no firebase url' };
+  const deleted = [];
+  const errors = [];
+  // try direct delete by ticketId first
+  try {
+    if (ticketId) {
+      // attempt delete common locations
+      const qPathById = `queue/${encodeURIComponent(ticketId)}`;
+      const ok = await firebaseDeletePath(firebaseUrl, qPathById);
+      if (ok) deleted.push(qPathById);
+      // continue scanning as backup
+    }
+
+    const all = await firebaseFetchQueueAll(firebaseUrl);
+    if (!all || typeof all !== 'object') {
+      return { ok: true, deleted, errors, note: 'No queue entries found or public DB blocked' };
+    }
+    const lowCalled = String(calledFull).toLowerCase();
+
+    for (const [key, obj] of Object.entries(all)) {
+      if (!obj || typeof obj !== 'object') continue;
+      // candidate fields to compare
+      const fields = ['theirNumber','number','fullNumber','ticketNumber','code','id'];
+      let match = false;
+      for (const f of fields) {
+        if (f in obj && obj[f] && String(obj[f]).toLowerCase() === lowCalled) { match = true; break; }
+      }
+      // also if ticketId matches stored id/key
+      if (!match && ticketId) {
+        if (obj.ticketId && String(obj.ticketId) === String(ticketId)) match = true;
+        if (String(key) === String(ticketId)) match = true;
+      }
+      if (match) {
+        const path = `queue/${encodeURIComponent(key)}`;
+        const ok = await firebaseDeletePath(firebaseUrl, path);
+        if (ok) deleted.push(path);
+        else errors.push({ path, reason: 'delete-failed' });
+      }
+    }
+    return { ok: true, deleted, errors };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// ---------------- Main handler ----------------
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Only POST allowed' }) };
@@ -180,13 +262,16 @@ exports.handler = async function (event) {
   }
 
   let payload;
-  try { payload = JSON.parse(event.body || '{}'); } catch (e) {
+  try {
+    payload = JSON.parse(event.body || '{}');
+  } catch (e) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON body' }) };
   }
 
   const calledFull = String(payload.calledFull || '').trim();
   const counterName = payload.counterName ? String(payload.counterName).trim() : '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
+  const cleanFirebase = !!payload.cleanFirebase; // optional override from client
 
   if (!calledFull) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
@@ -206,16 +291,15 @@ exports.handler = async function (event) {
     if (!chatId) continue;
     const theirNumber = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '').toString().trim();
     if (!theirNumber) continue;
-    // Optional: only same series (safer). If theirNumber has no series, we skip.
     const recipientSeries = seriesOf(theirNumber);
     if (!recipientSeries) continue;
-    // allow only same series: this prevents cross-series notifications
+    // only same series to avoid cross-series notifications
     if (recipientSeries !== calledSeries) continue;
     const key = String(chatId);
-    // prefer an entry where theirNumber exactly equals prevFull or calledFull (if multiple per chat)
     const existing = dedupe.get(key);
     if (!existing) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
     else {
+      // prefer entries whose number exactly matches calledFull or prevFull
       const existingPriority = (existing.theirNumber.toLowerCase() === calledFull.toLowerCase() || existing.theirNumber.toLowerCase() === (prevFull || '').toLowerCase()) ? 1 : 0;
       const thisPriority = (theirNumber.toLowerCase() === calledFull.toLowerCase() || theirNumber.toLowerCase() === (prevFull || '').toLowerCase()) ? 1 : 0;
       if (thisPriority > existingPriority) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
@@ -227,18 +311,18 @@ exports.handler = async function (event) {
   }
 
   const results = [];
-
-  // Inline keyboard (minimal) — two buttons: Status and Help (callback_data)
+  // Inline keyboard with polite call-to-action. You can replace callback_data with URL if desired.
   const inlineKeyboard = [
     [{ text: 'ℹ️ Status', callback_data: '/status' }, { text: '❓ Help', callback_data: '/help' }]
   ];
 
+  // Process recipients (only those matching calledFull or prevFull)
   for (const [chatId, item] of dedupe.entries()) {
     const theirNumber = item.theirNumber || '';
     const ticketId = item.ticketId || null;
     const key = ticketKeyFor({ ticketId, chatId, theirNumber });
 
-    // Load ticket if exists
+    // Load ticket record if present
     let ticket = null;
     if (useRedis) {
       ticket = await redisGet(`ticket:${key}`);
@@ -246,7 +330,6 @@ exports.handler = async function (event) {
       ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
     }
 
-    // If no ticket record, create baseline
     if (!ticket) {
       ticket = {
         ticketKey: key,
@@ -264,58 +347,52 @@ exports.handler = async function (event) {
     let action = null;
     let messageText = null;
 
+    // Polite messaging
     if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
-      // It's your turn
       action = 'served';
       ticket.calledAt = nowIso();
       ticket.servedAt = nowIso();
-
-      // concise message
-      messageText = `🎯 <b>${calledFull}</b> — it’s your turn.\nPlease go to${counterName ? ' ' + counterName : ' the counter'} now.`;
+      messageText = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.`;
     } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
-      // You're next
       action = 'next';
       ticket.notifiedAt = nowIso();
-      messageText = `⏳ <b>${theirNumber}</b> — you're next. Please be ready to approach the counter soon.`;
+      messageText = `⏳ Dear customer,\n\nYour number <b>${theirNumber}</b> — you are next. Please be ready; we will call you shortly. Thank you.`;
     } else {
-      // not relevant to this run: skip
       results.push({ chatId, theirNumber, skipped: true });
       continue;
     }
 
-    // Persist ticket update: mark served or update notified time
+    // Persist & stats update
+    let statUpdate = null;
     if (action === 'served') {
-      // update stats and remove active ticket
-      // compute serviceMs
       const createdMs = new Date(ticket.createdAt).getTime();
       const servedMs = new Date(ticket.servedAt).getTime();
       const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
-
-      // update stats key
       const statKey = `stats:${ticket.series}`;
-      let stats = null;
+
       if (useRedis) {
-        stats = await redisGet(statKey) || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
+        let stats = await redisGet(statKey) || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
         stats.totalServed = (stats.totalServed || 0) + 1;
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         await redisSet(statKey, stats);
-        // clean active ticket entry
+        // remove active ticket from Redis (clean)
         await redisDel(`ticket:${key}`);
+        statUpdate = stats;
       } else {
         store.tickets = store.tickets || {};
         store.stats = store.stats || {};
-        stats = store.stats[ticket.series] || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
+        let stats = store.stats[ticket.series] || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
         stats.totalServed = (stats.totalServed || 0) + 1;
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         store.stats[ticket.series] = stats;
-        // remove ticket from active tickets
+        // delete active ticket
         delete store.tickets[key];
         await saveStore(store);
+        statUpdate = stats;
       }
-    } else {
-      // action === 'next' -> persist ticket notifiedAt
+    } else { // next
       if (useRedis) {
         await redisSet(`ticket:${key}`, ticket);
       } else {
@@ -325,7 +402,7 @@ exports.handler = async function (event) {
       }
     }
 
-    // Send message with inline keyboard
+    // Send the message
     let sendRes;
     try {
       sendRes = await sendWithRetry(chatId, messageText, inlineKeyboard);
@@ -333,31 +410,14 @@ exports.handler = async function (event) {
       sendRes = { ok: false, error: String(err) };
     }
 
-    // Attach stat snapshot if served
-    let statUpdate = null;
-    if (action === 'served') {
-      if (useRedis) {
-        const s = await redisGet(`stats:${ticket.series}`);
-        statUpdate = s ? {
-          series: ticket.series,
-          totalServed: s.totalServed || 0,
-          totalServiceMs: s.totalServiceMs || 0,
-          avgServiceMs: s.totalServed ? Math.round((s.totalServiceMs || 0) / s.totalServed) : null,
-          avgFormatted: s.totalServed ? formatDurationMs(Math.round((s.totalServiceMs || 0) / s.totalServed)) : '-',
-          lastServedAt: s.lastServedAt || null
-        } : null;
-      } else {
-        const sObj = store.stats && store.stats[ticket.series] ? store.stats[ticket.series] : null;
-        if (sObj) {
-          statUpdate = {
-            series: ticket.series,
-            totalServed: sObj.totalServed || 0,
-            totalServiceMs: sObj.totalServiceMs || 0,
-            avgServiceMs: sObj.totalServed ? Math.round((sObj.totalServiceMs || 0) / sObj.totalServed) : null,
-            avgFormatted: sObj.totalServed ? formatDurationMs(Math.round((sObj.totalServiceMs || 0) / sObj.totalServed)) : '-',
-            lastServedAt: sObj.lastServedAt || null
-          };
-        }
+    // After successful served message, attempt firebase cleaning if requested or FIREBASE_DB_URL present
+    let firebaseCleanResult = null;
+    if (action === 'served' && FIREBASE_DB_URL) {
+      try {
+        // try to clean queue entries that match ticketId or calledFull
+        firebaseCleanResult = await firebaseCleanMatching(FIREBASE_DB_URL, calledFull, ticket.ticketId || null);
+      } catch (e) {
+        firebaseCleanResult = { ok: false, error: String(e) };
       }
     }
 
@@ -365,16 +425,18 @@ exports.handler = async function (event) {
       chatId,
       theirNumber,
       ticketKey: key,
+      ticketId: ticket.ticketId || null,
       action,
       sendRes,
-      statUpdate
+      statUpdate,
+      firebaseCleanResult
     });
 
-    // gentle pause to reduce rate limit impact
+    // gentle pause
     await new Promise(r => setTimeout(r, 90));
-  } // end for
+  }
 
-  // prepare stats snapshot for calledSeries
+  // Build stats snapshot for response (calledSeries)
   let statsSnapshot = null;
   if (useRedis) {
     try {
@@ -386,7 +448,7 @@ exports.handler = async function (event) {
         avgFormatted: s.totalServed ? formatDurationMs(Math.round((s.totalServiceMs || 0) / s.totalServed)) : '-',
         lastServedAt: s.lastServedAt || null
       };
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   } else {
     statsSnapshot = store.stats && store.stats[calledSeries] ? {
       series: calledSeries,
@@ -408,7 +470,8 @@ exports.handler = async function (event) {
       sent: results.filter(r => !r.skipped).length,
       results,
       statsSnapshot,
-      persistence: useRedis ? 'redis' : 'ephemeral-file'
+      persistence: useRedis ? 'redis' : 'ephemeral-file',
+      firebaseConfigured: !!FIREBASE_DB_URL
     })
   };
 };
