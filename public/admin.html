@@ -1,467 +1,896 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy — Admin</title>
-
-  <!-- NOTE: For development we use Tailwind CDN for quick styling. In production install Tailwind as PostCSS or use the CLI. -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* Small utility overrides */
-    .fade-up { transform: translateY(8px); opacity: 0; transition: all .36s ease; }
-    .fade-up.show { transform: translateY(0); opacity: 1; }
-    .card { background: white; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
-    input[type=file] { display:block }
-    .small { font-size: 0.85rem }
-    .pill { padding: .25rem .5rem; border-radius: 999px; background: rgba(0,0,0,0.06); }
-    /* crop canvas preview styling */
-    .crop-wrap { position: relative; width: 100%; max-width: 420px; }
-    .crop-canvas { width: 100%; border-radius: 8px; background: #f6f6f6; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Joy Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .crop-container {
+            position: relative;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        .crop-selection {
+            position: absolute;
+            border: 2px dashed #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            cursor: move;
+        }
+        .crop-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            min-width: 250px;
+        }
+    </style>
 </head>
-<body class="bg-gray-50 text-slate-800 font-sans">
-  <div class="max-w-6xl mx-auto p-6">
-    <header class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-2xl font-semibold">Queue Joy — Admin</h1>
-        <p class="text-sm text-slate-500">Manage settings, media, announcements and analytics.</p>
-      </div>
-      <div class="flex items-center gap-3">
-        <button id="btnRefresh" class="btn bg-white px-3 py-2 card small">Refresh</button>
-        <div id="statusDot" class="pill small">Disconnected</div>
-      </div>
-    </header>
+<body class="bg-gray-50 dark:bg-gray-900">
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast"></div>
 
-    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- left: Settings & Media -->
-      <section class="col-span-1 card p-4 fade-up show">
-        <h2 class="font-medium">Settings & Images</h2>
-        <p class="text-sm text-slate-500 mb-3">Edit values stored in Firebase under <code>/settings</code>. Images can be cropped client-side before saving.</p>
-
-        <div class="space-y-3">
-          <label class="block small">Main title
-            <input id="mainTitle" class="mt-1 w-full p-2 border rounded" />
-          </label>
-
-          <label class="block small">Small text on top
-            <input id="smallTextOnTop" class="mt-1 w-full p-2 border rounded" />
-          </label>
-
-          <label class="block small">Intro text
-            <textarea id="introText" rows="3" class="mt-1 w-full p-2 border rounded"></textarea>
-          </label>
-
-          <label class="block small">adImage (croppable)
-            <input id="adImageFile" type="file" accept="image/*" />
-          </label>
-          <div id="adImageCrop" class="crop-wrap hidden">
-            <canvas id="adCanvas" class="crop-canvas"></canvas>
-            <div class="flex gap-2 mt-2">
-              <button id="adCropSave" class="px-3 py-2 card">Save Cropped</button>
-              <button id="adReset" class="px-3 py-2 card">Reset</button>
-            </div>
-          </div>
-
-          <label class="block small">Logo image (croppable)
-            <input id="logoFile" type="file" accept="image/*" />
-          </label>
-          <div id="logoCrop" class="crop-wrap hidden">
-            <canvas id="logoCanvas" class="crop-canvas"></canvas>
-            <div class="flex gap-2 mt-2">
-              <button id="logoCropSave" class="px-3 py-2 card">Save Cropped</button>
-              <button id="logoReset" class="px-3 py-2 card">Reset</button>
-            </div>
-          </div>
-
-          <div class="flex gap-2 mt-2">
-            <button id="saveSettings" class="px-4 py-2 bg-sky-600 text-white rounded">Save Settings</button>
-            <button id="loadSettings" class="px-4 py-2 card">Load From Firebase</button>
-          </div>
+    <!-- Firebase Config Modal -->
+    <div id="configModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 animate-slide-in">
+            <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Firebase Configuration</h2>
+            <input type="text" id="firebaseUrl" placeholder="Enter Firebase RTDB URL" 
+                   class="w-full px-4 py-2 border rounded-lg mb-4 dark:bg-gray-700 dark:text-white">
+            <button onclick="saveFirebaseConfig()" 
+                    class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
+                Save Configuration
+            </button>
         </div>
-      </section>
+    </div>
 
-      <!-- middle: Announcement composer -->
-      <section class="col-span-1 lg:col-span-2 card p-4">
-        <h2 class="font-medium">Announcement Composer</h2>
-        <p class="text-sm text-slate-500">Send text, image, gif, audio or video to all or filtered by queue.</p>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-          <div class="md:col-span-2">
-            <label class="block small">Message</label>
-            <textarea id="announceMessage" rows="4" class="mt-1 w-full p-2 border rounded"></textarea>
-
-            <div class="flex items-center gap-3 mt-2">
-              <label class="small">Target queue (optional)</label>
-              <select id="queueFilter" class="p-2 border rounded">
-                <option value="">All queues</option>
-              </select>
-
-              <label class="small">Or paste Chat IDs (comma)</label>
-              <input id="overrideChatIds" class="p-2 border rounded" placeholder="123,456" />
+    <!-- Main Container -->
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-md">
+            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-blue-600">Queue Joy Admin</h1>
+                <div class="flex gap-4">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700">
+                        🌓
+                    </button>
+                    <button onclick="loadAllData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        🔄 Refresh
+                    </button>
+                </div>
             </div>
+        </header>
 
-            <div class="mt-3">
-              <label class="small">Attach media (image, gif, video, audio)</label>
-              <input id="announceFile" type="file" accept="image/*,video/*,audio/*" />
-              <div id="mediaPreview" class="mt-2"></div>
+        <div class="container mx-auto px-4 py-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Column: Settings & Images -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Business Settings Card -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-slide-in">
+                        <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Business Settings</h2>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Main Title</label>
+                                <input type="text" id="mainTitle" 
+                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                                       placeholder="Enter main title">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Small Text on Top</label>
+                                <input type="text" id="smallTextOnTop" 
+                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                                       placeholder="Enter small text">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Title in Middle</label>
+                                <input type="text" id="titleinmiddle" 
+                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                                       placeholder="Enter middle title">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Intro Text</label>
+                                <textarea id="introText" rows="3"
+                                          class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                                          placeholder="Enter intro text"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Last Counter Index</label>
+                                <input type="number" id="lastCounterIndex" 
+                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                                       placeholder="0">
+                            </div>
+
+                            <button onclick="saveSettings()" 
+                                    class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition">
+                                💾 Save All Settings
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Image Upload & Crop Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Logo -->
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+                            <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Logo</h3>
+                            <div class="space-y-2">
+                                <img id="logoPreview" src="" alt="Logo" class="w-full h-32 object-contain bg-gray-100 rounded">
+                                <input type="file" id="logoFile" accept="image/*" class="hidden" onchange="handleImageUpload('logo', this)">
+                                <button onclick="document.getElementById('logoFile').click()" 
+                                        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">
+                                    📁 Upload Logo
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Logo URL -->
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+                            <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Logo URL</h3>
+                            <div class="space-y-2">
+                                <img id="logoUrlPreview" src="" alt="Logo URL" class="w-full h-32 object-contain bg-gray-100 rounded">
+                                <input type="file" id="logoUrlFile" accept="image/*" class="hidden" onchange="handleImageUpload('logoUrl', this)">
+                                <button onclick="document.getElementById('logoUrlFile').click()" 
+                                        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">
+                                    📁 Upload Image
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Ad Image -->
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+                            <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Ad Image</h3>
+                            <div class="space-y-2">
+                                <img id="adImagePreview" src="" alt="Ad" class="w-full h-32 object-contain bg-gray-100 rounded">
+                                <input type="file" id="adImageFile" accept="image/*" class="hidden" onchange="handleImageUpload('adImage', this)">
+                                <button onclick="document.getElementById('adImageFile').click()" 
+                                        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">
+                                    📁 Upload Ad
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Card -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h2>
+                            <button onclick="exportAnalytics()" 
+                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                                📊 Export CSV
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
+                                <div class="text-sm text-blue-600 dark:text-blue-300">Total Waiting</div>
+                                <div id="totalWaiting" class="text-2xl font-bold text-blue-900 dark:text-blue-100">0</div>
+                            </div>
+                            <div class="bg-green-50 dark:bg-green-900 p-4 rounded-lg">
+                                <div class="text-sm text-green-600 dark:text-green-300">Total Served</div>
+                                <div id="totalServed" class="text-2xl font-bold text-green-900 dark:text-green-100">0</div>
+                            </div>
+                            <div class="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+                                <div class="text-sm text-yellow-600 dark:text-yellow-300">Avg Wait Time</div>
+                                <div id="avgWaitTime" class="text-2xl font-bold text-yellow-900 dark:text-yellow-100">0m</div>
+                            </div>
+                            <div class="bg-purple-50 dark:bg-purple-900 p-4 rounded-lg">
+                                <div class="text-sm text-purple-600 dark:text-purple-300">Subscribers</div>
+                                <div id="totalSubscribers" class="text-2xl font-bold text-purple-900 dark:text-purple-100">0</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <canvas id="queueChart" height="100"></canvas>
+                        </div>
+
+                        <div>
+                            <h3 class="font-bold mb-2 text-gray-900 dark:text-white">Recent Queue Entries</h3>
+                            <div id="recentQueue" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Announcements & Recipients -->
+                <div class="space-y-6">
+                    <!-- Announcement Card -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">📢 Send Announcement</h2>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Message</label>
+                                <textarea id="announcementMessage" rows="4"
+                                          class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+                                          placeholder="Enter your announcement message"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Media (optional)</label>
+                                <input type="file" id="announcementMedia" 
+                                       accept="image/*,video/*,audio/*,.gif"
+                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                                       onchange="previewAnnouncementMedia(this)">
+                                <div id="mediaPreview" class="mt-2"></div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Filter by Queue</label>
+                                <select id="queueFilter" 
+                                        class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                                    <option value="">All Queues</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Recipients</label>
+                                <div class="flex gap-2 mb-2">
+                                    <button onclick="selectAllRecipients()" 
+                                            class="flex-1 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded text-sm">
+                                        Select All
+                                    </button>
+                                    <button onclick="deselectAllRecipients()" 
+                                            class="flex-1 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded text-sm">
+                                        Deselect All
+                                    </button>
+                                </div>
+                                <div id="recipientsList" class="border rounded-lg p-3 max-h-48 overflow-y-auto dark:bg-gray-700"></div>
+                                <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    Selected: <span id="selectedCount">0</span>
+                                </div>
+                            </div>
+
+                            <button onclick="sendAnnouncement()" 
+                                    class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition">
+                                🚀 Send Announcement
+                            </button>
+
+                            <div id="sendProgress" class="hidden">
+                                <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span>Progress</span>
+                                        <span id="progressText">0/0</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div id="progressBar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <div class="mt-2 text-xs">
+                                        <span class="text-green-600">✓ Success: <span id="successCount">0</span></span>
+                                        <span class="text-red-600 ml-4">✗ Failed: <span id="failCount">0</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recipients Management -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">👥 Telegram Subscribers</h2>
+                        <div id="subscribersList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                    </div>
+                </div>
             </div>
-
-            <div class="mt-4 flex gap-2">
-              <button id="sendAnnouncement" class="px-4 py-2 bg-emerald-600 text-white rounded">Send Announcement</button>
-              <button id="previewAnnouncement" class="px-4 py-2 card">Preview</button>
-            </div>
-
-            <div id="announceLog" class="mt-3 small text-sm text-slate-600"></div>
-          </div>
-
-          <div class="md:col-span-1 border-l pl-4">
-            <h3 class="font-medium">Recipients</h3>
-            <div class="mt-2 small text-slate-600">Select from stored telegramUsers or let the function pick all.</div>
-            <div id="recipientsList" class="mt-2 max-h-64 overflow-auto"></div>
-            <div class="mt-2">
-              <button id="selectAllRecipients" class="px-2 py-1 card small">Select All</button>
-              <button id="deselectAllRecipients" class="px-2 py-1 card small">Deselect All</button>
-            </div>
-          </div>
         </div>
-      </section>
+    </div>
 
-      <!-- right: Analytics -->
-      <section class="col-span-1 card p-4 fade-up show">
-        <h2 class="font-medium">Analytics</h2>
-        <p class="text-sm text-slate-500">Quick insights computed from <code>/queue</code> and <code>/telegramUsers</code>.</p>
-
-        <div class="mt-3 space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-2xl font-semibold" id="totalWaiting">—</div>
-              <div class="small text-slate-500">Waiting</div>
+    <!-- Image Crop Modal -->
+    <div id="cropModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 animate-slide-in">
+            <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Crop Image</h2>
+            <div class="crop-container mb-4" id="cropContainer">
+                <canvas id="cropCanvas"></canvas>
+                <div id="cropSelection" class="crop-selection hidden"></div>
             </div>
-            <div>
-              <div class="text-2xl font-semibold" id="totalServed">—</div>
-              <div class="small text-slate-500">Served</div>
+            <div class="flex gap-4">
+                <button onclick="saveCroppedImage()" 
+                        class="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                    ✓ Save Cropped Image
+                </button>
+                <button onclick="closeCropModal()" 
+                        class="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">
+                    ✗ Cancel
+                </button>
             </div>
-            <div>
-              <div class="text-2xl font-semibold" id="avgService">—</div>
-              <div class="small text-slate-500">Avg serve (s)</div>
-            </div>
-          </div>
-
-          <div>
-            <h4 class="small font-medium">Recent queues</h4>
-            <div id="recentQueueList" class="mt-2 max-h-48 overflow-auto small"></div>
-          </div>
         </div>
-      </section>
-    </main>
+    </div>
 
-    <footer class="mt-6 text-sm text-slate-500">Queue Joy Admin • edit settings in Firebase & use announce function. Use Tailwind via proper build in production.</footer>
-  </div>
+    <script>
+        // Global Variables
+        let FIREBASE_URL = localStorage.getItem('firebaseUrl') || '';
+        let currentCropField = '';
+        let currentImageData = null;
+        let cropStartX = 0, cropStartY = 0;
+        let cropSelection = { x: 0, y: 0, width: 0, height: 0 };
+        let isDragging = false;
+        let telegramUsers = {};
+        let queueData = {};
+        let counters = {};
+        let chart = null;
 
-  <!-- Scripts: Firebase v9 modular (CDN module imports) -->
-  <script type="module">
-    // ----------------- CONFIG -------------------
-    // Replace this config or set window.RTDB_ROOT to point to your Firebase Realtime DB root (https://.../)
-    // If you prefer env injection, admin.html can read a small /settings-based public endpoint.
-    const RTDB_ROOT = window.__RTDB_ROOT__ || null; // leave null to use explicit input below
-
-    // Helper: UI
-    const $ = sel => document.querySelector(sel);
-    const $$ = sel => Array.from(document.querySelectorAll(sel));
-
-    // Firebase modular imports (CDN)
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
-    import { getDatabase, ref, get, set, update, onValue } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js';
-
-    // A small helper to prompt for RTDB root if not present
-    async function getRtDbRoot() {
-      if (RTDB_ROOT) return RTDB_ROOT.replace(/\/$/, '');
-      const root = localStorage.getItem('rtdb_root') || prompt('Enter your Firebase Realtime Database root URL (e.g. https://your-db.firebaseio.com):');
-      if (!root) throw new Error('RTDB root required');
-      localStorage.setItem('rtdb_root', root.replace(/\/$/, ''));
-      return root.replace(/\/$/, '');
-    }
-
-    // init state
-    let FIREBASE_DB_ROOT = null;
-    (async () => {
-      try {
-        FIREBASE_DB_ROOT = await getRtDbRoot();
-        $('#statusDot').textContent = 'Connected';
-        $('#statusDot').classList.add('text-emerald-600');
-      } catch (e) {
-        console.error('No RTDB root', e);
-        $('#statusDot').textContent = 'No DB';
-      }
-    })();
-
-    // ----------------- tiny helpers ------------------
-    const jsonFetch = async (path, opts = {}) => {
-      if (!FIREBASE_DB_ROOT) throw new Error('RTDB root not set');
-      const url = `${FIREBASE_DB_ROOT}/${path.replace(/^\//, '')}.json`;
-      const res = await fetch(url, opts);
-      if (!res.ok) throw new Error(`Fetch failed ${res.status}`);
-      return await res.json();
-    };
-    const jsonPatch = async (path, body) => {
-      if (!FIREBASE_DB_ROOT) throw new Error('RTDB root not set');
-      const url = `${FIREBASE_DB_ROOT}/${path.replace(/^\//, '')}.json`;
-      const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!res.ok) { const t = await res.text().catch(()=>null); throw new Error(`Patch ${res.status} ${t}`); }
-      return await res.json();
-    };
-    const jsonPut = async (path, body) => {
-      if (!FIREBASE_DB_ROOT) throw new Error('RTDB root not set');
-      const url = `${FIREBASE_DB_ROOT}/${path.replace(/^\//, '')}.json`;
-      const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!res.ok) { const t = await res.text().catch(()=>null); throw new Error(`Put ${res.status} ${t}`); }
-      return await res.json();
-    };
-
-    // ----------------- Settings load/save ------------------
-    async function loadSettings() {
-      try {
-        const settings = await jsonFetch('settings');
-        if (!settings) return;
-        $('#mainTitle').value = settings.mainTitle || '';
-        $('#smallTextOnTop').value = settings.smallTextOnTop || '';
-        $('#introText').value = settings.introText || '';
-        // preview images
-        if (settings.adImage) previewImageFromData(settings.adImage, '#adImageCrop');
-        if (settings.logo) previewImageFromData(settings.logo, '#logoCrop');
-        // populate queues list
-        await loadQueuesList();
-      } catch (e) {
-        console.error('loadSettings failed', e);
-        alert('Failed to load settings: ' + e.message);
-      }
-    }
-
-    async function saveSettings() {
-      try {
-        const payload = {
-          mainTitle: $('#mainTitle').value.trim() || null,
-          smallTextOnTop: $('#smallTextOnTop').value.trim() || null,
-          introText: $('#introText').value.trim() || null,
+        // Initialize
+        window.onload = function() {
+            if (!FIREBASE_URL) {
+                document.getElementById('configModal').classList.remove('hidden');
+            } else {
+                loadAllData();
+            }
+            setupDarkMode();
         };
-        await jsonPatch('settings', payload);
-        toast('Settings saved');
-      } catch (e) {
-        console.error('saveSettings', e);
-        alert('Save failed: ' + e.message);
-      }
-    }
 
-    $('#loadSettings').addEventListener('click', loadSettings);
-    $('#saveSettings').addEventListener('click', saveSettings);
-
-    // ----------------- crop helpers ------------------
-    // lightweight crop: user drags a rectangle on canvas, we crop to that box
-    function createCropUI(fileInput, canvasEl, containerSelector) {
-      const container = document.querySelector(containerSelector);
-      let img = new Image();
-      let scale = 1; let startX=0,startY=0,drag=false, sx=0,sy=0,sw=0,sh=0;
-      const ctx = canvasEl.getContext('2d');
-
-      function draw() {
-        // clear
-        canvasEl.width = Math.min(1024, img.width); // limit size for performance
-        scale = canvasEl.width / img.width;
-        canvasEl.height = Math.round(img.height * scale);
-        ctx.clearRect(0,0,canvasEl.width, canvasEl.height);
-        ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
-        if (sw && sh) {
-          ctx.strokeStyle = 'cyan'; ctx.lineWidth = 2; ctx.strokeRect(sx, sy, sw, sh);
-        }
-      }
-
-      fileInput.addEventListener('change', async (e) => {
-        const f = fileInput.files[0];
-        if (!f) return;
-        const dataUrl = await readFileAsDataURL(f);
-        img = new Image();
-        img.onload = () => { container.classList.remove('hidden'); sx=sy=sw=sh=0; draw(); };
-        img.src = dataUrl;
-      });
-
-      // simple drag to set crop rect
-      canvasEl.addEventListener('mousedown', (ev) => {
-        const r = canvasEl.getBoundingClientRect(); startX = ev.clientX - r.left; startY = ev.clientY - r.top; drag=true; sx = startX; sy = startY; sw = 0; sh = 0;
-      });
-      canvasEl.addEventListener('mousemove', (ev) => {
-        if (!drag) return; const r = canvasEl.getBoundingClientRect(); const x = ev.clientX - r.left; const y = ev.clientY - r.top; sw = x - sx; sh = y - sy; draw();
-      });
-      window.addEventListener('mouseup', () => { if (drag) drag=false; });
-
-      const getCroppedData = () => {
-        if (!img.src) return null;
-        // if no rectangle selected, return full image
-        if (!sw || !sh) return img.src;
-        const cropCanvas = document.createElement('canvas');
-        // compute real pixel crop
-        const realSx = Math.round(sx / scale); const realSy = Math.round(sy / scale); const realSw = Math.round(Math.abs(sw) / scale); const realSh = Math.round(Math.abs(sh) / scale);
-        cropCanvas.width = realSw; cropCanvas.height = realSh;
-        const cctx = cropCanvas.getContext('2d');
-        cctx.drawImage(img, realSx, realSy, realSw, realSh, 0,0, realSw, realSh);
-        return cropCanvas.toDataURL('image/jpeg', 0.86);
-      };
-
-      return { getCroppedData, container, canvasEl };
-    }
-
-    function readFileAsDataURL(file) {
-      return new Promise((res, rej) => {
-        const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
-      });
-    }
-
-    // instantiate crop UIs
-    const adCrop = createCropUI($('#adImageFile'), $('#adCanvas'), '#adImageCrop');
-    const logoCrop = createCropUI($('#logoFile'), $('#logoCanvas'), '#logoCrop');
-
-    $('#adCropSave').addEventListener('click', async () => {
-      const data = adCrop.getCroppedData(); if (!data) return alert('No image');
-      try { await jsonPatch('settings', { adImage: data }); toast('adImage saved'); } catch (e) { alert('Save failed: '+e.message); }
-    });
-    $('#logoCropSave').addEventListener('click', async () => {
-      const data = logoCrop.getCroppedData(); if (!data) return alert('No image');
-      try { await jsonPatch('settings', { logo: data }); toast('logo saved'); } catch (e) { alert('Save failed: '+e.message); }
-    });
-
-    $('#adReset').addEventListener('click', () => { $('#adImageFile').value = ''; $('#adImageCrop').classList.add('hidden'); });
-    $('#logoReset').addEventListener('click', () => { $('#logoFile').value = ''; $('#logoCrop').classList.add('hidden'); });
-
-    function previewImageFromData(dataUrl, selector) {
-      const container = document.querySelector(selector);
-      if (!container) return; container.classList.remove('hidden');
-      const canvas = container.querySelector('canvas'); const ctx = canvas.getContext('2d');
-      const img = new Image(); img.onload = () => {
-        canvas.width = Math.min(900, img.width); const scale = canvas.width / img.width; canvas.height = Math.round(img.height * scale);
-        ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      }; img.src = dataUrl;
-    }
-
-    // ----------------- queues & recipients ------------------
-    async function loadQueuesList() {
-      try {
-        const queues = await jsonFetch('queue') || {};
-        const sel = $('#queueFilter'); sel.innerHTML = '<option value="">All queues</option>';
-        for (const k of Object.keys(queues)) {
-          const q = queues[k]; const label = (q.queueId || q.ticket || q.number || k) + (q.counterId ? ' • '+q.counterId : '');
-          const opt = document.createElement('option'); opt.value = k; opt.textContent = label; sel.appendChild(opt);
-        }
-        await loadRecipients();
-      } catch (e) { console.error('loadQueuesList', e); }
-    }
-
-    async function loadRecipients() {
-      try {
-        const users = await jsonFetch('telegramUsers') || {};
-        const wrap = $('#recipientsList'); wrap.innerHTML = '';
-        for (const k of Object.keys(users)) {
-          const v = users[k]; const row = document.createElement('div'); row.className = 'flex items-center gap-2 py-1';
-          const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.chatId = k; cb.className = 'recipientCB';
-          const label = document.createElement('div'); label.className = 'small'; label.textContent = `${k} ${v.queueKey ? '• '+v.queueKey : ''} ${v.connectedAt ? '• '+new Date(v.connectedAt).toLocaleString() : ''}`;
-          row.appendChild(cb); row.appendChild(label); wrap.appendChild(row);
-        }
-        $('#selectAllRecipients').addEventListener('click', ()=> $$('.recipientCB').forEach(x=>x.checked=true));
-        $('#deselectAllRecipients').addEventListener('click', ()=> $$('.recipientCB').forEach(x=>x.checked=false));
-      } catch (e) { console.error('loadRecipients', e); }
-    }
-
-    // ----------------- Announcement sending (calls netlify function) ------------------
-    async function buildMediaPayload(file) {
-      if (!file) return { media: '', mediaType: '' };
-      const dt = file.type || '';
-      const dataUrl = await readFileAsDataURL(file);
-      const payloadB64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
-      return { media: payloadB64, mediaType: dt };
-    }
-
-    async function sendAnnouncement() {
-      try {
-        const message = $('#announceMessage').value.trim();
-        const override = $('#overrideChatIds').value.trim();
-        const fileEl = $('#announceFile');
-        const file = fileEl.files && fileEl.files[0];
-        const selectedCBs = $$('.recipientCB').filter(c=>c.checked).map(c=>c.dataset.chatId);
-        const queueKey = $('#queueFilter').value || null;
-
-        let payload = { message };
-        if (override) payload.chatIds = override.split(/\s*,\s*/).filter(Boolean).map(s=>s);
-        else if (selectedCBs.length) payload.chatIds = selectedCBs;
-        else if (queueKey) payload.queueKey = queueKey;
-
-        if (file) {
-          const { media, mediaType } = await buildMediaPayload(file);
-          payload.media = media; payload.mediaType = mediaType;
+        // Toast Notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `animate-slide-in p-4 rounded-lg shadow-lg mb-2 ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            } text-white`;
+            toast.textContent = message;
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
 
-        $('#sendAnnouncement').disabled = true; $('#announceLog').textContent = 'Sending...';
-        const res = await fetch('/.netlify/functions/announce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const j = await res.json();
-        if (!res.ok || !j.ok) throw new Error(j.error || JSON.stringify(j));
-        $('#announceLog').textContent = `Sent ${j.sent}/${j.totalRecipients} — failed ${j.failed}`;
-        toast('Announcement sent');
-      } catch (e) {
-        console.error('Announcement error', e); $('#announceLog').textContent = 'Error: '+e.message; alert('Send failed: '+e.message);
-      } finally { $('#sendAnnouncement').disabled = false; }
-    }
+        // Firebase Configuration
+        function saveFirebaseConfig() {
+            const url = document.getElementById('firebaseUrl').value.trim();
+            if (!url) {
+                showToast('Please enter a valid Firebase URL', 'error');
+                return;
+            }
+            FIREBASE_URL = url.replace(/\/$/, '');
+            localStorage.setItem('firebaseUrl', FIREBASE_URL);
+            document.getElementById('configModal').classList.add('hidden');
+            showToast('Firebase configured successfully!', 'success');
+            loadAllData();
+        }
 
-    $('#sendAnnouncement').addEventListener('click', sendAnnouncement);
-    $('#previewAnnouncement').addEventListener('click', () => {
-      const txt = $('#announceMessage').value || '[No message]';
-      alert('Preview:\n\n' + txt);
-    });
+        // Dark Mode
+        function setupDarkMode() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.documentElement.classList.add('dark');
+            }
+        }
 
-    // preview attached media
-    $('#announceFile').addEventListener('change', async (e)=>{
-      const f = e.target.files[0]; const wrap = $('#mediaPreview'); wrap.innerHTML = '';
-      if (!f) return;
-      if (f.type.startsWith('image/')) {
-        const d = await readFileAsDataURL(f); const img = document.createElement('img'); img.src = d; img.style.maxWidth='220px'; wrap.appendChild(img);
-      } else if (f.type.startsWith('video/')) {
-        const d = URL.createObjectURL(f); const v = document.createElement('video'); v.src = d; v.controls = true; v.style.maxWidth='240px'; wrap.appendChild(v);
-      } else if (f.type.startsWith('audio/')) {
-        const d = URL.createObjectURL(f); const a = document.createElement('audio'); a.src = d; a.controls = true; wrap.appendChild(a);
-      } else {
-        wrap.textContent = 'Attached file: ' + f.name;
-      }
-    });
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+        }
 
-    // ----------------- Analytics ------------------
-    async function loadAnalytics() {
-      try {
-        const queues = await jsonFetch('queue') || {};
-        const users = await jsonFetch('telegramUsers') || {};
-        const totalWaiting = Object.values(queues).filter(q=>q.status !== 'served' && q.status !== 'completed' && !q.servedAt).length || 0;
-        const totalServed = Object.values(queues).filter(q=>q.servedAt).length || 0;
-        // compute avg service time for entries that have timestamp & servedAt
-        const diffs = Object.values(queues).map(q=>{ if (q.timestamp && q.servedAt) return (Date.parse(q.servedAt) - Number(q.timestamp))/1000; return null }).filter(x=>x!==null);
-        const avg = diffs.length ? Math.round(diffs.reduce((a,b)=>a+b,0)/diffs.length) : null;
-        $('#totalWaiting').textContent = totalWaiting;
-        $('#totalServed').textContent = totalServed;
-        $('#avgService').textContent = avg === null ? '—' : String(avg);
+        // Load All Data
+        async function loadAllData() {
+            await Promise.all([
+                loadSettings(),
+                loadTelegramUsers(),
+                loadQueue(),
+                loadCounters()
+            ]);
+            updateAnalytics();
+            populateQueueFilter();
+        }
 
-        const recent = Object.entries(queues).slice(-20).reverse().map(([k,v])=>`<div class="py-1 border-b">${(v.queueId||k)} • ${v.counterId||'—'} • ${v.status||'—'}</div>`).join('');
-        $('#recentQueueList').innerHTML = recent || '<div class="small text-slate-500">No recent</div>';
-      } catch (e) { console.error('loadAnalytics', e); }
-    }
+        // Load Settings
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${FIREBASE_URL}/settings.json`);
+                const data = await response.json();
+                if (data) {
+                    document.getElementById('mainTitle').value = data.mainTitle || '';
+                    document.getElementById('smallTextOnTop').value = data.smallTextOnTop || '';
+                    document.getElementById('titleinmiddle').value = data.titleinmiddle || '';
+                    document.getElementById('introText').value = data.introText || '';
+                    document.getElementById('lastCounterIndex').value = data.lastCounterIndex || 0;
+                    
+                    if (data.logo) document.getElementById('logoPreview').src = data.logo;
+                    if (data.logoUrl) document.getElementById('logoUrlPreview').src = data.logoUrl;
+                    if (data.adImage) document.getElementById('adImagePreview').src = data.adImage;
+                }
+            } catch (error) {
+                showToast('Error loading settings: ' + error.message, 'error');
+            }
+        }
 
-    // ----------------- small UX helpers ------------------
-    function toast(msg) {
-      const t = document.createElement('div'); t.className = 'fixed bottom-6 right-6 px-4 py-2 card small'; t.textContent = msg; document.body.appendChild(t);
-      setTimeout(()=>t.remove(), 3000);
-    }
+        // Save Settings
+        async function saveSettings() {
+            try {
+                const settings = {
+                    mainTitle: document.getElementById('mainTitle').value,
+                    smallTextOnTop: document.getElementById('smallTextOnTop').value,
+                    titleinmiddle: document.getElementById('titleinmiddle').value,
+                    introText: document.getElementById('introText').value,
+                    lastCounterIndex: parseInt(document.getElementById('lastCounterIndex').value) || 0
+                };
 
-    // ----------------- boot ------------------
-    $('#btnRefresh').addEventListener('click', async ()=>{ await loadSettings(); await loadRecipients(); await loadAnalytics(); toast('Refreshed'); });
-    // initial load when DB root set
-    (async ()=>{
-      try { await loadSettings(); await loadRecipients(); await loadAnalytics(); } catch(e){ console.warn('initial load issue', e); }
-    })();
+                const response = await fetch(`${FIREBASE_URL}/settings.json`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
 
-  </script>
+                if (response.ok) {
+                    showToast('Settings saved successfully!', 'success');
+                } else {
+                    throw new Error('Failed to save settings');
+                }
+            } catch (error) {
+                showToast('Error saving settings: ' + error.message, 'error');
+            }
+        }
+
+        // Image Upload Handler
+        function handleImageUpload(field, input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('File size must be less than 5MB', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentCropField = field;
+                currentImageData = e.target.result;
+                openCropModal(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Crop Modal Functions
+        function openCropModal(imageSrc) {
+            const modal = document.getElementById('cropModal');
+            const canvas = document.getElementById('cropCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = function() {
+                const maxWidth = 800;
+                const scale = Math.min(1, maxWidth / img.width);
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // Setup crop selection
+                cropSelection = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+                setupCropHandlers(canvas);
+            };
+            img.src = imageSrc;
+            modal.classList.remove('hidden');
+        }
+
+        function setupCropHandlers(canvas) {
+            const selection = document.getElementById('cropSelection');
+            selection.classList.remove('hidden');
+            updateCropSelection();
+
+            canvas.onmousedown = function(e) {
+                const rect = canvas.getBoundingClientRect();
+                cropStartX = e.clientX - rect.left;
+                cropStartY = e.clientY - rect.top;
+                isDragging = true;
+                cropSelection.x = cropStartX;
+                cropSelection.y = cropStartY;
+                cropSelection.width = 0;
+                cropSelection.height = 0;
+            };
+
+            canvas.onmousemove = function(e) {
+                if (!isDragging) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                cropSelection.width = x - cropStartX;
+                cropSelection.height = y - cropStartY;
+                updateCropSelection();
+            };
+
+            canvas.onmouseup = function() {
+                isDragging = false;
+                if (cropSelection.width < 0) {
+                    cropSelection.x += cropSelection.width;
+                    cropSelection.width = Math.abs(cropSelection.width);
+                }
+                if (cropSelection.height < 0) {
+                    cropSelection.y += cropSelection.height;
+                    cropSelection.height = Math.abs(cropSelection.height);
+                }
+                updateCropSelection();
+            };
+        }
+
+        function updateCropSelection() {
+            const selection = document.getElementById('cropSelection');
+            selection.style.left = cropSelection.x + 'px';
+            selection.style.top = cropSelection.y + 'px';
+            selection.style.width = Math.abs(cropSelection.width) + 'px';
+            selection.style.height = Math.abs(cropSelection.height) + 'px';
+        }
+
+        async function saveCroppedImage() {
+            const canvas = document.getElementById('cropCanvas');
+            const croppedCanvas = document.createElement('canvas');
+            const ctx = croppedCanvas.getContext('2d');
+
+            const x = Math.max(0, cropSelection.x);
+            const y = Math.max(0, cropSelection.y);
+            const width = Math.min(cropSelection.width, canvas.width - x);
+            const height = Math.min(cropSelection.height, canvas.height - y);
+
+            croppedCanvas.width = width || canvas.width;
+            croppedCanvas.height = height || canvas.height;
+
+            const sourceCanvas = canvas.getContext('2d');
+            const imageData = sourceCanvas.getImageData(x, y, width || canvas.width, height || canvas.height);
+            ctx.putImageData(imageData, 0, 0);
+
+            const croppedDataUrl = croppedCanvas.toDataURL('image/png');
+
+            // Update preview
+            document.getElementById(currentCropField + 'Preview').src = croppedDataUrl;
+
+            // Save to Firebase
+            try {
+                const response = await fetch(`${FIREBASE_URL}/settings/${currentCropField}.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(croppedDataUrl)
+                });
+
+                if (response.ok) {
+                    showToast('Image saved successfully!', 'success');
+                    closeCropModal();
+                } else {
+                    throw new Error('Failed to save image');
+                }
+            } catch (error) {
+                showToast('Error saving image: ' + error.message, 'error');
+            }
+        }
+
+        function closeCropModal() {
+            document.getElementById('cropModal').classList.add('hidden');
+            document.getElementById('cropSelection').classList.add('hidden');
+            currentCropField = '';
+            currentImageData = null;
+        }
+
+        // Load Telegram Users
+        async function loadTelegramUsers() {
+            try {
+                const response = await fetch(`${FIREBASE_URL}/telegramUsers.json`);
+                telegramUsers = await response.json() || {};
+                
+                document.getElementById('totalSubscribers').textContent = Object.keys(telegramUsers).length;
+                
+                // Update recipients list
+                const recipientsList = document.getElementById('recipientsList');
+                const subscribersList = document.getElementById('subscribersList');
+                recipientsList.innerHTML = '';
+                subscribersList.innerHTML = '';
+
+                Object.entries(telegramUsers).forEach(([chatId, data]) => {
+                    const checkbox = `
+                        <label class="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded cursor-pointer">
+                            <input type="checkbox" value="${chatId}" onchange="updateSelectedCount()" 
+                                   class="recipient-checkbox rounded">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm">${chatId}</div>
+                                <div class="text-xs text-gray-500">${data.queueKey || 'No queue'}</div>
+                            </div>
+                        </label>
+                    `;
+                    recipientsList.innerHTML += checkbox;
+
+                    const subscriber = `
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="font-medium text-sm">${chatId}</div>
+                            <div class="text-xs text-gray-500 mt-1">Queue: ${data.queueKey || 'None'}</div>
+                            <div class="text-xs text-gray-400">Connected: ${new Date(data.connectedAt).toLocaleString()}</div>
+                        </div>
+                    `;
+                    subscribersList.innerHTML += subscriber;
+                });
+                
+                updateSelectedCount();
+            } catch (error) {
+                showToast('Error loading telegram users: ' + error.message, 'error');
+            }
+        }
+
+        // Load Queue Data
+        async function loadQueue() {
+            try {
+                const response = await fetch(`${FIREBASE_URL}/queue.json`);
+                queueData = await response.json() || {};
+            } catch (error) {
+                console.error('Error loading queue:', error);
+            }
+        }
+
+        // Load Counters
+        async function loadCounters() {
+            try {
+                const response = await fetch(`${FIREBASE_URL}/counters.json`);
+                counters = await response.json() || {};
+            } catch (error) {
+                console.error('Error loading counters:', error);
+            }
+        }
+
+        // Populate Queue Filter
+        function populateQueueFilter() {
+            const select = document.getElementById('queueFilter');
+            select.innerHTML = '<option value="">All Queues</option>';
+            
+            const uniqueQueues = new Set();
+            Object.values(telegramUsers).forEach(user => {
+                if (user.queueKey) uniqueQueues.add(user.queueKey);
+            });
+
+            uniqueQueues.forEach(queueKey => {
+                select.innerHTML += `<option value="${queueKey}">${queueKey}</option>`;
+            });
+        }
+
+        // Update Analytics
+        function updateAnalytics() {
+            const waiting = Object.values(queueData).filter(q => q.status === 'waiting').length;
+            const served = Object.values(queueData).filter(q => q.status === 'served').length;
+            
+            document.getElementById('totalWaiting').textContent = waiting;
+            document.getElementById('totalServed').textContent = served;
+
+            // Calculate average wait time
+            const servedEntries = Object.values(queueData).filter(q => q.servedAt && q.timestamp);
+            let avgTime = 0;
+            if (servedEntries.length > 0) {
+                const totalTime = servedEntries.reduce((sum, entry) => {
+                    return sum + (entry.servedAt - entry.timestamp);
+                }, 0);
+                avgTime = Math.round(totalTime / servedEntries.length / 60000); // Convert to minutes
+            }
+            document.getElementById('avgWaitTime').textContent = avgTime + 'm';
+
+            // Update recent queue
+            const recentQueue = document.getElementById('recentQueue');
+            const recent = Object.entries(queueData).slice(-10).reverse();
+            recentQueue.innerHTML = recent.map(([id, entry]) => `
+                <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded flex justify-between text-sm">
+                    <span>${entry.queueId || id.slice(-8)}</span>
+                    <span class="${entry.status === 'served' ? 'text-green-600' : 'text-yellow-600'}">${entry.status}</span>
+                </div>
+            `).join('');
+
+            // Update chart
+            updateChart();
+        }
+
+        // Update Chart
+        function updateChart() {
+            const ctx = document.getElementById('queueChart');
+            
+            const hourlyData = {};
+            for (let i = 0; i < 24; i++) {
+                hourlyData[i] = 0;
+            }
+
+            Object.values(queueData).forEach(entry => {
+                const hour = new Date(entry.timestamp).getHours();
+                hourlyData[hour]++;
+            });
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Object.keys(hourlyData).map(h => h + ':00'),
+                    datasets: [{
+                        label: 'Queue Activity by Hour',
+                        data: Object.values(hourlyData),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Export Analytics
+        function exportAnalytics() {
+            const data = Object.entries(queueData).map(([id, entry]) => ({
+                id,
+                queueId: entry.queueId,
+                counter: entry.counterId,
+                status: entry.status,
+                timestamp: new Date(entry.timestamp).toISOString(),
+                servedAt: entry.servedAt ? new Date(entry.servedAt).toISOString() : ''
+            }));
+
+            const csv = [
+                ['ID', 'Queue ID', 'Counter', 'Status', 'Timestamp', 'Served At'],
+                ...data.map(d => [d.id, d.queueId, d.counter, d.status, d.timestamp, d.servedAt])
+            ].map(row => row.join(',')).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analytics-${Date.now()}.csv`;
+            a.click();
+        }
+
+        // Recipients Selection
+        function updateSelectedCount() {
+            const selected = document.querySelectorAll('.recipient-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = selected;
+        }
+
+        function selectAllRecipients() {
+            document.querySelectorAll('.recipient-checkbox').forEach(cb => cb.checked = true);
+            updateSelectedCount();
+        }
+
+        function deselectAllRecipients() {
+            document.querySelectorAll('.recipient-checkbox').forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        }
+
+        // Preview Announcement Media
+        function previewAnnouncementMedia(input) {
+            const file = input.files[0];
+            const preview = document.getElementById('mediaPreview');
+            
+            if (!file) {
+                preview.innerHTML = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const type = file.type.split('/')[0];
+                let html = '';
+                
+                if (type === 'image') {
+                    html = `<img src="${e.target.result}" class="max-h-32 rounded">`;
+                } else if (type === 'video') {
+                    html = `<video src="${e.target.result}" class="max-h-32 rounded" controls></video>`;
+                } else if (type === 'audio') {
+                    html = `<audio src="${e.target.result}" controls class="w-full"></audio>`;
+                }
+                
+                preview.innerHTML = html;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Send Announcement
+        async function sendAnnouncement() {
+            const message = document.getElementById('announcementMessage').value.trim();
+            const mediaFile = document.getElementById('announcementMedia').files[0];
+            const queueFilter = document.getElementById('queueFilter').value;
+            
+            if (!message && !mediaFile) {
+                showToast('Please enter a message or select media', 'error');
+                return;
+            }
+
+            // Get selected recipients
+            let chatIds = Array.from(document.querySelectorAll('.recipient-checkbox:checked'))
+                .map(cb => cb.value);
+
+            // Apply queue filter if selected
+            if (queueFilter) {
+                chatIds = chatIds.filter(chatId => telegramUsers[chatId]?.queueKey === queueFilter);
+            }
+
+            if (chatIds.length === 0) {
+                showToast('No recipients selected', 'error');
+                return;
+            }
+
+            // Show progress
+            document.getElementById('sendProgress').classList.remove('hidden');
+            document.getElementById('progressText').textContent = `0/${chatIds.length}`;
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('successCount').textContent = '0';
+            document.getElementById('failCount').textContent = '0';
+
+            let media = null;
+            let mediaType = null;
+
+            // Convert media to base64 if present
+            if (mediaFile) {
+                try {
+                    media = await fileToBase64(mediaFile);
+                    mediaType = mediaFile.type;
+                } catch (error) {
+                    showToast('Error processing media: ' + error.message, 'error');
+                    return;
+                }
+            }
+
+            // Send announcements
+            let success = 0;
+            let failed = 0;
+
+            for (let i = 0; i < chatIds.length; i++) {
+                try {
+                    const response = await fetch('/.netlify/functions/announce', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message,
+                            media,
+                            mediaType,
+                            queueKey: queueFilter || undefined,
+                            chatIds: [chatIds[i]]
+                        })
+                    });
+
+                    if (response.ok) {
+                        success++;
+                    } else {
+                        failed++;
+                    }
+                } catch (error) {
+                    failed++;
+                }
+
+                // Update progress
+                const progress = ((i + 1) / chatIds.length) * 100;
+                document.getElementById('progressBar').style.width = progress + '%';
+                document.getElementById('progressText').textContent = `${i + 1}/${chatIds.length}`;
+                document.getElementById('successCount').textContent = success;
+                document.getElementById('failCount').textContent = failed;
+            }
+
+            showToast(`Announcement sent! Success: ${success}, Failed: ${failed}`, 'success');
+            
+            // Reset form
+            document.getElementById('announcementMessage').value = '';
+            document.getElementById('announcementMedia').value = '';
+            document.getElementById('mediaPreview').innerHTML = '';
+            
+            setTimeout(() => {
+                document.getElementById('sendProgress').classList.add('hidden');
+            }, 3000);
+        }
+
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
 </body>
 </html>
