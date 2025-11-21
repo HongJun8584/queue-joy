@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>QueueJoy Admin — Real-Time Queue Management</title>
     <meta name="description" content="QueueJoy Admin Panel - Manage queues, announcements, and analytics in real-time" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="canonical" href="/admin.html" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
@@ -13,288 +14,624 @@
 
     <meta property="og:title" content="QueueJoy Admin — Real-Time Queue Management" />
     <meta property="og:description" content="Manage queues, send announcements, and view analytics in real-time" />
-    <link rel="canonical" href="/admin.html" />
+    <meta property="og:type" content="website" />
 
     <style>
-      :root {
-        --primary: 264 83% 62%;
-        --accent: 197 92% 44%;
-        --muted: 220 14% 56%;
-      }
-      * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.3) transparent; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.4) transparent; }
       *::-webkit-scrollbar { width: 8px; height: 8px; }
       *::-webkit-scrollbar-track { background: transparent; }
-      *::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 10px; }
-      *::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.5); }
+      *::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.4); border-radius: 10px; }
+      *::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.6); }
+      
       body {
-        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
         background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
+        animation: gradientShift 20s ease infinite;
+        min-height: 100vh;
       }
-      @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
-      .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
-      .fade-in { animation: fadeIn 0.5s ease-in; }
-      @keyframes fadeIn { from {opacity:0; transform: translateY(20px);} to {opacity:1; transform: translateY(0);} }
-      .toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 1000; animation: slideIn 0.3s ease-out; }
-      @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-      .spinner { border: 2px solid #f3f3f3; border-top: 2px solid hsl(var(--primary)); border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
-      @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-      .sidebar { position: fixed; left: 0; top: 0; height: 100vh; width: 260px; background: linear-gradient(180deg, rgba(99,102,241,0.95) 0%, rgba(139,92,246,0.95) 50%, rgba(168,85,247,0.95) 100%); backdrop-filter: blur(20px); z-index: 50; transition: transform .3s cubic-bezier(.4,0,.2,1); box-shadow: 8px 0 40px rgba(139,92,246,.4), 0 0 0 1px rgba(255,255,255,.2) inset; border-right: 1px solid rgba(255,255,255,.2); }
+      
+      @keyframes gradientShift { 
+        0%, 100% { background-position: 0% 50%; } 
+        50% { background-position: 100% 50%; } 
+      }
+      
+      .card { 
+        background: rgba(255,255,255,0.95); 
+        backdrop-filter: blur(30px) saturate(180%); 
+        border-radius: 24px; 
+        box-shadow: 0 25px 70px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.6) inset; 
+        border: 1px solid rgba(255,255,255,0.4); 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      .card:hover { 
+        box-shadow: 0 30px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.7) inset; 
+        transform: translateY(-2px);
+      }
+      
+      .fade-in { animation: fadeIn 0.6s ease-out; }
+      @keyframes fadeIn { 
+        from { opacity: 0; transform: translateY(30px); } 
+        to { opacity: 1; transform: translateY(0); } 
+      }
+      
+      .toast { 
+        position: fixed; 
+        top: 24px; 
+        right: 24px; 
+        padding: 18px 28px; 
+        border-radius: 16px; 
+        font-weight: 600; 
+        font-size: 15px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.2); 
+        z-index: 10000; 
+        animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+      }
+      
+      @keyframes slideIn { 
+        from { transform: translateX(500px) scale(0.8); opacity: 0; } 
+        to { transform: translateX(0) scale(1); opacity: 1; } 
+      }
+      
+      .spinner { 
+        border: 2.5px solid rgba(255,255,255,0.3); 
+        border-top: 2.5px solid #fff; 
+        border-radius: 50%; 
+        width: 22px; 
+        height: 22px; 
+        animation: spin 0.7s linear infinite; 
+        display: inline-block; 
+        margin-right: 8px;
+      }
+      
+      @keyframes spin { 
+        0% { transform: rotate(0deg); } 
+        100% { transform: rotate(360deg); } 
+      }
+      
+      .sidebar { 
+        position: fixed; 
+        left: 0; 
+        top: 0; 
+        height: 100vh; 
+        width: 280px; 
+        background: linear-gradient(180deg, rgba(99,102,241,0.97) 0%, rgba(139,92,246,0.97) 40%, rgba(168,85,247,0.97) 100%); 
+        backdrop-filter: blur(30px); 
+        z-index: 100; 
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        box-shadow: 10px 0 50px rgba(139,92,246,0.5), 0 0 0 1px rgba(255,255,255,0.25) inset; 
+        border-right: 1px solid rgba(255,255,255,0.25); 
+      }
+      
       .sidebar-mobile-closed { transform: translateX(-100%); }
-      .sidebar-item { display:flex; align-items:center; gap:14px; padding:16px 24px; margin:6px 12px; color:#fff; cursor:pointer; transition: all .3s cubic-bezier(.4,0,.2,1); font-weight:600; border-radius:12px; position:relative; overflow:hidden; }
-      .sidebar-item::before { content:''; position:absolute; inset:0; background: rgba(255,255,255,0); transition: all .3s cubic-bezier(.4,0,.2,1); z-index:-1; }
-      .sidebar-item:hover::before { background: rgba(255,255,255,0.15); }
-      .sidebar-item.active { background: rgba(255,255,255,0.25); box-shadow:0 8px 20px rgba(0,0,0,0.15); transform: translateX(4px); }
-      .sidebar-item.active::before { background: rgba(255,255,255,0.25); }
-      .main-content { margin-left:260px; transition: margin-left .3s cubic-bezier(.4,0,.2,1); }
-      @media (max-width: 1024px) { .main-content { margin-left:0; } }
-      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
-      .modal-content { background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y:auto; padding:32px; box-shadow: 0 30px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
-      .glass-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius:16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
-      .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-      .stat-card { position:relative; overflow:hidden; }
-      .stat-card::before { content:''; position:absolute; top:-50%; right:-50%; width:200%; height:200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: shimmer 3s infinite; }
-      @keyframes shimmer { 0%,100%{ transform: translate(0,0);} 50%{ transform: translate(-20%,-20%);} }
-      .cropper-container { max-height: 400px; margin: 20px 0; }
+      
+      .sidebar-item { 
+        display: flex; 
+        align-items: center; 
+        gap: 16px; 
+        padding: 18px 26px; 
+        margin: 8px 16px; 
+        color: #fff; 
+        cursor: pointer; 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        font-weight: 600; 
+        font-size: 15px;
+        border-radius: 14px; 
+        position: relative; 
+        overflow: hidden; 
+      }
+      
+      .sidebar-item::before { 
+        content: ''; 
+        position: absolute; 
+        inset: 0; 
+        background: rgba(255,255,255,0); 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        z-index: -1; 
+      }
+      
+      .sidebar-item:hover::before { background: rgba(255,255,255,0.2); }
+      
+      .sidebar-item.active { 
+        background: rgba(255,255,255,0.3); 
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+        transform: translateX(6px); 
+      }
+      
+      .sidebar-item.active::before { background: rgba(255,255,255,0.3); }
+      
+      .main-content { 
+        margin-left: 280px; 
+        transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+      }
+      
+      @media (max-width: 1024px) { 
+        .main-content { margin-left: 0; } 
+        .sidebar { width: 260px; }
+      }
+      
+      .modal { 
+        position: fixed; 
+        inset: 0; 
+        background: rgba(0,0,0,0.75); 
+        backdrop-filter: blur(8px);
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        z-index: 9999; 
+        padding: 24px; 
+        animation: fadeIn 0.3s ease-out;
+      }
+      
+      .modal-content { 
+        background: rgba(255,255,255,0.98); 
+        backdrop-filter: blur(30px); 
+        border-radius: 28px; 
+        max-width: 650px; 
+        width: 100%; 
+        max-height: 92vh; 
+        overflow-y: auto; 
+        padding: 40px; 
+        box-shadow: 0 35px 90px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.6) inset; 
+        border: 1px solid rgba(255,255,255,0.4); 
+        animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      
+      .stat-card { 
+        position: relative; 
+        overflow: hidden; 
+      }
+      
+      .stat-card::before { 
+        content: ''; 
+        position: absolute; 
+        top: -50%; 
+        right: -50%; 
+        width: 200%; 
+        height: 200%; 
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); 
+        animation: shimmer 4s infinite; 
+        pointer-events: none;
+      }
+      
+      @keyframes shimmer { 
+        0%, 100% { transform: translate(0, 0); } 
+        50% { transform: translate(-25%, -25%); } 
+      }
+      
+      .cropper-container { 
+        max-height: 450px; 
+        margin: 24px 0; 
+        border-radius: 16px; 
+        overflow: hidden;
+      }
+      
+      .gradient-text { 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        -webkit-background-clip: text; 
+        -webkit-text-fill-color: transparent; 
+        background-clip: text; 
+      }
+      
+      input[type="text"], 
+      input[type="url"], 
+      textarea { 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+      }
+      
+      input[type="text"]:focus, 
+      input[type="url"]:focus, 
+      textarea:focus { 
+        outline: none; 
+        box-shadow: 0 0 0 3px rgba(139,92,246,0.15); 
+      }
+      
+      button:disabled { 
+        opacity: 0.6; 
+        cursor: not-allowed; 
+      }
+      
+      .preview-media { 
+        max-width: 100%; 
+        max-height: 200px; 
+        object-fit: cover; 
+        border-radius: 12px; 
+      }
     </style>
   </head>
-  <body class="min-h-screen">
+  <body>
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar sidebar-mobile-closed lg:transform-none">
-      <div class="p-8 border-b border-white/20">
-        <div class="flex items-center gap-3 mb-2">
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center text-white text-lg font-bold shadow-lg">QJ</div>
-          <h1 class="text-white text-2xl font-bold tracking-tight">QueueJoy</h1>
+      <div class="p-10 border-b border-white/25">
+        <div class="flex items-center gap-4 mb-3">
+          <div class="w-12 h-12 rounded-2xl bg-white/25 backdrop-blur-xl flex items-center justify-center text-white text-xl font-bold shadow-2xl ring-2 ring-white/30">QJ</div>
+          <h1 class="text-white text-3xl font-bold tracking-tight">QueueJoy</h1>
         </div>
-        <p class="text-white/80 text-sm font-medium ml-13">Admin Panel</p>
+        <p class="text-white/90 text-sm font-semibold ml-16">Admin Panel</p>
       </div>
-      <nav class="mt-6">
-        <div class="sidebar-item active" data-view="dashboard"><span class="text-2xl">🏠</span><span class="text-base">Dashboard</span></div>
-        <div class="sidebar-item" data-view="analyst"><span class="text-2xl">📊</span><span class="text-base">Analytics</span></div>
-        <div class="sidebar-item" id="howToUseBtn"><span class="text-2xl">❓</span><span class="text-base">How to Use</span></div>
+      <nav class="mt-8">
+        <div class="sidebar-item active" data-view="dashboard">
+          <span class="text-2xl">🏠</span>
+          <span class="text-base">Dashboard</span>
+        </div>
+        <div class="sidebar-item" data-view="analytics">
+          <span class="text-2xl">📊</span>
+          <span class="text-base">Analytics</span>
+        </div>
+        <div class="sidebar-item" id="howToUseBtn">
+          <span class="text-2xl">❓</span>
+          <span class="text-base">How to Use</span>
+        </div>
       </nav>
     </aside>
 
-    <!-- Mobile Menu Toggle -->
-    <button id="mobileMenuBtn" class="lg:hidden fixed top-4 left-4 z-40 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-2xl hover:scale-110 transition-all duration-300">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    <!-- Mobile Menu Button -->
+    <button id="mobileMenuBtn" class="lg:hidden fixed top-5 left-5 z-50 p-5 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-3xl shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300">
+      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
     </button>
 
     <!-- Main Content -->
     <div class="main-content">
-      <div class="max-w-6xl mx-auto p-4 pb-20 fade-in">
+      <div class="max-w-7xl mx-auto p-5 pb-24 fade-in">
+        
         <!-- Dashboard View -->
         <div id="dashboardView">
           <!-- Header -->
-          <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 mt-16 lg:mt-6">
-            <div class="flex items-center gap-4">
-              <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl ring-4 ring-white/30">QJ</div>
+          <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-8 mb-10 mt-20 lg:mt-8">
+            <div class="flex items-center gap-5">
+              <div id="headerLogo" class="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold shadow-2xl ring-4 ring-white/40">
+                QJ
+              </div>
               <div>
-                <h2 id="headerName" class="text-3xl font-bold gradient-text">Queue Joy Admin</h2>
-                <p class="text-sm text-gray-700 font-medium mt-1">Real-time management dashboard</p>
+                <h2 id="headerName" class="text-4xl font-bold gradient-text">QueueJoy Admin</h2>
+                <p class="text-base text-gray-700 font-semibold mt-2">Real-time management dashboard</p>
               </div>
             </div>
-            <button id="saveAllBtn" class="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">💾 Save All Changes</button>
+            <button id="saveAllBtn" class="px-10 py-5 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold text-base rounded-3xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 active:scale-95 transition-all duration-300 ring-2 ring-white/60">
+              💾 Save All Changes
+            </button>
           </header>
 
-          <!-- Analytics Panel -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <!-- Quick Stats -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Total Queues</p>
-                  <p id="totalQueues" class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">0</p>
+                  <p class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wide">Total Queues</p>
+                  <p id="totalQueues" class="text-5xl font-extrabold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl shadow-xl">📊</div>
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-3xl shadow-2xl">
+                  📊
+                </div>
               </div>
             </div>
+            
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Queues</p>
-                  <p id="activeQueues" class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">0</p>
+                  <p class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wide">Active Queues</p>
+                  <p id="activeQueues" class="text-5xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-xl">🎫</div>
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-3xl shadow-2xl">
+                  🎫
+                </div>
               </div>
             </div>
+            
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Today's Queues</p>
-                  <p id="todayQueues" class="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">0</p>
+                  <p class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wide">Today's Queues</p>
+                  <p id="todayQueues" class="text-5xl font-extrabold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-xl">📈</div>
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-3xl shadow-2xl">
+                  📈
+                </div>
               </div>
             </div>
+            
             <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
               <div class="flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Counters</p>
-                  <p id="activeCounters" class="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">0</p>
+                  <p class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wide">Active Counters</p>
+                  <p id="activeCounters" class="text-5xl font-extrabold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">0</p>
                 </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-2xl shadow-xl">🏪</div>
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-3xl shadow-2xl">
+                  🏪
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Main Content Grid -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
             <!-- Business Settings Card -->
-            <div class="card p-8 space-y-6">
-              <h3 class="text-2xl font-bold gradient-text mb-6">⚙️ Business Settings</h3>
+            <div class="card p-10 space-y-7">
+              <h3 class="text-3xl font-extrabold gradient-text mb-8">⚙️ Business Settings</h3>
+              
+              <!-- 1. Business Name -->
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
-                <input id="businessName" type="text" placeholder="Your Business Name" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Business Name</label>
+                <input 
+                  id="businessName" 
+                  type="text" 
+                  placeholder="Your Business Name" 
+                  class="w-full px-5 py-4 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all font-medium"
+                />
               </div>
+              
+              <!-- 2. Intro Text -->
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Welcome Message</label>
-                <textarea id="welcomeMessage" rows="3" placeholder="Real-time queueing system. Mobile-friendly. No app needed." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Welcome Message (Intro Text)</label>
+                <textarea 
+                  id="introText" 
+                  rows="3" 
+                  placeholder="Real-time queueing system. Mobile-friendly. No app needed." 
+                  class="w-full px-5 py-4 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none font-medium"
+                ></textarea>
               </div>
+              
+              <!-- 3. Logo -->
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Logo Image (Square)</label>
-                <div class="flex items-center gap-3">
-                  <img id="logoPreview" src="" alt="Logo" class="w-16 h-16 rounded-lg object-cover border-2 border-gray-200 hidden" />
+                <label class="block text-sm font-bold text-gray-700 mb-3">Logo (Square Crop)</label>
+                <div class="flex items-center gap-4">
+                  <img 
+                    id="logoPreview" 
+                    src="" 
+                    alt="Logo" 
+                    class="w-20 h-20 rounded-xl object-cover border-2 border-gray-300 hidden shadow-md" 
+                  />
                   <div class="flex-1">
-                    <input id="logoFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
-                    <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
+                    <input 
+                      id="logoFile" 
+                      type="file" 
+                      accept="image/*" 
+                      class="w-full text-sm text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:bg-purple-50 file:text-purple-700 file:font-bold hover:file:bg-purple-100 cursor-pointer transition-all"
+                    />
+                    <p class="text-xs text-gray-500 mt-2 font-medium">Click to upload and crop before saving</p>
                   </div>
                 </div>
               </div>
+              
+              <!-- 4. Advertisement Banner -->
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Banner (Landscape)</label>
-                <div class="space-y-3">
-                  <div class="flex items-start gap-3">
-                    <div id="adPreviewBox" class="w-32 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hidden"></div>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Advertisement Banner (Landscape)</label>
+                <div class="space-y-4">
+                  <div class="flex items-start gap-4">
+                    <div id="adPreviewBox" class="w-36 h-24 rounded-xl overflow-hidden border-2 border-gray-300 hidden shadow-md"></div>
                     <div class="flex-1">
-                      <input id="adFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
-                      <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
+                      <input 
+                        id="adFile" 
+                        type="file" 
+                        accept="image/*,video/*,.gif" 
+                        class="w-full text-sm text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:bg-purple-50 file:text-purple-700 file:font-bold hover:file:bg-purple-100 cursor-pointer transition-all"
+                      />
+                      <p class="text-xs text-gray-500 mt-2 font-medium">Supports: Images, Videos, GIFs. Click to crop images.</p>
                     </div>
                   </div>
                 </div>
               </div>
-              <button id="updateSettingsBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
+              
+              <!-- 5. Logo URL -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Logo URL (Optional External Link)</label>
+                <input 
+                  id="logoUrl" 
+                  type="url" 
+                  placeholder="https://example.com/logo.png" 
+                  class="w-full px-5 py-4 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all font-medium"
+                />
+              </div>
+              
+              <!-- 6. Main Title -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Main Title</label>
+                <input 
+                  id="mainTitle" 
+                  type="text" 
+                  placeholder="ICE CREAM" 
+                  class="w-full px-5 py-4 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all font-medium"
+                />
+              </div>
+              
+              <!-- 7. Title in Middle -->
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Title in Middle (Promotional Text)</label>
+                <input 
+                  id="titleInMiddle" 
+                  type="text" 
+                  placeholder="BUY ONE FREE ONE!" 
+                  class="w-full px-5 py-4 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all font-medium"
+                />
+              </div>
+              
+              <button 
+                id="updateSettingsBtn" 
+                class="w-full py-5 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold text-base rounded-3xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 active:scale-95 transition-all duration-300 ring-2 ring-white/60"
+              >
                 <span id="updateBtnText">✨ Update Settings</span>
-                <span id="updateBtnSpinner" class="hidden"><span class="spinner"></span> Updating...</span>
+                <span id="updateBtnSpinner" class="hidden flex items-center justify-center">
+                  <span class="spinner"></span> Updating...
+                </span>
               </button>
             </div>
 
-            <!-- Display Settings Card -->
-            <div class="card p-8 space-y-6">
-              <h3 class="text-2xl font-bold gradient-text mb-6">🖥️ Display Settings</h3>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Small Text (Subtitle)</label>
-                <input id="displaySmallText" type="text" placeholder="Digital Queue System" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL (Centered)</label>
-                <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Main Title</label>
-                <input id="displayMainTitle" type="text" placeholder="Get your queue number" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <p class="text-xs text-gray-500">These values are saved to <code>/displaySettings</code> without touching your queue schema.</p>
-            </div>
-
             <!-- Right Column: Announcement + Live Preview -->
-            <div class="space-y-6">
-              <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">📢 Telegram Announcement</h3>
-                <div class="space-y-4">
-                  <textarea id="announcementMessage" rows="4" placeholder="Type your announcement message here..." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
+            <div class="space-y-8">
+              
+              <!-- Announcement Card -->
+              <div class="card p-10">
+                <h3 class="text-3xl font-extrabold gradient-text mb-8">📢 Telegram Announcement</h3>
+                <div class="space-y-5">
+                  <textarea 
+                    id="announcementMessage" 
+                    rows="5" 
+                    placeholder="Type your announcement message here..." 
+                    class="w-full px-5 py-4 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none font-medium"
+                  ></textarea>
+                  
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Attach Media (Image, Video, or GIF)</label>
-                    <input id="announcementMedia" type="file" accept="image/*,video/*,audio/*,.gif" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-600 file:font-semibold hover:file:bg-green-100 cursor-pointer" />
-                    <div id="announcementPreview" class="mt-3 hidden"></div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Attach Media (Optional)</label>
+                    <input 
+                      id="announcementMedia" 
+                      type="file" 
+                      accept="image/*,video/*,audio/*,.gif" 
+                      class="w-full text-sm text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:bg-green-50 file:text-green-700 file:font-bold hover:file:bg-green-100 cursor-pointer transition-all"
+                    />
+                    <div id="announcementPreview" class="mt-4 hidden"></div>
                   </div>
-                  <button id="sendAnnouncementBtn" class="w-full py-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
+                  
+                  <button 
+                    id="sendAnnouncementBtn" 
+                    class="w-full py-5 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold text-base rounded-3xl shadow-2xl hover:shadow-green-500/50 hover:scale-105 active:scale-95 transition-all duration-300 ring-2 ring-white/60"
+                  >
                     <span id="sendBtnText">📱 Send to Telegram</span>
-                    <span id="sendBtnSpinner" class="hidden"><span class="spinner"></span> Sending...</span>
+                    <span id="sendBtnSpinner" class="hidden flex items-center justify-center">
+                      <span class="spinner"></span> Sending...
+                    </span>
                   </button>
-                  <div id="announcementResult" class="hidden p-3 rounded-lg text-sm"></div>
+                  
+                  <div id="announcementResult" class="hidden p-4 rounded-xl text-sm font-semibold"></div>
                 </div>
               </div>
 
-              <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">👁️ Live Preview</h3>
-                <div class="space-y-4">
-                  <div class="flex items-center gap-4">
-                    <div id="previewLogo" class="w-14 h-14 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
+              <!-- Live Preview Card -->
+              <div class="card p-10">
+                <h3 class="text-3xl font-extrabold gradient-text mb-8">👁️ Live Preview</h3>
+                <div class="space-y-6">
+                  <div class="flex items-center gap-5">
+                    <div id="previewLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+                      QJ
+                    </div>
                     <div class="flex-1">
-                      <p id="previewName" class="text-lg font-bold text-gray-800">Your Business</p>
-                      <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
+                      <p id="previewName" class="text-xl font-bold text-gray-800">Your Business</p>
+                      <p id="previewIntro" class="text-sm text-gray-600 font-medium mt-1">Real-time queueing system</p>
                     </div>
                   </div>
-                  <div class="bg-gray-50 rounded-xl p-4">
-                    <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
-                    <div class="flex items-center gap-3">
-                      <img id="previewAd" src="" alt="Ad" class="w-24 h-16 rounded-lg object-cover border hidden" />
+                  
+                  <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-5 border border-gray-200">
+                    <p class="text-xs text-gray-500 font-bold mb-3 uppercase tracking-wide">Advertisement Preview</p>
+                    <div id="adPreviewWrapper" class="flex items-center justify-center hidden">
+                      <img id="previewAd" src="" alt="Ad" class="max-w-full h-auto rounded-xl object-cover border-2 border-white shadow-lg" />
                     </div>
+                    <p class="text-xs text-gray-400 text-center mt-2" id="noAdText">No advertisement set</p>
                   </div>
-                  <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl opacity-75 cursor-not-allowed">🎫 Get My Number</button>
-                  <p class="text-xs text-center text-gray-500">This is how customers see your page</p>
+                  
+                  <button class="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-bold rounded-2xl opacity-70 cursor-not-allowed">
+                    🎫 Get My Number
+                  </button>
+                  
+                  <p class="text-xs text-center text-gray-500 font-medium">This is how customers see your page</p>
                 </div>
               </div>
+              
             </div>
           </div>
 
-          <footer class="text-center text-sm font-medium text-gray-700 mt-12 p-6 card">
+          <footer class="text-center text-sm font-bold text-gray-700 mt-14 p-8 card">
             <p>🔥 Real-time sync powered by Firebase</p>
           </footer>
         </div>
 
-        <!-- Analyst View -->
-        <div id="analystView" class="hidden">
-          <div class="mt-16 lg:mt-6">
-            <h2 class="text-3xl font-bold text-white mb-8 bg-gradient-to-r from-purple-600 to-indigo-500 p-6 rounded-2xl shadow-lg">📊 Analytics Dashboard</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div class="card p-6 bg-gradient-to-br from-purple-600 to-purple-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Total Customers Served</p>
-                <p id="analystTotalServed" class="text-4xl font-bold">0</p>
+        <!-- Analytics View -->
+        <div id="analyticsView" class="hidden">
+          <div class="mt-20 lg:mt-8">
+            <h2 class="text-4xl font-extrabold text-white mb-10 bg-gradient-to-r from-purple-600 to-indigo-500 p-8 rounded-3xl shadow-2xl">
+              📊 Analytics Dashboard
+            </h2>
+            
+            <!-- Top Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+              <div class="card p-8 bg-gradient-to-br from-purple-600 to-purple-400 text-white shadow-2xl">
+                <p class="text-sm opacity-90 mb-3 font-bold uppercase tracking-wide">Total Customers Served</p>
+                <p id="analystTotalServed" class="text-5xl font-extrabold">0</p>
               </div>
-              <div class="card p-6 bg-gradient-to-br from-indigo-600 to-indigo-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Average Wait Time</p>
-                <p class="text-4xl font-bold"><span id="analystAvgWait">0</span><span class="text-lg ml-1">min</span></p>
+              <div class="card p-8 bg-gradient-to-br from-indigo-600 to-indigo-400 text-white shadow-2xl">
+                <p class="text-sm opacity-90 mb-3 font-bold uppercase tracking-wide">Average Wait Time</p>
+                <p class="text-5xl font-extrabold">
+                  <span id="analystAvgWait">0</span>
+                  <span class="text-xl ml-2">min</span>
+                </p>
               </div>
-              <div class="card p-6 bg-gradient-to-br from-pink-600 to-pink-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Active Counters</p>
-                <p id="analystActiveCounters" class="text-4xl font-bold">0</p>
+              <div class="card p-8 bg-gradient-to-br from-pink-600 to-pink-400 text-white shadow-2xl">
+                <p class="text-sm opacity-90 mb-3 font-bold uppercase tracking-wide">Active Counters</p>
+                <p id="analystActiveCounters" class="text-5xl font-extrabold">0</p>
               </div>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Trend (Last 7 Days)</h3>
+            
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <div class="card p-8 shadow-xl">
+                <h3 class="text-xl font-bold text-gray-800 mb-6">Queue Trend (Last 7 Days)</h3>
                 <canvas id="queueTrendChart"></canvas>
               </div>
-              <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Counter Performance</h3>
+              <div class="card p-8 shadow-xl">
+                <h3 class="text-xl font-bold text-gray-800 mb-6">Counter Performance</h3>
                 <canvas id="counterPerfChart"></canvas>
               </div>
             </div>
-            <div class="card p-6 mt-6">
-              <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Status Breakdown</h3>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center"><p class="text-3xl font-bold text-green-600" id="analystCompleted">0</p><p class="text-sm text-gray-600 mt-1">Completed</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-blue-600" id="analystWaiting">0</p><p class="text-sm text-gray-600 mt-1">Waiting</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-purple-600" id="analystServing">0</p><p class="text-sm text-gray-600 mt-1">Serving</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-gray-600" id="analystCancelled">0</p><p class="text-sm text-gray-600 mt-1">Cancelled</p></div>
+            
+            <!-- Status Breakdown -->
+            <div class="card p-10 shadow-xl">
+              <h3 class="text-xl font-bold text-gray-800 mb-8">Queue Status Breakdown</h3>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="text-center">
+                  <p class="text-5xl font-extrabold text-green-600 mb-2" id="analystCompleted">0</p>
+                  <p class="text-sm text-gray-600 font-bold uppercase tracking-wide">Completed</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-5xl font-extrabold text-blue-600 mb-2" id="analystWaiting">0</p>
+                  <p class="text-sm text-gray-600 font-bold uppercase tracking-wide">Waiting</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-5xl font-extrabold text-purple-600 mb-2" id="analystServing">0</p>
+                  <p class="text-sm text-gray-600 font-bold uppercase tracking-wide">Serving</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-5xl font-extrabold text-gray-600 mb-2" id="analystCancelled">0</p>
+                  <p class="text-sm text-gray-600 font-bold uppercase tracking-wide">Cancelled</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
+        
       </div>
     </div>
 
     <!-- Crop Modal -->
     <div id="cropModal" class="modal hidden">
       <div class="modal-content">
-        <h3 class="text-xl font-bold text-gray-800 mb-4" id="cropModalTitle">Crop Image</h3>
-        <div class="cropper-container"><img id="cropImage" src="" alt="Crop" style="max-width: 100%;" /></div>
-        <div class="flex gap-3 mt-4">
-          <button id="cropSaveBtn" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">✂️ Crop & Save</button>
-          <button id="cropCancelBtn" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all">Cancel</button>
+        <h3 class="text-2xl font-bold text-gray-800 mb-6" id="cropModalTitle">Crop Image</h3>
+        <div class="cropper-container">
+          <img id="cropImage" src="" alt="Crop" style="max-width: 100%;" />
+        </div>
+        <div class="flex gap-4 mt-6">
+          <button 
+            id="cropSaveBtn" 
+            class="flex-1 py-4 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-bold rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all"
+          >
+            ✂️ Crop & Save
+          </button>
+          <button 
+            id="cropCancelBtn" 
+            class="px-8 py-4 bg-gray-200 text-gray-700 font-bold rounded-2xl hover:bg-gray-300 active:scale-95 transition-all"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -302,65 +639,80 @@
     <!-- How to Use Modal -->
     <div id="howToUseModal" class="modal hidden">
       <div class="modal-content">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-2xl font-bold text-gray-800">❓ How to Use QueueJoy Admin</h3>
-          <button id="closeHowToUse" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-3xl font-extrabold text-gray-800">❓ How to Use QueueJoy Admin</h3>
+          <button id="closeHowToUse" class="text-gray-500 hover:text-gray-700 text-3xl font-bold transition-all">&times;</button>
         </div>
-        <div class="space-y-4 text-gray-700">
-          <div class="p-4 bg-purple-50 rounded-lg">
-            <h4 class="font-bold text-purple-700 mb-2">🏠 Dashboard</h4>
-            <ul class="list-disc list-inside space-y-1 text-sm">
+        
+        <div class="space-y-5 text-gray-700">
+          <div class="p-6 bg-purple-50 rounded-2xl border-2 border-purple-100">
+            <h4 class="font-bold text-purple-700 mb-3 text-lg">🏠 Dashboard</h4>
+            <ul class="list-disc list-inside space-y-2 text-sm font-medium">
               <li>Edit your business name and welcome message</li>
               <li>Upload and crop logo (square) and ad banner (landscape)</li>
+              <li>Set external logo URL, main title, and promotional text</li>
               <li>Send Telegram announcements with optional media</li>
               <li>View live preview of how customers see your page</li>
             </ul>
           </div>
-          <div class="p-4 bg-indigo-50 rounded-lg">
-            <h4 class="font-bold text-indigo-700 mb-2">✂️ Image Cropping</h4>
-            <ul class="list-disc list-inside space-y-1 text-sm">
+          
+          <div class="p-6 bg-indigo-50 rounded-2xl border-2 border-indigo-100">
+            <h4 class="font-bold text-indigo-700 mb-3 text-lg">✂️ Image Cropping</h4>
+            <ul class="list-disc list-inside space-y-2 text-sm font-medium">
               <li>Upload an image using the file input</li>
               <li>Cropping tool will appear automatically</li>
-              <li>Logo: Square crop (1:1 ratio)</li>
-              <li>Ad Banner: Landscape crop (16:9 ratio)</li>
+              <li><strong>Logo:</strong> Square crop (1:1 ratio)</li>
+              <li><strong>Ad Banner:</strong> Landscape crop (16:9 ratio)</li>
               <li>Click "Crop & Save" to finalize</li>
+              <li>Videos and GIFs skip cropping automatically</li>
             </ul>
           </div>
-          <div class="p-4 bg-pink-50 rounded-lg">
-            <h4 class="font-bold text-pink-700 mb-2">📊 Analyst View</h4>
-            <ul class="list-disc list-inside space-y-1 text-sm">
+          
+          <div class="p-6 bg-pink-50 rounded-2xl border-2 border-pink-100">
+            <h4 class="font-bold text-pink-700 mb-3 text-lg">📊 Analytics View</h4>
+            <ul class="list-disc list-inside space-y-2 text-sm font-medium">
               <li>View total customers served and active counters</li>
               <li>See queue trends over the last 7 days</li>
               <li>Track counter performance with charts</li>
               <li>Monitor queue status breakdown in real-time</li>
             </ul>
           </div>
-          <div class="p-4 bg-green-50 rounded-lg">
-            <h4 class="font-bold text-green-700 mb-2">💾 Saving Changes</h4>
-            <ul class="list-disc list-inside space-y-1 text-sm">
+          
+          <div class="p-6 bg-green-50 rounded-2xl border-2 border-green-100">
+            <h4 class="font-bold text-green-700 mb-3 text-lg">💾 Saving Changes</h4>
+            <ul class="list-disc list-inside space-y-2 text-sm font-medium">
               <li>All changes auto-sync to Firebase in real-time</li>
               <li>Click "Update Settings" or "Save All Changes"</li>
               <li>Green toast notification confirms successful save</li>
               <li>Changes appear instantly on your public queue page</li>
             </ul>
           </div>
-          <div class="p-4 bg-blue-50 rounded-lg">
-            <h4 class="font-bold text-blue-700 mb-2">📱 Telegram Announcements</h4>
-            <ul class="list-disc list-inside space-y-1 text-sm">
+          
+          <div class="p-6 bg-blue-50 rounded-2xl border-2 border-blue-100">
+            <h4 class="font-bold text-blue-700 mb-3 text-lg">📱 Telegram Announcements</h4>
+            <ul class="list-disc list-inside space-y-2 text-sm font-medium">
               <li>Type your message in the announcement box</li>
-              <li>Attach optional media (image/video/GIF)</li>
+              <li>Attach optional media (image/video/GIF/audio)</li>
               <li>Click "Send to Telegram" to broadcast</li>
+              <li>System reads chat IDs and bot token from Firebase</li>
+              <li>See success/failure notifications after sending</li>
             </ul>
           </div>
         </div>
-        <button id="closeHowToUseBtn" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">Got it!</button>
+        
+        <button 
+          id="closeHowToUseBtn" 
+          class="w-full mt-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-bold text-base rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all"
+        >
+          Got it!
+        </button>
       </div>
     </div>
 
     <!-- Firebase & App Script -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-      import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+      import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -375,16 +727,16 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // Toast
+      // ===== Toast Notification =====
       const showToast = (message, type = 'success') => {
         const toast = document.createElement('div');
         toast.className = `toast ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
         toast.textContent = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+        setTimeout(() => toast.remove(), 4000);
       };
 
-      // File -> base64
+      // ===== File to Base64 Conversion =====
       const fileToBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -392,26 +744,27 @@
         reader.readAsDataURL(file);
       });
 
-      // Elements
+      // ===== Element References =====
       const businessName = document.getElementById('businessName');
-      const welcomeMessage = document.getElementById('welcomeMessage');
+      const introText = document.getElementById('introText');
       const logoFile = document.getElementById('logoFile');
       const logoPreview = document.getElementById('logoPreview');
       const adFile = document.getElementById('adFile');
       const adPreviewBox = document.getElementById('adPreviewBox');
+      const logoUrl = document.getElementById('logoUrl');
+      const mainTitle = document.getElementById('mainTitle');
+      const titleInMiddle = document.getElementById('titleInMiddle');
       const updateSettingsBtn = document.getElementById('updateSettingsBtn');
       const updateBtnText = document.getElementById('updateBtnText');
       const updateBtnSpinner = document.getElementById('updateBtnSpinner');
       const saveAllBtn = document.getElementById('saveAllBtn');
-      // Display settings inputs
-      const displaySmallText = document.getElementById('displaySmallText');
-      const displayLogoUrl = document.getElementById('displayLogoUrl');
-      const displayMainTitle = document.getElementById('displayMainTitle');
 
       const previewName = document.getElementById('previewName');
       const previewIntro = document.getElementById('previewIntro');
       const previewLogo = document.getElementById('previewLogo');
       const previewAd = document.getElementById('previewAd');
+      const adPreviewWrapper = document.getElementById('adPreviewWrapper');
+      const noAdText = document.getElementById('noAdText');
       const headerLogo = document.getElementById('headerLogo');
       const headerName = document.getElementById('headerName');
 
@@ -437,7 +790,7 @@
       const sidebar = document.getElementById('sidebar');
       const mobileMenuBtn = document.getElementById('mobileMenuBtn');
       const dashboardView = document.getElementById('dashboardView');
-      const analystView = document.getElementById('analystView');
+      const analyticsView = document.getElementById('analyticsView');
       const sidebarItems = document.querySelectorAll('.sidebar-item[data-view]');
 
       const totalQueuesEl = document.getElementById('totalQueues');
@@ -453,33 +806,40 @@
       const analystServing = document.getElementById('analystServing');
       const analystCancelled = document.getElementById('analystCancelled');
 
-      // Mobile Menu
-      mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('sidebar-mobile-closed'));
+      // ===== Mobile Menu Toggle =====
+      mobileMenuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('sidebar-mobile-closed');
+      });
 
-      // Switch views
+      // ===== View Switching =====
       sidebarItems.forEach(item => {
         item.addEventListener('click', () => {
           const view = item.dataset.view;
           sidebarItems.forEach(i => i.classList.remove('active'));
           item.classList.add('active');
+          
           if (view === 'dashboard') {
             dashboardView.classList.remove('hidden');
-            analystView.classList.add('hidden');
-          } else {
+            analyticsView.classList.add('hidden');
+          } else if (view === 'analytics') {
             dashboardView.classList.add('hidden');
-            analystView.classList.remove('hidden');
+            analyticsView.classList.remove('hidden');
             initializeCharts();
           }
+          
           sidebar.classList.add('sidebar-mobile-closed');
         });
       });
 
-      // How to Use
-      howToUseBtn.addEventListener('click', () => { howToUseModal.classList.remove('hidden'); sidebar.classList.add('sidebar-mobile-closed'); });
+      // ===== How to Use Modal =====
+      howToUseBtn.addEventListener('click', () => {
+        howToUseModal.classList.remove('hidden');
+        sidebar.classList.add('sidebar-mobile-closed');
+      });
       closeHowToUse.addEventListener('click', () => howToUseModal.classList.add('hidden'));
       closeHowToUseBtn.addEventListener('click', () => howToUseModal.classList.add('hidden'));
 
-      // Real-time Analytics Updates
+      // ===== Real-time Analytics Updates =====
       onValue(ref(db, 'queue'), (snapshot) => {
         if (snapshot.exists()) {
           const queues = Object.values(snapshot.val());
@@ -492,30 +852,40 @@
           totalQueuesEl.textContent = total;
           activeQueuesEl.textContent = waiting;
 
-          const today = new Date().setHours(0,0,0,0);
-          const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
+          const today = new Date().setHours(0, 0, 0, 0);
+          const todayCount = queues.filter(q => {
+            const qDate = q.timestamp ? new Date(q.timestamp).setHours(0, 0, 0, 0) : 0;
+            return qDate === today;
+          }).length;
           todayQueuesEl.textContent = todayCount;
 
-          // Analyst view
+          // Analyst view stats
           analystTotalServed.textContent = completed;
           analystCompleted.textContent = completed;
           analystWaiting.textContent = waiting;
           analystServing.textContent = serving;
           analystCancelled.textContent = cancelled;
 
-          // Average wait time (current waiting customers)
+          // Average wait time for waiting customers
           const waitingQueuesForAvg = queues.filter(q => q.status === 'waiting' && q.timestamp);
-          const avgWait = waitingQueuesForAvg.length > 0 ? Math.round(waitingQueuesForAvg.reduce((acc, q) => acc + ((Date.now() - new Date(q.timestamp)) / 60000), 0) / waitingQueuesForAvg.length) : 0;
-          analystAvgWait.textContent = String(isFinite(avgWait) ? Math.max(0, avgWait) : 0);
+          const avgWait = waitingQueuesForAvg.length > 0 
+            ? Math.round(waitingQueuesForAvg.reduce((acc, q) => {
+                const waitMinutes = (Date.now() - new Date(q.timestamp)) / 60000;
+                return acc + waitMinutes;
+              }, 0) / waitingQueuesForAvg.length)
+            : 0;
+          analystAvgWait.textContent = String(isFinite(avgWait) && avgWait >= 0 ? avgWait : 0);
         } else {
-          [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, analystCompleted, analystWaiting, analystServing, analystCancelled, analystAvgWait].forEach(el => el.textContent = '0');
+          [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, 
+           analystCompleted, analystWaiting, analystServing, analystCancelled, analystAvgWait]
+            .forEach(el => el.textContent = '0');
         }
       });
 
       onValue(ref(db, 'counters'), (snapshot) => {
         if (snapshot.exists()) {
           const counters = Object.values(snapshot.val());
-          const activeCount = counters.filter(c => !!c.active).length;
+          const activeCount = counters.filter(c => c.active === true).length;
           activeCountersEl.textContent = activeCount;
           analystActiveCounters.textContent = activeCount;
         } else {
@@ -524,163 +894,447 @@
         }
       });
 
-      // Settings sync
-      onValue(ref(db, 'settings/name'), (snap) => { if (snap.exists()) { const v = snap.val(); businessName.value = v; previewName.textContent = v; headerName.textContent = v; } });
-      onValue(ref(db, 'settings/introText'), (snap) => { if (snap.exists()) { const v = snap.val(); welcomeMessage.value = v; previewIntro.textContent = v; } });
-      onValue(ref(db, 'settings/logo'), (snap) => { if (snap.exists()) { const v = snap.val(); logoPreview.src = v; logoPreview.classList.remove('hidden'); previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; } });
-      // Display settings sync
-      onValue(ref(db, 'displaySettings'), (snap) => {
-        if (snap.exists()) { const v = snap.val(); displaySmallText.value = v.smallText || ''; displayLogoUrl.value = v.logoUrl || ''; displayMainTitle.value = v.mainTitle || ''; }
-      });
-      onValue(ref(db, 'settings/adImage'), (snap) => { 
-        if (snap.exists()) { 
+      // ===== Settings Sync from Firebase =====
+      onValue(ref(db, 'settings/name'), (snap) => {
+        if (snap.exists()) {
           const v = snap.val();
-          if (typeof v === 'string' && v.startsWith('data:video/')) {
+          businessName.value = v;
+          previewName.textContent = v;
+          headerName.textContent = v;
+        }
+      });
+
+      onValue(ref(db, 'settings/introText'), (snap) => {
+        if (snap.exists()) {
+          const v = snap.val();
+          introText.value = v;
+          previewIntro.textContent = v;
+        }
+      });
+
+      onValue(ref(db, 'settings/logo'), (snap) => {
+        if (snap.exists()) {
+          const v = snap.val();
+          logoPreview.src = v;
+          logoPreview.classList.remove('hidden');
+          previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-2xl object-cover shadow-lg" />`;
+          headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-3xl object-cover shadow-lg" />`;
+        }
+      });
+
+      onValue(ref(db, 'settings/adImage'), (snap) => {
+        if (snap.exists()) {
+          const v = snap.val();
+          const isVideo = typeof v === 'string' && v.startsWith('data:video/');
+          
+          if (isVideo) {
             adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
           } else {
             adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
           }
+          
           adPreviewBox.classList.remove('hidden');
-          previewAd.src = v; previewAd.classList.remove('hidden');
+          previewAd.src = v;
+          adPreviewWrapper.classList.remove('hidden');
+          noAdText.classList.add('hidden');
           adData = v;
-        } else { 
-          adPreviewBox.classList.add('hidden'); previewAd.classList.add('hidden'); 
-        } 
+        } else {
+          adPreviewBox.classList.add('hidden');
+          adPreviewWrapper.classList.add('hidden');
+          noAdText.classList.remove('hidden');
+        }
       });
 
-      // Cropping
-      let currentCropper = null; let currentCropType = '';
-      let adData = '';
-      logoFile.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; if (!file) return;
-        currentCropType = 'logo'; cropModalTitle.textContent = 'Crop Logo (Square)';
-        const base64 = await fileToBase64(file); cropImage.src = base64; cropModal.classList.remove('hidden');
-        if (currentCropper) currentCropper.destroy();
-        currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 2, autoCropArea: 1 });
+      onValue(ref(db, 'settings/logoUrl'), (snap) => {
+        if (snap.exists()) logoUrl.value = snap.val();
       });
+
+      onValue(ref(db, 'settings/mainTitle'), (snap) => {
+        if (snap.exists()) mainTitle.value = snap.val();
+      });
+
+      onValue(ref(db, 'settings/titleinmiddle'), (snap) => {
+        if (snap.exists()) titleInMiddle.value = snap.val();
+      });
+
+      // ===== Image Cropping =====
+      let currentCropper = null;
+      let currentCropType = '';
+      let adData = '';
+
+      logoFile.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        currentCropType = 'logo';
+        cropModalTitle.textContent = 'Crop Logo (Square - 1:1)';
+        
+        const base64 = await fileToBase64(file);
+        cropImage.src = base64;
+        cropModal.classList.remove('hidden');
+        
+        if (currentCropper) currentCropper.destroy();
+        currentCropper = new Cropper(cropImage, {
+          aspectRatio: 1,
+          viewMode: 2,
+          autoCropArea: 1,
+          responsive: true,
+          background: false
+        });
+      });
+
       adFile.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; if (!file) return;
-        // 50MB max
-        if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); return; }
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        // Max 50MB
+        if (file.size > 50 * 1024 * 1024) {
+          showToast('File too large! Maximum 50MB', 'error');
+          return;
+        }
+        
         const base64 = await fileToBase64(file);
         const type = file.type || '';
+        
+        // Handle videos - no cropping
         if (type.startsWith('video/')) {
           adData = base64;
           adPreviewBox.innerHTML = `<video src="${base64}" class="w-full h-full object-cover" controls></video>`;
           adPreviewBox.classList.remove('hidden');
           return;
         }
+        
+        // Handle GIFs - no cropping
         if (type === 'image/gif') {
-          adData = base64; // don't crop GIFs
+          adData = base64;
           adPreviewBox.innerHTML = `<img src="${base64}" class="w-full h-full object-cover" />`;
           adPreviewBox.classList.remove('hidden');
           return;
         }
-        // Crop images
-        currentCropType = 'ad'; cropModalTitle.textContent = 'Crop Ad Banner (Landscape)';
-        cropImage.src = base64; cropModal.classList.remove('hidden');
+        
+        // Handle images - crop to landscape
+        currentCropType = 'ad';
+        cropModalTitle.textContent = 'Crop Advertisement Banner (Landscape - 16:9)';
+        cropImage.src = base64;
+        cropModal.classList.remove('hidden');
+        
         if (currentCropper) currentCropper.destroy();
-        currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
+        currentCropper = new Cropper(cropImage, {
+          aspectRatio: 16 / 9,
+          viewMode: 2,
+          autoCropArea: 1,
+          responsive: true,
+          background: false
+        });
       });
+
       cropSaveBtn.addEventListener('click', () => {
-        if (!currentCropper) return; const canvas = currentCropper.getCroppedCanvas(); const cropped = canvas.toDataURL('image/jpeg', 0.9);
+        if (!currentCropper) return;
+        
+        const canvas = currentCropper.getCroppedCanvas({
+          maxWidth: 4096,
+          maxHeight: 4096,
+          imageSmoothingQuality: 'high'
+        });
+        const cropped = canvas.toDataURL('image/jpeg', 0.9);
+        
         if (currentCropType === 'logo') {
-          logoPreview.src = cropped; logoPreview.classList.remove('hidden');
-          previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
-          headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
-        }
-        if (currentCropType === 'ad') {
+          logoPreview.src = cropped;
+          logoPreview.classList.remove('hidden');
+          previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-2xl object-cover shadow-lg" />`;
+          headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-3xl object-cover shadow-lg" />`;
+        } else if (currentCropType === 'ad') {
           adData = cropped;
           adPreviewBox.innerHTML = `<img src="${cropped}" class="w-full h-full object-cover" />`;
           adPreviewBox.classList.remove('hidden');
-          previewAd.src = cropped; previewAd.classList.remove('hidden');
+          previewAd.src = cropped;
+          adPreviewWrapper.classList.remove('hidden');
+          noAdText.classList.add('hidden');
         }
-        cropModal.classList.add('hidden'); currentCropper.destroy(); currentCropper = null; showToast('Image cropped successfully');
+        
+        cropModal.classList.add('hidden');
+        currentCropper.destroy();
+        currentCropper = null;
+        showToast('Image cropped successfully!');
       });
-      cropCancelBtn.addEventListener('click', () => { cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; } if (currentCropType === 'logo') logoFile.value=''; else if (currentCropType === 'ad') adFile.value=''; });
 
-      // Save settings
+      cropCancelBtn.addEventListener('click', () => {
+        cropModal.classList.add('hidden');
+        if (currentCropper) {
+          currentCropper.destroy();
+          currentCropper = null;
+        }
+        if (currentCropType === 'logo') logoFile.value = '';
+        else if (currentCropType === 'ad') adFile.value = '';
+      });
+
+      // ===== Save Settings to Firebase =====
       const updateSettings = async () => {
-        updateBtnText.classList.add('hidden'); updateBtnSpinner.classList.remove('hidden'); updateSettingsBtn.disabled = true;
+        updateBtnText.classList.add('hidden');
+        updateBtnSpinner.classList.remove('hidden');
+        updateSettingsBtn.disabled = true;
+
         try {
-          const updates = { name: businessName.value, introText: welcomeMessage.value };
-          if (logoPreview.src && logoPreview.src.startsWith('data:')) updates.logo = logoPreview.src;
-          if (adData && typeof adData === 'string' && adData.startsWith('data:')) updates.adImage = adData;
+          const updates = {
+            name: businessName.value.trim() || 'Your Business',
+            introText: introText.value.trim() || 'Real-time queueing system',
+            logoUrl: logoUrl.value.trim() || '',
+            mainTitle: mainTitle.value.trim() || '',
+            titleinmiddle: titleInMiddle.value.trim() || ''
+          };
+
+          // Add logo if uploaded
+          if (logoPreview.src && logoPreview.src.startsWith('data:')) {
+            updates.logo = logoPreview.src;
+          }
+
+          // Add ad if uploaded
+          if (adData && typeof adData === 'string' && adData.startsWith('data:')) {
+            updates.adImage = adData;
+          }
+
           await set(ref(db, 'settings'), updates);
-          // Save display settings separately
-          await set(ref(db, 'displaySettings'), {
-            smallText: displaySmallText.value || 'Digital Queue System',
-            logoUrl: displayLogoUrl.value || '',
-            mainTitle: displayMainTitle.value || 'Get your queue number'
-          });
           showToast('Settings updated successfully!');
-        } catch (err) { console.error(err); showToast('Failed to update settings', 'error'); }
-        finally { updateBtnText.classList.remove('hidden'); updateBtnSpinner.classList.add('hidden'); updateSettingsBtn.disabled = false; }
+        } catch (err) {
+          console.error('Error updating settings:', err);
+          showToast('Failed to update settings', 'error');
+        } finally {
+          updateBtnText.classList.remove('hidden');
+          updateBtnSpinner.classList.add('hidden');
+          updateSettingsBtn.disabled = false;
+        }
       };
+
       updateSettingsBtn.addEventListener('click', updateSettings);
       saveAllBtn.addEventListener('click', updateSettings);
 
-      // Announcement with media support
+      // ===== Announcement System with Media Support =====
       let selectedMediaFile = null;
+
       announcementMedia.addEventListener('change', (e) => {
-        const file = e.target.files?.[0]; selectedMediaFile = file || null; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
+        const file = e.target.files?.[0];
+        selectedMediaFile = file || null;
+        announcementPreview.innerHTML = '';
+        announcementPreview.classList.add('hidden');
+
         if (file) {
-          if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); selectedMediaFile = null; return; }
-          const url = URL.createObjectURL(file);
-          if (file.type.startsWith('video/')) {
-            const video = document.createElement('video'); video.src = url; video.controls = true; video.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(video);
-          } else if (file.type.startsWith('audio/')) {
-            const audio = document.createElement('audio'); audio.src = url; audio.controls = true; audio.className = 'w-full'; announcementPreview.appendChild(audio);
-          } else {
-            const img = document.createElement('img'); img.src = url; img.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(img);
+          if (file.size > 50 * 1024 * 1024) {
+            showToast('File too large! Maximum 50MB', 'error');
+            selectedMediaFile = null;
+            return;
           }
+
+          const url = URL.createObjectURL(file);
+          
+          if (file.type.startsWith('video/')) {
+            const video = document.createElement('video');
+            video.src = url;
+            video.controls = true;
+            video.className = 'preview-media';
+            announcementPreview.appendChild(video);
+          } else if (file.type.startsWith('audio/')) {
+            const audio = document.createElement('audio');
+            audio.src = url;
+            audio.controls = true;
+            audio.className = 'w-full';
+            announcementPreview.appendChild(audio);
+          } else {
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'preview-media';
+            announcementPreview.appendChild(img);
+          }
+          
           announcementPreview.classList.remove('hidden');
         }
       });
 
       sendAnnouncementBtn.addEventListener('click', async () => {
         const message = announcementMessage.value.trim();
-        if (!message && !selectedMediaFile) { showToast('Please enter a message or attach media', 'error'); return; }
-        sendBtnText.classList.add('hidden'); sendBtnSpinner.classList.remove('hidden'); sendAnnouncementBtn.disabled = true;
+        
+        if (!message && !selectedMediaFile) {
+          showToast('Please enter a message or attach media', 'error');
+          return;
+        }
+
+        sendBtnText.classList.add('hidden');
+        sendBtnSpinner.classList.remove('hidden');
+        sendAnnouncementBtn.disabled = true;
+
         try {
+          // Get chat IDs and bot token from Firebase
+          const chatIdsSnapshot = await get(ref(db, 'announcement/chatIds'));
+          const botTokenSnapshot = await get(ref(db, 'announcement/botToken'));
+          
+          const chatIds = chatIdsSnapshot.exists() ? chatIdsSnapshot.val() : [];
+          const telegramBotToken = botTokenSnapshot.exists() ? botTokenSnapshot.val() : '';
+
+          if (!telegramBotToken) {
+            throw new Error('Telegram bot token not configured in Firebase');
+          }
+
+          if (!Array.isArray(chatIds) || chatIds.length === 0) {
+            throw new Error('No chat IDs configured in Firebase');
+          }
+
           let mediaBase64 = '';
           let mediaType = '';
-          if (selectedMediaFile) { mediaBase64 = await fileToBase64(selectedMediaFile); mediaType = selectedMediaFile.type; }
-          const res = await fetch('/.netlify/functions/announce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, media: mediaBase64, mediaType }) });
+          
+          if (selectedMediaFile) {
+            mediaBase64 = await fileToBase64(selectedMediaFile);
+            mediaType = selectedMediaFile.type;
+          }
+
+          const payload = {
+            message,
+            media: mediaBase64,
+            mediaType,
+            chatIds,
+            telegramBotToken
+          };
+
+          const res = await fetch('/.netlify/functions/announce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
           const result = await res.json();
-          if (!res.ok) throw new Error(result.error || 'Failed to send');
-          announcementResult.className = 'p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
-          announcementResult.textContent = '✅ ' + (result.message || 'Announcement sent successfully!');
-          announcementMessage.value=''; announcementMedia.value=''; announcementPreview.innerHTML=''; announcementPreview.classList.add('hidden'); selectedMediaFile = null; showToast('Announcement sent!');
+          
+          if (!res.ok) {
+            throw new Error(result.error || 'Failed to send announcement');
+          }
+
+          announcementResult.className = 'p-4 rounded-xl text-sm font-semibold bg-green-50 text-green-700 border-2 border-green-200';
+          announcementResult.textContent = `✅ ${result.message || 'Announcement sent successfully!'}`;
+          
+          if (result.results) {
+            announcementResult.textContent += ` (Success: ${result.results.success}, Failed: ${result.results.failed})`;
+          }
+
+          announcementMessage.value = '';
+          announcementMedia.value = '';
+          announcementPreview.innerHTML = '';
+          announcementPreview.classList.add('hidden');
+          selectedMediaFile = null;
+          
+          showToast('Announcement sent successfully!');
         } catch (error) {
           console.error('Announcement error:', error);
-          announcementResult.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
-          announcementResult.textContent = '⚠️ ' + (error.message || 'Failed to send announcement');
+          announcementResult.className = 'p-4 rounded-xl text-sm font-semibold bg-red-50 text-red-700 border-2 border-red-200';
+          announcementResult.textContent = `⚠️ ${error.message || 'Failed to send announcement'}`;
           showToast('Failed to send announcement', 'error');
         } finally {
           announcementResult.classList.remove('hidden');
-          sendBtnText.classList.remove('hidden'); sendBtnSpinner.classList.add('hidden'); sendAnnouncementBtn.disabled = false;
-          setTimeout(() => announcementResult.classList.add('hidden'), 5000);
+          sendBtnText.classList.remove('hidden');
+          sendBtnSpinner.classList.add('hidden');
+          sendAnnouncementBtn.disabled = false;
+          
+          setTimeout(() => announcementResult.classList.add('hidden'), 6000);
         }
       });
 
-      // Charts
-      let queueTrendChart = null; let counterPerfChart = null;
-      function initializeCharts() {
+      // ===== Charts Initialization =====
+      let queueTrendChart = null;
+      let counterPerfChart = null;
+
+      async function initializeCharts() {
         const queueCtx = document.getElementById('queueTrendChart');
+        const counterCtx = document.getElementById('counterPerfChart');
+
         if (queueCtx && !queueTrendChart) {
+          // Get real queue data for last 7 days
+          const queueSnapshot = await get(ref(db, 'queue'));
+          let last7DaysData = [0, 0, 0, 0, 0, 0, 0];
+          
+          if (queueSnapshot.exists()) {
+            const queues = Object.values(queueSnapshot.val());
+            const today = new Date();
+            
+            for (let i = 0; i < 7; i++) {
+              const targetDate = new Date(today);
+              targetDate.setDate(today.getDate() - (6 - i));
+              targetDate.setHours(0, 0, 0, 0);
+              const nextDate = new Date(targetDate);
+              nextDate.setDate(targetDate.getDate() + 1);
+              
+              const count = queues.filter(q => {
+                if (!q.timestamp) return false;
+                const qDate = new Date(q.timestamp);
+                return qDate >= targetDate && qDate < nextDate;
+              }).length;
+              
+              last7DaysData[i] = count;
+            }
+          }
+
           queueTrendChart = new Chart(queueCtx, {
             type: 'line',
-            data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Customers Served', data: [12,19,15,25,22,30,28], borderColor: 'rgb(168,85,247)', backgroundColor: 'rgba(168,85,247,0.1)', tension: 0.4, fill: true }] },
-            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
+            data: {
+              labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+              datasets: [{
+                label: 'Customers Served',
+                data: last7DaysData,
+                borderColor: 'rgb(168,85,247)',
+                backgroundColor: 'rgba(168,85,247,0.1)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 3
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: { legend: { display: true, labels: { font: { size: 14, weight: 'bold' } } } },
+              scales: { y: { beginAtZero: true } }
+            }
           });
         }
-        const counterCtx = document.getElementById('counterPerfChart');
+
         if (counterCtx && !counterPerfChart) {
+          // Get real counter performance data
+          const countersSnapshot = await get(ref(db, 'counters'));
+          const queueSnapshot = await get(ref(db, 'queue'));
+          
+          let counterLabels = [];
+          let counterData = [];
+          
+          if (countersSnapshot.exists() && queueSnapshot.exists()) {
+            const counters = countersSnapshot.val();
+            const queues = Object.values(queueSnapshot.val());
+            
+            Object.keys(counters).forEach(counterId => {
+              const count = queues.filter(q => q.counterId === counterId).length;
+              counterLabels.push(counterId.replace('counter', 'Counter '));
+              counterData.push(count);
+            });
+          } else {
+            counterLabels = ['Counter 1', 'Counter 2', 'Counter 3', 'Counter 4'];
+            counterData = [0, 0, 0, 0];
+          }
+
           counterPerfChart = new Chart(counterCtx, {
             type: 'bar',
-            data: { labels: ['Counter 1','Counter 2','Counter 3','Counter 4'], datasets: [{ label: 'Customers Served', data: [45,38,52,41], backgroundColor: ['rgba(99,102,241,0.8)','rgba(168,85,247,0.8)','rgba(236,72,153,0.8)','rgba(59,130,246,0.8)'] }] },
-            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+            data: {
+              labels: counterLabels,
+              datasets: [{
+                label: 'Customers Served',
+                data: counterData,
+                backgroundColor: [
+                  'rgba(99,102,241,0.85)',
+                  'rgba(168,85,247,0.85)',
+                  'rgba(236,72,153,0.85)',
+                  'rgba(59,130,246,0.85)'
+                ],
+                borderRadius: 8
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true } }
+            }
           });
         }
       }
