@@ -1018,35 +1018,31 @@
       sendBtn.disabled = true;
 
       try {
-        const chatIdsSnap = await get(ref(db, '/telegramUsers'));
-        
-        if (!chatIdsSnap.exists()) {
-          throw new Error('No telegram users found in Firebase');
+        const chatIdsSnap = await get(ref(db, 'announcement/chatIds'));
+        const botTokenSnap = await get(ref(db, 'announcement/botToken'));
+
+        if (!chatIdsSnap.exists() || !botTokenSnap.exists()) {
+          throw new Error('Missing chatIds or botToken in Firebase');
         }
-      
-        const chatIds = Object.keys(chatIdsSnap.val());
-      
-        const BOT_TOKEN = BOT_TOKEN; // Netlify environment variable
-      
+
+        const chatIds = chatIdsSnap.val();
+        const telegramBotToken = botTokenSnap.val();
+
         let mediaBase64 = '';
         let mediaType = '';
-      
+
         if (selectedMediaFile) {
           mediaBase64 = await fileToBase64(selectedMediaFile);
           mediaType = selectedMediaFile.type;
         }
-      
+
         const payload = {
           message,
           media: mediaBase64,
           mediaType,
           chatIds: Array.isArray(chatIds) ? chatIds : [chatIds],
-          BOT_TOKEN
+          telegramBotToken
         };
-      } catch (err) {
-        console.error('Error preparing announcement payload:', err);
-      }
-
 
         const response = await fetch('/.netlify/functions/announce', {
           method: 'POST',
