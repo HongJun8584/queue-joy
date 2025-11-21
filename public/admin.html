@@ -1,854 +1,689 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queue Joy Admin Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .sidebar-item { transition: all 0.2s ease; }
-    .sidebar-item:hover { background: #374151; transform: translateX(4px); }
-    .sidebar-item.active { background: #3B82F6; border-left: 4px solid #60A5FA; }
-    .toast { position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px; animation: slideIn 0.3s ease; }
-    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .loading-skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
-    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .badge-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-    .modal-backdrop { background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
-    .btn-ripple { position: relative; overflow: hidden; }
-    .btn-ripple::after { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; background: rgba(255,255,255,0.5); transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
-    .btn-ripple:active::after { width: 300px; height: 300px; }
-  </style>
-</head>
-<body class="bg-gray-50">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>QueueJoy Admin — Real-Time Queue Management</title>
+    <meta name="description" content="QueueJoy Admin Panel - Manage queues, announcements, and analytics in real-time" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-  <!-- Toast Container -->
-  <div id="toast-container"></div>
+    <meta property="og:title" content="QueueJoy Admin — Real-Time Queue Management" />
+    <meta property="og:description" content="Manage queues, send announcements, and view analytics in real-time" />
+    <link rel="canonical" href="/admin.html" />
 
-  <!-- Main Dashboard -->
-  <div id="dashboard">
-    <!-- Top Navigation -->
-    <nav class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <button id="sidebar-toggle" class="lg:hidden text-gray-600 hover:text-gray-900">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-          </svg>
-        </button>
-        <h1 class="text-2xl font-bold text-gray-800">Queue Joy</h1>
-        <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">LIVE</span>
+    <style>
+      :root {
+        --primary: 264 83% 62%;
+        --accent: 197 92% 44%;
+        --muted: 220 14% 56%;
+      }
+      * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.3) transparent; }
+      *::-webkit-scrollbar { width: 8px; height: 8px; }
+      *::-webkit-scrollbar-track { background: transparent; }
+      *::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 10px; }
+      *::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.5); }
+      body {
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+        -webkit-font-smoothing: antialiased;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 400% 400%;
+        animation: gradientShift 15s ease infinite;
+      }
+      @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+      .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
+      .fade-in { animation: fadeIn 0.5s ease-in; }
+      @keyframes fadeIn { from {opacity:0; transform: translateY(20px);} to {opacity:1; transform: translateY(0);} }
+      .toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 1000; animation: slideIn 0.3s ease-out; }
+      @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+      .spinner { border: 2px solid #f3f3f3; border-top: 2px solid hsl(var(--primary)); border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
+      @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+      .sidebar { position: fixed; left: 0; top: 0; height: 100vh; width: 260px; background: linear-gradient(180deg, rgba(99,102,241,0.95) 0%, rgba(139,92,246,0.95) 50%, rgba(168,85,247,0.95) 100%); backdrop-filter: blur(20px); z-index: 50; transition: transform .3s cubic-bezier(.4,0,.2,1); box-shadow: 8px 0 40px rgba(139,92,246,.4), 0 0 0 1px rgba(255,255,255,.2) inset; border-right: 1px solid rgba(255,255,255,.2); }
+      .sidebar-mobile-closed { transform: translateX(-100%); }
+      .sidebar-item { display:flex; align-items:center; gap:14px; padding:16px 24px; margin:6px 12px; color:#fff; cursor:pointer; transition: all .3s cubic-bezier(.4,0,.2,1); font-weight:600; border-radius:12px; position:relative; overflow:hidden; }
+      .sidebar-item::before { content:''; position:absolute; inset:0; background: rgba(255,255,255,0); transition: all .3s cubic-bezier(.4,0,.2,1); z-index:-1; }
+      .sidebar-item:hover::before { background: rgba(255,255,255,0.15); }
+      .sidebar-item.active { background: rgba(255,255,255,0.25); box-shadow:0 8px 20px rgba(0,0,0,0.15); transform: translateX(4px); }
+      .sidebar-item.active::before { background: rgba(255,255,255,0.25); }
+      .main-content { margin-left:260px; transition: margin-left .3s cubic-bezier(.4,0,.2,1); }
+      @media (max-width: 1024px) { .main-content { margin-left:0; } }
+      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
+      .modal-content { background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y:auto; padding:32px; box-shadow: 0 30px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
+      .glass-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius:16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+      .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+      .stat-card { position:relative; overflow:hidden; }
+      .stat-card::before { content:''; position:absolute; top:-50%; right:-50%; width:200%; height:200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: shimmer 3s infinite; }
+      @keyframes shimmer { 0%,100%{ transform: translate(0,0);} 50%{ transform: translate(-20%,-20%);} }
+      .cropper-container { max-height: 400px; margin: 20px 0; }
+    </style>
+  </head>
+  <body class="min-h-screen">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar sidebar-mobile-closed lg:transform-none">
+      <div class="p-8 border-b border-white/20">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center text-white text-lg font-bold shadow-lg">QJ</div>
+          <h1 class="text-white text-2xl font-bold tracking-tight">QueueJoy</h1>
+        </div>
+        <p class="text-white/80 text-sm font-medium ml-13">Admin Panel</p>
       </div>
-      <div class="flex items-center space-x-4">
-        <span class="text-sm text-gray-600">Admin Dashboard</span>
+      <nav class="mt-6">
+        <div class="sidebar-item active" data-view="dashboard"><span class="text-2xl">🏠</span><span class="text-base">Dashboard</span></div>
+        <div class="sidebar-item" data-view="analyst"><span class="text-2xl">📊</span><span class="text-base">Analytics</span></div>
+        <div class="sidebar-item" id="howToUseBtn"><span class="text-2xl">❓</span><span class="text-base">How to Use</span></div>
+      </nav>
+    </aside>
+
+    <!-- Mobile Menu Toggle -->
+    <button id="mobileMenuBtn" class="lg:hidden fixed top-4 left-4 z-40 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-2xl hover:scale-110 transition-all duration-300">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="max-w-6xl mx-auto p-4 pb-20 fade-in">
+        <!-- Dashboard View -->
+        <div id="dashboardView">
+          <!-- Header -->
+          <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 mt-16 lg:mt-6">
+            <div class="flex items-center gap-4">
+              <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl ring-4 ring-white/30">QJ</div>
+              <div>
+                <h2 id="headerName" class="text-3xl font-bold gradient-text">Queue Joy Admin</h2>
+                <p class="text-sm text-gray-700 font-medium mt-1">Real-time management dashboard</p>
+              </div>
+            </div>
+            <button id="saveAllBtn" class="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">💾 Save All Changes</button>
+          </header>
+
+          <!-- Analytics Panel -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
+              <div class="flex items-start justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-gray-600 mb-3">Total Queues</p>
+                  <p id="totalQueues" class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">0</p>
+                </div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl shadow-xl">📊</div>
+              </div>
+            </div>
+            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
+              <div class="flex items-start justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Queues</p>
+                  <p id="activeQueues" class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">0</p>
+                </div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-xl">🎫</div>
+              </div>
+            </div>
+            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
+              <div class="flex items-start justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-gray-600 mb-3">Today's Queues</p>
+                  <p id="todayQueues" class="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">0</p>
+                </div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-xl">📈</div>
+              </div>
+            </div>
+            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
+              <div class="flex items-start justify-between">
+                <div>
+                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Counters</p>
+                  <p id="activeCounters" class="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">0</p>
+                </div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-2xl shadow-xl">🏪</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Content Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Business Settings Card -->
+            <div class="card p-8 space-y-6">
+              <h3 class="text-2xl font-bold gradient-text mb-6">⚙️ Business Settings</h3>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
+                <input id="businessName" type="text" placeholder="Your Business Name" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Welcome Message</label>
+                <textarea id="welcomeMessage" rows="3" placeholder="Real-time queueing system. Mobile-friendly. No app needed." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Logo Image (Square)</label>
+                <div class="flex items-center gap-3">
+                  <img id="logoPreview" src="" alt="Logo" class="w-16 h-16 rounded-lg object-cover border-2 border-gray-200 hidden" />
+                  <div class="flex-1">
+                    <input id="logoFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
+                    <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Banner (Landscape)</label>
+                <div class="space-y-3">
+                  <div class="flex items-start gap-3">
+                    <div id="adPreviewBox" class="w-32 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hidden"></div>
+                    <div class="flex-1">
+                      <input id="adFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
+                      <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button id="updateSettingsBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
+                <span id="updateBtnText">✨ Update Settings</span>
+                <span id="updateBtnSpinner" class="hidden"><span class="spinner"></span> Updating...</span>
+              </button>
+            </div>
+
+            <!-- Display Settings Card -->
+            <div class="card p-8 space-y-6">
+              <h3 class="text-2xl font-bold gradient-text mb-6">🖥️ Display Settings</h3>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Small Text (Subtitle)</label>
+                <input id="displaySmallText" type="text" placeholder="Digital Queue System" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL (Centered)</label>
+                <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Main Title</label>
+                <input id="displayMainTitle" type="text" placeholder="Get your queue number" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
+              </div>
+              <p class="text-xs text-gray-500">These values are saved to <code>/displaySettings</code> without touching your queue schema.</p>
+            </div>
+
+            <!-- Right Column: Announcement + Live Preview -->
+            <div class="space-y-6">
+              <div class="card p-8">
+                <h3 class="text-2xl font-bold gradient-text mb-6">📢 Telegram Announcement</h3>
+                <div class="space-y-4">
+                  <textarea id="announcementMessage" rows="4" placeholder="Type your announcement message here..." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Attach Media (Image, Video, or GIF)</label>
+                    <input id="announcementMedia" type="file" accept="image/*,video/*,audio/*,.gif" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-600 file:font-semibold hover:file:bg-green-100 cursor-pointer" />
+                    <div id="announcementPreview" class="mt-3 hidden"></div>
+                  </div>
+                  <button id="sendAnnouncementBtn" class="w-full py-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
+                    <span id="sendBtnText">📱 Send to Telegram</span>
+                    <span id="sendBtnSpinner" class="hidden"><span class="spinner"></span> Sending...</span>
+                  </button>
+                  <div id="announcementResult" class="hidden p-3 rounded-lg text-sm"></div>
+                </div>
+              </div>
+
+              <div class="card p-8">
+                <h3 class="text-2xl font-bold gradient-text mb-6">👁️ Live Preview</h3>
+                <div class="space-y-4">
+                  <div class="flex items-center gap-4">
+                    <div id="previewLogo" class="w-14 h-14 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
+                    <div class="flex-1">
+                      <p id="previewName" class="text-lg font-bold text-gray-800">Your Business</p>
+                      <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
+                    </div>
+                  </div>
+                  <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
+                    <div class="flex items-center gap-3">
+                      <img id="previewAd" src="" alt="Ad" class="w-24 h-16 rounded-lg object-cover border hidden" />
+                    </div>
+                  </div>
+                  <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl opacity-75 cursor-not-allowed">🎫 Get My Number</button>
+                  <p class="text-xs text-center text-gray-500">This is how customers see your page</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer class="text-center text-sm font-medium text-gray-700 mt-12 p-6 card">
+            <p>🔥 Real-time sync powered by Firebase</p>
+          </footer>
+        </div>
+
+        <!-- Analyst View -->
+        <div id="analystView" class="hidden">
+          <div class="mt-16 lg:mt-6">
+            <h2 class="text-3xl font-bold text-white mb-8 bg-gradient-to-r from-purple-600 to-indigo-500 p-6 rounded-2xl shadow-lg">📊 Analytics Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div class="card p-6 bg-gradient-to-br from-purple-600 to-purple-400 text-white">
+                <p class="text-sm opacity-90 mb-2">Total Customers Served</p>
+                <p id="analystTotalServed" class="text-4xl font-bold">0</p>
+              </div>
+              <div class="card p-6 bg-gradient-to-br from-indigo-600 to-indigo-400 text-white">
+                <p class="text-sm opacity-90 mb-2">Average Wait Time</p>
+                <p class="text-4xl font-bold"><span id="analystAvgWait">0</span><span class="text-lg ml-1">min</span></p>
+              </div>
+              <div class="card p-6 bg-gradient-to-br from-pink-600 to-pink-400 text-white">
+                <p class="text-sm opacity-90 mb-2">Active Counters</p>
+                <p id="analystActiveCounters" class="text-4xl font-bold">0</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="card p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Trend (Last 7 Days)</h3>
+                <canvas id="queueTrendChart"></canvas>
+              </div>
+              <div class="card p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Counter Performance</h3>
+                <canvas id="counterPerfChart"></canvas>
+              </div>
+            </div>
+            <div class="card p-6 mt-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Status Breakdown</h3>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center"><p class="text-3xl font-bold text-green-600" id="analystCompleted">0</p><p class="text-sm text-gray-600 mt-1">Completed</p></div>
+                <div class="text-center"><p class="text-3xl font-bold text-blue-600" id="analystWaiting">0</p><p class="text-sm text-gray-600 mt-1">Waiting</p></div>
+                <div class="text-center"><p class="text-3xl font-bold text-purple-600" id="analystServing">0</p><p class="text-sm text-gray-600 mt-1">Serving</p></div>
+                <div class="text-center"><p class="text-3xl font-bold text-gray-600" id="analystCancelled">0</p><p class="text-sm text-gray-600 mt-1">Cancelled</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </nav>
-
-    <div class="flex min-h-screen">
-      <!-- Sidebar -->
-      <aside id="sidebar" class="w-64 bg-gray-800 text-white fixed lg:static h-screen overflow-y-auto transition-transform duration-300 z-50 -translate-x-full lg:translate-x-0">
-        <div class="p-6">
-          <div class="flex items-center space-x-3 mb-8">
-            <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-xl font-bold">Q</div>
-            <span class="text-lg font-semibold">Admin Panel</span>
-          </div>
-
-          <nav class="space-y-2">
-            <button data-view="settings" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-              <span class="font-medium">Business Settings</span>
-            </button>
-
-            <button data-view="analytics" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-              </svg>
-              <span class="font-medium">Analytics</span>
-            </button>
-
-            <button data-view="announcements" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
-              </svg>
-              <span class="font-medium">Announcements</span>
-            </button>
-
-            <button data-view="help" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <span class="font-medium">How to Use</span>
-            </button>
-          </nav>
-        </div>
-      </aside>
-
-      <!-- Sidebar Overlay for Mobile -->
-      <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden"></div>
-
-      <!-- Main Content -->
-      <main class="flex-1 p-6 overflow-y-auto">
-        <!-- Business Settings View -->
-        <div id="view-settings" class="view-content hidden">
-          <h2 class="text-3xl font-bold text-gray-800 mb-6">Business Settings</h2>
-          
-          <!-- Counters Section -->
-          <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-bold text-gray-800">Counters</h3>
-              <button id="add-counter-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium btn-ripple">
-                + Add Counter
-              </button>
-            </div>
-            <div id="counters-list" class="space-y-3"></div>
-          </div>
-
-          <!-- Queue Management -->
-          <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Queue Management</h3>
-            <div id="queue-list" class="space-y-2"></div>
-          </div>
-
-          <!-- Settings Configuration -->
-          <div class="bg-white rounded-2xl shadow-lg p-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Configuration</h3>
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Introduction Text</label>
-                <textarea id="intro-text" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Welcome message..."></textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Image</label>
-                <input type="file" id="ad-image-upload" accept="image/*" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
-                <div id="ad-image-preview" class="mt-3"></div>
-              </div>
-              <button id="save-settings-btn" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium btn-ripple">
-                Save Settings
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Analytics View -->
-        <div id="view-analytics" class="view-content hidden">
-          <h2 class="text-3xl font-bold text-gray-800 mb-6">Analytics Dashboard</h2>
-          
-          <!-- KPI Cards -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm text-gray-600 font-medium">Queue Length</p>
-                  <p id="kpi-queue-length" class="text-3xl font-bold text-gray-800 mt-2">0</p>
-                </div>
-                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm text-gray-600 font-medium">Served Today</p>
-                  <p id="kpi-served-today" class="text-3xl font-bold text-gray-800 mt-2">0</p>
-                </div>
-                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm text-gray-600 font-medium">Avg Wait Time</p>
-                  <p id="kpi-avg-wait" class="text-3xl font-bold text-gray-800 mt-2">0m</p>
-                </div>
-                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm text-gray-600 font-medium">Active Counters</p>
-                  <p id="kpi-active-counters" class="text-3xl font-bold text-gray-800 mt-2">0</p>
-                </div>
-                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Charts -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <h3 class="text-lg font-bold text-gray-800 mb-4">Served Per Counter (Today)</h3>
-              <div id="served-per-counter-chart" class="h-64"></div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <h3 class="text-lg font-bold text-gray-800 mb-4">Peak Hours (Last 24h)</h3>
-              <div id="peak-hours-chart" class="h-64"></div>
-            </div>
-          </div>
-
-          <button id="export-csv-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium btn-ripple">
-            Export CSV
-          </button>
-        </div>
-
-        <!-- Announcements View -->
-        <div id="view-announcements" class="view-content hidden">
-          <h2 class="text-3xl font-bold text-gray-800 mb-6">Announcement System</h2>
-          
-          <!-- Create Announcement -->
-          <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Create Announcement</h3>
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                <textarea id="announcement-message" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Type your announcement..."></textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Media (Optional)</label>
-                <input type="file" id="announcement-media" accept="image/*,video/*" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Recipients</label>
-                <select id="announcement-recipients" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <option value="all">All Subscribers</option>
-                  <option value="queue">Current Queue</option>
-                  <option value="custom">Custom Chat IDs</option>
-                </select>
-              </div>
-              <button id="send-announcement-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium btn-ripple">
-                Send Announcement
-              </button>
-            </div>
-          </div>
-
-          <!-- Announcement History -->
-          <div class="bg-white rounded-2xl shadow-lg p-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Announcement History</h3>
-            <div id="announcement-history" class="space-y-3"></div>
-          </div>
-        </div>
-
-        <!-- Help View -->
-        <div id="view-help" class="view-content hidden">
-          <h2 class="text-3xl font-bold text-gray-800 mb-6">How to Use Queue Joy Admin</h2>
-          
-          <div class="space-y-6">
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <h3 class="text-xl font-bold text-gray-800 mb-3">🎯 Business Settings</h3>
-              <ul class="space-y-2 text-gray-600">
-                <li>• Manage counters: add, edit, or remove service counters</li>
-                <li>• Control queue: call next, serve customers, mark complete</li>
-                <li>• Configure settings: update intro text and advertisement image</li>
-              </ul>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <h3 class="text-xl font-bold text-gray-800 mb-3">📊 Analytics</h3>
-              <ul class="space-y-2 text-gray-600">
-                <li>• Monitor real-time queue length and active counters</li>
-                <li>• Track served customers and average wait times</li>
-                <li>• View peak hours and export data as CSV</li>
-              </ul>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <h3 class="text-xl font-bold text-gray-800 mb-3">📣 Announcements</h3>
-              <ul class="space-y-2 text-gray-600">
-                <li>• Send messages to all subscribers or specific groups</li>
-                <li>• Attach images or videos to announcements</li>
-                <li>• View delivery status and history</li>
-              </ul>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-              <h3 class="text-xl font-bold text-gray-800 mb-3">⌨️ Keyboard Shortcuts</h3>
-              <ul class="space-y-2 text-gray-600">
-                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">N</kbd> - New announcement</li>
-                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">C</kbd> - Create counter</li>
-                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">Space</kbd> - Call next (when counter selected)</li>
-                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">Esc</kbd> - Close modal</li>
-              </ul>
-            </div>
-
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
-              <h3 class="text-lg font-bold text-yellow-800 mb-2">⚠️ Security Note</h3>
-              <p class="text-yellow-700">BOT_TOKEN and other sensitive credentials must remain server-side only. Never expose them in client code or Firebase. All Telegram API calls should go through your secure serverless function.</p>
-            </div>
-          </div>
-        </div>
-      </main>
     </div>
-  </div>
 
-  <!-- Modals -->
-  <div id="modal-container"></div>
-
-  <script>
-    // Firebase Configuration
-    const firebaseConfig = {
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app/"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
-    const storage = firebase.storage();
-
-    // Global State
-    const TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN_HERE'; // Replace with your actual bot token
-    let countersData = {};
-    let queueData = {};
-    let settingsData = {};
-    let subscriptionsData = {};
-    let lastAssignedCounter = 0;
-    let debounceTimers = {};
-
-    // Utility Functions
-    function showToast(message, type = 'info') {
-      const toast = document.createElement('div');
-      toast.className = `toast px-6 py-4 rounded-lg shadow-lg ${
-        type === 'success' ? 'bg-green-500' : 
-        type === 'error' ? 'bg-red-500' : 
-        type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-      } text-white`;
-      toast.textContent = message;
-      document.getElementById('toast-container').appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
-
-    function debounce(key, callback, delay = 300) {
-      if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
-      debounceTimers[key] = setTimeout(callback, delay);
-    }
-
-    function showModal(title, content, actions) {
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 z-50 flex items-center justify-center modal-backdrop';
-      modal.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
-          <h3 class="text-xl font-bold text-gray-800 mb-4">${title}</h3>
-          <div class="mb-6">${content}</div>
-          <div class="flex justify-end space-x-3">${actions}</div>
+    <!-- Crop Modal -->
+    <div id="cropModal" class="modal hidden">
+      <div class="modal-content">
+        <h3 class="text-xl font-bold text-gray-800 mb-4" id="cropModalTitle">Crop Image</h3>
+        <div class="cropper-container"><img id="cropImage" src="" alt="Crop" style="max-width: 100%;" /></div>
+        <div class="flex gap-3 mt-4">
+          <button id="cropSaveBtn" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">✂️ Crop & Save</button>
+          <button id="cropCancelBtn" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all">Cancel</button>
         </div>
-      `;
-      document.getElementById('modal-container').appendChild(modal);
-      
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.remove();
+      </div>
+    </div>
+
+    <!-- How to Use Modal -->
+    <div id="howToUseModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-2xl font-bold text-gray-800">❓ How to Use QueueJoy Admin</h3>
+          <button id="closeHowToUse" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        <div class="space-y-4 text-gray-700">
+          <div class="p-4 bg-purple-50 rounded-lg">
+            <h4 class="font-bold text-purple-700 mb-2">🏠 Dashboard</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+              <li>Edit your business name and welcome message</li>
+              <li>Upload and crop logo (square) and ad banner (landscape)</li>
+              <li>Send Telegram announcements with optional media</li>
+              <li>View live preview of how customers see your page</li>
+            </ul>
+          </div>
+          <div class="p-4 bg-indigo-50 rounded-lg">
+            <h4 class="font-bold text-indigo-700 mb-2">✂️ Image Cropping</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+              <li>Upload an image using the file input</li>
+              <li>Cropping tool will appear automatically</li>
+              <li>Logo: Square crop (1:1 ratio)</li>
+              <li>Ad Banner: Landscape crop (16:9 ratio)</li>
+              <li>Click "Crop & Save" to finalize</li>
+            </ul>
+          </div>
+          <div class="p-4 bg-pink-50 rounded-lg">
+            <h4 class="font-bold text-pink-700 mb-2">📊 Analyst View</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+              <li>View total customers served and active counters</li>
+              <li>See queue trends over the last 7 days</li>
+              <li>Track counter performance with charts</li>
+              <li>Monitor queue status breakdown in real-time</li>
+            </ul>
+          </div>
+          <div class="p-4 bg-green-50 rounded-lg">
+            <h4 class="font-bold text-green-700 mb-2">💾 Saving Changes</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+              <li>All changes auto-sync to Firebase in real-time</li>
+              <li>Click "Update Settings" or "Save All Changes"</li>
+              <li>Green toast notification confirms successful save</li>
+              <li>Changes appear instantly on your public queue page</li>
+            </ul>
+          </div>
+          <div class="p-4 bg-blue-50 rounded-lg">
+            <h4 class="font-bold text-blue-700 mb-2">📱 Telegram Announcements</h4>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+              <li>Type your message in the announcement box</li>
+              <li>Attach optional media (image/video/GIF)</li>
+              <li>Click "Send to Telegram" to broadcast</li>
+            </ul>
+          </div>
+        </div>
+        <button id="closeHowToUseBtn" class="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">Got it!</button>
+      </div>
+    </div>
+
+    <!-- Firebase & App Script -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+      import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+        authDomain: "queue-joy-aa21b.firebaseapp.com",
+        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "queue-joy-aa21b",
+        storageBucket: "queue-joy-aa21b.appspot.com",
+        messagingSenderId: "950240394209",
+        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+
+      // Toast
+      const showToast = (message, type = 'success') => {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+        toast.textContent = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      };
+
+      // File -> base64
+      const fileToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
 
-      document.addEventListener('keydown', function escHandler(e) {
-        if (e.key === 'Escape') {
-          modal.remove();
-          document.removeEventListener('keydown', escHandler);
-        }
-      });
+      // Elements
+      const businessName = document.getElementById('businessName');
+      const welcomeMessage = document.getElementById('welcomeMessage');
+      const logoFile = document.getElementById('logoFile');
+      const logoPreview = document.getElementById('logoPreview');
+      const adFile = document.getElementById('adFile');
+      const adPreviewBox = document.getElementById('adPreviewBox');
+      const updateSettingsBtn = document.getElementById('updateSettingsBtn');
+      const updateBtnText = document.getElementById('updateBtnText');
+      const updateBtnSpinner = document.getElementById('updateBtnSpinner');
+      const saveAllBtn = document.getElementById('saveAllBtn');
+      // Display settings inputs
+      const displaySmallText = document.getElementById('displaySmallText');
+      const displayLogoUrl = document.getElementById('displayLogoUrl');
+      const displayMainTitle = document.getElementById('displayMainTitle');
 
-      return modal;
-    }
+      const previewName = document.getElementById('previewName');
+      const previewIntro = document.getElementById('previewIntro');
+      const previewLogo = document.getElementById('previewLogo');
+      const previewAd = document.getElementById('previewAd');
+      const headerLogo = document.getElementById('headerLogo');
+      const headerName = document.getElementById('headerName');
 
-    // Initialize Dashboard on Load
-    document.addEventListener('DOMContentLoaded', () => {
-      setupRealtimeListeners();
-      setupNavigation();
-      setupEventHandlers();
-      switchView('settings');
-    });
+      const announcementMessage = document.getElementById('announcementMessage');
+      const announcementMedia = document.getElementById('announcementMedia');
+      const announcementPreview = document.getElementById('announcementPreview');
+      const sendAnnouncementBtn = document.getElementById('sendAnnouncementBtn');
+      const sendBtnText = document.getElementById('sendBtnText');
+      const sendBtnSpinner = document.getElementById('sendBtnSpinner');
+      const announcementResult = document.getElementById('announcementResult');
 
-    // Real-time Firebase Listeners
-    function setupRealtimeListeners() {
-      // Counters
-      const countersRef = database.ref('counters');
-      countersRef.on('child_added', (snapshot) => {
-        countersData[snapshot.key] = snapshot.val();
-        renderCounters();
-        updateAnalytics();
-      });
-      countersRef.on('child_changed', (snapshot) => {
-        countersData[snapshot.key] = snapshot.val();
-        renderCounters();
-        updateAnalytics();
-      });
-      countersRef.on('child_removed', (snapshot) => {
-        delete countersData[snapshot.key];
-        renderCounters();
-        updateAnalytics();
-      });
+      const cropModal = document.getElementById('cropModal');
+      const cropImage = document.getElementById('cropImage');
+      const cropSaveBtn = document.getElementById('cropSaveBtn');
+      const cropCancelBtn = document.getElementById('cropCancelBtn');
+      const cropModalTitle = document.getElementById('cropModalTitle');
 
-      // Queue
-      const queueRef = database.ref('queue');
-      queueRef.on('child_added', (snapshot) => {
-        queueData[snapshot.key] = snapshot.val();
-        renderQueue();
-        updateAnalytics();
-      });
-      queueRef.on('child_changed', (snapshot) => {
-        queueData[snapshot.key] = snapshot.val();
-        renderQueue();
-        updateAnalytics();
-      });
-      queueRef.on('child_removed', (snapshot) => {
-        delete queueData[snapshot.key];
-        renderQueue();
-        updateAnalytics();
-      });
+      const howToUseModal = document.getElementById('howToUseModal');
+      const howToUseBtn = document.getElementById('howToUseBtn');
+      const closeHowToUse = document.getElementById('closeHowToUse');
+      const closeHowToUseBtn = document.getElementById('closeHowToUseBtn');
 
-      // Settings (small node, use 'value')
-      database.ref('settings').on('value', (snapshot) => {
-        settingsData = snapshot.val() || {};
-        renderSettings();
-      });
+      const sidebar = document.getElementById('sidebar');
+      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+      const dashboardView = document.getElementById('dashboardView');
+      const analystView = document.getElementById('analystView');
+      const sidebarItems = document.querySelectorAll('.sidebar-item[data-view]');
 
-      // Last Assigned Counter (small node, use 'value')
-      database.ref('lastAssignedCounter').on('value', (snapshot) => {
-        lastAssignedCounter = snapshot.val() || 0;
-      });
+      const totalQueuesEl = document.getElementById('totalQueues');
+      const activeQueuesEl = document.getElementById('activeQueues');
+      const todayQueuesEl = document.getElementById('todayQueues');
+      const activeCountersEl = document.getElementById('activeCounters');
 
-      // Queue Subscriptions
-      database.ref('queueSubscriptions').on('value', (snapshot) => {
-        subscriptionsData = snapshot.val() || {};
-      });
-    }
+      const analystTotalServed = document.getElementById('analystTotalServed');
+      const analystAvgWait = document.getElementById('analystAvgWait');
+      const analystActiveCounters = document.getElementById('analystActiveCounters');
+      const analystCompleted = document.getElementById('analystCompleted');
+      const analystWaiting = document.getElementById('analystWaiting');
+      const analystServing = document.getElementById('analystServing');
+      const analystCancelled = document.getElementById('analystCancelled');
 
-    // Navigation
-    function setupNavigation() {
-      const sidebarItems = document.querySelectorAll('.sidebar-item');
+      // Mobile Menu
+      mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('sidebar-mobile-closed'));
+
+      // Switch views
       sidebarItems.forEach(item => {
         item.addEventListener('click', () => {
-          const view = item.getAttribute('data-view');
-          switchView(view);
-          
-          // Mobile: close sidebar after selection
-          if (window.innerWidth < 1024) {
-            document.getElementById('sidebar').classList.remove('translate-x-0');
-            document.getElementById('sidebar').classList.add('-translate-x-full');
-            document.getElementById('sidebar-overlay').classList.add('hidden');
+          const view = item.dataset.view;
+          sidebarItems.forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          if (view === 'dashboard') {
+            dashboardView.classList.remove('hidden');
+            analystView.classList.add('hidden');
+          } else {
+            dashboardView.classList.add('hidden');
+            analystView.classList.remove('hidden');
+            initializeCharts();
           }
+          sidebar.classList.add('sidebar-mobile-closed');
         });
       });
 
-      // Sidebar toggle
-      document.getElementById('sidebar-toggle').addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-        sidebar.classList.toggle('-translate-x-full');
-        sidebar.classList.toggle('translate-x-0');
-        overlay.classList.toggle('hidden');
-      });
+      // How to Use
+      howToUseBtn.addEventListener('click', () => { howToUseModal.classList.remove('hidden'); sidebar.classList.add('sidebar-mobile-closed'); });
+      closeHowToUse.addEventListener('click', () => howToUseModal.classList.add('hidden'));
+      closeHowToUseBtn.addEventListener('click', () => howToUseModal.classList.add('hidden'));
 
-      document.getElementById('sidebar-overlay').addEventListener('click', () => {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('sidebar-overlay').classList.add('hidden');
-      });
-    }
+      // Real-time Analytics Updates
+      onValue(ref(db, 'queue'), (snapshot) => {
+        if (snapshot.exists()) {
+          const queues = Object.values(snapshot.val());
+          const total = queues.length;
+          const waiting = queues.filter(q => q.status === 'waiting').length;
+          const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
+          const serving = queues.filter(q => q.status === 'serving').length;
+          const cancelled = queues.filter(q => q.status === 'cancelled').length;
 
-    function switchView(viewName) {
-      // Hide all views
-      document.querySelectorAll('.view-content').forEach(view => {
-        view.classList.add('hidden');
-      });
-      
-      // Show selected view
-      document.getElementById(`view-${viewName}`).classList.remove('hidden');
-      
-      // Update sidebar active state
-      document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.getAttribute('data-view') === viewName) {
-          item.classList.add('active');
-        }
-      });
-    }
+          totalQueuesEl.textContent = total;
+          activeQueuesEl.textContent = waiting;
 
-    // Render Functions
-    function renderCounters() {
-      const container = document.getElementById('counters-list');
-      container.innerHTML = '';
-      
-      Object.entries(countersData).sort((a, b) => a[1].order - b[1].order).forEach(([id, counter]) => {
-        const div = document.createElement('div');
-        div.className = 'bg-gray-50 rounded-lg p-4 flex items-center justify-between';
-        div.innerHTML = `
-          <div class="flex items-center space-x-4">
-            <div class="w-12 h-12 ${counter.active ? 'bg-green-100' : 'bg-gray-300'} rounded-lg flex items-center justify-center font-bold text-lg">
-              ${counter.order}
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-800">${counter.name}</h4>
-              <p class="text-sm text-gray-600">
-                Prefix: ${counter.prefix} | Now Serving: ${counter.nowServing || 'None'} | 
-                ${counter.active ? '<span class="text-green-600">Active</span>' : '<span class="text-gray-500">Inactive</span>'}
-              </p>
-            </div>
-          </div>
-          <div class="flex space-x-2">
-            <button onclick="callNext('${id}')" class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm btn-ripple">
-              Call Next
-            </button>
-            <button onclick="advanceCounter('${id}')" class="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm btn-ripple">
-              Advance
-            </button>
-            <button onclick="toggleCounter('${id}')" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm btn-ripple">
-              ${counter.active ? 'Deactivate' : 'Activate'}
-            </button>
-          </div>
-        `;
-        container.appendChild(div);
-      });
-    }
+          const today = new Date().setHours(0,0,0,0);
+          const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
+          todayQueuesEl.textContent = todayCount;
 
-    function renderQueue() {
-      const container = document.getElementById('queue-list');
-      container.innerHTML = '';
-      
-      const queueArray = Object.entries(queueData).filter(([_, q]) => q.status === 'waiting');
-      
-      if (queueArray.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">No customers in queue</p>';
-        return;
-      }
+          // Analyst view
+          analystTotalServed.textContent = completed;
+          analystCompleted.textContent = completed;
+          analystWaiting.textContent = waiting;
+          analystServing.textContent = serving;
+          analystCancelled.textContent = cancelled;
 
-      queueArray.forEach(([id, item]) => {
-        const div = document.createElement('div');
-        div.className = 'bg-gray-50 rounded-lg p-3 flex items-center justify-between';
-        div.innerHTML = `
-          <div class="flex items-center space-x-3">
-            <span class="font-bold text-lg text-gray-800">${item.queueId}</span>
-            <span class="text-sm text-gray-600">${new Date(item.timestamp).toLocaleTimeString()}</span>
-          </div>
-          <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">${item.status}</span>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    function renderSettings() {
-      if (settingsData.introText) {
-        document.getElementById('intro-text').value = settingsData.introText;
-      }
-      
-      if (settingsData.adImage) {
-        const preview = document.getElementById('ad-image-preview');
-        preview.innerHTML = `<img src="${settingsData.adImage}" class="max-w-xs rounded-lg shadow" alt="Ad Preview">`;
-      }
-    }
-
-    function updateAnalytics() {
-      // Queue Length
-      const queueLength = Object.values(queueData).filter(q => q.status === 'waiting').length;
-      document.getElementById('kpi-queue-length').textContent = queueLength;
-
-      // Active Counters
-      const activeCounters = Object.values(countersData).filter(c => c.active).length;
-      document.getElementById('kpi-active-counters').textContent = activeCounters;
-
-      // Served Today (placeholder - would need date filtering)
-      const servedToday = Object.values(queueData).filter(q => q.status === 'served').length;
-      document.getElementById('kpi-served-today').textContent = servedToday;
-
-      // Avg Wait Time (placeholder - needs proper calculation)
-      document.getElementById('kpi-avg-wait').textContent = '5m';
-
-      // Simple bar chart for served per counter
-      renderServedPerCounterChart();
-    }
-
-    function renderServedPerCounterChart() {
-      const container = document.getElementById('served-per-counter-chart');
-      container.innerHTML = '';
-      
-      const served = {};
-      Object.values(countersData).forEach(counter => {
-        served[counter.name] = 0;
-      });
-      
-      Object.values(queueData).forEach(item => {
-        if (item.status === 'served' && item.counterId && countersData[item.counterId]) {
-          served[countersData[item.counterId].name]++;
+          // Average wait time (current waiting customers)
+          const waitingQueuesForAvg = queues.filter(q => q.status === 'waiting' && q.timestamp);
+          const avgWait = waitingQueuesForAvg.length > 0 ? Math.round(waitingQueuesForAvg.reduce((acc, q) => acc + ((Date.now() - new Date(q.timestamp)) / 60000), 0) / waitingQueuesForAvg.length) : 0;
+          analystAvgWait.textContent = String(isFinite(avgWait) ? Math.max(0, avgWait) : 0);
+        } else {
+          [totalQueuesEl, activeQueuesEl, todayQueuesEl, analystTotalServed, analystCompleted, analystWaiting, analystServing, analystCancelled, analystAvgWait].forEach(el => el.textContent = '0');
         }
       });
 
-      Object.entries(served).forEach(([name, count]) => {
-        const bar = document.createElement('div');
-        bar.className = 'mb-3';
-        bar.innerHTML = `
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-sm font-medium text-gray-700">${name}</span>
-            <span class="text-sm font-bold text-gray-800">${count}</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-3">
-            <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: ${count * 10}%"></div>
-          </div>
-        `;
-        container.appendChild(bar);
-      });
-    }
-
-    // Event Handlers
-    function setupEventHandlers() {
-      // Add Counter
-      document.getElementById('add-counter-btn').addEventListener('click', () => {
-        const modal = showModal(
-          'Add New Counter',
-          `
-            <input type="text" id="new-counter-name" placeholder="Counter Name" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-3">
-            <input type="text" id="new-counter-prefix" placeholder="Prefix (e.g., VANILLA)" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
-          `,
-          `
-            <button onclick="document.querySelector('.modal-backdrop').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancel</button>
-            <button onclick="addCounter()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 btn-ripple">Create</button>
-          `
-        );
-      });
-
-      // Save Settings
-      document.getElementById('save-settings-btn').addEventListener('click', async () => {
-        const introText = document.getElementById('intro-text').value;
-        
-        try {
-          await database.ref('settings').update({ introText });
-          showToast('Settings saved successfully!', 'success');
-        } catch (error) {
-          showToast('Failed to save settings: ' + error.message, 'error');
+      onValue(ref(db, 'counters'), (snapshot) => {
+        if (snapshot.exists()) {
+          const counters = Object.values(snapshot.val());
+          const activeCount = counters.filter(c => !!c.active).length;
+          activeCountersEl.textContent = activeCount;
+          analystActiveCounters.textContent = activeCount;
+        } else {
+          activeCountersEl.textContent = '0';
+          analystActiveCounters.textContent = '0';
         }
       });
 
-      // Ad Image Upload
-      document.getElementById('ad-image-upload').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        try {
-          const storageRef = storage.ref(`ads/${Date.now()}_${file.name}`);
-          await storageRef.put(file);
-          const url = await storageRef.getDownloadURL();
-          
-          await database.ref('settings').update({ adImage: url });
-          showToast('Image uploaded successfully!', 'success');
-        } catch (error) {
-          showToast('Failed to upload image: ' + error.message, 'error');
-        }
+      // Settings sync
+      onValue(ref(db, 'settings/name'), (snap) => { if (snap.exists()) { const v = snap.val(); businessName.value = v; previewName.textContent = v; headerName.textContent = v; } });
+      onValue(ref(db, 'settings/introText'), (snap) => { if (snap.exists()) { const v = snap.val(); welcomeMessage.value = v; previewIntro.textContent = v; } });
+      onValue(ref(db, 'settings/logo'), (snap) => { if (snap.exists()) { const v = snap.val(); logoPreview.src = v; logoPreview.classList.remove('hidden'); previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; } });
+      // Display settings sync
+      onValue(ref(db, 'displaySettings'), (snap) => {
+        if (snap.exists()) { const v = snap.val(); displaySmallText.value = v.smallText || ''; displayLogoUrl.value = v.logoUrl || ''; displayMainTitle.value = v.mainTitle || ''; }
+      });
+      onValue(ref(db, 'settings/adImage'), (snap) => { 
+        if (snap.exists()) { 
+          const v = snap.val();
+          if (typeof v === 'string' && v.startsWith('data:video/')) {
+            adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
+          } else {
+            adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
+          }
+          adPreviewBox.classList.remove('hidden');
+          previewAd.src = v; previewAd.classList.remove('hidden');
+          adData = v;
+        } else { 
+          adPreviewBox.classList.add('hidden'); previewAd.classList.add('hidden'); 
+        } 
       });
 
-      // Send Announcement
-      document.getElementById('send-announcement-btn').addEventListener('click', async () => {
-        const message = document.getElementById('announcement-message').value;
-        const recipients = document.getElementById('announcement-recipients').value;
-        const mediaFile = document.getElementById('announcement-media').files[0];
-
-        if (!message.trim()) {
-          showToast('Please enter a message', 'warning');
+      // Cropping
+      let currentCropper = null; let currentCropType = '';
+      let adData = '';
+      logoFile.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        currentCropType = 'logo'; cropModalTitle.textContent = 'Crop Logo (Square)';
+        const base64 = await fileToBase64(file); cropImage.src = base64; cropModal.classList.remove('hidden');
+        if (currentCropper) currentCropper.destroy();
+        currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 2, autoCropArea: 1 });
+      });
+      adFile.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        // 50MB max
+        if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); return; }
+        const base64 = await fileToBase64(file);
+        const type = file.type || '';
+        if (type.startsWith('video/')) {
+          adData = base64;
+          adPreviewBox.innerHTML = `<video src="${base64}" class="w-full h-full object-cover" controls></video>`;
+          adPreviewBox.classList.remove('hidden');
           return;
         }
+        if (type === 'image/gif') {
+          adData = base64; // don't crop GIFs
+          adPreviewBox.innerHTML = `<img src="${base64}" class="w-full h-full object-cover" />`;
+          adPreviewBox.classList.remove('hidden');
+          return;
+        }
+        // Crop images
+        currentCropType = 'ad'; cropModalTitle.textContent = 'Crop Ad Banner (Landscape)';
+        cropImage.src = base64; cropModal.classList.remove('hidden');
+        if (currentCropper) currentCropper.destroy();
+        currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
+      });
+      cropSaveBtn.addEventListener('click', () => {
+        if (!currentCropper) return; const canvas = currentCropper.getCroppedCanvas(); const cropped = canvas.toDataURL('image/jpeg', 0.9);
+        if (currentCropType === 'logo') {
+          logoPreview.src = cropped; logoPreview.classList.remove('hidden');
+          previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
+          headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
+        }
+        if (currentCropType === 'ad') {
+          adData = cropped;
+          adPreviewBox.innerHTML = `<img src="${cropped}" class="w-full h-full object-cover" />`;
+          adPreviewBox.classList.remove('hidden');
+          previewAd.src = cropped; previewAd.classList.remove('hidden');
+        }
+        cropModal.classList.add('hidden'); currentCropper.destroy(); currentCropper = null; showToast('Image cropped successfully');
+      });
+      cropCancelBtn.addEventListener('click', () => { cropModal.classList.add('hidden'); if (currentCropper) { currentCropper.destroy(); currentCropper = null; } if (currentCropType === 'logo') logoFile.value=''; else if (currentCropType === 'ad') adFile.value=''; });
 
+      // Save settings
+      const updateSettings = async () => {
+        updateBtnText.classList.add('hidden'); updateBtnSpinner.classList.remove('hidden'); updateSettingsBtn.disabled = true;
         try {
-          let mediaUrl = null;
-          let mediaType = null;
-
-          // Upload media to Firebase Storage if provided
-          if (mediaFile) {
-            const storageRef = storage.ref(`announcements/${Date.now()}_${mediaFile.name}`);
-            await storageRef.put(mediaFile);
-            mediaUrl = await storageRef.getDownloadURL();
-            mediaType = mediaFile.type;
-          }
-
-          // Get chat IDs based on recipient selection
-          let chatIds = [];
-          if (recipients === 'all') {
-            chatIds = Object.values(subscriptionsData);
-          } else if (recipients === 'queue') {
-            chatIds = Object.values(queueData)
-              .filter(q => q.chatId)
-              .map(q => q.chatId);
-          }
-
-          // Call serverless function
-          const response = await fetch('/.netlify/functions/announce', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              message, 
-              media: mediaUrl, 
-              mediaType, 
-              chatIds,
-              telegramBotToken: TELEGRAM_BOT_TOKEN
-            })
+          const updates = { name: businessName.value, introText: welcomeMessage.value };
+          if (logoPreview.src && logoPreview.src.startsWith('data:')) updates.logo = logoPreview.src;
+          if (adData && typeof adData === 'string' && adData.startsWith('data:')) updates.adImage = adData;
+          await set(ref(db, 'settings'), updates);
+          // Save display settings separately
+          await set(ref(db, 'displaySettings'), {
+            smallText: displaySmallText.value || 'Digital Queue System',
+            logoUrl: displayLogoUrl.value || '',
+            mainTitle: displayMainTitle.value || 'Get your queue number'
           });
+          showToast('Settings updated successfully!');
+        } catch (err) { console.error(err); showToast('Failed to update settings', 'error'); }
+        finally { updateBtnText.classList.remove('hidden'); updateBtnSpinner.classList.add('hidden'); updateSettingsBtn.disabled = false; }
+      };
+      updateSettingsBtn.addEventListener('click', updateSettings);
+      saveAllBtn.addEventListener('click', updateSettings);
 
-          const result = await response.json();
-          
-          if (response.ok) {
-            showToast(`Announcement sent! Success: ${result.success}, Failed: ${result.failed}`, 'success');
-            document.getElementById('announcement-message').value = '';
-            document.getElementById('announcement-media').value = '';
+      // Announcement with media support
+      let selectedMediaFile = null;
+      announcementMedia.addEventListener('change', (e) => {
+        const file = e.target.files?.[0]; selectedMediaFile = file || null; announcementPreview.innerHTML = ''; announcementPreview.classList.add('hidden');
+        if (file) {
+          if (file.size > 50 * 1024 * 1024) { showToast('File too large! Max 50MB', 'error'); selectedMediaFile = null; return; }
+          const url = URL.createObjectURL(file);
+          if (file.type.startsWith('video/')) {
+            const video = document.createElement('video'); video.src = url; video.controls = true; video.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(video);
+          } else if (file.type.startsWith('audio/')) {
+            const audio = document.createElement('audio'); audio.src = url; audio.controls = true; audio.className = 'w-full'; announcementPreview.appendChild(audio);
           } else {
-            showToast('Failed to send announcement', 'error');
+            const img = document.createElement('img'); img.src = url; img.className = 'w-full h-48 rounded-lg object-cover'; announcementPreview.appendChild(img);
           }
+          announcementPreview.classList.remove('hidden');
+        }
+      });
+
+      sendAnnouncementBtn.addEventListener('click', async () => {
+        const message = announcementMessage.value.trim();
+        if (!message && !selectedMediaFile) { showToast('Please enter a message or attach media', 'error'); return; }
+        sendBtnText.classList.add('hidden'); sendBtnSpinner.classList.remove('hidden'); sendAnnouncementBtn.disabled = true;
+        try {
+          let mediaBase64 = '';
+          let mediaType = '';
+          if (selectedMediaFile) { mediaBase64 = await fileToBase64(selectedMediaFile); mediaType = selectedMediaFile.type; }
+          const res = await fetch('/.netlify/functions/announce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, media: mediaBase64, mediaType }) });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Failed to send');
+          announcementResult.className = 'p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
+          announcementResult.textContent = '✅ ' + (result.message || 'Announcement sent successfully!');
+          announcementMessage.value=''; announcementMedia.value=''; announcementPreview.innerHTML=''; announcementPreview.classList.add('hidden'); selectedMediaFile = null; showToast('Announcement sent!');
         } catch (error) {
-          showToast('Error sending announcement: ' + error.message, 'error');
+          console.error('Announcement error:', error);
+          announcementResult.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
+          announcementResult.textContent = '⚠️ ' + (error.message || 'Failed to send announcement');
+          showToast('Failed to send announcement', 'error');
+        } finally {
+          announcementResult.classList.remove('hidden');
+          sendBtnText.classList.remove('hidden'); sendBtnSpinner.classList.add('hidden'); sendAnnouncementBtn.disabled = false;
+          setTimeout(() => announcementResult.classList.add('hidden'), 5000);
         }
       });
 
-      // Export CSV
-      document.getElementById('export-csv-btn').addEventListener('click', () => {
-        const csv = [
-          ['Queue ID', 'Counter', 'Status', 'Timestamp'],
-          ...Object.entries(queueData).map(([id, item]) => [
-            item.queueId,
-            item.counterId || 'N/A',
-            item.status,
-            new Date(item.timestamp).toISOString()
-          ])
-        ].map(row => row.join(',')).join('\n');
-
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `queue-export-${Date.now()}.csv`;
-        a.click();
-        showToast('CSV exported successfully!', 'success');
-      });
-
-      // Keyboard Shortcuts
-      document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        
-        if (e.key === 'n' || e.key === 'N') {
-          switchView('announcements');
-          document.getElementById('announcement-message').focus();
-        } else if (e.key === 'c' || e.key === 'C') {
-          document.getElementById('add-counter-btn').click();
+      // Charts
+      let queueTrendChart = null; let counterPerfChart = null;
+      function initializeCharts() {
+        const queueCtx = document.getElementById('queueTrendChart');
+        if (queueCtx && !queueTrendChart) {
+          queueTrendChart = new Chart(queueCtx, {
+            type: 'line',
+            data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Customers Served', data: [12,19,15,25,22,30,28], borderColor: 'rgb(168,85,247)', backgroundColor: 'rgba(168,85,247,0.1)', tension: 0.4, fill: true }] },
+            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
+          });
         }
-      });
-    }
-
-    // Counter Actions
-    window.addCounter = async function() {
-      const name = document.getElementById('new-counter-name').value;
-      const prefix = document.getElementById('new-counter-prefix').value;
-
-      if (!name || !prefix) {
-        showToast('Please fill all fields', 'warning');
-        return;
+        const counterCtx = document.getElementById('counterPerfChart');
+        if (counterCtx && !counterPerfChart) {
+          counterPerfChart = new Chart(counterCtx, {
+            type: 'bar',
+            data: { labels: ['Counter 1','Counter 2','Counter 3','Counter 4'], datasets: [{ label: 'Customers Served', data: [45,38,52,41], backgroundColor: ['rgba(99,102,241,0.8)','rgba(168,85,247,0.8)','rgba(236,72,153,0.8)','rgba(59,130,246,0.8)'] }] },
+            options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+          });
+        }
       }
-
-      const nextOrder = Object.keys(countersData).length + 1;
-      const counterId = `counter${nextOrder}`;
-
-      try {
-        await database.ref(`counters/${counterId}`).set({
-          name,
-          prefix,
-          order: nextOrder,
-          active: true,
-          busy: false,
-          nowServing: null,
-          lastIssued: 0,
-          lastAdvanceAt: Date.now()
-        });
-
-        document.querySelector('.modal-backdrop').remove();
-        showToast('Counter added successfully!', 'success');
-      } catch (error) {
-        showToast('Failed to add counter: ' + error.message, 'error');
-      }
-    };
-
-    window.callNext = async function(counterId) {
-      // Find next waiting customer
-      const waiting = Object.entries(queueData)
-        .filter(([_, q]) => q.status === 'waiting' && q.counterId === counterId)
-        .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
-
-      if (!waiting) {
-        showToast('No customers waiting for this counter', 'warning');
-        return;
-      }
-
-      const [queueItemId] = waiting;
-
-      try {
-        // Optimistic UI update
-        queueData[queueItemId].status = 'called';
-        renderQueue();
-
-        await database.ref(`queue/${queueItemId}`).update({ status: 'called' });
-        showToast('Customer called!', 'success');
-      } catch (error) {
-        // Rollback on error
-        queueData[queueItemId].status = 'waiting';
-        renderQueue();
-        showToast('Failed to call customer: ' + error.message, 'error');
-      }
-    };
-
-    window.advanceCounter = async function(counterId) {
-      try {
-        const counter = countersData[counterId];
-        const newServing = counter.nowServing + 1;
-
-        // Optimistic UI
-        countersData[counterId].nowServing = newServing;
-        countersData[counterId].lastAdvanceAt = Date.now();
-        renderCounters();
-
-        await database.ref(`counters/${counterId}`).update({
-          nowServing: newServing,
-          lastAdvanceAt: Date.now()
-        });
-
-        showToast('Counter advanced!', 'success');
-      } catch (error) {
-        // Rollback
-        renderCounters();
-        showToast('Failed to advance counter: ' + error.message, 'error');
-      }
-    };
-
-    window.toggleCounter = async function(counterId) {
-      try {
-        const newActive = !countersData[counterId].active;
-
-        // Optimistic UI
-        countersData[counterId].active = newActive;
-        renderCounters();
-
-        await database.ref(`counters/${counterId}`).update({ active: newActive });
-        showToast(`Counter ${newActive ? 'activated' : 'deactivated'}!`, 'success');
-      } catch (error) {
-        renderCounters();
-        showToast('Failed to toggle counter: ' + error.message, 'error');
-      }
-    };
-  </script>
-</body>
+    </script>
+  </body>
 </html>
