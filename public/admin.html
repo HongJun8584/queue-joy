@@ -1,896 +1,912 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Joy Admin Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .crop-container {
-            position: relative;
-            max-width: 100%;
-            overflow: hidden;
-        }
-        .crop-selection {
-            position: absolute;
-            border: 2px dashed #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
-            cursor: move;
-        }
-        .crop-handle {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: #3b82f6;
-            border: 2px solid white;
-            border-radius: 50%;
-        }
-        @keyframes slideIn {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slide-in {
-            animation: slideIn 0.3s ease-out;
-        }
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            min-width: 250px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queue Joy Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .sidebar-item { transition: all 0.2s ease; }
+    .sidebar-item:hover { background: #374151; transform: translateX(4px); }
+    .sidebar-item.active { background: #3B82F6; border-left: 4px solid #60A5FA; }
+    .toast { position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px; animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .loading-skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
+    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .badge-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    .modal-backdrop { background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+    .btn-ripple { position: relative; overflow: hidden; }
+    .btn-ripple::after { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; background: rgba(255,255,255,0.5); transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
+    .btn-ripple:active::after { width: 300px; height: 300px; }
+  </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900">
-    <!-- Toast Container -->
-    <div id="toastContainer" class="toast"></div>
+<body class="bg-gray-50">
 
-    <!-- Firebase Config Modal -->
-    <div id="configModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 animate-slide-in">
-            <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Firebase Configuration</h2>
-            <input type="text" id="firebaseUrl" placeholder="Enter Firebase RTDB URL" 
-                   class="w-full px-4 py-2 border rounded-lg mb-4 dark:bg-gray-700 dark:text-white">
-            <button onclick="saveFirebaseConfig()" 
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
-                Save Configuration
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Queue Joy Admin</h1>
+        <p class="text-gray-600 mt-2">Sign in to manage your queue system</p>
+      </div>
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <input type="email" id="login-email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="admin@queuejoy.com">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+          <input type="password" id="login-password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••">
+        </div>
+        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition btn-ripple">
+          Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Dashboard (hidden by default) -->
+  <div id="dashboard" class="hidden">
+    <!-- Top Navigation -->
+    <nav class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <button id="sidebar-toggle" class="lg:hidden text-gray-600 hover:text-gray-900">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        <h1 class="text-2xl font-bold text-gray-800">Queue Joy</h1>
+        <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">LIVE</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span id="user-email" class="text-sm text-gray-600"></span>
+        <button id="logout-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm font-medium">
+          Logout
+        </button>
+      </div>
+    </nav>
+
+    <div class="flex min-h-screen">
+      <!-- Sidebar -->
+      <aside id="sidebar" class="w-64 bg-gray-800 text-white fixed lg:static h-screen overflow-y-auto transition-transform duration-300 z-50 -translate-x-full lg:translate-x-0">
+        <div class="p-6">
+          <div class="flex items-center space-x-3 mb-8">
+            <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-xl font-bold">Q</div>
+            <span class="text-lg font-semibold">Admin Panel</span>
+          </div>
+
+          <nav class="space-y-2">
+            <button data-view="settings" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+              <span class="font-medium">Business Settings</span>
             </button>
+
+            <button data-view="analytics" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+              <span class="font-medium">Analytics</span>
+            </button>
+
+            <button data-view="announcements" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
+              </svg>
+              <span class="font-medium">Announcements</span>
+            </button>
+
+            <button data-view="help" class="sidebar-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span class="font-medium">How to Use</span>
+            </button>
+          </nav>
         </div>
-    </div>
+      </aside>
 
-    <!-- Main Container -->
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white dark:bg-gray-800 shadow-md">
-            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-blue-600">Queue Joy Admin</h1>
-                <div class="flex gap-4">
-                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700">
-                        🌓
-                    </button>
-                    <button onclick="loadAllData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        🔄 Refresh
-                    </button>
-                </div>
+      <!-- Sidebar Overlay for Mobile -->
+      <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden"></div>
+
+      <!-- Main Content -->
+      <main class="flex-1 p-6 overflow-y-auto">
+        <!-- Business Settings View -->
+        <div id="view-settings" class="view-content hidden">
+          <h2 class="text-3xl font-bold text-gray-800 mb-6">Business Settings</h2>
+          
+          <!-- Counters Section -->
+          <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-xl font-bold text-gray-800">Counters</h3>
+              <button id="add-counter-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium btn-ripple">
+                + Add Counter
+              </button>
             </div>
-        </header>
+            <div id="counters-list" class="space-y-3"></div>
+          </div>
 
-        <div class="container mx-auto px-4 py-6">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Left Column: Settings & Images -->
-                <div class="lg:col-span-2 space-y-6">
-                    <!-- Business Settings Card -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-slide-in">
-                        <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Business Settings</h2>
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Main Title</label>
-                                <input type="text" id="mainTitle" 
-                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                                       placeholder="Enter main title">
-                            </div>
+          <!-- Queue Management -->
+          <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Queue Management</h3>
+            <div id="queue-list" class="space-y-2"></div>
+          </div>
 
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Small Text on Top</label>
-                                <input type="text" id="smallTextOnTop" 
-                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                                       placeholder="Enter small text">
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Title in Middle</label>
-                                <input type="text" id="titleinmiddle" 
-                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                                       placeholder="Enter middle title">
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Intro Text</label>
-                                <textarea id="introText" rows="3"
-                                          class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                                          placeholder="Enter intro text"></textarea>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Last Counter Index</label>
-                                <input type="number" id="lastCounterIndex" 
-                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                                       placeholder="0">
-                            </div>
-
-                            <button onclick="saveSettings()" 
-                                    class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition">
-                                💾 Save All Settings
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Image Upload & Crop Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Logo -->
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                            <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Logo</h3>
-                            <div class="space-y-2">
-                                <img id="logoPreview" src="" alt="Logo" class="w-full h-32 object-contain bg-gray-100 rounded">
-                                <input type="file" id="logoFile" accept="image/*" class="hidden" onchange="handleImageUpload('logo', this)">
-                                <button onclick="document.getElementById('logoFile').click()" 
-                                        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">
-                                    📁 Upload Logo
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Logo URL -->
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                            <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Logo URL</h3>
-                            <div class="space-y-2">
-                                <img id="logoUrlPreview" src="" alt="Logo URL" class="w-full h-32 object-contain bg-gray-100 rounded">
-                                <input type="file" id="logoUrlFile" accept="image/*" class="hidden" onchange="handleImageUpload('logoUrl', this)">
-                                <button onclick="document.getElementById('logoUrlFile').click()" 
-                                        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">
-                                    📁 Upload Image
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Ad Image -->
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                            <h3 class="text-lg font-bold mb-3 text-gray-900 dark:text-white">Ad Image</h3>
-                            <div class="space-y-2">
-                                <img id="adImagePreview" src="" alt="Ad" class="w-full h-32 object-contain bg-gray-100 rounded">
-                                <input type="file" id="adImageFile" accept="image/*" class="hidden" onchange="handleImageUpload('adImage', this)">
-                                <button onclick="document.getElementById('adImageFile').click()" 
-                                        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">
-                                    📁 Upload Ad
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Analytics Card -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h2>
-                            <button onclick="exportAnalytics()" 
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                                📊 Export CSV
-                            </button>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
-                                <div class="text-sm text-blue-600 dark:text-blue-300">Total Waiting</div>
-                                <div id="totalWaiting" class="text-2xl font-bold text-blue-900 dark:text-blue-100">0</div>
-                            </div>
-                            <div class="bg-green-50 dark:bg-green-900 p-4 rounded-lg">
-                                <div class="text-sm text-green-600 dark:text-green-300">Total Served</div>
-                                <div id="totalServed" class="text-2xl font-bold text-green-900 dark:text-green-100">0</div>
-                            </div>
-                            <div class="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
-                                <div class="text-sm text-yellow-600 dark:text-yellow-300">Avg Wait Time</div>
-                                <div id="avgWaitTime" class="text-2xl font-bold text-yellow-900 dark:text-yellow-100">0m</div>
-                            </div>
-                            <div class="bg-purple-50 dark:bg-purple-900 p-4 rounded-lg">
-                                <div class="text-sm text-purple-600 dark:text-purple-300">Subscribers</div>
-                                <div id="totalSubscribers" class="text-2xl font-bold text-purple-900 dark:text-purple-100">0</div>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <canvas id="queueChart" height="100"></canvas>
-                        </div>
-
-                        <div>
-                            <h3 class="font-bold mb-2 text-gray-900 dark:text-white">Recent Queue Entries</h3>
-                            <div id="recentQueue" class="space-y-2 max-h-48 overflow-y-auto"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Column: Announcements & Recipients -->
-                <div class="space-y-6">
-                    <!-- Announcement Card -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                        <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">📢 Send Announcement</h2>
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Message</label>
-                                <textarea id="announcementMessage" rows="4"
-                                          class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                                          placeholder="Enter your announcement message"></textarea>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Media (optional)</label>
-                                <input type="file" id="announcementMedia" 
-                                       accept="image/*,video/*,audio/*,.gif"
-                                       class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white text-sm"
-                                       onchange="previewAnnouncementMedia(this)">
-                                <div id="mediaPreview" class="mt-2"></div>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Filter by Queue</label>
-                                <select id="queueFilter" 
-                                        class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
-                                    <option value="">All Queues</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Recipients</label>
-                                <div class="flex gap-2 mb-2">
-                                    <button onclick="selectAllRecipients()" 
-                                            class="flex-1 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded text-sm">
-                                        Select All
-                                    </button>
-                                    <button onclick="deselectAllRecipients()" 
-                                            class="flex-1 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded text-sm">
-                                        Deselect All
-                                    </button>
-                                </div>
-                                <div id="recipientsList" class="border rounded-lg p-3 max-h-48 overflow-y-auto dark:bg-gray-700"></div>
-                                <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Selected: <span id="selectedCount">0</span>
-                                </div>
-                            </div>
-
-                            <button onclick="sendAnnouncement()" 
-                                    class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition">
-                                🚀 Send Announcement
-                            </button>
-
-                            <div id="sendProgress" class="hidden">
-                                <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
-                                    <div class="flex justify-between text-sm mb-2">
-                                        <span>Progress</span>
-                                        <span id="progressText">0/0</span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div id="progressBar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
-                                    </div>
-                                    <div class="mt-2 text-xs">
-                                        <span class="text-green-600">✓ Success: <span id="successCount">0</span></span>
-                                        <span class="text-red-600 ml-4">✗ Failed: <span id="failCount">0</span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recipients Management -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                        <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">👥 Telegram Subscribers</h2>
-                        <div id="subscribersList" class="space-y-2 max-h-96 overflow-y-auto"></div>
-                    </div>
-                </div>
+          <!-- Settings Configuration -->
+          <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Configuration</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Introduction Text</label>
+                <textarea id="intro-text" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Welcome message..."></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Image</label>
+                <input type="file" id="ad-image-upload" accept="image/*" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                <div id="ad-image-preview" class="mt-3"></div>
+              </div>
+              <button id="save-settings-btn" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium btn-ripple">
+                Save Settings
+              </button>
             </div>
+          </div>
         </div>
-    </div>
 
-    <!-- Image Crop Modal -->
-    <div id="cropModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 animate-slide-in">
-            <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Crop Image</h2>
-            <div class="crop-container mb-4" id="cropContainer">
-                <canvas id="cropCanvas"></canvas>
-                <div id="cropSelection" class="crop-selection hidden"></div>
-            </div>
-            <div class="flex gap-4">
-                <button onclick="saveCroppedImage()" 
-                        class="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
-                    ✓ Save Cropped Image
-                </button>
-                <button onclick="closeCropModal()" 
-                        class="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">
-                    ✗ Cancel
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Global Variables
-        let FIREBASE_URL = localStorage.getItem('firebaseUrl') || '';
-        let currentCropField = '';
-        let currentImageData = null;
-        let cropStartX = 0, cropStartY = 0;
-        let cropSelection = { x: 0, y: 0, width: 0, height: 0 };
-        let isDragging = false;
-        let telegramUsers = {};
-        let queueData = {};
-        let counters = {};
-        let chart = null;
-
-        // Initialize
-        window.onload = function() {
-            if (!FIREBASE_URL) {
-                document.getElementById('configModal').classList.remove('hidden');
-            } else {
-                loadAllData();
-            }
-            setupDarkMode();
-        };
-
-        // Toast Notification
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = `animate-slide-in p-4 rounded-lg shadow-lg mb-2 ${
-                type === 'success' ? 'bg-green-500' : 
-                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-            } text-white`;
-            toast.textContent = message;
-            document.getElementById('toastContainer').appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-
-        // Firebase Configuration
-        function saveFirebaseConfig() {
-            const url = document.getElementById('firebaseUrl').value.trim();
-            if (!url) {
-                showToast('Please enter a valid Firebase URL', 'error');
-                return;
-            }
-            FIREBASE_URL = url.replace(/\/$/, '');
-            localStorage.setItem('firebaseUrl', FIREBASE_URL);
-            document.getElementById('configModal').classList.add('hidden');
-            showToast('Firebase configured successfully!', 'success');
-            loadAllData();
-        }
-
-        // Dark Mode
-        function setupDarkMode() {
-            if (localStorage.getItem('darkMode') === 'true') {
-                document.documentElement.classList.add('dark');
-            }
-        }
-
-        function toggleDarkMode() {
-            document.documentElement.classList.toggle('dark');
-            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
-        }
-
-        // Load All Data
-        async function loadAllData() {
-            await Promise.all([
-                loadSettings(),
-                loadTelegramUsers(),
-                loadQueue(),
-                loadCounters()
-            ]);
-            updateAnalytics();
-            populateQueueFilter();
-        }
-
-        // Load Settings
-        async function loadSettings() {
-            try {
-                const response = await fetch(`${FIREBASE_URL}/settings.json`);
-                const data = await response.json();
-                if (data) {
-                    document.getElementById('mainTitle').value = data.mainTitle || '';
-                    document.getElementById('smallTextOnTop').value = data.smallTextOnTop || '';
-                    document.getElementById('titleinmiddle').value = data.titleinmiddle || '';
-                    document.getElementById('introText').value = data.introText || '';
-                    document.getElementById('lastCounterIndex').value = data.lastCounterIndex || 0;
-                    
-                    if (data.logo) document.getElementById('logoPreview').src = data.logo;
-                    if (data.logoUrl) document.getElementById('logoUrlPreview').src = data.logoUrl;
-                    if (data.adImage) document.getElementById('adImagePreview').src = data.adImage;
-                }
-            } catch (error) {
-                showToast('Error loading settings: ' + error.message, 'error');
-            }
-        }
-
-        // Save Settings
-        async function saveSettings() {
-            try {
-                const settings = {
-                    mainTitle: document.getElementById('mainTitle').value,
-                    smallTextOnTop: document.getElementById('smallTextOnTop').value,
-                    titleinmiddle: document.getElementById('titleinmiddle').value,
-                    introText: document.getElementById('introText').value,
-                    lastCounterIndex: parseInt(document.getElementById('lastCounterIndex').value) || 0
-                };
-
-                const response = await fetch(`${FIREBASE_URL}/settings.json`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(settings)
-                });
-
-                if (response.ok) {
-                    showToast('Settings saved successfully!', 'success');
-                } else {
-                    throw new Error('Failed to save settings');
-                }
-            } catch (error) {
-                showToast('Error saving settings: ' + error.message, 'error');
-            }
-        }
-
-        // Image Upload Handler
-        function handleImageUpload(field, input) {
-            const file = input.files[0];
-            if (!file) return;
-
-            if (file.size > 5 * 1024 * 1024) {
-                showToast('File size must be less than 5MB', 'error');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                currentCropField = field;
-                currentImageData = e.target.result;
-                openCropModal(e.target.result);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // Crop Modal Functions
-        function openCropModal(imageSrc) {
-            const modal = document.getElementById('cropModal');
-            const canvas = document.getElementById('cropCanvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-
-            img.onload = function() {
-                const maxWidth = 800;
-                const scale = Math.min(1, maxWidth / img.width);
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                // Setup crop selection
-                cropSelection = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-                setupCropHandlers(canvas);
-            };
-            img.src = imageSrc;
-            modal.classList.remove('hidden');
-        }
-
-        function setupCropHandlers(canvas) {
-            const selection = document.getElementById('cropSelection');
-            selection.classList.remove('hidden');
-            updateCropSelection();
-
-            canvas.onmousedown = function(e) {
-                const rect = canvas.getBoundingClientRect();
-                cropStartX = e.clientX - rect.left;
-                cropStartY = e.clientY - rect.top;
-                isDragging = true;
-                cropSelection.x = cropStartX;
-                cropSelection.y = cropStartY;
-                cropSelection.width = 0;
-                cropSelection.height = 0;
-            };
-
-            canvas.onmousemove = function(e) {
-                if (!isDragging) return;
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                cropSelection.width = x - cropStartX;
-                cropSelection.height = y - cropStartY;
-                updateCropSelection();
-            };
-
-            canvas.onmouseup = function() {
-                isDragging = false;
-                if (cropSelection.width < 0) {
-                    cropSelection.x += cropSelection.width;
-                    cropSelection.width = Math.abs(cropSelection.width);
-                }
-                if (cropSelection.height < 0) {
-                    cropSelection.y += cropSelection.height;
-                    cropSelection.height = Math.abs(cropSelection.height);
-                }
-                updateCropSelection();
-            };
-        }
-
-        function updateCropSelection() {
-            const selection = document.getElementById('cropSelection');
-            selection.style.left = cropSelection.x + 'px';
-            selection.style.top = cropSelection.y + 'px';
-            selection.style.width = Math.abs(cropSelection.width) + 'px';
-            selection.style.height = Math.abs(cropSelection.height) + 'px';
-        }
-
-        async function saveCroppedImage() {
-            const canvas = document.getElementById('cropCanvas');
-            const croppedCanvas = document.createElement('canvas');
-            const ctx = croppedCanvas.getContext('2d');
-
-            const x = Math.max(0, cropSelection.x);
-            const y = Math.max(0, cropSelection.y);
-            const width = Math.min(cropSelection.width, canvas.width - x);
-            const height = Math.min(cropSelection.height, canvas.height - y);
-
-            croppedCanvas.width = width || canvas.width;
-            croppedCanvas.height = height || canvas.height;
-
-            const sourceCanvas = canvas.getContext('2d');
-            const imageData = sourceCanvas.getImageData(x, y, width || canvas.width, height || canvas.height);
-            ctx.putImageData(imageData, 0, 0);
-
-            const croppedDataUrl = croppedCanvas.toDataURL('image/png');
-
-            // Update preview
-            document.getElementById(currentCropField + 'Preview').src = croppedDataUrl;
-
-            // Save to Firebase
-            try {
-                const response = await fetch(`${FIREBASE_URL}/settings/${currentCropField}.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(croppedDataUrl)
-                });
-
-                if (response.ok) {
-                    showToast('Image saved successfully!', 'success');
-                    closeCropModal();
-                } else {
-                    throw new Error('Failed to save image');
-                }
-            } catch (error) {
-                showToast('Error saving image: ' + error.message, 'error');
-            }
-        }
-
-        function closeCropModal() {
-            document.getElementById('cropModal').classList.add('hidden');
-            document.getElementById('cropSelection').classList.add('hidden');
-            currentCropField = '';
-            currentImageData = null;
-        }
-
-        // Load Telegram Users
-        async function loadTelegramUsers() {
-            try {
-                const response = await fetch(`${FIREBASE_URL}/telegramUsers.json`);
-                telegramUsers = await response.json() || {};
-                
-                document.getElementById('totalSubscribers').textContent = Object.keys(telegramUsers).length;
-                
-                // Update recipients list
-                const recipientsList = document.getElementById('recipientsList');
-                const subscribersList = document.getElementById('subscribersList');
-                recipientsList.innerHTML = '';
-                subscribersList.innerHTML = '';
-
-                Object.entries(telegramUsers).forEach(([chatId, data]) => {
-                    const checkbox = `
-                        <label class="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded cursor-pointer">
-                            <input type="checkbox" value="${chatId}" onchange="updateSelectedCount()" 
-                                   class="recipient-checkbox rounded">
-                            <div class="flex-1">
-                                <div class="font-medium text-sm">${chatId}</div>
-                                <div class="text-xs text-gray-500">${data.queueKey || 'No queue'}</div>
-                            </div>
-                        </label>
-                    `;
-                    recipientsList.innerHTML += checkbox;
-
-                    const subscriber = `
-                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <div class="font-medium text-sm">${chatId}</div>
-                            <div class="text-xs text-gray-500 mt-1">Queue: ${data.queueKey || 'None'}</div>
-                            <div class="text-xs text-gray-400">Connected: ${new Date(data.connectedAt).toLocaleString()}</div>
-                        </div>
-                    `;
-                    subscribersList.innerHTML += subscriber;
-                });
-                
-                updateSelectedCount();
-            } catch (error) {
-                showToast('Error loading telegram users: ' + error.message, 'error');
-            }
-        }
-
-        // Load Queue Data
-        async function loadQueue() {
-            try {
-                const response = await fetch(`${FIREBASE_URL}/queue.json`);
-                queueData = await response.json() || {};
-            } catch (error) {
-                console.error('Error loading queue:', error);
-            }
-        }
-
-        // Load Counters
-        async function loadCounters() {
-            try {
-                const response = await fetch(`${FIREBASE_URL}/counters.json`);
-                counters = await response.json() || {};
-            } catch (error) {
-                console.error('Error loading counters:', error);
-            }
-        }
-
-        // Populate Queue Filter
-        function populateQueueFilter() {
-            const select = document.getElementById('queueFilter');
-            select.innerHTML = '<option value="">All Queues</option>';
-            
-            const uniqueQueues = new Set();
-            Object.values(telegramUsers).forEach(user => {
-                if (user.queueKey) uniqueQueues.add(user.queueKey);
-            });
-
-            uniqueQueues.forEach(queueKey => {
-                select.innerHTML += `<option value="${queueKey}">${queueKey}</option>`;
-            });
-        }
-
-        // Update Analytics
-        function updateAnalytics() {
-            const waiting = Object.values(queueData).filter(q => q.status === 'waiting').length;
-            const served = Object.values(queueData).filter(q => q.status === 'served').length;
-            
-            document.getElementById('totalWaiting').textContent = waiting;
-            document.getElementById('totalServed').textContent = served;
-
-            // Calculate average wait time
-            const servedEntries = Object.values(queueData).filter(q => q.servedAt && q.timestamp);
-            let avgTime = 0;
-            if (servedEntries.length > 0) {
-                const totalTime = servedEntries.reduce((sum, entry) => {
-                    return sum + (entry.servedAt - entry.timestamp);
-                }, 0);
-                avgTime = Math.round(totalTime / servedEntries.length / 60000); // Convert to minutes
-            }
-            document.getElementById('avgWaitTime').textContent = avgTime + 'm';
-
-            // Update recent queue
-            const recentQueue = document.getElementById('recentQueue');
-            const recent = Object.entries(queueData).slice(-10).reverse();
-            recentQueue.innerHTML = recent.map(([id, entry]) => `
-                <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded flex justify-between text-sm">
-                    <span>${entry.queueId || id.slice(-8)}</span>
-                    <span class="${entry.status === 'served' ? 'text-green-600' : 'text-yellow-600'}">${entry.status}</span>
+        <!-- Analytics View -->
+        <div id="view-analytics" class="view-content hidden">
+          <h2 class="text-3xl font-bold text-gray-800 mb-6">Analytics Dashboard</h2>
+          
+          <!-- KPI Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-600 font-medium">Queue Length</p>
+                  <p id="kpi-queue-length" class="text-3xl font-bold text-gray-800 mt-2">0</p>
                 </div>
-            `).join('');
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-            // Update chart
-            updateChart();
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-600 font-medium">Served Today</p>
+                  <p id="kpi-served-today" class="text-3xl font-bold text-gray-800 mt-2">0</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-600 font-medium">Avg Wait Time</p>
+                  <p id="kpi-avg-wait" class="text-3xl font-bold text-gray-800 mt-2">0m</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-600 font-medium">Active Counters</p>
+                  <p id="kpi-active-counters" class="text-3xl font-bold text-gray-800 mt-2">0</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4">Served Per Counter (Today)</h3>
+              <div id="served-per-counter-chart" class="h-64"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4">Peak Hours (Last 24h)</h3>
+              <div id="peak-hours-chart" class="h-64"></div>
+            </div>
+          </div>
+
+          <button id="export-csv-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium btn-ripple">
+            Export CSV
+          </button>
+        </div>
+
+        <!-- Announcements View -->
+        <div id="view-announcements" class="view-content hidden">
+          <h2 class="text-3xl font-bold text-gray-800 mb-6">Announcement System</h2>
+          
+          <!-- Create Announcement -->
+          <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Create Announcement</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                <textarea id="announcement-message" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Type your announcement..."></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Media (Optional)</label>
+                <input type="file" id="announcement-media" accept="image/*,video/*" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Recipients</label>
+                <select id="announcement-recipients" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="all">All Subscribers</option>
+                  <option value="queue">Current Queue</option>
+                  <option value="custom">Custom Chat IDs</option>
+                </select>
+              </div>
+              <button id="send-announcement-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium btn-ripple">
+                Send Announcement
+              </button>
+            </div>
+          </div>
+
+          <!-- Announcement History -->
+          <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Announcement History</h3>
+            <div id="announcement-history" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- Help View -->
+        <div id="view-help" class="view-content hidden">
+          <h2 class="text-3xl font-bold text-gray-800 mb-6">How to Use Queue Joy Admin</h2>
+          
+          <div class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <h3 class="text-xl font-bold text-gray-800 mb-3">🎯 Business Settings</h3>
+              <ul class="space-y-2 text-gray-600">
+                <li>• Manage counters: add, edit, or remove service counters</li>
+                <li>• Control queue: call next, serve customers, mark complete</li>
+                <li>• Configure settings: update intro text and advertisement image</li>
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <h3 class="text-xl font-bold text-gray-800 mb-3">📊 Analytics</h3>
+              <ul class="space-y-2 text-gray-600">
+                <li>• Monitor real-time queue length and active counters</li>
+                <li>• Track served customers and average wait times</li>
+                <li>• View peak hours and export data as CSV</li>
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <h3 class="text-xl font-bold text-gray-800 mb-3">📣 Announcements</h3>
+              <ul class="space-y-2 text-gray-600">
+                <li>• Send messages to all subscribers or specific groups</li>
+                <li>• Attach images or videos to announcements</li>
+                <li>• View delivery status and history</li>
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+              <h3 class="text-xl font-bold text-gray-800 mb-3">⌨️ Keyboard Shortcuts</h3>
+              <ul class="space-y-2 text-gray-600">
+                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">N</kbd> - New announcement</li>
+                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">C</kbd> - Create counter</li>
+                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">Space</kbd> - Call next (when counter selected)</li>
+                <li>• <kbd class="px-2 py-1 bg-gray-100 rounded">Esc</kbd> - Close modal</li>
+              </ul>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg">
+              <h3 class="text-lg font-bold text-yellow-800 mb-2">⚠️ Security Note</h3>
+              <p class="text-yellow-700">BOT_TOKEN and other sensitive credentials must remain server-side only. Never expose them in client code or Firebase. All Telegram API calls should go through your secure serverless function.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-container"></div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+    const storage = firebase.storage();
+
+    // Global State
+    let currentUser = null;
+    let countersData = {};
+    let queueData = {};
+    let settingsData = {};
+    let subscriptionsData = {};
+    let lastAssignedCounter = 0;
+    let debounceTimers = {};
+
+    // Utility Functions
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast px-6 py-4 rounded-lg shadow-lg ${
+        type === 'success' ? 'bg-green-500' : 
+        type === 'error' ? 'bg-red-500' : 
+        type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+      } text-white`;
+      toast.textContent = message;
+      document.getElementById('toast-container').appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function debounce(key, callback, delay = 300) {
+      if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
+      debounceTimers[key] = setTimeout(callback, delay);
+    }
+
+    function showModal(title, content, actions) {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 z-50 flex items-center justify-center modal-backdrop';
+      modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">${title}</h3>
+          <div class="mb-6">${content}</div>
+          <div class="flex justify-end space-x-3">${actions}</div>
+        </div>
+      `;
+      document.getElementById('modal-container').appendChild(modal);
+      
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+
+      document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+          modal.remove();
+          document.removeEventListener('keydown', escHandler);
+        }
+      });
+
+      return modal;
+    }
+
+    // Authentication
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        showToast('Login successful!', 'success');
+      } catch (error) {
+        showToast('Login failed: ' + error.message, 'error');
+      }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      try {
+        await auth.signOut();
+        showToast('Logged out successfully', 'success');
+      } catch (error) {
+        showToast('Logout failed: ' + error.message, 'error');
+      }
+    });
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      if (user) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+        document.getElementById('user-email').textContent = user.email;
+        initializeDashboard();
+      } else {
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('dashboard').classList.add('hidden');
+      }
+    });
+
+    // Dashboard Initialization
+    function initializeDashboard() {
+      setupRealtimeListeners();
+      setupNavigation();
+      setupEventHandlers();
+      switchView('settings');
+    }
+
+    // Real-time Firebase Listeners
+    function setupRealtimeListeners() {
+      // Counters
+      const countersRef = database.ref('counters');
+      countersRef.on('child_added', (snapshot) => {
+        countersData[snapshot.key] = snapshot.val();
+        renderCounters();
+        updateAnalytics();
+      });
+      countersRef.on('child_changed', (snapshot) => {
+        countersData[snapshot.key] = snapshot.val();
+        renderCounters();
+        updateAnalytics();
+      });
+      countersRef.on('child_removed', (snapshot) => {
+        delete countersData[snapshot.key];
+        renderCounters();
+        updateAnalytics();
+      });
+
+      // Queue
+      const queueRef = database.ref('queue');
+      queueRef.on('child_added', (snapshot) => {
+        queueData[snapshot.key] = snapshot.val();
+        renderQueue();
+        updateAnalytics();
+      });
+      queueRef.on('child_changed', (snapshot) => {
+        queueData[snapshot.key] = snapshot.val();
+        renderQueue();
+        updateAnalytics();
+      });
+      queueRef.on('child_removed', (snapshot) => {
+        delete queueData[snapshot.key];
+        renderQueue();
+        updateAnalytics();
+      });
+
+      // Settings (small node, use 'value')
+      database.ref('settings').on('value', (snapshot) => {
+        settingsData = snapshot.val() || {};
+        renderSettings();
+      });
+
+      // Last Assigned Counter (small node, use 'value')
+      database.ref('lastAssignedCounter').on('value', (snapshot) => {
+        lastAssignedCounter = snapshot.val() || 0;
+      });
+
+      // Queue Subscriptions
+      database.ref('queueSubscriptions').on('value', (snapshot) => {
+        subscriptionsData = snapshot.val() || {};
+      });
+    }
+
+    // Navigation
+    function setupNavigation() {
+      const sidebarItems = document.querySelectorAll('.sidebar-item');
+      sidebarItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const view = item.getAttribute('data-view');
+          switchView(view);
+          
+          // Mobile: close sidebar after selection
+          if (window.innerWidth < 1024) {
+            document.getElementById('sidebar').classList.remove('translate-x-0');
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+          }
+        });
+      });
+
+      // Sidebar toggle
+      document.getElementById('sidebar-toggle').addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.toggle('-translate-x-full');
+        sidebar.classList.toggle('translate-x-0');
+        overlay.classList.toggle('hidden');
+      });
+
+      document.getElementById('sidebar-overlay').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.add('hidden');
+      });
+    }
+
+    function switchView(viewName) {
+      // Hide all views
+      document.querySelectorAll('.view-content').forEach(view => {
+        view.classList.add('hidden');
+      });
+      
+      // Show selected view
+      document.getElementById(`view-${viewName}`).classList.remove('hidden');
+      
+      // Update sidebar active state
+      document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('data-view') === viewName) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    // Render Functions
+    function renderCounters() {
+      const container = document.getElementById('counters-list');
+      container.innerHTML = '';
+      
+      Object.entries(countersData).sort((a, b) => a[1].order - b[1].order).forEach(([id, counter]) => {
+        const div = document.createElement('div');
+        div.className = 'bg-gray-50 rounded-lg p-4 flex items-center justify-between';
+        div.innerHTML = `
+          <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 ${counter.active ? 'bg-green-100' : 'bg-gray-300'} rounded-lg flex items-center justify-center font-bold text-lg">
+              ${counter.order}
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-800">${counter.name}</h4>
+              <p class="text-sm text-gray-600">
+                Prefix: ${counter.prefix} | Now Serving: ${counter.nowServing || 'None'} | 
+                ${counter.active ? '<span class="text-green-600">Active</span>' : '<span class="text-gray-500">Inactive</span>'}
+              </p>
+            </div>
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="callNext('${id}')" class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm btn-ripple">
+              Call Next
+            </button>
+            <button onclick="advanceCounter('${id}')" class="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm btn-ripple">
+              Advance
+            </button>
+            <button onclick="toggleCounter('${id}')" class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm btn-ripple">
+              ${counter.active ? 'Deactivate' : 'Activate'}
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function renderQueue() {
+      const container = document.getElementById('queue-list');
+      container.innerHTML = '';
+      
+      const queueArray = Object.entries(queueData).filter(([_, q]) => q.status === 'waiting');
+      
+      if (queueArray.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">No customers in queue</p>';
+        return;
+      }
+
+      queueArray.forEach(([id, item]) => {
+        const div = document.createElement('div');
+        div.className = 'bg-gray-50 rounded-lg p-3 flex items-center justify-between';
+        div.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <span class="font-bold text-lg text-gray-800">${item.queueId}</span>
+            <span class="text-sm text-gray-600">${new Date(item.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">${item.status}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function renderSettings() {
+      if (settingsData.introText) {
+        document.getElementById('intro-text').value = settingsData.introText;
+      }
+      
+      if (settingsData.adImage) {
+        const preview = document.getElementById('ad-image-preview');
+        preview.innerHTML = `<img src="${settingsData.adImage}" class="max-w-xs rounded-lg shadow" alt="Ad Preview">`;
+      }
+    }
+
+    function updateAnalytics() {
+      // Queue Length
+      const queueLength = Object.values(queueData).filter(q => q.status === 'waiting').length;
+      document.getElementById('kpi-queue-length').textContent = queueLength;
+
+      // Active Counters
+      const activeCounters = Object.values(countersData).filter(c => c.active).length;
+      document.getElementById('kpi-active-counters').textContent = activeCounters;
+
+      // Served Today (placeholder - would need date filtering)
+      const servedToday = Object.values(queueData).filter(q => q.status === 'served').length;
+      document.getElementById('kpi-served-today').textContent = servedToday;
+
+      // Avg Wait Time (placeholder - needs proper calculation)
+      document.getElementById('kpi-avg-wait').textContent = '5m';
+
+      // Simple bar chart for served per counter
+      renderServedPerCounterChart();
+    }
+
+    function renderServedPerCounterChart() {
+      const container = document.getElementById('served-per-counter-chart');
+      container.innerHTML = '';
+      
+      const served = {};
+      Object.values(countersData).forEach(counter => {
+        served[counter.name] = 0;
+      });
+      
+      Object.values(queueData).forEach(item => {
+        if (item.status === 'served' && item.counterId && countersData[item.counterId]) {
+          served[countersData[item.counterId].name]++;
+        }
+      });
+
+      Object.entries(served).forEach(([name, count]) => {
+        const bar = document.createElement('div');
+        bar.className = 'mb-3';
+        bar.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-medium text-gray-700">${name}</span>
+            <span class="text-sm font-bold text-gray-800">${count}</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div class="bg-blue-600 h-3 rounded-full transition-all" style="width: ${count * 10}%"></div>
+          </div>
+        `;
+        container.appendChild(bar);
+      });
+    }
+
+    // Event Handlers
+    function setupEventHandlers() {
+      // Add Counter
+      document.getElementById('add-counter-btn').addEventListener('click', () => {
+        const modal = showModal(
+          'Add New Counter',
+          `
+            <input type="text" id="new-counter-name" placeholder="Counter Name" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-3">
+            <input type="text" id="new-counter-prefix" placeholder="Prefix (e.g., VANILLA)" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+          `,
+          `
+            <button onclick="document.querySelector('.modal-backdrop').remove()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancel</button>
+            <button onclick="addCounter()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 btn-ripple">Create</button>
+          `
+        );
+      });
+
+      // Save Settings
+      document.getElementById('save-settings-btn').addEventListener('click', async () => {
+        const introText = document.getElementById('intro-text').value;
+        
+        try {
+          await database.ref('settings').update({ introText });
+          showToast('Settings saved successfully!', 'success');
+        } catch (error) {
+          showToast('Failed to save settings: ' + error.message, 'error');
+        }
+      });
+
+      // Ad Image Upload
+      document.getElementById('ad-image-upload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          const storageRef = storage.ref(`ads/${Date.now()}_${file.name}`);
+          await storageRef.put(file);
+          const url = await storageRef.getDownloadURL();
+          
+          await database.ref('settings').update({ adImage: url });
+          showToast('Image uploaded successfully!', 'success');
+        } catch (error) {
+          showToast('Failed to upload image: ' + error.message, 'error');
+        }
+      });
+
+      // Send Announcement
+      document.getElementById('send-announcement-btn').addEventListener('click', async () => {
+        const message = document.getElementById('announcement-message').value;
+        const recipients = document.getElementById('announcement-recipients').value;
+        const mediaFile = document.getElementById('announcement-media').files[0];
+
+        if (!message.trim()) {
+          showToast('Please enter a message', 'warning');
+          return;
         }
 
-        // Update Chart
-        function updateChart() {
-            const ctx = document.getElementById('queueChart');
-            
-            const hourlyData = {};
-            for (let i = 0; i < 24; i++) {
-                hourlyData[i] = 0;
-            }
+        try {
+          let mediaUrl = null;
+          let mediaType = null;
 
-            Object.values(queueData).forEach(entry => {
-                const hour = new Date(entry.timestamp).getHours();
-                hourlyData[hour]++;
-            });
+          // Upload media to Firebase Storage if provided
+          if (mediaFile) {
+            const storageRef = storage.ref(`announcements/${Date.now()}_${mediaFile.name}`);
+            await storageRef.put(mediaFile);
+            mediaUrl = await storageRef.getDownloadURL();
+            mediaType = mediaFile.type;
+          }
 
-            if (chart) chart.destroy();
+          // Get chat IDs based on recipient selection
+          let chatIds = [];
+          if (recipients === 'all') {
+            chatIds = Object.values(subscriptionsData);
+          } else if (recipients === 'queue') {
+            chatIds = Object.values(queueData)
+              .filter(q => q.chatId)
+              .map(q => q.chatId);
+          }
 
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Object.keys(hourlyData).map(h => h + ':00'),
-                    datasets: [{
-                        label: 'Queue Activity by Hour',
-                        data: Object.values(hourlyData),
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
-                }
-            });
+          // Call serverless function (placeholder - replace with actual endpoint)
+          const response = await fetch('/.netlify/functions/announce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, mediaUrl, mediaType, chatIds })
+          });
+
+          const result = await response.json();
+          
+          if (response.ok) {
+            showToast(`Announcement sent! Success: ${result.success}, Failed: ${result.failed}`, 'success');
+            document.getElementById('announcement-message').value = '';
+            document.getElementById('announcement-media').value = '';
+          } else {
+            showToast('Failed to send announcement', 'error');
+          }
+        } catch (error) {
+          showToast('Error sending announcement: ' + error.message, 'error');
         }
+      });
 
-        // Export Analytics
-        function exportAnalytics() {
-            const data = Object.entries(queueData).map(([id, entry]) => ({
-                id,
-                queueId: entry.queueId,
-                counter: entry.counterId,
-                status: entry.status,
-                timestamp: new Date(entry.timestamp).toISOString(),
-                servedAt: entry.servedAt ? new Date(entry.servedAt).toISOString() : ''
-            }));
+      // Export CSV
+      document.getElementById('export-csv-btn').addEventListener('click', () => {
+        const csv = [
+          ['Queue ID', 'Counter', 'Status', 'Timestamp'],
+          ...Object.entries(queueData).map(([id, item]) => [
+            item.queueId,
+            item.counterId || 'N/A',
+            item.status,
+            new Date(item.timestamp).toISOString()
+          ])
+        ].map(row => row.join(',')).join('\n');
 
-            const csv = [
-                ['ID', 'Queue ID', 'Counter', 'Status', 'Timestamp', 'Served At'],
-                ...data.map(d => [d.id, d.queueId, d.counter, d.status, d.timestamp, d.servedAt])
-            ].map(row => row.join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `queue-export-${Date.now()}.csv`;
+        a.click();
+        showToast('CSV exported successfully!', 'success');
+      });
 
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `analytics-${Date.now()}.csv`;
-            a.click();
+      // Keyboard Shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        if (e.key === 'n' || e.key === 'N') {
+          switchView('announcements');
+          document.getElementById('announcement-message').focus();
+        } else if (e.key === 'c' || e.key === 'C') {
+          document.getElementById('add-counter-btn').click();
         }
+      });
+    }
 
-        // Recipients Selection
-        function updateSelectedCount() {
-            const selected = document.querySelectorAll('.recipient-checkbox:checked').length;
-            document.getElementById('selectedCount').textContent = selected;
-        }
+    // Counter Actions
+    window.addCounter = async function() {
+      const name = document.getElementById('new-counter-name').value;
+      const prefix = document.getElementById('new-counter-prefix').value;
 
-        function selectAllRecipients() {
-            document.querySelectorAll('.recipient-checkbox').forEach(cb => cb.checked = true);
-            updateSelectedCount();
-        }
+      if (!name || !prefix) {
+        showToast('Please fill all fields', 'warning');
+        return;
+      }
 
-        function deselectAllRecipients() {
-            document.querySelectorAll('.recipient-checkbox').forEach(cb => cb.checked = false);
-            updateSelectedCount();
-        }
+      const nextOrder = Object.keys(countersData).length + 1;
+      const counterId = `counter${nextOrder}`;
 
-        // Preview Announcement Media
-        function previewAnnouncementMedia(input) {
-            const file = input.files[0];
-            const preview = document.getElementById('mediaPreview');
-            
-            if (!file) {
-                preview.innerHTML = '';
-                return;
-            }
+      try {
+        await database.ref(`counters/${counterId}`).set({
+          name,
+          prefix,
+          order: nextOrder,
+          active: true,
+          busy: false,
+          nowServing: null,
+          lastIssued: 0,
+          lastAdvanceAt: Date.now()
+        });
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const type = file.type.split('/')[0];
-                let html = '';
-                
-                if (type === 'image') {
-                    html = `<img src="${e.target.result}" class="max-h-32 rounded">`;
-                } else if (type === 'video') {
-                    html = `<video src="${e.target.result}" class="max-h-32 rounded" controls></video>`;
-                } else if (type === 'audio') {
-                    html = `<audio src="${e.target.result}" controls class="w-full"></audio>`;
-                }
-                
-                preview.innerHTML = html;
-            };
-            reader.readAsDataURL(file);
-        }
+        document.querySelector('.modal-backdrop').remove();
+        showToast('Counter added successfully!', 'success');
+      } catch (error) {
+        showToast('Failed to add counter: ' + error.message, 'error');
+      }
+    };
 
-        // Send Announcement
-        async function sendAnnouncement() {
-            const message = document.getElementById('announcementMessage').value.trim();
-            const mediaFile = document.getElementById('announcementMedia').files[0];
-            const queueFilter = document.getElementById('queueFilter').value;
-            
-            if (!message && !mediaFile) {
-                showToast('Please enter a message or select media', 'error');
-                return;
-            }
+    window.callNext = async function(counterId) {
+      // Find next waiting customer
+      const waiting = Object.entries(queueData)
+        .filter(([_, q]) => q.status === 'waiting' && q.counterId === counterId)
+        .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
 
-            // Get selected recipients
-            let chatIds = Array.from(document.querySelectorAll('.recipient-checkbox:checked'))
-                .map(cb => cb.value);
+      if (!waiting) {
+        showToast('No customers waiting for this counter', 'warning');
+        return;
+      }
 
-            // Apply queue filter if selected
-            if (queueFilter) {
-                chatIds = chatIds.filter(chatId => telegramUsers[chatId]?.queueKey === queueFilter);
-            }
+      const [queueItemId] = waiting;
 
-            if (chatIds.length === 0) {
-                showToast('No recipients selected', 'error');
-                return;
-            }
+      try {
+        // Optimistic UI update
+        queueData[queueItemId].status = 'called';
+        renderQueue();
 
-            // Show progress
-            document.getElementById('sendProgress').classList.remove('hidden');
-            document.getElementById('progressText').textContent = `0/${chatIds.length}`;
-            document.getElementById('progressBar').style.width = '0%';
-            document.getElementById('successCount').textContent = '0';
-            document.getElementById('failCount').textContent = '0';
+        await database.ref(`queue/${queueItemId}`).update({ status: 'called' });
+        showToast('Customer called!', 'success');
+      } catch (error) {
+        // Rollback on error
+        queueData[queueItemId].status = 'waiting';
+        renderQueue();
+        showToast('Failed to call customer: ' + error.message, 'error');
+      }
+    };
 
-            let media = null;
-            let mediaType = null;
+    window.advanceCounter = async function(counterId) {
+      try {
+        const counter = countersData[counterId];
+        const newServing = counter.nowServing + 1;
 
-            // Convert media to base64 if present
-            if (mediaFile) {
-                try {
-                    media = await fileToBase64(mediaFile);
-                    mediaType = mediaFile.type;
-                } catch (error) {
-                    showToast('Error processing media: ' + error.message, 'error');
-                    return;
-                }
-            }
+        // Optimistic UI
+        countersData[counterId].nowServing = newServing;
+        countersData[counterId].lastAdvanceAt = Date.now();
+        renderCounters();
 
-            // Send announcements
-            let success = 0;
-            let failed = 0;
+        await database.ref(`counters/${counterId}`).update({
+          nowServing: newServing,
+          lastAdvanceAt: Date.now()
+        });
 
-            for (let i = 0; i < chatIds.length; i++) {
-                try {
-                    const response = await fetch('/.netlify/functions/announce', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            message,
-                            media,
-                            mediaType,
-                            queueKey: queueFilter || undefined,
-                            chatIds: [chatIds[i]]
-                        })
-                    });
+        showToast('Counter advanced!', 'success');
+      } catch (error) {
+        // Rollback
+        renderCounters();
+        showToast('Failed to advance counter: ' + error.message, 'error');
+      }
+    };
 
-                    if (response.ok) {
-                        success++;
-                    } else {
-                        failed++;
-                    }
-                } catch (error) {
-                    failed++;
-                }
+    window.toggleCounter = async function(counterId) {
+      try {
+        const newActive = !countersData[counterId].active;
 
-                // Update progress
-                const progress = ((i + 1) / chatIds.length) * 100;
-                document.getElementById('progressBar').style.width = progress + '%';
-                document.getElementById('progressText').textContent = `${i + 1}/${chatIds.length}`;
-                document.getElementById('successCount').textContent = success;
-                document.getElementById('failCount').textContent = failed;
-            }
+        // Optimistic UI
+        countersData[counterId].active = newActive;
+        renderCounters();
 
-            showToast(`Announcement sent! Success: ${success}, Failed: ${failed}`, 'success');
-            
-            // Reset form
-            document.getElementById('announcementMessage').value = '';
-            document.getElementById('announcementMedia').value = '';
-            document.getElementById('mediaPreview').innerHTML = '';
-            
-            setTimeout(() => {
-                document.getElementById('sendProgress').classList.add('hidden');
-            }, 3000);
-        }
-
-        // Convert file to base64
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-    </script>
+        await database.ref(`counters/${counterId}`).update({ active: newActive });
+        showToast(`Counter ${newActive ? 'activated' : 'deactivated'}!`, 'success');
+      } catch (error) {
+        renderCounters();
+        showToast('Failed to toggle counter: ' + error.message, 'error');
+      }
+    };
+  </script>
 </body>
 </html>
