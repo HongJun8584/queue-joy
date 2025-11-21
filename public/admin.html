@@ -1,825 +1,467 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>QueueJoy Admin — Real-Time Queue Management</title>
-    <meta name="description" content="QueueJoy Admin Panel - Manage queues, announcements, and analytics in real-time" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Queue Joy — Admin</title>
 
-    <meta property="og:title" content="QueueJoy Admin — Real-Time Queue Management" />
-    <meta property="og:description" content="Manage queues, send announcements, and view analytics in real-time" />
-    <link rel="canonical" href="/counter.html" />
-
-    <style>
-      :root {
-        --primary: 264 83% 62%;
-        --accent: 197 92% 44%;
-        --muted: 220 14% 56%;
-      }
-      * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.3) transparent; }
-      *::-webkit-scrollbar { width: 8px; height: 8px; }
-      *::-webkit-scrollbar-track { background: transparent; }
-      *::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 10px; }
-      *::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.5); }
-      body {
-        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-        -webkit-font-smoothing: antialiased;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-      }
-      @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
-      .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
-      .fade-in { animation: fadeIn 0.5s ease-in; }
-      @keyframes fadeIn { from {opacity:0; transform: translateY(20px);} to {opacity:1; transform: translateY(0);} }
-      .toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 1000; animation: slideIn 0.3s ease-out; }
-      @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-      .spinner { border: 2px solid #f3f3f3; border-top: 2px solid hsl(var(--primary)); border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
-      @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-      .sidebar { position: fixed; left: 0; top: 0; height: 100vh; width: 260px; background: linear-gradient(180deg, rgba(99,102,241,0.95) 0%, rgba(139,92,246,0.95) 50%, rgba(168,85,247,0.95) 100%); backdrop-filter: blur(20px); z-index: 50; transition: transform .3s cubic-bezier(.4,0,.2,1); box-shadow: 8px 0 40px rgba(139,92,246,.4), 0 0 0 1px rgba(255,255,255,.2) inset; border-right: 1px solid rgba(255,255,255,.2); }
-      .sidebar-mobile-closed { transform: translateX(-100%); }
-      .sidebar-item { display:flex; align-items:center; gap:14px; padding:16px 24px; margin:6px 12px; color:#fff; cursor:pointer; transition: all .3s cubic-bezier(.4,0,.2,1); font-weight:600; border-radius:12px; position:relative; overflow:hidden; }
-      .sidebar-item::before { content:''; position:absolute; inset:0; background: rgba(255,255,255,0); transition: all .3s cubic-bezier(.4,0,.2,1); z-index:-1; }
-      .sidebar-item:hover::before { background: rgba(255,255,255,0.15); }
-      .sidebar-item.active { background: rgba(255,255,255,0.25); box-shadow:0 8px 20px rgba(0,0,0,0.15); transform: translateX(4px); }
-      .sidebar-item.active::before { background: rgba(255,255,255,0.25); }
-      .main-content { margin-left:260px; transition: margin-left .3s cubic-bezier(.4,0,.2,1); }
-      @media (max-width: 1024px) { .main-content { margin-left:0; } }
-      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
-      .modal-content { background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y:auto; padding:32px; box-shadow: 0 30px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.5) inset; border: 1px solid rgba(255,255,255,0.3); }
-      .glass-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius:16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
-      .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-      .stat-card { position:relative; overflow:hidden; }
-      .stat-card::before { content:''; position:absolute; top:-50%; right:-50%; width:200%; height:200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: shimmer 3s infinite; }
-      @keyframes shimmer { 0%,100%{ transform: translate(0,0);} 50%{ transform: translate(-20%,-20%);} }
-      .cropper-container { max-height: 400px; margin: 20px 0; }
-    </style>
-  </head>
-  <body class="min-h-screen">
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar sidebar-mobile-closed lg:transform-none">
-      <div class="p-8 border-b border-white/20">
-        <div class="flex items-center gap-3 mb-2">
-          <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-lg flex items-center justify-center text-white text-lg font-bold shadow-lg">QJ</div>
-          <h1 class="text-white text-2xl font-bold tracking-tight">QueueJoy</h1>
-        </div>
-        <p class="text-white/80 text-sm font-medium ml-13">Admin Panel</p>
+  <!-- NOTE: For development we use Tailwind CDN for quick styling. In production install Tailwind as PostCSS or use the CLI. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Small utility overrides */
+    .fade-up { transform: translateY(8px); opacity: 0; transition: all .36s ease; }
+    .fade-up.show { transform: translateY(0); opacity: 1; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+    input[type=file] { display:block }
+    .small { font-size: 0.85rem }
+    .pill { padding: .25rem .5rem; border-radius: 999px; background: rgba(0,0,0,0.06); }
+    /* crop canvas preview styling */
+    .crop-wrap { position: relative; width: 100%; max-width: 420px; }
+    .crop-canvas { width: 100%; border-radius: 8px; background: #f6f6f6; }
+  </style>
+</head>
+<body class="bg-gray-50 text-slate-800 font-sans">
+  <div class="max-w-6xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Queue Joy — Admin</h1>
+        <p class="text-sm text-slate-500">Manage settings, media, announcements and analytics.</p>
       </div>
-      <nav class="mt-6">
-        <div class="sidebar-item active" data-view="dashboard"><span class="text-2xl">🏠</span><span class="text-base">Dashboard</span></div>
-        <div class="sidebar-item" data-view="analytics"><span class="text-2xl">📊</span><span class="text-base">Analytics</span></div>
-      </nav>
-    </aside>
+      <div class="flex items-center gap-3">
+        <button id="btnRefresh" class="btn bg-white px-3 py-2 card small">Refresh</button>
+        <div id="statusDot" class="pill small">Disconnected</div>
+      </div>
+    </header>
 
-    <!-- Mobile Menu Toggle -->
-    <button id="mobileMenuBtn" class="lg:hidden fixed top-4 left-4 z-40 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-2xl shadow-2xl hover:scale-110 transition-all duration-300">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-    </button>
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- left: Settings & Media -->
+      <section class="col-span-1 card p-4 fade-up show">
+        <h2 class="font-medium">Settings & Images</h2>
+        <p class="text-sm text-slate-500 mb-3">Edit values stored in Firebase under <code>/settings</code>. Images can be cropped client-side before saving.</p>
 
-    <!-- Main Content -->
-    <div class="main-content">
-      <div class="max-w-6xl mx-auto p-4 pb-20 fade-in">
-        <!-- Dashboard View -->
-        <div id="dashboardView">
-          <!-- Header -->
-          <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 mt-16 lg:mt-6">
-            <div class="flex items-center gap-4">
-              <div id="headerLogo" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl ring-4 ring-white/30">QJ</div>
-              <div>
-                <h2 id="headerName" class="text-3xl font-bold gradient-text">Queue Joy Admin</h2>
-                <p class="text-sm text-gray-700 font-medium mt-1">Real-time management dashboard</p>
-              </div>
-            </div>
-            <button id="saveAllBtn" class="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">💾 Save All Changes</button>
-          </header>
+        <div class="space-y-3">
+          <label class="block small">Main title
+            <input id="mainTitle" class="mt-1 w-full p-2 border rounded" />
+          </label>
 
-          <!-- Analytics Panel -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Total Queues</p>
-                  <p id="totalQueues" class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl shadow-xl">📊</div>
-              </div>
-            </div>
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Waiting</p>
-                  <p id="activeQueues" class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-xl">🎫</div>
-              </div>
-            </div>
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Today's Queues</p>
-                  <p id="todayQueues" class="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-xl">📈</div>
-              </div>
-            </div>
-            <div class="card p-8 stat-card hover:scale-105 transition-all duration-300 cursor-pointer">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-gray-600 mb-3">Active Counters</p>
-                  <p id="activeCounters" class="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">0</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-2xl shadow-xl">🏪</div>
-              </div>
+          <label class="block small">Small text on top
+            <input id="smallTextOnTop" class="mt-1 w-full p-2 border rounded" />
+          </label>
+
+          <label class="block small">Intro text
+            <textarea id="introText" rows="3" class="mt-1 w-full p-2 border rounded"></textarea>
+          </label>
+
+          <label class="block small">adImage (croppable)
+            <input id="adImageFile" type="file" accept="image/*" />
+          </label>
+          <div id="adImageCrop" class="crop-wrap hidden">
+            <canvas id="adCanvas" class="crop-canvas"></canvas>
+            <div class="flex gap-2 mt-2">
+              <button id="adCropSave" class="px-3 py-2 card">Save Cropped</button>
+              <button id="adReset" class="px-3 py-2 card">Reset</button>
             </div>
           </div>
 
-          <!-- Main Content Grid -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Business Settings Card -->
-            <div class="card p-8 space-y-6">
-              <h3 class="text-2xl font-bold gradient-text mb-6">⚙️ Business Settings</h3>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
-                <input id="businessName" type="text" placeholder="Your Business Name" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Welcome Message</label>
-                <textarea id="welcomeMessage" rows="3" placeholder="Real-time queueing system. Mobile-friendly. No app needed." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Logo Image (Square)</label>
-                <div class="flex items-center gap-3">
-                  <img id="logoPreview" src="" alt="Logo" class="w-16 h-16 rounded-lg object-cover border-2 border-gray-200 hidden" />
-                  <div class="flex-1">
-                    <input id="logoFile" type="file" accept="image/*" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
-                    <p class="text-xs text-gray-500 mt-1">Click to crop before saving</p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Advertisement Banner (Landscape)</label>
-                <div class="space-y-3">
-                  <div class="flex items-start gap-3">
-                    <div id="adPreviewBox" class="w-32 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hidden"></div>
-                    <div class="flex-1">
-                      <input id="adFile" type="file" accept="image/*,video/*,.gif" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-50 file:text-purple-600 file:font-semibold hover:file:bg-purple-100 cursor-pointer"/>
-                      <p class="text-xs text-gray-500 mt-1">Landscape (16:9). Max 50MB</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Display Settings -->
-              <div class="border-t pt-6 mt-6">
-                <h4 class="text-lg font-bold text-gray-800 mb-4">🖥️ Display Settings</h4>
-                <div class="space-y-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Small Text on Top</label>
-                    <input id="displaySmallText" type="text" placeholder="Digital Queue System" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL (Centered)</label>
-                    <input id="displayLogoUrl" type="text" placeholder="https://.../logo.png" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Main Title in Middle</label>
-                    <input id="displayMainTitle" type="text" placeholder="Get your queue number" class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"/>
-                  </div>
-                </div>
-              </div>
-              
-              <button id="updateSettingsBtn" class="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
-                <span id="updateBtnText">✨ Update Settings</span>
-                <span id="updateBtnSpinner" class="hidden"><span class="spinner"></span> Updating...</span>
-              </button>
-            </div>
-
-            <!-- Right Column: Announcement + Live Preview -->
-            <div class="space-y-6">
-              <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">📢 Telegram Announcement</h3>
-                <div class="space-y-4">
-                  <textarea id="announcementMessage" rows="4" placeholder="Type your announcement message here..." class="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"></textarea>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Attach Media (Image, Video, or GIF)</label>
-                    <input id="announcementMedia" type="file" accept="image/*,video/*,audio/*,.gif" class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-600 file:font-semibold hover:file:bg-green-100 cursor-pointer" />
-                    <div id="announcementPreview" class="mt-3 hidden"></div>
-                  </div>
-                  <button id="sendAnnouncementBtn" class="w-full py-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 hover:scale-105 transition-all duration-300 ring-2 ring-white/50">
-                    <span id="sendBtnText">📱 Send to Telegram</span>
-                    <span id="sendBtnSpinner" class="hidden"><span class="spinner"></span> Sending...</span>
-                  </button>
-                  <div id="announcementResult" class="hidden p-3 rounded-lg text-sm"></div>
-                </div>
-              </div>
-
-              <div class="card p-8">
-                <h3 class="text-2xl font-bold gradient-text mb-6">👁️ Live Preview</h3>
-                <div class="space-y-4">
-                  <div class="flex items-center gap-4">
-                    <div id="previewLogo" class="w-14 h-14 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-bold">QJ</div>
-                    <div class="flex-1">
-                      <p id="previewName" class="text-lg font-bold text-gray-800">Your Business</p>
-                      <p id="previewIntro" class="text-sm text-gray-600">Real-time queueing system</p>
-                    </div>
-                  </div>
-                  <div class="bg-gray-50 rounded-xl p-4">
-                    <p class="text-xs text-gray-500 mb-2">Advertisement Preview</p>
-                    <div class="flex items-center gap-3">
-                      <img id="previewAd" src="" alt="Ad" class="w-24 h-16 rounded-lg object-cover border hidden" />
-                    </div>
-                  </div>
-                  <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl opacity-75 cursor-not-allowed">🎫 Get My Number</button>
-                  <p class="text-xs text-center text-gray-500">This is how customers see your page</p>
-                </div>
-              </div>
+          <label class="block small">Logo image (croppable)
+            <input id="logoFile" type="file" accept="image/*" />
+          </label>
+          <div id="logoCrop" class="crop-wrap hidden">
+            <canvas id="logoCanvas" class="crop-canvas"></canvas>
+            <div class="flex gap-2 mt-2">
+              <button id="logoCropSave" class="px-3 py-2 card">Save Cropped</button>
+              <button id="logoReset" class="px-3 py-2 card">Reset</button>
             </div>
           </div>
 
-          <footer class="text-center text-sm font-medium text-gray-700 mt-12 p-6 card">
-            <p>🔥 Real-time sync powered by Firebase</p>
-          </footer>
+          <div class="flex gap-2 mt-2">
+            <button id="saveSettings" class="px-4 py-2 bg-sky-600 text-white rounded">Save Settings</button>
+            <button id="loadSettings" class="px-4 py-2 card">Load From Firebase</button>
+          </div>
         </div>
+      </section>
 
-        <!-- Analytics View -->
-        <div id="analyticsView" class="hidden">
-          <div class="mt-16 lg:mt-6">
-            <h2 class="text-3xl font-bold text-white mb-8 bg-gradient-to-r from-purple-600 to-indigo-500 p-6 rounded-2xl shadow-lg">📊 Analytics Dashboard</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div class="card p-6 bg-gradient-to-br from-purple-600 to-purple-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Total Customers Served</p>
-                <p id="analyticsServed" class="text-4xl font-bold">0</p>
-              </div>
-              <div class="card p-6 bg-gradient-to-br from-indigo-600 to-indigo-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Average Wait Time</p>
-                <p class="text-4xl font-bold"><span id="analyticsAvgWait">0</span><span class="text-lg ml-1">min</span></p>
-              </div>
-              <div class="card p-6 bg-gradient-to-br from-pink-600 to-pink-400 text-white">
-                <p class="text-sm opacity-90 mb-2">Active Counters</p>
-                <p id="analyticsActiveCounters" class="text-4xl font-bold">0</p>
-              </div>
+      <!-- middle: Announcement composer -->
+      <section class="col-span-1 lg:col-span-2 card p-4">
+        <h2 class="font-medium">Announcement Composer</h2>
+        <p class="text-sm text-slate-500">Send text, image, gif, audio or video to all or filtered by queue.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <div class="md:col-span-2">
+            <label class="block small">Message</label>
+            <textarea id="announceMessage" rows="4" class="mt-1 w-full p-2 border rounded"></textarea>
+
+            <div class="flex items-center gap-3 mt-2">
+              <label class="small">Target queue (optional)</label>
+              <select id="queueFilter" class="p-2 border rounded">
+                <option value="">All queues</option>
+              </select>
+
+              <label class="small">Or paste Chat IDs (comma)</label>
+              <input id="overrideChatIds" class="p-2 border rounded" placeholder="123,456" />
             </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Trend (Last 7 Days)</h3>
-                <div id="queueTrendChart" class="h-64"></div>
-              </div>
-              <div class="card p-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Counter Performance</h3>
-                <div id="counterPerfChart"></div>
-              </div>
+
+            <div class="mt-3">
+              <label class="small">Attach media (image, gif, video, audio)</label>
+              <input id="announceFile" type="file" accept="image/*,video/*,audio/*" />
+              <div id="mediaPreview" class="mt-2"></div>
             </div>
-            
-            <div class="card p-6 mt-6">
-              <h3 class="text-lg font-bold text-gray-800 mb-4">Queue Status Breakdown</h3>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center"><p class="text-3xl font-bold text-green-600" id="analyticsCompleted">0</p><p class="text-sm text-gray-600 mt-1">Completed</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-blue-600" id="analyticsWaiting">0</p><p class="text-sm text-gray-600 mt-1">Waiting</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-purple-600" id="analyticsServing">0</p><p class="text-sm text-gray-600 mt-1">Serving</p></div>
-                <div class="text-center"><p class="text-3xl font-bold text-gray-600" id="analyticsCancelled">0</p><p class="text-sm text-gray-600 mt-1">Cancelled</p></div>
-              </div>
+
+            <div class="mt-4 flex gap-2">
+              <button id="sendAnnouncement" class="px-4 py-2 bg-emerald-600 text-white rounded">Send Announcement</button>
+              <button id="previewAnnouncement" class="px-4 py-2 card">Preview</button>
+            </div>
+
+            <div id="announceLog" class="mt-3 small text-sm text-slate-600"></div>
+          </div>
+
+          <div class="md:col-span-1 border-l pl-4">
+            <h3 class="font-medium">Recipients</h3>
+            <div class="mt-2 small text-slate-600">Select from stored telegramUsers or let the function pick all.</div>
+            <div id="recipientsList" class="mt-2 max-h-64 overflow-auto"></div>
+            <div class="mt-2">
+              <button id="selectAllRecipients" class="px-2 py-1 card small">Select All</button>
+              <button id="deselectAllRecipients" class="px-2 py-1 card small">Deselect All</button>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- Crop Modal -->
-    <div id="cropModal" class="modal hidden">
-      <div class="modal-content">
-        <h3 class="text-xl font-bold text-gray-800 mb-4" id="cropModalTitle">Crop Image</h3>
-        <div class="cropper-container"><img id="cropImage" src="" alt="Crop" style="max-width: 100%;" /></div>
-        <div class="flex gap-3 mt-4">
-          <button id="cropSaveBtn" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg hover:scale-105 transition-all">✂️ Crop & Save</button>
-          <button id="cropCancelBtn" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all">Cancel</button>
+      <!-- right: Analytics -->
+      <section class="col-span-1 card p-4 fade-up show">
+        <h2 class="font-medium">Analytics</h2>
+        <p class="text-sm text-slate-500">Quick insights computed from <code>/queue</code> and <code>/telegramUsers</code>.</p>
+
+        <div class="mt-3 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-2xl font-semibold" id="totalWaiting">—</div>
+              <div class="small text-slate-500">Waiting</div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold" id="totalServed">—</div>
+              <div class="small text-slate-500">Served</div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold" id="avgService">—</div>
+              <div class="small text-slate-500">Avg serve (s)</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="small font-medium">Recent queues</h4>
+            <div id="recentQueueList" class="mt-2 max-h-48 overflow-auto small"></div>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
 
-    <!-- Firebase & App Script -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-      import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    <footer class="mt-6 text-sm text-slate-500">Queue Joy Admin • edit settings in Firebase & use announce function. Use Tailwind via proper build in production.</footer>
+  </div>
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-        authDomain: "queue-joy-aa21b.firebaseapp.com",
-        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "queue-joy-aa21b",
-        storageBucket: "queue-joy-aa21b.appspot.com",
-        messagingSenderId: "950240394209",
-        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-      };
+  <!-- Scripts: Firebase v9 modular (CDN module imports) -->
+  <script type="module">
+    // ----------------- CONFIG -------------------
+    // Replace this config or set window.RTDB_ROOT to point to your Firebase Realtime DB root (https://.../)
+    // If you prefer env injection, admin.html can read a small /settings-based public endpoint.
+    const RTDB_ROOT = window.__RTDB_ROOT__ || null; // leave null to use explicit input below
 
-      const app = initializeApp(firebaseConfig);
-      const db = getDatabase(app);
+    // Helper: UI
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-      // Toast
-      const showToast = (message, type = 'success') => {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
-        toast.textContent = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-      };
+    // Firebase modular imports (CDN)
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
+    import { getDatabase, ref, get, set, update, onValue } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js';
 
-      // File -> base64
-      const fileToBase64 = (file) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    // A small helper to prompt for RTDB root if not present
+    async function getRtDbRoot() {
+      if (RTDB_ROOT) return RTDB_ROOT.replace(/\/$/, '');
+      const root = localStorage.getItem('rtdb_root') || prompt('Enter your Firebase Realtime Database root URL (e.g. https://your-db.firebaseio.com):');
+      if (!root) throw new Error('RTDB root required');
+      localStorage.setItem('rtdb_root', root.replace(/\/$/, ''));
+      return root.replace(/\/$/, '');
+    }
 
-      // Elements
-      const businessName = document.getElementById('businessName');
-      const welcomeMessage = document.getElementById('welcomeMessage');
-      const logoFile = document.getElementById('logoFile');
-      const logoPreview = document.getElementById('logoPreview');
-      const adFile = document.getElementById('adFile');
-      const adPreviewBox = document.getElementById('adPreviewBox');
-      const updateSettingsBtn = document.getElementById('updateSettingsBtn');
-      const updateBtnText = document.getElementById('updateBtnText');
-      const updateBtnSpinner = document.getElementById('updateBtnSpinner');
-      const saveAllBtn = document.getElementById('saveAllBtn');
-      
-      // Display settings
-      const displaySmallText = document.getElementById('displaySmallText');
-      const displayLogoUrl = document.getElementById('displayLogoUrl');
-      const displayMainTitle = document.getElementById('displayMainTitle');
+    // init state
+    let FIREBASE_DB_ROOT = null;
+    (async () => {
+      try {
+        FIREBASE_DB_ROOT = await getRtDbRoot();
+        $('#statusDot').textContent = 'Connected';
+        $('#statusDot').classList.add('text-emerald-600');
+      } catch (e) {
+        console.error('No RTDB root', e);
+        $('#statusDot').textContent = 'No DB';
+      }
+    })();
 
-      const previewName = document.getElementById('previewName');
-      const previewIntro = document.getElementById('previewIntro');
-      const previewLogo = document.getElementById('previewLogo');
-      const previewAd = document.getElementById('previewAd');
-      const headerLogo = document.getElementById('headerLogo');
-      const headerName = document.getElementById('headerName');
+    // ----------------- tiny helpers ------------------
+    const jsonFetch = async (path, opts = {}) => {
+      if (!FIREBASE_DB_ROOT) throw new Error('RTDB root not set');
+      const url = `${FIREBASE_DB_ROOT}/${path.replace(/^\//, '')}.json`;
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error(`Fetch failed ${res.status}`);
+      return await res.json();
+    };
+    const jsonPatch = async (path, body) => {
+      if (!FIREBASE_DB_ROOT) throw new Error('RTDB root not set');
+      const url = `${FIREBASE_DB_ROOT}/${path.replace(/^\//, '')}.json`;
+      const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) { const t = await res.text().catch(()=>null); throw new Error(`Patch ${res.status} ${t}`); }
+      return await res.json();
+    };
+    const jsonPut = async (path, body) => {
+      if (!FIREBASE_DB_ROOT) throw new Error('RTDB root not set');
+      const url = `${FIREBASE_DB_ROOT}/${path.replace(/^\//, '')}.json`;
+      const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) { const t = await res.text().catch(()=>null); throw new Error(`Put ${res.status} ${t}`); }
+      return await res.json();
+    };
 
-      const announcementMessage = document.getElementById('announcementMessage');
-      const announcementMedia = document.getElementById('announcementMedia');
-      const announcementPreview = document.getElementById('announcementPreview');
-      const sendAnnouncementBtn = document.getElementById('sendAnnouncementBtn');
-      const sendBtnText = document.getElementById('sendBtnText');
-      const sendBtnSpinner = document.getElementById('sendBtnSpinner');
-      const announcementResult = document.getElementById('announcementResult');
+    // ----------------- Settings load/save ------------------
+    async function loadSettings() {
+      try {
+        const settings = await jsonFetch('settings');
+        if (!settings) return;
+        $('#mainTitle').value = settings.mainTitle || '';
+        $('#smallTextOnTop').value = settings.smallTextOnTop || '';
+        $('#introText').value = settings.introText || '';
+        // preview images
+        if (settings.adImage) previewImageFromData(settings.adImage, '#adImageCrop');
+        if (settings.logo) previewImageFromData(settings.logo, '#logoCrop');
+        // populate queues list
+        await loadQueuesList();
+      } catch (e) {
+        console.error('loadSettings failed', e);
+        alert('Failed to load settings: ' + e.message);
+      }
+    }
 
-      const cropModal = document.getElementById('cropModal');
-      const cropImage = document.getElementById('cropImage');
-      const cropSaveBtn = document.getElementById('cropSaveBtn');
-      const cropCancelBtn = document.getElementById('cropCancelBtn');
-      const cropModalTitle = document.getElementById('cropModalTitle');
+    async function saveSettings() {
+      try {
+        const payload = {
+          mainTitle: $('#mainTitle').value.trim() || null,
+          smallTextOnTop: $('#smallTextOnTop').value.trim() || null,
+          introText: $('#introText').value.trim() || null,
+        };
+        await jsonPatch('settings', payload);
+        toast('Settings saved');
+      } catch (e) {
+        console.error('saveSettings', e);
+        alert('Save failed: ' + e.message);
+      }
+    }
 
-      const sidebar = document.getElementById('sidebar');
-      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-      const dashboardView = document.getElementById('dashboardView');
-      const analyticsView = document.getElementById('analyticsView');
-      const sidebarItems = document.querySelectorAll('.sidebar-item[data-view]');
+    $('#loadSettings').addEventListener('click', loadSettings);
+    $('#saveSettings').addEventListener('click', saveSettings);
 
-      const totalQueuesEl = document.getElementById('totalQueues');
-      const activeQueuesEl = document.getElementById('activeQueues');
-      const todayQueuesEl = document.getElementById('todayQueues');
-      const activeCountersEl = document.getElementById('activeCounters');
+    // ----------------- crop helpers ------------------
+    // lightweight crop: user drags a rectangle on canvas, we crop to that box
+    function createCropUI(fileInput, canvasEl, containerSelector) {
+      const container = document.querySelector(containerSelector);
+      let img = new Image();
+      let scale = 1; let startX=0,startY=0,drag=false, sx=0,sy=0,sw=0,sh=0;
+      const ctx = canvasEl.getContext('2d');
 
-      const analyticsServed = document.getElementById('analyticsServed');
-      const analyticsAvgWait = document.getElementById('analyticsAvgWait');
-      const analyticsActiveCounters = document.getElementById('analyticsActiveCounters');
-      const analyticsCompleted = document.getElementById('analyticsCompleted');
-      const analyticsWaiting = document.getElementById('analyticsWaiting');
-      const analyticsServing = document.getElementById('analyticsServing');
-      const analyticsCancelled = document.getElementById('analyticsCancelled');
-      
-      const queueTrendChart = document.getElementById('queueTrendChart');
-      const counterPerfChart = document.getElementById('counterPerfChart');
-
-      // Mobile Menu
-      mobileMenuBtn.addEventListener('click', () => sidebar.classList.toggle('sidebar-mobile-closed'));
-
-      // Switch views
-      sidebarItems.forEach(item => {
-        item.addEventListener('click', () => {
-          const view = item.dataset.view;
-          sidebarItems.forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-          if (view === 'dashboard') {
-            dashboardView.classList.remove('hidden');
-            analyticsView.classList.add('hidden');
-          } else {
-            dashboardView.classList.add('hidden');
-            analyticsView.classList.remove('hidden');
-          }
-          sidebar.classList.add('sidebar-mobile-closed');
-        });
-      });
-
-      // Real-time Analytics Updates
-      let allQueues = {};
-      let allCounters = {};
-      
-      onValue(ref(db, 'queue'), (snapshot) => {
-        if (snapshot.exists()) {
-          allQueues = snapshot.val();
-          const queues = Object.values(allQueues);
-          
-          const total = queues.length;
-          const waiting = queues.filter(q => q.status === 'waiting').length;
-          const serving = queues.filter(q => q.status === 'serving').length;
-          const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
-          const cancelled = queues.filter(q => q.status === 'cancelled' || q.status === 'cancel').length;
-
-          totalQueuesEl.textContent = total;
-          activeQueuesEl.textContent = waiting;
-
-          // Today's queues
-          const today = new Date().setHours(0,0,0,0);
-          const todayCount = queues.filter(q => {
-            const qDate = new Date(q.timestamp).setHours(0,0,0,0);
-            return qDate === today;
-          }).length;
-          todayQueuesEl.textContent = todayCount;
-
-          // Analytics view
-          analyticsServed.textContent = completed;
-          analyticsCompleted.textContent = completed;
-          analyticsWaiting.textContent = waiting;
-          analyticsServing.textContent = serving;
-          analyticsCancelled.textContent = cancelled;
-
-          // Average wait time (for waiting customers only)
-          const waitingQueuesWithTime = queues.filter(q => q.status === 'waiting' && q.timestamp);
-          if (waitingQueuesWithTime.length > 0) {
-            const totalWaitMs = waitingQueuesWithTime.reduce((acc, q) => {
-              return acc + (Date.now() - q.timestamp);
-            }, 0);
-            const avgWaitMin = Math.round(totalWaitMs / waitingQueuesWithTime.length / 60000);
-            analyticsAvgWait.textContent = Math.max(0, avgWaitMin);
-          } else {
-            analyticsAvgWait.textContent = '0';
-          }
-          
-          // Update charts
-          updateCharts();
-        } else {
-          totalQueuesEl.textContent = '0';
-          activeQueuesEl.textContent = '0';
-          todayQueuesEl.textContent = '0';
-          analyticsServed.textContent = '0';
-          analyticsCompleted.textContent = '0';
-          analyticsWaiting.textContent = '0';
-          analyticsServing.textContent = '0';
-          analyticsCancelled.textContent = '0';
-          analyticsAvgWait.textContent = '0';
-          allQueues = {};
+      function draw() {
+        // clear
+        canvasEl.width = Math.min(1024, img.width); // limit size for performance
+        scale = canvasEl.width / img.width;
+        canvasEl.height = Math.round(img.height * scale);
+        ctx.clearRect(0,0,canvasEl.width, canvasEl.height);
+        ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
+        if (sw && sh) {
+          ctx.strokeStyle = 'cyan'; ctx.lineWidth = 2; ctx.strokeRect(sx, sy, sw, sh);
         }
-      });
-
-      onValue(ref(db, 'counters'), (snapshot) => {
-        if (snapshot.exists()) {
-          allCounters = snapshot.val();
-          const counters = Object.values(allCounters);
-          const activeCount = counters.filter(c => c.active === true).length;
-          activeCountersEl.textContent = activeCount;
-          analyticsActiveCounters.textContent = activeCount;
-          updateCharts();
-        } else {
-          activeCountersEl.textContent = '0';
-          analyticsActiveCounters.textContent = '0';
-          allCounters = {};
-        }
-      });
-
-      // Update charts with real data
-      function updateCharts() {
-        const queues = Object.values(allQueues);
-        const counters = Object.values(allCounters);
-        
-        // Last 7 days trend
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - (6 - i));
-          date.setHours(0, 0, 0, 0);
-          return date;
-        });
-        
-        const dayLabels = last7Days.map(d => d.toLocaleDateString('en-US', { weekday: 'short' }));
-        const dayCounts = last7Days.map(date => {
-          const dayStart = date.getTime();
-          const dayEnd = dayStart + 86400000;
-          return queues.filter(q => q.timestamp >= dayStart && q.timestamp < dayEnd).length;
-        });
-        
-        // Render trend chart
-        const maxCount = Math.max(...dayCounts, 1);
-        queueTrendChart.innerHTML = '<div class="h-full flex items-end justify-between gap-2">' +
-          dayCounts.map((count, i) => {
-            const height = Math.max((count / maxCount * 100), 5);
-            return `<div class="flex-1 flex flex-col items-center gap-2">
-              <div class="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t-lg transition-all hover:scale-105" style="height: ${height}%">
-                <p class="text-xs font-bold text-white text-center mt-2">${count}</p>
-              </div>
-              <p class="text-xs font-medium text-gray-600">${dayLabels[i]}</p>
-            </div>`;
-          }).join('') + '</div>';
-        
-        // Counter performance
-        const counterKeys = Object.keys(allCounters);
-        const counterPerf = counterKeys.map(key => {
-          const counter = allCounters[key];
-          const served = queues.filter(q => 
-            q.counterId === key && (q.status === 'done' || q.status === 'served')
-          ).length;
-          return { name: counter.name || counter.prefix, served };
-        });
-        
-        const maxServed = Math.max(...counterPerf.map(c => c.served), 1);
-        counterPerfChart.innerHTML = '<div class="space-y-4">' +
-          counterPerf.map(counter => {
-            const width = Math.max((counter.served / maxServed * 100), 5);
-            return `<div>
-              <div class="flex items-center justify-between mb-2">
-                <p class="text-sm font-medium text-gray-700">${counter.name}</p>
-                <p class="text-sm font-bold text-gray-800">${counter.served} served</p>
-              </div>
-              <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-purple-600 to-indigo-500 transition-all" style="width: ${width}%"></div>
-              </div>
-            </div>`;
-          }).join('') + '</div>';
       }
 
-      // Settings sync
-      onValue(ref(db, 'settings/name'), (snap) => { 
-        if (snap.exists()) { 
-          const v = snap.val(); 
-          businessName.value = v; 
-          previewName.textContent = v; 
-          headerName.textContent = v; 
-        } 
-      });
-      
-      onValue(ref(db, 'settings/introText'), (snap) => { 
-        if (snap.exists()) { 
-          const v = snap.val(); 
-          welcomeMessage.value = v; 
-          previewIntro.textContent = v; 
-        } 
-      });
-      
-      onValue(ref(db, 'settings/logo'), (snap) => { 
-        if (snap.exists()) { 
-          const v = snap.val(); 
-          logoPreview.src = v; 
-          logoPreview.classList.remove('hidden'); 
-          previewLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; 
-          headerLogo.innerHTML = `<img src="${v}" class="w-full h-full rounded-xl object-cover" />`; 
-        } 
-      });
-      
-      // Display settings sync
-      onValue(ref(db, 'displaySettings'), (snap) => {
-        if (snap.exists()) { 
-          const v = snap.val(); 
-          displaySmallText.value = v.smallText || ''; 
-          displayLogoUrl.value = v.logoUrl || ''; 
-          displayMainTitle.value = v.mainTitle || ''; 
-        }
-      });
-      
-      onValue(ref(db, 'settings/adImage'), (snap) => { 
-        if (snap.exists()) { 
-          const v = snap.val();
-          if (typeof v === 'string' && v.startsWith('data:video/')) {
-            adPreviewBox.innerHTML = `<video src="${v}" class="w-full h-full object-cover" controls></video>`;
-          } else {
-            adPreviewBox.innerHTML = `<img src="${v}" class="w-full h-full object-cover" />`;
-          }
-          adPreviewBox.classList.remove('hidden');
-          previewAd.src = v; 
-          previewAd.classList.remove('hidden');
-          window.adData = v;
-        } else { 
-          adPreviewBox.classList.add('hidden'); 
-          previewAd.classList.add('hidden'); 
-        } 
+      fileInput.addEventListener('change', async (e) => {
+        const f = fileInput.files[0];
+        if (!f) return;
+        const dataUrl = await readFileAsDataURL(f);
+        img = new Image();
+        img.onload = () => { container.classList.remove('hidden'); sx=sy=sw=sh=0; draw(); };
+        img.src = dataUrl;
       });
 
-      // Cropping
-      let currentCropper = null; 
-      let currentCropType = '';
-      window.adData = '';
-      
-      logoFile.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; 
-        if (!file) return;
-        currentCropType = 'logo'; 
-        cropModalTitle.textContent = 'Crop Logo (Square)';
-        const base64 = await fileToBase64(file); 
-        cropImage.src = base64; 
-        cropModal.classList.remove('hidden');
-        if (currentCropper) currentCropper.destroy();
-        currentCropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 2, autoCropArea: 1 });
+      // simple drag to set crop rect
+      canvasEl.addEventListener('mousedown', (ev) => {
+        const r = canvasEl.getBoundingClientRect(); startX = ev.clientX - r.left; startY = ev.clientY - r.top; drag=true; sx = startX; sy = startY; sw = 0; sh = 0;
       });
-      
-      adFile.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; 
-        if (!file) return;
-        if (file.size > 50 * 1024 * 1024) { 
-          showToast('File too large! Max 50MB', 'error'); 
-          return; 
-        }
-        const base64 = await fileToBase64(file);
-        const type = file.type || '';
-        
-        if (type.startsWith('video/')) {
-          window.adData = base64;
-          adPreviewBox.innerHTML = `<video src="${base64}" class="w-full h-full object-cover" controls></video>`;
-          adPreviewBox.classList.remove('hidden');
-          return;
-        }
-        if (type === 'image/gif') {
-          window.adData = base64;
-          adPreviewBox.innerHTML = `<img src="${base64}" class="w-full h-full object-cover" />`;
-          adPreviewBox.classList.remove('hidden');
-          return;
-        }
-        
-        currentCropType = 'ad'; 
-        cropModalTitle.textContent = 'Crop Ad Banner (Landscape)';
-        cropImage.src = base64; 
-        cropModal.classList.remove('hidden');
-        if (currentCropper) currentCropper.destroy();
-        currentCropper = new Cropper(cropImage, { aspectRatio: 16/9, viewMode: 2, autoCropArea: 1 });
+      canvasEl.addEventListener('mousemove', (ev) => {
+        if (!drag) return; const r = canvasEl.getBoundingClientRect(); const x = ev.clientX - r.left; const y = ev.clientY - r.top; sw = x - sx; sh = y - sy; draw();
       });
-      
-      cropSaveBtn.addEventListener('click', () => {
-        if (!currentCropper) return; 
-        const canvas = currentCropper.getCroppedCanvas(); 
-        const cropped = canvas.toDataURL('image/jpeg', 0.9);
-        
-        if (currentCropType === 'logo') {
-          logoPreview.src = cropped; 
-          logoPreview.classList.remove('hidden');
-          previewLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
-          headerLogo.innerHTML = `<img src="${cropped}" class="w-full h-full rounded-xl object-cover" />`;
-        }
-        if (currentCropType === 'ad') {
-          window.adData = cropped;
-          adPreviewBox.innerHTML = `<img src="${cropped}" class="w-full h-full object-cover" />`;
-          adPreviewBox.classList.remove('hidden');
-          previewAd.src = cropped; 
-          previewAd.classList.remove('hidden');
-        }
-        
-        cropModal.classList.add('hidden'); 
-        currentCropper.destroy(); 
-        currentCropper = null; 
-        showToast('Image cropped successfully');
-      });
-      
-      cropCancelBtn.addEventListener('click', () => { 
-        cropModal.classList.add('hidden'); 
-        if (currentCropper) { 
-          currentCropper.destroy(); 
-          currentCropper = null; 
-        } 
-        if (currentCropType === 'logo') logoFile.value=''; 
-        else if (currentCropType === 'ad') adFile.value=''; 
-      });
+      window.addEventListener('mouseup', () => { if (drag) drag=false; });
 
-      // Save settings
-      const updateSettings = async () => {
-        updateBtnText.classList.add('hidden'); 
-        updateBtnSpinner.classList.remove('hidden'); 
-        updateSettingsBtn.disabled = true;
-        
-        try {
-          const updates = { 
-            name: businessName.value, 
-            introText: welcomeMessage.value 
-          };
-          
-          if (logoPreview.src && logoPreview.src.startsWith('data:')) {
-            updates.logo = logoPreview.src;
-          }
-          
-          if (window.adData && typeof window.adData === 'string' && window.adData.startsWith('data:')) {
-            updates.adImage = window.adData;
-          }
-          
-          await set(ref(db, 'settings'), updates);
-          
-          // Save display settings separately
-          await set(ref(db, 'displaySettings'), {
-            smallText: displaySmallText.value || 'Digital Queue System',
-            logoUrl: displayLogoUrl.value || '',
-            mainTitle: displayMainTitle.value || 'Get your queue number'
-          });
-          
-          showToast('Settings updated successfully!');
-        } catch (err) { 
-          console.error(err); 
-          showToast('Failed to update settings', 'error'); 
-        } finally { 
-          updateBtnText.classList.remove('hidden'); 
-          updateBtnSpinner.classList.add('hidden'); 
-          updateSettingsBtn.disabled = false; 
-        }
+      const getCroppedData = () => {
+        if (!img.src) return null;
+        // if no rectangle selected, return full image
+        if (!sw || !sh) return img.src;
+        const cropCanvas = document.createElement('canvas');
+        // compute real pixel crop
+        const realSx = Math.round(sx / scale); const realSy = Math.round(sy / scale); const realSw = Math.round(Math.abs(sw) / scale); const realSh = Math.round(Math.abs(sh) / scale);
+        cropCanvas.width = realSw; cropCanvas.height = realSh;
+        const cctx = cropCanvas.getContext('2d');
+        cctx.drawImage(img, realSx, realSy, realSw, realSh, 0,0, realSw, realSh);
+        return cropCanvas.toDataURL('image/jpeg', 0.86);
       };
-      
-      updateSettingsBtn.addEventListener('click', updateSettings);
-      saveAllBtn.addEventListener('click', updateSettings);
 
-      // Announcement with media support
-      let selectedMediaFile = null;
-      
-      announcementMedia.addEventListener('change', (e) => {
-        const file = e.target.files?.[0]; 
-        selectedMediaFile = file || null; 
-        announcementPreview.innerHTML = ''; 
-        announcementPreview.classList.add('hidden');
-        
+      return { getCroppedData, container, canvasEl };
+    }
+
+    function readFileAsDataURL(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+      });
+    }
+
+    // instantiate crop UIs
+    const adCrop = createCropUI($('#adImageFile'), $('#adCanvas'), '#adImageCrop');
+    const logoCrop = createCropUI($('#logoFile'), $('#logoCanvas'), '#logoCrop');
+
+    $('#adCropSave').addEventListener('click', async () => {
+      const data = adCrop.getCroppedData(); if (!data) return alert('No image');
+      try { await jsonPatch('settings', { adImage: data }); toast('adImage saved'); } catch (e) { alert('Save failed: '+e.message); }
+    });
+    $('#logoCropSave').addEventListener('click', async () => {
+      const data = logoCrop.getCroppedData(); if (!data) return alert('No image');
+      try { await jsonPatch('settings', { logo: data }); toast('logo saved'); } catch (e) { alert('Save failed: '+e.message); }
+    });
+
+    $('#adReset').addEventListener('click', () => { $('#adImageFile').value = ''; $('#adImageCrop').classList.add('hidden'); });
+    $('#logoReset').addEventListener('click', () => { $('#logoFile').value = ''; $('#logoCrop').classList.add('hidden'); });
+
+    function previewImageFromData(dataUrl, selector) {
+      const container = document.querySelector(selector);
+      if (!container) return; container.classList.remove('hidden');
+      const canvas = container.querySelector('canvas'); const ctx = canvas.getContext('2d');
+      const img = new Image(); img.onload = () => {
+        canvas.width = Math.min(900, img.width); const scale = canvas.width / img.width; canvas.height = Math.round(img.height * scale);
+        ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      }; img.src = dataUrl;
+    }
+
+    // ----------------- queues & recipients ------------------
+    async function loadQueuesList() {
+      try {
+        const queues = await jsonFetch('queue') || {};
+        const sel = $('#queueFilter'); sel.innerHTML = '<option value="">All queues</option>';
+        for (const k of Object.keys(queues)) {
+          const q = queues[k]; const label = (q.queueId || q.ticket || q.number || k) + (q.counterId ? ' • '+q.counterId : '');
+          const opt = document.createElement('option'); opt.value = k; opt.textContent = label; sel.appendChild(opt);
+        }
+        await loadRecipients();
+      } catch (e) { console.error('loadQueuesList', e); }
+    }
+
+    async function loadRecipients() {
+      try {
+        const users = await jsonFetch('telegramUsers') || {};
+        const wrap = $('#recipientsList'); wrap.innerHTML = '';
+        for (const k of Object.keys(users)) {
+          const v = users[k]; const row = document.createElement('div'); row.className = 'flex items-center gap-2 py-1';
+          const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.chatId = k; cb.className = 'recipientCB';
+          const label = document.createElement('div'); label.className = 'small'; label.textContent = `${k} ${v.queueKey ? '• '+v.queueKey : ''} ${v.connectedAt ? '• '+new Date(v.connectedAt).toLocaleString() : ''}`;
+          row.appendChild(cb); row.appendChild(label); wrap.appendChild(row);
+        }
+        $('#selectAllRecipients').addEventListener('click', ()=> $$('.recipientCB').forEach(x=>x.checked=true));
+        $('#deselectAllRecipients').addEventListener('click', ()=> $$('.recipientCB').forEach(x=>x.checked=false));
+      } catch (e) { console.error('loadRecipients', e); }
+    }
+
+    // ----------------- Announcement sending (calls netlify function) ------------------
+    async function buildMediaPayload(file) {
+      if (!file) return { media: '', mediaType: '' };
+      const dt = file.type || '';
+      const dataUrl = await readFileAsDataURL(file);
+      const payloadB64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      return { media: payloadB64, mediaType: dt };
+    }
+
+    async function sendAnnouncement() {
+      try {
+        const message = $('#announceMessage').value.trim();
+        const override = $('#overrideChatIds').value.trim();
+        const fileEl = $('#announceFile');
+        const file = fileEl.files && fileEl.files[0];
+        const selectedCBs = $$('.recipientCB').filter(c=>c.checked).map(c=>c.dataset.chatId);
+        const queueKey = $('#queueFilter').value || null;
+
+        let payload = { message };
+        if (override) payload.chatIds = override.split(/\s*,\s*/).filter(Boolean).map(s=>s);
+        else if (selectedCBs.length) payload.chatIds = selectedCBs;
+        else if (queueKey) payload.queueKey = queueKey;
+
         if (file) {
-          if (file.size > 50 * 1024 * 1024) { 
-            showToast('File too large! Max 50MB', 'error'); 
-            selectedMediaFile = null; 
-            return; 
-          }
-          const url = URL.createObjectURL(file);
-          if (file.type.startsWith('video/')) {
-            const video = document.createElement('video'); 
-            video.src = url; 
-            video.controls = true; 
-            video.className = 'w-full h-48 rounded-lg object-cover'; 
-            announcementPreview.appendChild(video);
-          } else if (file.type.startsWith('audio/')) {
-            const audio = document.createElement('audio'); 
-            audio.src = url; 
-            audio.controls = true; 
-            audio.className = 'w-full'; 
-            announcementPreview.appendChild(audio);
-          } else {
-            const img = document.createElement('img'); 
-            img.src = url; 
-            img.className = 'w-full h-48 rounded-lg object-cover'; 
-            announcementPreview.appendChild(img);
-          }
-          announcementPreview.classList.remove('hidden');
+          const { media, mediaType } = await buildMediaPayload(file);
+          payload.media = media; payload.mediaType = mediaType;
         }
-      });
 
-      sendAnnouncementBtn.addEventListener('click', async () => {
-        const message = announcementMessage.value.trim();
-        if (!message && !selectedMediaFile) { 
-          showToast('Please enter a message or attach media', 'error'); 
-          return; 
-        }
-        
-        sendBtnText.classList.add('hidden'); 
-        sendBtnSpinner.classList.remove('hidden'); 
-        sendAnnouncementBtn.disabled = true;
-        
-        try {
-          let mediaBase64 = '';
-          let mediaType = '';
-          if (selectedMediaFile) { 
-            mediaBase64 = await fileToBase64(selectedMediaFile); 
-            mediaType = selectedMediaFile.type; 
-          }
-          
-          const res = await fetch('/.netlify/functions/announce', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ message, media: mediaBase64, mediaType }) 
-          });
-          
-          const result = await res.json();
-          if (!res.ok) throw new Error(result.error || 'Failed to send');
-          
-          announcementResult.className = 'p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
-          announcementResult.textContent = '✅ ' + (result.message || 'Announcement sent successfully!');
-          announcementMessage.value=''; 
-          announcementMedia.value=''; 
-          announcementPreview.innerHTML=''; 
-          announcementPreview.classList.add('hidden'); 
-          selectedMediaFile = null; 
-          showToast('Announcement sent!');
-        } catch (error) {
-          console.error('Announcement error:', error);
-          announcementResult.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
-          announcementResult.textContent = '⚠️ ' + (error.message || 'Failed to send announcement');
-          showToast('Failed to send announcement', 'error');
-        } finally {
-          announcementResult.classList.remove('hidden');
-          sendBtnText.classList.remove('hidden'); 
-          sendBtnSpinner.classList.add('hidden'); 
-          sendAnnouncementBtn.disabled = false;
-          setTimeout(() => announcementResult.classList.add('hidden'), 5000);
-        }
-      });
-    </script>
-  </body>
+        $('#sendAnnouncement').disabled = true; $('#announceLog').textContent = 'Sending...';
+        const res = await fetch('/.netlify/functions/announce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const j = await res.json();
+        if (!res.ok || !j.ok) throw new Error(j.error || JSON.stringify(j));
+        $('#announceLog').textContent = `Sent ${j.sent}/${j.totalRecipients} — failed ${j.failed}`;
+        toast('Announcement sent');
+      } catch (e) {
+        console.error('Announcement error', e); $('#announceLog').textContent = 'Error: '+e.message; alert('Send failed: '+e.message);
+      } finally { $('#sendAnnouncement').disabled = false; }
+    }
+
+    $('#sendAnnouncement').addEventListener('click', sendAnnouncement);
+    $('#previewAnnouncement').addEventListener('click', () => {
+      const txt = $('#announceMessage').value || '[No message]';
+      alert('Preview:\n\n' + txt);
+    });
+
+    // preview attached media
+    $('#announceFile').addEventListener('change', async (e)=>{
+      const f = e.target.files[0]; const wrap = $('#mediaPreview'); wrap.innerHTML = '';
+      if (!f) return;
+      if (f.type.startsWith('image/')) {
+        const d = await readFileAsDataURL(f); const img = document.createElement('img'); img.src = d; img.style.maxWidth='220px'; wrap.appendChild(img);
+      } else if (f.type.startsWith('video/')) {
+        const d = URL.createObjectURL(f); const v = document.createElement('video'); v.src = d; v.controls = true; v.style.maxWidth='240px'; wrap.appendChild(v);
+      } else if (f.type.startsWith('audio/')) {
+        const d = URL.createObjectURL(f); const a = document.createElement('audio'); a.src = d; a.controls = true; wrap.appendChild(a);
+      } else {
+        wrap.textContent = 'Attached file: ' + f.name;
+      }
+    });
+
+    // ----------------- Analytics ------------------
+    async function loadAnalytics() {
+      try {
+        const queues = await jsonFetch('queue') || {};
+        const users = await jsonFetch('telegramUsers') || {};
+        const totalWaiting = Object.values(queues).filter(q=>q.status !== 'served' && q.status !== 'completed' && !q.servedAt).length || 0;
+        const totalServed = Object.values(queues).filter(q=>q.servedAt).length || 0;
+        // compute avg service time for entries that have timestamp & servedAt
+        const diffs = Object.values(queues).map(q=>{ if (q.timestamp && q.servedAt) return (Date.parse(q.servedAt) - Number(q.timestamp))/1000; return null }).filter(x=>x!==null);
+        const avg = diffs.length ? Math.round(diffs.reduce((a,b)=>a+b,0)/diffs.length) : null;
+        $('#totalWaiting').textContent = totalWaiting;
+        $('#totalServed').textContent = totalServed;
+        $('#avgService').textContent = avg === null ? '—' : String(avg);
+
+        const recent = Object.entries(queues).slice(-20).reverse().map(([k,v])=>`<div class="py-1 border-b">${(v.queueId||k)} • ${v.counterId||'—'} • ${v.status||'—'}</div>`).join('');
+        $('#recentQueueList').innerHTML = recent || '<div class="small text-slate-500">No recent</div>';
+      } catch (e) { console.error('loadAnalytics', e); }
+    }
+
+    // ----------------- small UX helpers ------------------
+    function toast(msg) {
+      const t = document.createElement('div'); t.className = 'fixed bottom-6 right-6 px-4 py-2 card small'; t.textContent = msg; document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 3000);
+    }
+
+    // ----------------- boot ------------------
+    $('#btnRefresh').addEventListener('click', async ()=>{ await loadSettings(); await loadRecipients(); await loadAnalytics(); toast('Refreshed'); });
+    // initial load when DB root set
+    (async ()=>{
+      try { await loadSettings(); await loadRecipients(); await loadAnalytics(); } catch(e){ console.warn('initial load issue', e); }
+    })();
+
+  </script>
+</body>
 </html>
