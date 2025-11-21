@@ -316,15 +316,32 @@ exports.handler = async (event) => {
     };
 
     if (token) {
-      const attachResult = await attachChatToQueue(token);
-      if (attachResult && attachResult.ok) {
-        const q = await fetchJson(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(attachResult.queueKey)}.json`);
-        const queueId = q?.queueId || q?.number || q?.ticket || 'Unknown';
-        let counterName = 'Unassigned';
-        if (q?.counterId) {
-          const c = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`);
-          if (c?.name) counterName = c.name;
-        }
+const attachResult = await attachChatToQueue(token);
+
+if (attachResult && attachResult.ok) {
+
+  // --- record user chatId for announcements ---
+  if (userChatId) {
+    const subPath = `${FIREBASE_DB_URL}/telegramUsers/${userChatId}.json`;
+    try {
+      await patchJson(subPath, {
+        queueKey: attachResult.queueKey || null,
+        connectedAt: new Date().toISOString()
+      });
+      console.log('Saved Telegram chatId for notifications:', userChatId);
+    } catch (err) {
+      console.error('Failed to save Telegram chatId:', err);
+    }
+  }
+
+  // existing code: fetch queue & counter info
+  const q = await fetchJson(`${FIREBASE_DB_URL}/queue/${encodeURIComponent(attachResult.queueKey)}.json`);
+  const queueId = q?.queueId || q?.number || q?.ticket || 'Unknown';
+  let counterName = 'Unassigned';
+  if (q?.counterId) {
+    const c = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`);
+    if (c?.name) counterName = c.name;
+  }
         const reply = [
           '✅ Connected to QueueJoy!',
           `🧾 Your number: *${queueId}*`,
