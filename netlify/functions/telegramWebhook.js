@@ -322,18 +322,13 @@ if (attachResult && attachResult.ok) {
 
   // --- record user chatId for announcements (push into /announcement/chatIds) ---
   if (userChatId) {
-    const chatIdsUrl = `${FIREBASE_DB_URL}/announcement/chatIds.json`;
-    try {
-      // Push new chatId (Firebase auto-generates a key)
-      await fetch(chatIdsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' }, // text/plain avoids JSON parsing issues with push
-        body: JSON.stringify(userChatId)
-      });
-      console.log('Added chatId to /announcement/chatIds:', userChatId);
-    } catch (err) {
-      console.error('Failed to add chatId to /announcement/chatIds:', err);
-    }
+    const chatIdRef = `${FIREBASE_DB_URL}/announcement/chatIds/${userChatId}.json`;
+    await fetch(chatIdRef, {
+      method: 'PUT',  // PUT = create or overwrite (idempotent)
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(true)
+    });
+    console.log('Added chatId to /announcement/chatIds (object):', userChatId);
   }
 
   // existing code: fetch queue & counter info
