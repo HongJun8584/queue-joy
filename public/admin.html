@@ -1025,7 +1025,8 @@
           throw new Error('Missing chatIds or botToken in Firebase');
         }
 
-        const chatIds = chatIdsSnap.val();
+        const chatIdsObj = chatIdsSnap.val(); 
+        const chatIds = chatIdsObj ? Object.keys(chatIdsObj) : [];
         const telegramBotToken = botTokenSnap.val();
 
         let mediaBase64 = '';
