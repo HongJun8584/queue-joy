@@ -320,17 +320,19 @@ const attachResult = await attachChatToQueue(token);
 
 if (attachResult && attachResult.ok) {
 
-  // --- record user chatId for announcements ---
+  // --- record user chatId for announcements (push into /announcement/chatIds) ---
   if (userChatId) {
-    const subPath = `${FIREBASE_DB_URL}/telegramUsers/${userChatId}.json`;
+    const chatIdsUrl = `${FIREBASE_DB_URL}/announcement/chatIds.json`;
     try {
-      await patchJson(subPath, {
-        queueKey: attachResult.queueKey || null,
-        connectedAt: new Date().toISOString()
+      // Push new chatId (Firebase auto-generates a key)
+      await fetch(chatIdsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' }, // text/plain avoids JSON parsing issues with push
+        body: JSON.stringify(userChatId)
       });
-      console.log('Saved Telegram chatId for notifications:', userChatId);
+      console.log('Added chatId to /announcement/chatIds:', userChatId);
     } catch (err) {
-      console.error('Failed to save Telegram chatId:', err);
+      console.error('Failed to add chatId to /announcement/chatIds:', err);
     }
   }
 
