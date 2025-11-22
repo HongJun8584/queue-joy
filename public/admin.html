@@ -1002,42 +1002,11 @@
 
     document.getElementById('sendAnnouncementBtn').addEventListener('click', async () => {
       const message = document.getElementById('announcementMessage').value.trim();
-      const sendBtn = document.getElementById('sendAnnouncementBtn');
-    
+
       if (!message && !selectedMediaFile) {
         showToast('Please enter a message or attach media', 'error');
         return;
       }
-    
-      sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending...';
-    
-      try {
-        const res = await fetch('/.netlify/functions/announce', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: message || 'Check out the attached media!',
-            // media handling will be added later if you want – for now we just send text
-          })
-        });
-    
-        const result = await res.json();
-    
-        if (res.ok) {
-          showToast(`Announcement sent to ${result.success} subscriber${result.success !== 1 ? 's' : ''}${result.failed ? ` (${result.failed} failed)` : ''}`, 'success');
-        } else {
-          showToast('Failed: ' + (result.error || 'Unknown error'), 'error');
-        }
-      } catch (err) {
-        showToast('Network error: ' + err.message, 'error');
-      } finally {
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send to All Subscribers';
-        document.getElementById('announcementMessage').value = '';
-        // optional: clear media preview if you have one
-      }
-    });
 
       const sendBtn = document.getElementById('sendAnnouncementBtn');
       const sendBtnText = document.getElementById('sendBtnText');
