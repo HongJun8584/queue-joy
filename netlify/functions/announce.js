@@ -5,11 +5,9 @@ exports.handler = async (event) => {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json"
   };
-
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers, body: "" };
   }
-
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -17,16 +15,13 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: "Use POST only." })
     };
   }
-
   try {
     const body = JSON.parse(event.body || "{}");
-
     const message = (body.message || "").trim();
     const mediaBase64 = body.media || "";
     const mediaType = body.mediaType || "";
     const chatIds = Array.isArray(body.chatIds) ? body.chatIds : [];
     const botToken = body.telegramBotToken;
-
     if (!botToken) {
       return {
         statusCode: 400,
@@ -34,7 +29,6 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: "Missing Telegram bot token" })
       };
     }
-
     if (!chatIds.length) {
       return {
         statusCode: 400,
@@ -42,9 +36,7 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: "No chatIds provided" })
       };
     }
-
     const apiBase = `https://api.telegram.org/bot${botToken}/`;
-
     async function sendTo(chatId) {
       // no media → normal text message
       if (!mediaBase64) {
@@ -60,13 +52,10 @@ exports.handler = async (event) => {
         });
         return res.json();
       }
-
       // prepare multipart/form-data for media
       const form = new FormData();
-
       let method = "sendDocument"; // fallback
       let field = "document";
-
       if (mediaType.startsWith("image/")) {
         method = "sendPhoto";
         field = "photo";
@@ -80,31 +69,35 @@ exports.handler = async (event) => {
         method = "sendAnimation";
         field = "animation";
       }
-
       const fileBuffer = Buffer.from(mediaBase64.split(",")[1], "base64");
-      form.append(field, fileBuffer, "file");
 
+      const ext = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'video/mp4': 'mp4',
+        'video/quicktime': 'mov',
+        'audio/mpeg': 'mp3',
+        'audio/ogg': 'ogg'
+      }[mediaType] || 'bin';
+
+      form.append(field, new Blob([fileBuffer], { type: mediaType }), `announcement.${ext}`);
       if (message) form.append("caption", message);
       form.append("chat_id", chatId);
-
       const res = await fetch(apiBase + method, {
         method: "POST",
         body: form
       });
-
       return res.json();
     }
-
     const results = {
       success: 0,
       failed: 0,
       errors: []
     };
-
     for (const id of chatIds) {
       try {
         const r = await sendTo(id);
-
         if (r.ok) {
           results.success++;
         } else {
@@ -116,13 +109,11 @@ exports.handler = async (event) => {
         results.errors.push({ chatId: id, error: err.message });
       }
     }
-
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify(results)
     };
-
   } catch (err) {
     return {
       statusCode: 500,
