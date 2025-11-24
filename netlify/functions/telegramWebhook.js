@@ -130,11 +130,36 @@ exports.handler = async (event) => {
           '• Keep Telegram installed — messages arrive even if the browser is closed.',
           '• If you see a wrong connection, ask staff to reconnect your number.',
           '',
-          'Commands in chat: /help'
+          'Commands in chat: /help and /status.'
         ].join('\n');
         await sendTelegram(chatId, helpText, { parse_mode: 'Markdown' });
         return { statusCode: 200, body: 'OK' };
       }
+      if (data === 'status') {
+        const findQueueByChatId = async (chatId) => {
+          if (!FIREBASE_DB_URL) return null;
+          const url = `${FIREBASE_DB_URL}/queue.json?orderBy="chatId"&equalTo="${chatId}"`;
+          const q = await fetchJson(url);
+          if (!q) return null;
+          const key = Object.keys(q)[0];
+          const entry = q[key];
+          return { key, entry };
+        };
+        const found = await findQueueByChatId(chatId);
+        if (found) {
+          const q = found.entry;
+          const queueId = q.queueId || q.number || q.ticket || 'Unknown';
+          const counterName = q.counterId ? ((await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`))?.name || q.counterId) : 'Unassigned';
+          const reply = `ℹ️ Queue status:\n🧾 Number: *${queueId}*\n🪑 Counter: *${counterName}*`;
+          await sendTelegram(chatId, reply, { parse_mode: 'Markdown' });
+        } else {
+          await sendTelegram(chatId, 'No queue linked to this chat. Use the status page to connect.');
+        }
+        return { statusCode: 200, body: 'OK' };
+      }
+      return { statusCode: 200, body: 'OK' };
+    }
+
     const msg = update.message || update.edited_message || null;
     const from = update.message?.from || null;
     const userChatId = msg?.chat?.id ?? from?.id ?? null;
@@ -149,8 +174,8 @@ exports.handler = async (event) => {
         '*QueueJoy Help*',
         '',
         '• You will receive a Telegram message when your number is called.',
-        '• Notifications are automatic — no need to keep this chat open..',
-        '• If something is wrong, kindly ask staff to reconnect your number .'
+        '• Use the *Status* button or type /status to check your number.',
+        '• If something is wrong, ask staff to reconnect your number at the kiosk.'
       ].join('\n');
       await sendTelegram(userChatId, helpText, {
         parse_mode: 'Markdown',
@@ -326,7 +351,7 @@ if (attachResult && attachResult.ok) {
           reply_markup: {
             inline_keyboard: [
               [ { text: '📲 Open Queue Status', url: `https://queuejoy.netlify.app/status.html?queueId=${encodeURIComponent(attachResult.queueKey)}` } ],
-              [ { text: '📄 Help', callback_data: 'help' }]
+              [ { text: '📄 Help', callback_data: 'help' } ]
             ]
           }
         });
