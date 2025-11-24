@@ -2,6 +2,7 @@
 // Notifier: polite notifications for (a) the called number (served) and (b) the number immediately before it (next).
 // Envs:
 //  - BOT_TOKEN (required)
+//  - PROMO_URL (optional) - defaults to https://helloqueuejoy.netlify.app
 //  - REDIS_URL (optional)
 //  - FIREBASE_DB_URL (optional) - e.g. https://your-app-default-rtdb.region.firebasedatabase.app
 //
@@ -14,17 +15,11 @@
 //   ]
 // }
 //
-// Behavior summary:
-// - Notify only recipients whose `theirNumber` equals calledFull (served) OR equals previous number (next).
-// - Persist served/notified state in Redis or /tmp fallback, update per-series stats.
-// - If FIREBASE_DB_URL is set, attempt to remove matching active queue entries (clean numbers).
-// - Polite message wording and small inline keyboard [Status] [Help] (callback_data).
-// - Returns a JSON result including firebaseCleanSummary.
-
 const fs = require('fs');
 const TMP_STORE = '/tmp/queuejoy_store.json';
 
 const BOT_TOKEN = process.env.BOT_TOKEN || null;
+const PROMO_URL = (process.env.PROMO_URL && String(process.env.PROMO_URL).trim()) || 'https://helloqueuejoy.netlify.app/?utm_source=telegram&utm_campaign=notifyCounter&utm_medium=telegram';
 const REDIS_URL = process.env.REDIS_URL || null;
 const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || null;
 
@@ -205,19 +200,15 @@ async function firebaseDeletePath(firebaseUrl, path) {
     - otherwise scans queue and deletes entries where any of these fields match calledFull:
         theirNumber, number, fullNumber, ticketNumber, code
 */
-
 async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
   if (!firebaseUrl) return { ok: false, reason: 'no firebase url' };
   const deleted = [];
   const errors = [];
-  // try direct delete by ticketId first
   try {
     if (ticketId) {
-      // attempt delete common locations
       const qPathById = `queue/${encodeURIComponent(ticketId)}`;
       const ok = await firebaseDeletePath(firebaseUrl, qPathById);
       if (ok) deleted.push(qPathById);
-      // continue scanning as backup
     }
 
     const all = await firebaseFetchQueueAll(firebaseUrl);
@@ -228,13 +219,11 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
 
     for (const [key, obj] of Object.entries(all)) {
       if (!obj || typeof obj !== 'object') continue;
-      // candidate fields to compare
       const fields = ['theirNumber','number','fullNumber','ticketNumber','code','id'];
       let match = false;
       for (const f of fields) {
         if (f in obj && obj[f] && String(obj[f]).toLowerCase() === lowCalled) { match = true; break; }
       }
-      // also if ticketId matches stored id/key
       if (!match && ticketId) {
         if (obj.ticketId && String(obj.ticketId) === String(ticketId)) match = true;
         if (String(key) === String(ticketId)) match = true;
@@ -311,9 +300,10 @@ exports.handler = async function (event) {
   }
 
   const results = [];
-  // Inline keyboard with polite call-to-action. You can replace callback_data with URL if desired.
+  // Inline keyboard with promotional CTA to help promote your system to the client's customers.
+  // This replaces the previous callback_data buttons [Status][Help] with a single URL button.
   const inlineKeyboard = [
-    [{ text: 'ℹ️ Status', callback_data: '/status' }, { text: '❓ Help', callback_data: '/help' }]
+    [{ text: '👉 Explore QueueJoy', url: PROMO_URL }]
   ];
 
   // Process recipients (only those matching calledFull or prevFull)
@@ -347,16 +337,16 @@ exports.handler = async function (event) {
     let action = null;
     let messageText = null;
 
-    // Polite messaging
+    // Polite messaging with a short promotional CTA at the end
     if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
       action = 'served';
       ticket.calledAt = nowIso();
       ticket.servedAt = nowIso();
-      messageText = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.`;
+      messageText = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.\n\nWant to skip long queues next time? Tap 👉 "Explore QueueJoy" below to learn how your shop can offer instant queue updates to customers.`;
     } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
       action = 'next';
       ticket.notifiedAt = nowIso();
-      messageText = `⏳ Dear customer,\n\nYour number <b>${theirNumber}</b> — you are next. Please be ready; we will call you shortly. Thank you.`;
+      messageText = `⏳ Dear customer,\n\nYour number <b>${theirNumber}</b> — you are next. Please be ready; we will call you shortly. Thank you.\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.`;
     } else {
       results.push({ chatId, theirNumber, skipped: true });
       continue;
