@@ -1,25 +1,34 @@
 // netlify/functions/notifyCounter.js
-// Notifier: polite notifications for (a) the called number (served) and (b) the number immediately before it (next).
+// Notifier: polite notifications for (a) the called number (served) and (b) reminders to everyone still waiting in the same series.
 // Envs:
 // - BOT_TOKEN (required)
 // - REDIS_URL (optional)
-// - FIREBASE_DB_URL (optional) - e.g. https://your-app-default-rtdb.region.firebasedatabase.app
+// - FIREBASE_DB_URL (optional)
 //
-// POST JSON body:
+// POST JSON body example:
 // {
-// "calledFull": "VANILLA002",
-// "counterName": "COUNTER ICE CREAM VANILLA",
-// "recipients": [
-// { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
-// ]
+//   "calledFull": "VANILLA002",
+//   "counterName": "COUNTER ICE CREAM VANILLA",
+//   "recipients": [
+//     { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" },
+//     { "chatId": "222", "theirNumber": "VANILLA006", "ticketId": "t-def", "createdAt": "2025-11-19T14:05:00Z" }
+//   ],
+//   "cleanFirebase": true
 // }
-// Behavior summary: as before, with new `reminder` function for "next" recipients.
+//
+// Behavior changes in this version:
+// - reminder(chatId, theirNumber, calledFull): sends a reminder DM for *any* waiting recipient in the same series (i.e. all recipients except the served one).
+// - Every update triggers reminder messages to waiting customers (per your request).
+// - No duplicated "Curious..." text; it's appended exactly once where needed.
+// - All messages include the inline "Explore QueueJoy" button (as before).
+'use strict';
 
 const fs = require('fs');
 const TMP_STORE = '/tmp/queuejoy_store.json';
 const BOT_TOKEN = process.env.BOT_TOKEN || null;
 const REDIS_URL = process.env.REDIS_URL || null;
 const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || null;
+
 let RedisClient = null;
 let useRedis = false;
 if (REDIS_URL) {
@@ -33,6 +42,7 @@ if (REDIS_URL) {
     RedisClient = null;
   }
 }
+
 // ---------------- Persistence helpers ----------------
 async function loadStore() {
   if (useRedis) return null;
@@ -63,6 +73,7 @@ async function redisDel(key) {
   if (!RedisClient) return;
   await RedisClient.del(key);
 }
+
 // ---------------- Utilities ----------------
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -109,7 +120,8 @@ function formatDurationMs(ms) {
 }
 const fetchFn = globalThis.fetch || (typeof require === 'function' ? require('node-fetch') : null);
 if (!fetchFn) throw new Error('fetch is required in runtime');
-// ---------------- Telegram send ----------------
+
+// ---------------- Telegram send (with retry) ----------------
 async function tgSendMessage(chatId, text, inlineKeyboard = null) {
   if (!BOT_TOKEN) return { ok: false, error: 'Missing BOT_TOKEN env' };
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
@@ -145,6 +157,7 @@ async function sendWithRetry(chatId, text, inlineKeyboard = null) {
       lastErr = e;
       const msg = String(e && e.message ? e.message : e);
       if (/blocked|user is deactivated|chat not found|not_found|have no rights/i.test(msg)) {
+        // hard fail for known fatal errors
         throw e;
       }
       await new Promise(r => setTimeout(r, 150 + attempt * 200));
@@ -152,24 +165,6 @@ async function sendWithRetry(chatId, text, inlineKeyboard = null) {
     }
   }
   throw lastErr || new Error('Unknown send error');
-}
-
-// ---------------- New: reminder function ----------------
-// NOTE: user asked the function be named `reminder` and to send a DM like:
-// 🔔 Heads-up!
-// Number VANILLA002 was called. Your number is VANILLA001. We'll notify you again when it's your turn.
-//
-// We'll include the Explore QueueJoy button as before.
-//
-async function reminder(chatId, theirNumber, calledFull, inlineKeyboard = null) {
-  // Build a compact, friendly message that uses HTML for bolding numbers
-  const msg = `🔔 Heads-up!\nNumber <b>${String(calledFull)}</b> was called. Your number is <b>${String(theirNumber)}</b>. We'll notify you again when it's your turn.`;
-  try {
-    const res = await sendWithRetry(chatId, msg, inlineKeyboard);
-    return { ok: !!res && res.ok, sendRes: res };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
 }
 
 // ---------------- Firebase cleaning ----------------
@@ -233,6 +228,21 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
   }
 }
 
+// ---------------- New: reminder function ----------------
+// Sends a friendly reminder DM to a waiting customer (used for all non-served recipients)
+// Example message format (bold important text):
+// 🔔 Heads-up!
+// Number <b>VANILLA001</b> was called. Your number is <b>VANILLA006</b>. We'll notify you again when it's your turn.
+async function reminder(chatId, theirNumber, calledFull, inlineKeyboard = null) {
+  const text = `🔔 Heads-up!\nNumber <b>${String(calledFull)}</b> was called. Your number is <b>${String(theirNumber)}</b>. We'll notify you again when it's your turn.`;
+  try {
+    const res = await sendWithRetry(chatId, text, inlineKeyboard);
+    return { ok: !!res && res.ok, sendRes: res };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
 // ---------------- Main handler ----------------
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -240,12 +250,14 @@ exports.handler = async function (event) {
   if (!BOT_TOKEN) {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Missing BOT_TOKEN env' }) };
   }
+
   let payload;
   try {
     payload = JSON.parse(event.body || '{}');
   } catch (e) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON body' }) };
   }
+
   const calledFull = String(payload.calledFull || '').trim();
   const counterName = payload.counterName ? String(payload.counterName).trim() : '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
@@ -253,10 +265,14 @@ exports.handler = async function (event) {
   if (!calledFull) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
   }
+
   const calledSeries = seriesOf(calledFull);
+  const calledParsed = parseTicket(calledFull);
   const prevFull = previousTicket(calledFull);
   let store = null;
   if (!useRedis) store = await loadStore();
+
+  // dedupe recipients by chatId (keep highest priority: served/nearby)
   const dedupe = new Map();
   for (const r of rawRecipients) {
     const chatId = r?.chatId || r?.chat_id || r?.id;
@@ -274,17 +290,21 @@ exports.handler = async function (event) {
       if (thisPriority > existingPriority) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
     }
   }
+
   if (!dedupe.size) {
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull, prevFull, sent: 0, message: 'No recipients matched series or no recipients provided' }) };
   }
+
   const results = [];
   const curiousText = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
   const inlineKeyboard = [[{ text: 'Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }]];
 
   for (const [chatId, item] of dedupe.entries()) {
-    const theirNumber = item.theirNumber || '';
+    const theirNumber = (item.theirNumber || '').toString();
     const ticketId = item.ticketId || null;
     const key = ticketKeyFor({ ticketId, chatId, theirNumber });
+
+    // load persisted ticket if exists
     let ticket = null;
     if (useRedis) {
       ticket = await redisGet(`ticket:${key}`);
@@ -304,58 +324,25 @@ exports.handler = async function (event) {
         servedAt: null,
       };
     }
-    let action = null;
-    let messageText = null;
 
-    if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
-      // SERVED
-      action = 'served';
-      ticket.calledAt = nowIso();
-      ticket.servedAt = nowIso();
-      messageText = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.` + curiousText;
-    } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
-      // NEXT -> Use the new reminder() function to send the friendly heads-up DM
-      action = 'next';
-      ticket.notifiedAt = nowIso();
-      // Build the friendly reminder format using the new function
-      let sendRes = null;
-      try {
-        const r = await reminder(chatId, theirNumber, calledFull, inlineKeyboard);
-        sendRes = r.sendRes || r;
-      } catch (err) {
-        sendRes = { ok: false, error: String(err) };
-      }
-      // Stat/storage same as before: keep ticket in store since it's "next"
-      if (useRedis) {
-        await redisSet(`ticket:${key}`, ticket);
-      } else {
-        store.tickets = store.tickets || {};
-        store.tickets[key] = ticket;
-        await saveStore(store);
-      }
-      results.push({
-        chatId,
-        theirNumber,
-        ticketKey: key,
-        ticketId: ticket.ticketId || null,
-        action,
-        sendRes,
-      });
-      // small pacing gap then continue to next recipient
-      await new Promise(r => setTimeout(r, 90));
-      continue;
-    } else {
-      results.push({ chatId, theirNumber, skipped: true });
+    // skip if already served in our records
+    if (ticket.servedAt) {
+      results.push({ chatId, theirNumber, skipped: true, reason: 'already-served' });
       continue;
     }
 
-    // If we reached here it's a served notification
-    let statUpdate = null;
-    if (action === 'served') {
+    // Decide: served OR reminder (remind everyone else in the series)
+    if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
+      // Served case
+      ticket.calledAt = nowIso();
+      ticket.servedAt = nowIso();
+
+      // update stats and remove ticket from persistence
       const createdMs = new Date(ticket.createdAt).getTime();
       const servedMs = new Date(ticket.servedAt).getTime();
       const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
       const statKey = `stats:${ticket.series}`;
+      let statUpdate = null;
       if (useRedis) {
         let stats = await redisGet(statKey) || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
         stats.totalServed = (stats.totalServed || 0) + 1;
@@ -376,38 +363,74 @@ exports.handler = async function (event) {
         await saveStore(store);
         statUpdate = stats;
       }
-    }
 
-    let sendRes;
-    try {
-      sendRes = await sendWithRetry(chatId, messageText + curiousText, inlineKeyboard);
-    } catch (err) {
-      sendRes = { ok: false, error: String(err) };
-    }
-
-    let firebaseCleanResult = null;
-    if (action === 'served' && FIREBASE_DB_URL) {
+      // Served message (exact format you requested; curiousText appended once)
+      const servedMsg = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.` + curiousText;
+      let sendRes;
       try {
-        firebaseCleanResult = await firebaseCleanMatching(FIREBASE_DB_URL, calledFull, ticket.ticketId || null);
-      } catch (e) {
-        firebaseCleanResult = { ok: false, error: String(e) };
+        sendRes = await sendWithRetry(chatId, servedMsg, inlineKeyboard);
+      } catch (err) {
+        sendRes = { ok: false, error: String(err) };
       }
+
+      // Firebase cleaning if configured
+      let firebaseCleanResult = null;
+      if (FIREBASE_DB_URL) {
+        try {
+          firebaseCleanResult = await firebaseCleanMatching(FIREBASE_DB_URL, calledFull, ticket.ticketId || null);
+        } catch (e) {
+          firebaseCleanResult = { ok: false, error: String(e) };
+        }
+      }
+
+      results.push({
+        chatId,
+        theirNumber,
+        ticketKey: key,
+        ticketId: ticket.ticketId || null,
+        action: 'served',
+        sendRes,
+        statUpdate,
+        firebaseCleanResult
+      });
+
+    } else {
+      // REMINDER to everyone else in same series (this matches "after every updates")
+      // Build a reminder message with bolded numbers.
+      ticket.notifiedAt = nowIso();
+
+      // persist ticket (so we can track if it gets served later). We still send reminder on every update — we do not suppress repeats.
+      if (useRedis) {
+        await redisSet(`ticket:${key}`, ticket);
+      } else {
+        store.tickets = store.tickets || {};
+        store.tickets[key] = ticket;
+        await saveStore(store);
+      }
+
+      // Use reminder() helper that sends the exact friendly DM
+      let reminderRes = null;
+      try {
+        reminderRes = await reminder(chatId, theirNumber, calledFull, inlineKeyboard);
+      } catch (err) {
+        reminderRes = { ok: false, error: String(err) };
+      }
+
+      results.push({
+        chatId,
+        theirNumber,
+        ticketKey: key,
+        ticketId: ticket.ticketId || null,
+        action: 'reminder',
+        reminderRes
+      });
     }
 
-    results.push({
-      chatId,
-      theirNumber,
-      ticketKey: key,
-      ticketId: ticket.ticketId || null,
-      action,
-      sendRes,
-      statUpdate,
-      firebaseCleanResult
-    });
-
+    // small pacing gap to avoid hitting rate limits
     await new Promise(r => setTimeout(r, 90));
-  } // end for recipients
+  } // end loop
 
+  // build stats snapshot for caller
   let statsSnapshot = null;
   if (useRedis) {
     try {
