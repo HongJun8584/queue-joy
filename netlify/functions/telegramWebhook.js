@@ -135,30 +135,41 @@ exports.handler = async (event) => {
         await sendTelegram(chatId, helpText, { parse_mode: 'Markdown' });
         return { statusCode: 200, body: 'OK' };
       }
-      if (data === 'status') {
-        const findQueueByChatId = async (chatId) => {
-          if (!FIREBASE_DB_URL) return null;
-          const url = `${FIREBASE_DB_URL}/queue.json?orderBy="chatId"&equalTo="${chatId}"`;
-          const q = await fetchJson(url);
-          if (!q) return null;
-          const key = Object.keys(q)[0];
-          const entry = q[key];
-          return { key, entry };
-        };
-        const found = await findQueueByChatId(chatId);
-        if (found) {
-          const q = found.entry;
-          const queueId = q.queueId || q.number || q.ticket || 'Unknown';
-          const counterName = q.counterId ? ((await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`))?.name || q.counterId) : 'Unassigned';
-          const reply = `ℹ️ Queue status:\n🧾 Number: *${queueId}*\n🪑 Counter: *${counterName}*`;
-          await sendTelegram(chatId, reply, { parse_mode: 'Markdown' });
-        } else {
-          await sendTelegram(chatId, 'No queue linked to this chat. Use the status page to connect.');
-        }
-        return { statusCode: 200, body: 'OK' };
-      }
-      return { statusCode: 200, body: 'OK' };
+if (data === 'status') {
+  const found = await findQueueByChatId(chatId);
+  if (!found) {
+    await sendTelegram(chatId, 'No queue linked to this chat. Use the status page to connect.');
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  const q = found.entry;
+  const queueId = q.queueId || q.number || q.ticket || 'Unknown';
+  let counterName = 'Unassigned';
+  if (q.counterId) {
+    const c = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`);
+    if (c?.name) counterName = c.name;
+  }
+
+  const reply = [
+    '✅ Connected to QueueJoy!',
+    `🧾 Your number: *${queueId}*`,
+    `🪑 Counter: *${counterName}*`,
+    '',
+    'We will notify you via this Telegram chat when your number is called. You can close this chat or app — notifications will arrive automatically.'
+  ].join('\n');
+
+  await sendTelegram(chatId, reply, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [ { text: '📲 Open Queue Status', url: `https://queuejoy.netlify.app/status.html?queueId=${encodeURIComponent(found.key)}` } ],
+        [ { text: '📄 Help', callback_data: 'help' }, { text: '📊 Status', callback_data: 'status' } ]
+      ]
     }
+  });
+
+  return { statusCode: 200, body: 'OK' };
+}
 
     const msg = update.message || update.edited_message || null;
     const from = update.message?.from || null;
