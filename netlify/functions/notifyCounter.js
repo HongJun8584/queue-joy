@@ -13,13 +13,8 @@
 // { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
 // ]
 // }
-//
-// Behavior summary:
-// - Notify only recipients whose `theirNumber` equals calledFull (served) OR equals previous number (next).
-// - Persist served/notified state in Redis or /tmp fallback, update per-series stats.
-// - If FIREBASE_DB_URL is set, attempt to remove matching active queue entries (clean numbers).
-// - Always shows the "Explore QueueJoy" message + button (for both served and next notifications).
-// - Returns a JSON result including firebaseCleanSummary.
+// Behavior summary: as before, with new `reminder` function for "next" recipients.
+
 const fs = require('fs');
 const TMP_STORE = '/tmp/queuejoy_store.json';
 const BOT_TOKEN = process.env.BOT_TOKEN || null;
@@ -158,6 +153,25 @@ async function sendWithRetry(chatId, text, inlineKeyboard = null) {
   }
   throw lastErr || new Error('Unknown send error');
 }
+
+// ---------------- New: reminder function ----------------
+// NOTE: user asked the function be named `reminder` and to send a DM like:
+// 🔔 Heads-up!
+// Number VANILLA002 was called. Your number is VANILLA001. We'll notify you again when it's your turn.
+//
+// We'll include the Explore QueueJoy button as before.
+//
+async function reminder(chatId, theirNumber, calledFull, inlineKeyboard = null) {
+  // Build a compact, friendly message that uses HTML for bolding numbers
+  const msg = `🔔 Heads-up!\nNumber <b>${String(calledFull)}</b> was called. Your number is <b>${String(theirNumber)}</b>. We'll notify you again when it's your turn.`;
+  try {
+    const res = await sendWithRetry(chatId, msg, inlineKeyboard);
+    return { ok: !!res && res.ok, sendRes: res };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
 // ---------------- Firebase cleaning ----------------
 async function firebaseFetchQueueAll(firebaseUrl) {
   try {
@@ -218,6 +232,7 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
     return { ok: false, error: String(e) };
   }
 }
+
 // ---------------- Main handler ----------------
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -265,6 +280,7 @@ exports.handler = async function (event) {
   const results = [];
   const curiousText = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
   const inlineKeyboard = [[{ text: 'Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }]];
+
   for (const [chatId, item] of dedupe.entries()) {
     const theirNumber = item.theirNumber || '';
     const ticketId = item.ticketId || null;
@@ -290,19 +306,50 @@ exports.handler = async function (event) {
     }
     let action = null;
     let messageText = null;
+
     if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
+      // SERVED
       action = 'served';
       ticket.calledAt = nowIso();
       ticket.servedAt = nowIso();
       messageText = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.` + curiousText;
     } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
+      // NEXT -> Use the new reminder() function to send the friendly heads-up DM
       action = 'next';
       ticket.notifiedAt = nowIso();
-      messageText = `Number <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b> (series ${calledSeries}). We'll notify you again when it's your turn.` + curiousText;
+      // Build the friendly reminder format using the new function
+      let sendRes = null;
+      try {
+        const r = await reminder(chatId, theirNumber, calledFull, inlineKeyboard);
+        sendRes = r.sendRes || r;
+      } catch (err) {
+        sendRes = { ok: false, error: String(err) };
+      }
+      // Stat/storage same as before: keep ticket in store since it's "next"
+      if (useRedis) {
+        await redisSet(`ticket:${key}`, ticket);
+      } else {
+        store.tickets = store.tickets || {};
+        store.tickets[key] = ticket;
+        await saveStore(store);
+      }
+      results.push({
+        chatId,
+        theirNumber,
+        ticketKey: key,
+        ticketId: ticket.ticketId || null,
+        action,
+        sendRes,
+      });
+      // small pacing gap then continue to next recipient
+      await new Promise(r => setTimeout(r, 90));
+      continue;
     } else {
       results.push({ chatId, theirNumber, skipped: true });
       continue;
     }
+
+    // If we reached here it's a served notification
     let statUpdate = null;
     if (action === 'served') {
       const createdMs = new Date(ticket.createdAt).getTime();
@@ -329,21 +376,15 @@ exports.handler = async function (event) {
         await saveStore(store);
         statUpdate = stats;
       }
-    } else {
-      if (useRedis) {
-        await redisSet(`ticket:${key}`, ticket);
-      } else {
-        store.tickets = store.tickets || {};
-        store.tickets[key] = ticket;
-        await saveStore(store);
-      }
     }
+
     let sendRes;
     try {
-      sendRes = await sendWithRetry(chatId, messageText, inlineKeyboard);
+      sendRes = await sendWithRetry(chatId, messageText + curiousText, inlineKeyboard);
     } catch (err) {
       sendRes = { ok: false, error: String(err) };
     }
+
     let firebaseCleanResult = null;
     if (action === 'served' && FIREBASE_DB_URL) {
       try {
@@ -352,6 +393,7 @@ exports.handler = async function (event) {
         firebaseCleanResult = { ok: false, error: String(e) };
       }
     }
+
     results.push({
       chatId,
       theirNumber,
@@ -362,8 +404,10 @@ exports.handler = async function (event) {
       statUpdate,
       firebaseCleanResult
     });
+
     await new Promise(r => setTimeout(r, 90));
-  }
+  } // end for recipients
+
   let statsSnapshot = null;
   if (useRedis) {
     try {
@@ -385,6 +429,7 @@ exports.handler = async function (event) {
       lastServedAt: store.stats[calledSeries] ? store.stats[calledSeries].lastServedAt : null
     } : { series: calledSeries, totalServed: 0, avgServiceMs: null, avgFormatted: '-', lastServedAt: null };
   }
+
   return {
     statusCode: 200,
     headers: CORS,
