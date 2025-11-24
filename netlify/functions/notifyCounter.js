@@ -13,13 +13,6 @@
 //     { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
 //   ]
 // }
-//
-// Behavior summary:
-// - Notify only recipients whose `theirNumber` equals calledFull (served) OR equals previous number (next).
-// - Persist served/notified state in Redis or /tmp fallback, update per-series stats.
-// - If FIREBASE_DB_URL is set, attempt to remove matching active queue entries (clean numbers).
-// - Polite message wording and small inline keyboard [Status] [Help] (callback_data).
-// - Returns a JSON result including firebaseCleanSummary.
 
 const fs = require('fs');
 const TMP_STORE = '/tmp/queuejoy_store.json';
@@ -189,7 +182,6 @@ async function firebaseFetchQueueAll(firebaseUrl) {
 }
 async function firebaseDeletePath(firebaseUrl, path) {
   try {
-    // path should not start with leading slash, e.g. 'queue/abc123'
     const cleanBase = firebaseUrl.replace(/\/$/,'');
     const url = `${cleanBase}/${path}.json`;
     const res = await fetchFn(url, { method: 'DELETE' });
@@ -198,26 +190,15 @@ async function firebaseDeletePath(firebaseUrl, path) {
     return false;
   }
 }
-
-/*
-  firebaseCleanByTicket attempts to remove any queue entries that match:
-    - ticketId (if provided) => deletes queue/{ticketId}.json
-    - otherwise scans queue and deletes entries where any of these fields match calledFull:
-        theirNumber, number, fullNumber, ticketNumber, code
-*/
-
 async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
   if (!firebaseUrl) return { ok: false, reason: 'no firebase url' };
   const deleted = [];
   const errors = [];
-  // try direct delete by ticketId first
   try {
     if (ticketId) {
-      // attempt delete common locations
       const qPathById = `queue/${encodeURIComponent(ticketId)}`;
       const ok = await firebaseDeletePath(firebaseUrl, qPathById);
       if (ok) deleted.push(qPathById);
-      // continue scanning as backup
     }
 
     const all = await firebaseFetchQueueAll(firebaseUrl);
@@ -228,13 +209,11 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
 
     for (const [key, obj] of Object.entries(all)) {
       if (!obj || typeof obj !== 'object') continue;
-      // candidate fields to compare
       const fields = ['theirNumber','number','fullNumber','ticketNumber','code','id'];
       let match = false;
       for (const f of fields) {
         if (f in obj && obj[f] && String(obj[f]).toLowerCase() === lowCalled) { match = true; break; }
       }
-      // also if ticketId matches stored id/key
       if (!match && ticketId) {
         if (obj.ticketId && String(obj.ticketId) === String(ticketId)) match = true;
         if (String(key) === String(ticketId)) match = true;
@@ -252,9 +231,9 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
   }
 }
 
-// ---------------- New: reminder function (uses original flow) ----------------
-// Named exactly `reminder`. Sends a friendly, bolded heads-up message to the "next" ticket holder.
-// Format:
+// ---------------- reminder (exact, used for prevFull) ----------------
+// Named exactly `reminder`. Sends friendly bolded heads-up for the previous/next ticket.
+// Example:
 // 🔔 Heads-up!
 // Number <b>VANILLA002</b> was called. Your number is <b>VANILLA001</b>. We'll notify you again when it's your turn.
 async function reminder(chatId, theirNumber, calledFull, inlineKeyboard = null) {
@@ -327,10 +306,8 @@ exports.handler = async function (event) {
   }
 
   const results = [];
-  // Inline keyboard with polite call-to-action using callback_data (same as your original)
-  const inlineKeyboard = [
-    [{ text: 'ℹ️ Status', callback_data: '/status' }, { text: '❓ Help', callback_data: '/help' }]
-  ];
+  // IMPORTANT: keep Explore QueueJoy button (user insisted)
+  const inlineKeyboard = [[{ text: 'Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }]];
 
   // "Curious" CTA appended only once for served message (no duplicates)
   const curiousText = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
@@ -376,8 +353,7 @@ exports.handler = async function (event) {
     } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
       action = 'next';
       ticket.notifiedAt = nowIso();
-      // For "next" use the reminder() helper to send the exact friendly message with bolding
-      // No need to set messageText here; we call reminder() below and capture its send result.
+      // we'll call reminder() below explicitly
     } else {
       results.push({ chatId, theirNumber, skipped: true });
       continue;
@@ -428,6 +404,7 @@ exports.handler = async function (event) {
     if (action === 'next') {
       // Use reminder helper so the message exactly matches the requested friendly format
       try {
+        // reminder returns { ok, sendRes } — keep that shape in results
         sendRes = await reminder(chatId, theirNumber, calledFull, inlineKeyboard);
       } catch (err) {
         sendRes = { ok: false, error: String(err) };
@@ -444,7 +421,6 @@ exports.handler = async function (event) {
     let firebaseCleanResult = null;
     if (action === 'served' && FIREBASE_DB_URL) {
       try {
-        // try to clean queue entries that match ticketId or calledFull
         firebaseCleanResult = await firebaseCleanMatching(FIREBASE_DB_URL, calledFull, ticket.ticketId || null);
       } catch (e) {
         firebaseCleanResult = { ok: false, error: String(e) };
