@@ -130,47 +130,11 @@ exports.handler = async (event) => {
           '• Keep Telegram installed — messages arrive even if the browser is closed.',
           '• If you see a wrong connection, ask staff to reconnect your number.',
           '',
-          'Commands in chat: /help and /status.'
+          'Commands in chat: /help'
         ].join('\n');
         await sendTelegram(chatId, helpText, { parse_mode: 'Markdown' });
         return { statusCode: 200, body: 'OK' };
       }
-if (data === 'status') {
-  const found = await findQueueByChatId(chatId);
-  if (!found) {
-    await sendTelegram(chatId, 'No queue linked to this chat. Use the status page to connect.');
-    return { statusCode: 200, body: 'OK' };
-  }
-
-  const q = found.entry;
-  const queueId = q.queueId || q.number || q.ticket || 'Unknown';
-  let counterName = 'Unassigned';
-  if (q.counterId) {
-    const c = await fetchJson(`${FIREBASE_DB_URL}/counters/${encodeURIComponent(q.counterId)}.json`);
-    if (c?.name) counterName = c.name;
-  }
-
-  const reply = [
-    '✅ Connected to QueueJoy!',
-    `🧾 Your number: *${queueId}*`,
-    `🪑 Counter: *${counterName}*`,
-    '',
-    'We will notify you via this Telegram chat when your number is called. You can close this chat or app — notifications will arrive automatically.'
-  ].join('\n');
-
-  await sendTelegram(chatId, reply, {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [
-        [ { text: '📲 Open Queue Status', url: `https://queuejoy.netlify.app/status.html?queueId=${encodeURIComponent(found.key)}` } ],
-        [ { text: '📄 Help', callback_data: 'help' }, { text: '📊 Status', callback_data: 'status' } ]
-      ]
-    }
-  });
-
-  return { statusCode: 200, body: 'OK' };
-}
-
     const msg = update.message || update.edited_message || null;
     const from = update.message?.from || null;
     const userChatId = msg?.chat?.id ?? from?.id ?? null;
@@ -185,8 +149,8 @@ if (data === 'status') {
         '*QueueJoy Help*',
         '',
         '• You will receive a Telegram message when your number is called.',
-        '• Use the *Status* button or type /status to check your number.',
-        '• If something is wrong, ask staff to reconnect your number at the kiosk.'
+        '• Notifications are automatic — no need to keep this chat open..',
+        '• If something is wrong, kindly ask staff to reconnect your number .'
       ].join('\n');
       await sendTelegram(userChatId, helpText, {
         parse_mode: 'Markdown',
@@ -362,7 +326,7 @@ if (attachResult && attachResult.ok) {
           reply_markup: {
             inline_keyboard: [
               [ { text: '📲 Open Queue Status', url: `https://queuejoy.netlify.app/status.html?queueId=${encodeURIComponent(attachResult.queueKey)}` } ],
-              [ { text: '📄 Help', callback_data: 'help' }, { text: '📊 Status', callback_data: 'status' } ]
+              [ { text: '📄 Help', callback_data: 'help' }]
             ]
           }
         });
@@ -388,7 +352,7 @@ if (attachResult && attachResult.ok) {
       ].join('\n');
       await sendTelegram(userChatId, reply, {
         parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: [ [ { text: '📄 Help', callback_data: 'help' }, { text: '📊 Status', callback_data: 'status' } ] ] }
+        reply_markup: { inline_keyboard: [ [ { text: '📄 Help', callback_data: 'help' } ] ] }
       });
       return { statusCode: 200, body: 'OK' };
     }
