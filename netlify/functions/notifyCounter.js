@@ -4,9 +4,9 @@
 //  - BOT_TOKEN (required)
 //  - PROMO_URL (optional) - defaults to https://helloqueuejoy.netlify.app
 //  - REDIS_URL (optional)
-//  - FIREBASE_DB_URL (optional) - e.g. https://your-app-default-rtdb.region.firebasedatabase.app
+//  - FIREBASE_DB_URL (optional)
 //
-// POST JSON body:
+// POST JSON body example:
 // {
 //   "calledFull": "VANILLA002",
 //   "counterName": "COUNTER ICE CREAM VANILLA",
@@ -14,7 +14,7 @@
 //     { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
 //   ]
 // }
-//
+
 const fs = require('fs');
 const TMP_STORE = '/tmp/queuejoy_store.json';
 
@@ -31,7 +31,7 @@ if (REDIS_URL) {
     RedisClient = new IORedis(REDIS_URL);
     useRedis = true;
   } catch (e) {
-    console.warn('ioredis not available/failed — falling back to ephemeral /tmp storage.', e.message);
+    console.warn('ioredis failed — falling back to /tmp storage.', e.message);
     useRedis = false;
     RedisClient = null;
   }
@@ -54,20 +54,9 @@ async function saveStore(obj) {
     fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8');
   } catch (e) { console.warn('saveStore error', e.message); }
 }
-
-async function redisGet(key) {
-  if (!RedisClient) return null;
-  const v = await RedisClient.get(key);
-  return v ? JSON.parse(v) : null;
-}
-async function redisSet(key, val) {
-  if (!RedisClient) return;
-  await RedisClient.set(key, JSON.stringify(val));
-}
-async function redisDel(key) {
-  if (!RedisClient) return;
-  await RedisClient.del(key);
-}
+async function redisGet(key) { if (!RedisClient) return null; const v = await RedisClient.get(key); return v ? JSON.parse(v) : null; }
+async function redisSet(key, val) { if (!RedisClient) return; await RedisClient.set(key, JSON.stringify(val)); }
+async function redisDel(key) { if (!RedisClient) return; await RedisClient.del(key); }
 
 // ---------------- Utilities ----------------
 const CORS = {
@@ -96,7 +85,6 @@ function parseTicket(full) {
   if (isNaN(num)) return null;
   return { prefix, numStr, num, pad: numStr.length };
 }
-
 function previousTicket(full) {
   const p = parseTicket(full);
   if (!p) return null;
@@ -105,12 +93,10 @@ function previousTicket(full) {
   const prevStr = String(prev).padStart(p.pad, '0');
   return `${p.prefix}${prevStr}`;
 }
-
 function ticketKeyFor({ ticketId, chatId, theirNumber }) {
   if (ticketId) return String(ticketId);
   return `${String(chatId)}|${String(theirNumber)}`;
 }
-
 function formatDurationMs(ms) {
   if (ms == null || isNaN(ms)) return '-';
   ms = Math.max(0, Math.round(ms));
@@ -118,6 +104,10 @@ function formatDurationMs(ms) {
   const m = Math.floor(s / 60);
   const remS = s % 60;
   return `${m}m ${remS}s`;
+}
+function normalizeNumber(s) {
+  if (!s && s !== 0) return '';
+  return String(s).trim().replace(/\s+/g, '').toLowerCase();
 }
 
 const fetchFn = globalThis.fetch || (typeof require === 'function' ? require('node-fetch') : null);
@@ -149,7 +139,6 @@ async function tgSendMessage(chatId, text, inlineKeyboard = null) {
     return { ok: false, error: String(err) };
   }
 }
-
 async function sendWithRetry(chatId, text, inlineKeyboard = null) {
   const maxRetries = 2;
   let attempt = 0;
@@ -160,9 +149,7 @@ async function sendWithRetry(chatId, text, inlineKeyboard = null) {
     } catch (e) {
       lastErr = e;
       const msg = String(e && e.message ? e.message : e);
-      if (/blocked|user is deactivated|chat not found|not_found|have no rights/i.test(msg)) {
-        throw e;
-      }
+      if (/blocked|user is deactivated|chat not found|not_found|have no rights/i.test(msg)) { throw e; }
       await new Promise(r => setTimeout(r, 150 + attempt * 200));
       attempt++;
     }
@@ -177,29 +164,17 @@ async function firebaseFetchQueueAll(firebaseUrl) {
     const res = await fetchFn(url);
     if (!res.ok) return null;
     const json = await res.json();
-    return json; // object keyed by queue id
-  } catch (e) {
-    return null;
-  }
+    return json;
+  } catch (e) { return null; }
 }
 async function firebaseDeletePath(firebaseUrl, path) {
   try {
-    // path should not start with leading slash, e.g. 'queue/abc123'
     const cleanBase = firebaseUrl.replace(/\/$/,'');
     const url = `${cleanBase}/${path}.json`;
     const res = await fetchFn(url, { method: 'DELETE' });
     return res.ok;
-  } catch (e) {
-    return false;
-  }
+  } catch (e) { return false; }
 }
-
-/*
-  firebaseCleanByTicket attempts to remove any queue entries that match:
-    - ticketId (if provided) => deletes queue/{ticketId}.json
-    - otherwise scans queue and deletes entries where any of these fields match calledFull:
-        theirNumber, number, fullNumber, ticketNumber, code
-*/
 async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
   if (!firebaseUrl) return { ok: false, reason: 'no firebase url' };
   const deleted = [];
@@ -210,13 +185,11 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
       const ok = await firebaseDeletePath(firebaseUrl, qPathById);
       if (ok) deleted.push(qPathById);
     }
-
     const all = await firebaseFetchQueueAll(firebaseUrl);
     if (!all || typeof all !== 'object') {
       return { ok: true, deleted, errors, note: 'No queue entries found or public DB blocked' };
     }
     const lowCalled = String(calledFull).toLowerCase();
-
     for (const [key, obj] of Object.entries(all)) {
       if (!obj || typeof obj !== 'object') continue;
       const fields = ['theirNumber','number','fullNumber','ticketNumber','code','id'];
@@ -236,9 +209,7 @@ async function firebaseCleanMatching(firebaseUrl, calledFull, ticketId = null) {
       }
     }
     return { ok: true, deleted, errors };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+  } catch (e) { return { ok: false, error: String(e) }; }
 }
 
 // ---------------- Main handler ----------------
@@ -251,82 +222,82 @@ exports.handler = async function (event) {
   }
 
   let payload;
-  try {
-    payload = JSON.parse(event.body || '{}');
-  } catch (e) {
+  try { payload = JSON.parse(event.body || '{}'); } catch (e) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON body' }) };
   }
 
-  const calledFull = String(payload.calledFull || '').trim();
-  const counterName = payload.counterName ? String(payload.counterName).trim() : '';
+  const calledFullRaw = String(payload.calledFull || '').trim();
+  const calledFullNorm = normalizeNumber(calledFullRaw);
+  const counterNameRaw = payload.counterName ? String(payload.counterName).trim() : '';
+  const counterNameDisplay = counterNameRaw || '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
-  const cleanFirebase = !!payload.cleanFirebase; // optional override from client
+  const cleanFirebase = !!payload.cleanFirebase;
 
-  if (!calledFull) {
+  if (!calledFullRaw) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
   }
 
-  const calledSeries = seriesOf(calledFull);
-  const prevFull = previousTicket(calledFull); // may be null
+  const calledSeries = seriesOf(calledFullRaw);
+  const prevFullRaw = previousTicket(calledFullRaw);
+  const prevFullNorm = prevFullRaw ? normalizeNumber(prevFullRaw) : null;
 
   // load ephemeral store if Redis not used
   let store = null;
   if (!useRedis) store = await loadStore();
 
-  // normalize recipients and dedupe by chatId
-  const dedupe = new Map();
+  // Build recipients keyed by unique ticketKey to avoid dropping tickets for same chatId
+  const recipientsByTicketKey = new Map();
   for (const r of rawRecipients) {
     const chatId = r?.chatId || r?.chat_id || r?.id;
     if (!chatId) continue;
-    const theirNumber = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '').toString().trim();
-    if (!theirNumber) continue;
-    const recipientSeries = seriesOf(theirNumber);
-    if (!recipientSeries) continue;
-    // only same series to avoid cross-series notifications
-    if (recipientSeries !== calledSeries) continue;
-    const key = String(chatId);
-    const existing = dedupe.get(key);
-    if (!existing) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
-    else {
-      // prefer entries whose number exactly matches calledFull or prevFull
-      const existingPriority = (existing.theirNumber.toLowerCase() === calledFull.toLowerCase() || existing.theirNumber.toLowerCase() === (prevFull || '').toLowerCase()) ? 1 : 0;
-      const thisPriority = (theirNumber.toLowerCase() === calledFull.toLowerCase() || theirNumber.toLowerCase() === (prevFull || '').toLowerCase()) ? 1 : 0;
-      if (thisPriority > existingPriority) dedupe.set(key, { chatId: key, theirNumber, ticketId: r?.ticketId || r?.ticket || null, createdAt: r?.createdAt || null });
+    const theirNumberRaw = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '').toString().trim();
+    if (!theirNumberRaw) continue;
+    const theirSeries = seriesOf(theirNumberRaw);
+    if (!theirSeries) continue;
+    // only same series
+    if (theirSeries !== calledSeries) continue;
+    const key = ticketKeyFor({ ticketId: r?.ticketId || r?.ticket || null, chatId, theirNumber: theirNumberRaw });
+    if (!recipientsByTicketKey.has(key)) {
+      recipientsByTicketKey.set(key, {
+        chatId: String(chatId),
+        theirNumberRaw,
+        theirNumberNorm: normalizeNumber(theirNumberRaw),
+        ticketId: r?.ticketId || r?.ticket || null,
+        createdAt: r?.createdAt || null
+      });
     }
   }
 
-  if (!dedupe.size) {
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull, prevFull, sent: 0, message: 'No recipients matched series or no recipients provided' }) };
+  if (!recipientsByTicketKey.size) {
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull: calledFullRaw, prevFull: prevFullRaw, sent: 0, message: 'No recipients matched series or no recipients provided' }) };
   }
 
   const results = [];
-  // Inline keyboard with promotional CTA to help promote your system to the client's customers.
-  // This replaces the previous callback_data buttons [Status][Help] with a single URL button.
-  const inlineKeyboard = [
-    [{ text: '👉 Explore QueueJoy', url: PROMO_URL }]
-  ];
+  // Inline keyboard always promotes (every message)
+  const inlineKeyboardPromo = [[{ text: '👉 Explore QueueJoy', url: PROMO_URL }]];
 
-  // Process recipients (only those matching calledFull or prevFull)
-  for (const [chatId, item] of dedupe.entries()) {
-    const theirNumber = item.theirNumber || '';
+  // Process recipients
+  for (const [ticketKey, item] of recipientsByTicketKey.entries()) {
+    const theirNumberRaw = item.theirNumberRaw;
+    const theirNumberNorm = item.theirNumberNorm;
+    const chatId = item.chatId;
     const ticketId = item.ticketId || null;
-    const key = ticketKeyFor({ ticketId, chatId, theirNumber });
 
     // Load ticket record if present
     let ticket = null;
     if (useRedis) {
-      ticket = await redisGet(`ticket:${key}`);
+      ticket = await redisGet(`ticket:${ticketKey}`);
     } else {
-      ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
+      ticket = (store.tickets && store.tickets[ticketKey]) ? store.tickets[ticketKey] : null;
     }
 
     if (!ticket) {
       ticket = {
-        ticketKey: key,
+        ticketKey,
         ticketId: ticketId || null,
         chatId,
-        theirNumber,
-        series: seriesOf(theirNumber) || calledSeries,
+        theirNumber: theirNumberRaw,
+        series: seriesOf(theirNumberRaw) || calledSeries,
         createdAt: item.createdAt || nowIso(),
         notifiedAt: null,
         calledAt: null,
@@ -334,65 +305,34 @@ exports.handler = async function (event) {
       };
     }
 
+    // Determine action
     let action = null;
-    let messageText = null;
-
-    // Polite messaging with a short promotional CTA at the end
-    if (theirNumber.toLowerCase() === calledFull.toLowerCase()) {
-      action = 'served';
-      ticket.calledAt = nowIso();
-      ticket.servedAt = nowIso();
-      messageText = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to${counterName ? ' ' + counterName : ' the counter'} at your convenience. Thank you.\n\nWant to skip long queues next time? Tap 👉 "Explore QueueJoy" below to learn how your shop can offer instant queue updates to customers.`;
-    } else if (prevFull && theirNumber.toLowerCase() === prevFull.toLowerCase()) {
-      action = 'next';
-      ticket.notifiedAt = nowIso();
-      messageText = `⏳ Dear customer,\n\nYour number <b>${theirNumber}</b> — you are next. Please be ready; we will call you shortly. Thank you.\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.`;
-    } else {
-      results.push({ chatId, theirNumber, skipped: true });
+    if (theirNumberNorm === calledFullNorm) action = 'served';
+    else if (prevFullNorm && theirNumberNorm === prevFullNorm) action = 'next';
+    else {
+      results.push({ chatId, theirNumber: theirNumberRaw, skipped: true });
       continue;
     }
 
-    // Persist & stats update
-    let statUpdate = null;
+    // Build message (BOLD number and counter and IMPORTANT)
+    let messageText = '';
     if (action === 'served') {
-      const createdMs = new Date(ticket.createdAt).getTime();
-      const servedMs = new Date(ticket.servedAt).getTime();
-      const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
-      const statKey = `stats:${ticket.series}`;
-
-      if (useRedis) {
-        let stats = await redisGet(statKey) || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
-        stats.totalServed = (stats.totalServed || 0) + 1;
-        stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
-        stats.lastServedAt = ticket.servedAt;
-        await redisSet(statKey, stats);
-        // remove active ticket from Redis (clean)
-        await redisDel(`ticket:${key}`);
-        statUpdate = stats;
-      } else {
-        store.tickets = store.tickets || {};
-        store.stats = store.stats || {};
-        let stats = store.stats[ticket.series] || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
-        stats.totalServed = (stats.totalServed || 0) + 1;
-        stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
-        stats.lastServedAt = ticket.servedAt;
-        store.stats[ticket.series] = stats;
-        // delete active ticket
-        delete store.tickets[key];
-        await saveStore(store);
-        statUpdate = stats;
-      }
+      ticket.calledAt = nowIso();
+      ticket.servedAt = nowIso();
+      messageText = `🎯 <b>IMPORTANT:</b>\n\nYour number <b>${theirNumberRaw}</b> has been <b>CALLED</b>. Please proceed to <b>${counterNameDisplay || 'the counter'}</b> now. Thank you.`;
+      // Promo is included every time (per request)
+      messageText += `\n\n<b>Curious how this works?</b> Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.`;
     } else { // next
-      if (useRedis) {
-        await redisSet(`ticket:${key}`, ticket);
-      } else {
-        store.tickets = store.tickets || {};
-        store.tickets[key] = ticket;
-        await saveStore(store);
-      }
+      ticket.notifiedAt = nowIso();
+      messageText = `⏳ <b>IMPORTANT:</b>\n\nYour number <b>${theirNumberRaw}</b> — you are <b>NEXT</b>. Please be ready for <b>${counterNameDisplay || 'the counter'}</b>. Thank you.`;
+      // Promo also included for "next"
+      messageText += `\n\n<b>Curious how this works?</b> Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.`;
     }
 
-    // Send the message
+    // Always include promo keyboard
+    const inlineKeyboard = inlineKeyboardPromo;
+
+    // Attempt send with retries
     let sendRes;
     try {
       sendRes = await sendWithRetry(chatId, messageText, inlineKeyboard);
@@ -400,21 +340,57 @@ exports.handler = async function (event) {
       sendRes = { ok: false, error: String(err) };
     }
 
-    // After successful served message, attempt firebase cleaning if requested or FIREBASE_DB_URL present
+    // Persist/cleanup & stats for served
+    let statUpdate = null;
     let firebaseCleanResult = null;
-    if (action === 'served' && FIREBASE_DB_URL) {
+
+    if (action === 'served') {
       try {
-        // try to clean queue entries that match ticketId or calledFull
-        firebaseCleanResult = await firebaseCleanMatching(FIREBASE_DB_URL, calledFull, ticket.ticketId || null);
-      } catch (e) {
-        firebaseCleanResult = { ok: false, error: String(e) };
+        const createdMs = new Date(ticket.createdAt).getTime();
+        const servedMs = new Date(ticket.servedAt).getTime();
+        const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
+        const statKey = `stats:${ticket.series}`;
+
+        if (useRedis) {
+          let stats = await redisGet(statKey) || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
+          stats.totalServed = (stats.totalServed || 0) + 1;
+          stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
+          stats.lastServedAt = ticket.servedAt;
+          await redisSet(statKey, stats);
+          await redisDel(`ticket:${ticketKey}`);
+          statUpdate = stats;
+        } else {
+          store.tickets = store.tickets || {};
+          store.stats = store.stats || {};
+          let stats = store.stats[ticket.series] || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
+          stats.totalServed = (stats.totalServed || 0) + 1;
+          stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
+          stats.lastServedAt = ticket.servedAt;
+          store.stats[ticket.series] = stats;
+          delete store.tickets[ticketKey];
+          await saveStore(store);
+          statUpdate = stats;
+        }
+      } catch (e) { console.warn('stat update error', e && e.message ? e.message : e); }
+
+      if (FIREBASE_DB_URL) {
+        try { firebaseCleanResult = await firebaseCleanMatching(FIREBASE_DB_URL, theirNumberRaw, ticket.ticketId || null); } catch (e) { firebaseCleanResult = { ok: false, error: String(e) }; }
       }
+    } else { // next => persist
+      try {
+        if (useRedis) await redisSet(`ticket:${ticketKey}`, ticket);
+        else {
+          store.tickets = store.tickets || {};
+          store.tickets[ticketKey] = ticket;
+          await saveStore(store);
+        }
+      } catch (e) { console.warn('persist next ticket error', e && e.message ? e.message : e); }
     }
 
     results.push({
       chatId,
-      theirNumber,
-      ticketKey: key,
+      theirNumber: theirNumberRaw,
+      ticketKey,
       ticketId: ticket.ticketId || null,
       action,
       sendRes,
@@ -422,31 +398,18 @@ exports.handler = async function (event) {
       firebaseCleanResult
     });
 
-    // gentle pause
     await new Promise(r => setTimeout(r, 90));
   }
 
-  // Build stats snapshot for response (calledSeries)
+  // Build stats snapshot
   let statsSnapshot = null;
   if (useRedis) {
     try {
       const s = await redisGet(`stats:${calledSeries}`);
-      if (s) statsSnapshot = {
-        series: calledSeries,
-        totalServed: s.totalServed || 0,
-        avgServiceMs: s.totalServed ? Math.round((s.totalServiceMs || 0) / s.totalServed) : null,
-        avgFormatted: s.totalServed ? formatDurationMs(Math.round((s.totalServiceMs || 0) / s.totalServed)) : '-',
-        lastServedAt: s.lastServedAt || null
-      };
+      if (s) statsSnapshot = { series: calledSeries, totalServed: s.totalServed || 0, avgServiceMs: s.totalServed ? Math.round((s.totalServiceMs || 0) / s.totalServed) : null, avgFormatted: s.totalServed ? formatDurationMs(Math.round((s.totalServiceMs || 0) / s.totalServed)) : '-', lastServedAt: s.lastServedAt || null };
     } catch (e) {}
   } else {
-    statsSnapshot = store.stats && store.stats[calledSeries] ? {
-      series: calledSeries,
-      totalServed: store.stats[calledSeries].totalServed || 0,
-      avgServiceMs: store.stats[calledSeries].totalServed ? Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed) : null,
-      avgFormatted: store.stats[calledSeries].totalServed ? formatDurationMs(Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed)) : '-',
-      lastServedAt: store.stats[calledSeries] ? store.stats[calledSeries].lastServedAt : null
-    } : { series: calledSeries, totalServed: 0, avgServiceMs: null, avgFormatted: '-', lastServedAt: null };
+    statsSnapshot = store.stats && store.stats[calledSeries] ? { series: calledSeries, totalServed: store.stats[calledSeries].totalServed || 0, avgServiceMs: store.stats[calledSeries].totalServed ? Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed) : null, avgFormatted: store.stats[calledSeries].totalServed ? formatDurationMs(Math.round(store.stats[calledSeries].totalServiceMs / store.stats[calledSeries].totalServed)) : '-', lastServedAt: store.stats[calledSeries] ? store.stats[calledSeries].lastServedAt : null } : { series: calledSeries, totalServed: 0, avgServiceMs: null, avgFormatted: '-', lastServedAt: null };
   }
 
   return {
@@ -454,9 +417,9 @@ exports.handler = async function (event) {
     headers: CORS,
     body: JSON.stringify({
       ok: true,
-      calledFull,
-      prevFull: prevFull || null,
-      counterName,
+      calledFull: calledFullRaw,
+      prevFull: prevFullRaw || null,
+      counterName: counterNameDisplay,
       sent: results.filter(r => !r.skipped).length,
       results,
       statsSnapshot,
