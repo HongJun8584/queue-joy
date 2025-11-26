@@ -11,21 +11,18 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
-
     .glass-card {
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(20px);
@@ -33,7 +30,6 @@
       border: 1px solid rgba(255, 255, 255, 0.4);
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
     }
-
     .sidebar {
       position: fixed;
       left: 0;
@@ -46,7 +42,6 @@
       transition: transform 0.3s ease;
       z-index: 100;
     }
-
     .sidebar-item {
       display: flex;
       align-items: center;
@@ -59,23 +54,19 @@
       transition: all 0.3s ease;
       font-weight: 600;
     }
-
     .sidebar-item:hover {
       background: rgba(255, 255, 255, 0.15);
       transform: translateX(4px);
     }
-
     .sidebar-item.active {
       background: rgba(255, 255, 255, 0.25);
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     }
-
     .main-content {
       margin-left: 280px;
       padding: 32px;
       transition: margin-left 0.3s ease;
     }
-
     @media (max-width: 1024px) {
       .sidebar {
         transform: translateX(-100%);
@@ -87,17 +78,14 @@
         margin-left: 0;
       }
     }
-
     .stat-card {
       position: relative;
       overflow: hidden;
       transition: transform 0.3s ease;
     }
-
     .stat-card:hover {
       transform: translateY(-4px);
     }
-
     .btn-primary {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
@@ -109,18 +97,15 @@
       transition: all 0.3s ease;
       box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
     }
-
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 30px rgba(102, 126, 234, 0.5);
     }
-
     .btn-primary:disabled {
       opacity: 0.6;
       cursor: not-allowed;
       transform: none;
     }
-
     .input-field {
       width: 100%;
       padding: 12px 16px;
@@ -129,13 +114,11 @@
       font-size: 14px;
       transition: all 0.3s ease;
     }
-
     .input-field:focus {
       outline: none;
       border-color: #667eea;
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
-
     .modal {
       display: none;
       position: fixed;
@@ -147,11 +130,9 @@
       justify-content: center;
       padding: 20px;
     }
-
     .modal.active {
       display: flex;
     }
-
     .modal-content {
       background: white;
       border-radius: 24px;
@@ -162,7 +143,6 @@
       overflow-y: auto;
       box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
     }
-
     .toast {
       position: fixed;
       top: 20px;
@@ -174,7 +154,6 @@
       z-index: 9999;
       animation: slideIn 0.3s ease;
     }
-
     @keyframes slideIn {
       from {
         transform: translateX(400px);
@@ -185,17 +164,14 @@
         opacity: 1;
       }
     }
-
     .toast.success {
       background: #10b981;
       color: white;
     }
-
     .toast.error {
       background: #ef4444;
       color: white;
     }
-
     .spinner {
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-top-color: white;
@@ -206,16 +182,13 @@
       display: inline-block;
       vertical-align: middle;
     }
-
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
     .cropper-container {
       max-height: 400px;
       margin: 20px 0;
     }
-
     .preview-image {
       width: 80px;
       height: 80px;
@@ -223,13 +196,11 @@
       border-radius: 12px;
       border: 2px solid #e5e7eb;
     }
-
     .file-input-wrapper {
       position: relative;
       overflow: hidden;
       display: inline-block;
     }
-
     .file-input-label {
       padding: 10px 20px;
       background: #f3f4f6;
@@ -240,11 +211,9 @@
       font-size: 14px;
       transition: background 0.3s ease;
     }
-
     .file-input-label:hover {
       background: #e5e7eb;
     }
-
     input[type="file"] {
       position: absolute;
       left: -9999px;
@@ -261,7 +230,6 @@
       </div>
       <p style="color: rgba(255, 255, 255, 0.8); font-size: 14px; margin-left: 60px;">Admin Panel</p>
     </div>
-
     <nav style="margin-top: 24px;">
       <div class="sidebar-item active" data-view="dashboard">
         <span style="font-size: 24px;">🏠</span>
@@ -281,12 +249,10 @@
       </div>
     </nav>
   </aside>
-
   <!-- Mobile Menu Button -->
   <button id="mobileMenuBtn" style="display: none; position: fixed; top: 20px; left: 20px; z-index: 99; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);">
     <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
-
   <!-- Main Content -->
   <div class="main-content">
     <!-- Dashboard View -->
@@ -296,7 +262,6 @@
           <h2 style="font-size: 32px; font-weight: 700; color: white;">Dashboard</h2>
           <button class="btn-primary" id="saveAllBtn">💾 Save All Changes</button>
         </div>
-
         <!-- Stats Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px;">
           <div class="glass-card stat-card" style="padding: 24px;">
@@ -308,7 +273,6 @@
               <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px;">📊</div>
             </div>
           </div>
-
           <div class="glass-card stat-card" style="padding: 24px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
@@ -318,7 +282,6 @@
               <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #8b5cf6, #ec4899); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px;">🎫</div>
             </div>
           </div>
-
           <div class="glass-card stat-card" style="padding: 24px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
@@ -328,7 +291,6 @@
               <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px;">📈</div>
             </div>
           </div>
-
           <div class="glass-card stat-card" style="padding: 24px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
@@ -339,16 +301,13 @@
             </div>
           </div>
         </div>
-
         <!-- Announcement Card -->
         <div class="glass-card" style="padding: 32px; margin-bottom: 32px;">
           <h3 style="font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 24px;">📢 Send Announcement</h3>
-
           <div style="margin-bottom: 20px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">Message</label>
             <textarea id="announcementMessage" class="input-field" rows="4" placeholder="Type your announcement message here..."></textarea>
           </div>
-
           <div style="margin-bottom: 20px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">Attach Media (Optional)</label>
             <div class="file-input-wrapper">
@@ -360,40 +319,33 @@
             <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Supports images, videos, GIFs, and audio (max 5MB) due to telegram restrictions</p>
             <div id="announcementPreview" style="margin-top: 16px;"></div>
           </div>
-
           <button class="btn-primary" id="sendAnnouncementBtn" style="width: 100%;">
             <span id="sendBtnText">📱 Send to All Subscribers</span>
             <span id="sendBtnSpinner" style="display: none;"><span class="spinner"></span> Sending...</span>
           </button>
-
           <div id="announcementResult" style="margin-top: 16px; display: none;"></div>
         </div>
       </div>
     </div>
-
     <!-- Analytics View -->
     <div id="analyticsView" style="display: none;">
       <div style="max-width: 1400px; margin: 0 auto;">
         <h2 style="font-size: 32px; font-weight: 700; color: white; margin-bottom: 32px;">📊 Analytics Dashboard</h2>
-
         <!-- Analytics Summary -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px;">
           <div class="glass-card" style="padding: 24px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(139, 92, 246, 0.8));">
             <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 600; margin-bottom: 8px;">Total Served</p>
             <p id="analystTotalServed" style="font-size: 36px; font-weight: 700; color: white;">0</p>
           </div>
-
           <div class="glass-card" style="padding: 24px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.95), rgba(102, 126, 234, 0.8));">
             <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 600; margin-bottom: 8px;">Avg Wait Time</p>
             <p style="font-size: 36px; font-weight: 700; color: white;"><span id="analystAvgWait">0</span><span style="font-size: 18px;"> min</span></p>
           </div>
-
           <div class="glass-card" style="padding: 24px; background: linear-gradient(135deg, rgba(236, 72, 153, 0.95), rgba(236, 72, 153, 0.8));">
             <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 600; margin-bottom: 8px;">Active Counters</p>
             <p id="analystActiveCounters" style="font-size: 36px; font-weight: 700; color: white;">0</p>
           </div>
         </div>
-
         <!-- Queue Status Breakdown -->
         <div class="glass-card" style="padding: 32px; margin-bottom: 32px;">
           <h3 style="font-size: 20px; font-weight: 700; color: #1f2937; margin-bottom: 24px;">Queue Status Breakdown</h3>
@@ -416,14 +368,12 @@
             </div>
           </div>
         </div>
-
         <!-- Charts -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
           <div class="glass-card" style="padding: 32px;">
             <h3 style="font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 20px;">Queue Trend (Last 7 Days)</h3>
             <canvas id="queueTrendChart"></canvas>
           </div>
-
           <div class="glass-card" style="padding: 32px;">
             <h3 style="font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 20px;">Counter Performance</h3>
             <canvas id="counterPerfChart"></canvas>
@@ -431,37 +381,31 @@
         </div>
       </div>
     </div>
-
     <!-- Business Settings View -->
     <div id="settingsView" style="display: none;">
       <div style="max-width: 900px; margin: 0 auto;">
         <h2 style="font-size: 32px; font-weight: 700; color: white; margin-bottom: 32px;">⚙️ Business Settings</h2>
-
         <div class="glass-card" style="padding: 40px;">
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">Main Title</label>
             <input type="text" id="mainTitle" class="input-field" placeholder="e.g., ICE CREAM">
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/mainTitle</p>
           </div>
-
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">Welcome Message</label>
             <textarea id="introText" class="input-field" rows="3" placeholder="e.g., Buy one free one. NEW FLAVOR AVAILABLE"></textarea>
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/introText</p>
           </div>
-
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">Small Text on Top</label>
             <input type="text" id="smallTextOnTop" class="input-field" placeholder="e.g., Digital Queue System">
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/smallTextOnTop</p>
           </div>
-
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">Title in Middle</label>
             <input type="text" id="titleinmiddle" class="input-field" placeholder="e.g., BUY ONE FREE ONE!">
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/titleinmiddle</p>
           </div>
-
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Logo (Square - 1:1 ratio)</label>
             <div style="display: flex; align-items: center; gap: 16px;">
@@ -475,7 +419,6 @@
             </div>
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/logo</p>
           </div>
-
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Logo URL (Square - 1:1 ratio)</label>
             <div style="display: flex; align-items: center; gap: 16px;">
@@ -489,7 +432,6 @@
             </div>
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/logoUrl</p>
           </div>
-
           <div style="margin-bottom: 32px;">
             <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">
               Advertisement Banner (Image, GIF or Video – 16:9 recommended)
@@ -505,7 +447,6 @@
             </div>
             <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Supports images, animated GIFs, and videos (MP4/WebM)</p>
           </div>
-
           <button class="btn-primary" id="updateSettingsBtn" style="width: 100%;">
             <span id="updateBtnText">✨ Update Business Settings</span>
             <span id="updateBtnSpinner" style="display: none;"><span class="spinner"></span> Updating...</span>
@@ -514,7 +455,6 @@
       </div>
     </div>
   </div>
-
   <!-- Crop Modal -->
   <div id="cropModal" class="modal">
     <div class="modal-content">
@@ -528,7 +468,6 @@
       </div>
     </div>
   </div>
-
   <!-- How to Use Modal -->
   <div id="howToUseModal" class="modal">
     <div class="modal-content" style="max-width: 700px;">
@@ -536,7 +475,6 @@
         <h3 style="font-size: 24px; font-weight: 700; color: #1f2937;">❓ How to Use QueueJoy Admin</h3>
         <button id="closeHowToUse" style="background: none; border: none; font-size: 32px; color: #6b7280; cursor: pointer; line-height: 1;">&times;</button>
       </div>
-
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div style="padding: 20px; background: #ede9fe; border-radius: 16px;">
           <h4 style="font-weight: 700; color: #7c3aed; margin-bottom: 12px;">🏠 Dashboard</h4>
@@ -547,7 +485,6 @@
             <li>Monitor total queues, active queues, and counter status</li>
           </ul>
         </div>
-
         <div style="padding: 20px; background: #dbeafe; border-radius: 16px;">
           <h4 style="font-weight: 700; color: #2563eb; margin-bottom: 12px;">📊 Analytics</h4>
           <ul style="list-style: disc; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.8;">
@@ -557,7 +494,6 @@
             <li>Monitor counter performance with charts</li>
           </ul>
         </div>
-
         <div style="padding: 20px; background: #dcfce7; border-radius: 16px;">
           <h4 style="font-weight: 700; color: #16a34a; margin-bottom: 12px;">⚙️ Business Settings</h4>
           <ul style="list-style: disc; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.8;">
@@ -568,7 +504,6 @@
             <li>Click "Update Business Settings" to save changes</li>
           </ul>
         </div>
-
         <div style="padding: 20px; background: #fef3c7; border-radius: 16px;">
           <h4 style="font-weight: 700; color: #d97706; margin-bottom: 12px;">✂️ Image Cropping</h4>
           <ul style="list-style: disc; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.8;">
@@ -580,16 +515,13 @@
           </ul>
         </div>
       </div>
-
       <button class="btn-primary" id="closeHowToUseBtn" style="width: 100%; margin-top: 24px;">Got it!</button>
     </div>
   </div>
-
   <!-- Firebase & Application Logic -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
     import { getDatabase, ref, set, onValue, get } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
-
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -599,10 +531,8 @@
       messagingSenderId: "950240394209",
       appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
     function showToast(message, type = 'success') {
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
@@ -610,14 +540,12 @@
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
     }
-
     const fileToBase64 = (file) => new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
-
     const sidebar = document.getElementById('sidebar');
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     const dashboardView = document.getElementById('dashboardView');
@@ -628,11 +556,9 @@
     const howToUseModal = document.getElementById('howToUseModal');
     const closeHowToUse = document.getElementById('closeHowToUse');
     const closeHowToUseBtn = document.getElementById('closeHowToUseBtn');
-
     if (window.innerWidth <= 1024) {
       mobileMenuBtn.style.display = 'block';
     }
-
     window.addEventListener('resize', () => {
       if (window.innerWidth <= 1024) {
         mobileMenuBtn.style.display = 'block';
@@ -641,21 +567,17 @@
         sidebar.classList.remove('open');
       }
     });
-
     mobileMenuBtn.addEventListener('click', () => {
       sidebar.classList.toggle('open');
     });
-
     sidebarItems.forEach(item => {
       item.addEventListener('click', () => {
         const view = item.dataset.view;
         sidebarItems.forEach(i => i.classList.remove('active'));
         item.classList.add('active');
-
         dashboardView.style.display = 'none';
         analyticsView.style.display = 'none';
         settingsView.style.display = 'none';
-
         if (view === 'dashboard') {
           dashboardView.style.display = 'block';
         } else if (view === 'analytics') {
@@ -664,83 +586,58 @@
         } else if (view === 'settings') {
           settingsView.style.display = 'block';
         }
-
         if (window.innerWidth <= 1024) {
           sidebar.classList.remove('open');
         }
       });
     });
-
     howToUseBtn.addEventListener('click', () => {
       howToUseModal.classList.add('active');
       if (window.innerWidth <= 1024) {
         sidebar.classList.remove('open');
       }
     });
-
     closeHowToUse.addEventListener('click', () => {
       howToUseModal.classList.remove('active');
     });
-
     closeHowToUseBtn.addEventListener('click', () => {
       howToUseModal.classList.remove('active');
     });
-
-onValue(ref(db, 'queue'), (snapshot) => {
-  if (snapshot.exists()) {
-    const queues = Object.values(snapshot.val());
-
-    // NEW: Count served from separate counter (accurate forever)
-    get(ref(db, 'analytics/servedCount')).then(snap => {
-      const totalServed = snap.val() || 0;
-      document.getElementById('analystTotalServed').textContent = totalServed;
-      document.getElementById('analystCompleted').textContent = totalServed;
-    });
-
-    const waiting = queues.filter(q => q.status === 'waiting').length;
-    const serving = queues.filter(q => q.status === 'serving').length;
-    const cancelled = queues.filter(q => q.status === 'cancelled').length;
-
-    document.getElementById('totalQueues').textContent = queues.length;
-    document.getElementById('activeQueues').textContent = waiting;
-    document.getElementById('analystWaiting').textContent = waiting;
-    document.getElementById('analystServing').textContent = serving;
-    document.getElementById('analystCancelled').textContent = cancelled;
-
-    // Fixed avg wait (only waiting queues)
-    const waitingQueues = queues.filter(q => q.status === 'waiting' && q.timestamp);
-    const avgWait = waitingQueues.length > 0 
-      ? Math.round(waitingQueues.reduce((acc, q) => acc + (Date.now() - new Date(q.timestamp)) / 60000, 0) / waitingQueues.length)
-      : 0;
-    document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
-
-    // Rest unchanged
-    const today = new Date().setHours(0,0,0,0);
-    const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
-    document.getElementById('todayQueues').textContent = todayCount;
-    updateCharts(queues);
-  } else {
-    // reset all to 0
-    ['totalQueues','activeQueues','todayQueues','analystTotalServed','analystCompleted','analystWaiting','analystServing','analystCancelled','analystAvgWait'].forEach(id => 
-      document.getElementById(id).textContent = '0'
-    );
-  }
-});
-
+    onValue(ref(db, 'queue'), (snapshot) => {
+      if (snapshot.exists()) {
+        const queues = Object.values(snapshot.val());
+        // NEW: Count served from separate counter (accurate forever)
+        get(ref(db, 'analytics/servedCount')).then(snap => {
+          const totalServed = snap.val() || 0;
+          document.getElementById('analystTotalServed').textContent = totalServed;
+          document.getElementById('analystCompleted').textContent = totalServed;
+        });
+        const waiting = queues.filter(q => q.status === 'waiting').length;
+        const serving = queues.filter(q => q.status === 'serving').length;
+        const cancelled = queues.filter(q => q.status === 'cancelled').length;
+        document.getElementById('totalQueues').textContent = queues.length;
+        document.getElementById('activeQueues').textContent = waiting;
+        document.getElementById('analystWaiting').textContent = waiting;
+        document.getElementById('analystServing').textContent = serving;
+        document.getElementById('analystCancelled').textContent = cancelled;
+        // Fixed avg wait (only waiting queues)
+        const waitingQueues = queues.filter(q => q.status === 'waiting' && q.timestamp);
+        const avgWait = waitingQueues.length > 0
+          ? Math.round(waitingQueues.reduce((acc, q) => acc + (Date.now() - new Date(q.timestamp)) / 60000, 0) / waitingQueues.length)
+          : 0;
+        document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
+        // Rest unchanged
+        const today = new Date().setHours(0,0,0,0);
+        const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
+        document.getElementById('todayQueues').textContent = todayCount;
         updateCharts(queues);
       } else {
-        document.getElementById('totalQueues').textContent = '0';
-        document.getElementById('activeQueues').textContent = '0';
-        document.getElementById('todayQueues').textContent = '0';
-        document.getElementById('analystTotalServed').textContent = '0';
-        document.getElementById('analystCompleted').textContent = '0';
-        document.getElementById('analystWaiting').textContent = '0';
-        document.getElementById('analystServing').textContent = '0';
-        document.getElementById('analystCancelled').textContent = '0';
-        document.getElementById('analystAvgWait').textContent = '0';
+        // reset all to 0
+        ['totalQueues','activeQueues','todayQueues','analystTotalServed','analystCompleted','analystWaiting','analystServing','analystCancelled','analystAvgWait'].forEach(id =>
+          document.getElementById(id).textContent = '0'
+        );
       }
     });
-
     onValue(ref(db, 'counters'), (snapshot) => {
       if (snapshot.exists()) {
         const counters = Object.values(snapshot.val());
@@ -752,31 +649,26 @@ onValue(ref(db, 'queue'), (snapshot) => {
         document.getElementById('analystActiveCounters').textContent = '0';
       }
     });
-
     onValue(ref(db, 'settings/mainTitle'), (snap) => {
       if (snap.exists()) {
         document.getElementById('mainTitle').value = snap.val();
       }
     });
-
     onValue(ref(db, 'settings/introText'), (snap) => {
       if (snap.exists()) {
         document.getElementById('introText').value = snap.val();
       }
     });
-
     onValue(ref(db, 'settings/smallTextOnTop'), (snap) => {
       if (snap.exists()) {
         document.getElementById('smallTextOnTop').value = snap.val();
       }
     });
-
     onValue(ref(db, 'settings/titleinmiddle'), (snap) => {
       if (snap.exists()) {
         document.getElementById('titleinmiddle').value = snap.val();
       }
     });
-
     onValue(ref(db, 'settings/logo'), (snap) => {
       if (snap.exists()) {
         const logoPreview = document.getElementById('logoPreview');
@@ -784,7 +676,6 @@ onValue(ref(db, 'queue'), (snapshot) => {
         logoPreview.style.display = 'block';
       }
     });
-
     onValue(ref(db, 'settings/logoUrl'), (snap) => {
       if (snap.exists()) {
         const logoUrlPreview = document.getElementById('logoUrlPreview');
@@ -792,14 +683,6 @@ onValue(ref(db, 'queue'), (snapshot) => {
         logoUrlPreview.style.display = 'block';
       }
     });
-
-      if (snap.exists()) {
-        const adImagePreview = document.getElementById('adImagePreview');
-        adImagePreview.src = snap.val();
-        adImagePreview.style.display = 'block';
-      }
-    });
-
     let currentCropper = null;
     let currentCropType = '';
     let croppedImages = {
@@ -807,104 +690,64 @@ onValue(ref(db, 'queue'), (snapshot) => {
       logoUrl: null,
       adImage: null
     };
-
     const cropModal = document.getElementById('cropModal');
     const cropImage = document.getElementById('cropImage');
     const cropModalTitle = document.getElementById('cropModalTitle');
     const cropSaveBtn = document.getElementById('cropSaveBtn');
     const cropCancelBtn = document.getElementById('cropCancelBtn');
-
     document.getElementById('logoFile').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
       currentCropType = 'logo';
       cropModalTitle.textContent = 'Crop Logo (Square 1:1)';
-
       const base64 = await fileToBase64(file);
       cropImage.src = base64;
       cropModal.classList.add('active');
-
       if (currentCropper) {
         currentCropper.destroy();
       }
-
       currentCropper = new Cropper(cropImage, {
         aspectRatio: 1,
         viewMode: 2,
         autoCropArea: 1
       });
     });
-
     document.getElementById('logoUrlFile').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
       currentCropType = 'logoUrl';
       cropModalTitle.textContent = 'Crop Logo URL (Square 1:1)';
-
       const base64 = await fileToBase64(file);
       cropImage.src = base64;
       cropModal.classList.add('active');
-
       if (currentCropper) {
         currentCropper.destroy();
       }
-
       currentCropper = new Cropper(cropImage, {
         aspectRatio: 1,
         viewMode: 2,
         autoCropArea: 1
       });
     });
-
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      currentCropType = 'adImage';
-      cropModalTitle.textContent = 'Crop Ad Banner (Landscape 16:9)';
-
-      const base64 = await fileToBase64(file);
-      cropImage.src = base64;
-      cropModal.classList.add('active');
-
-      if (currentCropper) {
-        currentCropper.destroy();
-      }
-
-      currentCropper = new Cropper(cropImage, {
-        aspectRatio: 16 / 9,
-        viewMode: 2,
-        autoCropArea: 1
-      });
-    });
-
     cropSaveBtn.addEventListener('click', () => {
       if (!currentCropper) return;
-
       const canvas = currentCropper.getCroppedCanvas();
       const cropped = canvas.toDataURL('image/jpeg', 0.9);
-
       croppedImages[currentCropType] = cropped;
-
       const previewElement = document.getElementById(`${currentCropType}Preview`);
       previewElement.src = cropped;
       previewElement.style.display = 'block';
-
       cropModal.classList.remove('active');
       currentCropper.destroy();
       currentCropper = null;
-
       showToast('Image cropped successfully!');
     });
-
     cropCancelBtn.addEventListener('click', () => {
       cropModal.classList.remove('active');
       if (currentCropper) {
         currentCropper.destroy();
         currentCropper = null;
       }
-
       if (currentCropType === 'logo') {
         document.getElementById('logoFile').value = '';
       } else if (currentCropType === 'logoUrl') {
@@ -913,20 +756,16 @@ onValue(ref(db, 'queue'), (snapshot) => {
         document.getElementById('adImageFile').value = '';
       }
     });
-
     const updateSettings = async () => {
       const updateBtn = document.getElementById('updateSettingsBtn');
       const updateBtnText = document.getElementById('updateBtnText');
       const updateBtnSpinner = document.getElementById('updateBtnSpinner');
-
       updateBtnText.style.display = 'none';
       updateBtnSpinner.style.display = 'inline';
       updateBtn.disabled = true;
-
       try {
         const currentSettingsSnap = await get(ref(db, 'settings'));
         const currentSettings = currentSettingsSnap.exists() ? currentSettingsSnap.val() : {};
-
         const updates = {
           ...currentSettings,
           mainTitle: document.getElementById('mainTitle').value || currentSettings.mainTitle || '',
@@ -934,23 +773,17 @@ onValue(ref(db, 'queue'), (snapshot) => {
           smallTextOnTop: document.getElementById('smallTextOnTop').value || currentSettings.smallTextOnTop || '',
           titleinmiddle: document.getElementById('titleinmiddle').value || currentSettings.titleinmiddle || ''
         };
-
         if (croppedImages.logo) {
           updates.logo = croppedImages.logo;
         }
-
         if (croppedImages.logoUrl) {
           updates.logoUrl = croppedImages.logoUrl;
         }
-
         if (croppedImages.adImage) {
           updates.adImage = croppedImages.adImage;
         }
-
         await set(ref(db, 'settings'), updates);
-
         croppedImages = { logo: null, logoUrl: null, adImage: null };
-
         showToast('Settings updated successfully!');
       } catch (error) {
         console.error('Update error:', error);
@@ -961,28 +794,22 @@ onValue(ref(db, 'queue'), (snapshot) => {
         updateBtn.disabled = false;
       }
     };
-
     document.getElementById('updateSettingsBtn').addEventListener('click', updateSettings);
     document.getElementById('saveAllBtn').addEventListener('click', updateSettings);
-
     let selectedMediaFile = null;
     const announcementMedia = document.getElementById('announcementMedia');
     const announcementPreview = document.getElementById('announcementPreview');
-
     announcementMedia.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
       selectedMediaFile = file || null;
       announcementPreview.innerHTML = '';
-
       if (file) {
         if (file.size > 50 * 1024 * 1024) {
           showToast('File too large! Max 50MB', 'error');
           selectedMediaFile = null;
           return;
         }
-
         const url = URL.createObjectURL(file);
-
         if (file.type.startsWith('video/')) {
           const video = document.createElement('video');
           video.src = url;
@@ -1003,44 +830,34 @@ onValue(ref(db, 'queue'), (snapshot) => {
         }
       }
     });
-
     document.getElementById('sendAnnouncementBtn').addEventListener('click', async () => {
       const message = document.getElementById('announcementMessage').value.trim();
-
       if (!message && !selectedMediaFile) {
         showToast('Please enter a message or attach media', 'error');
         return;
       }
-
       const sendBtn = document.getElementById('sendAnnouncementBtn');
       const sendBtnText = document.getElementById('sendBtnText');
       const sendBtnSpinner = document.getElementById('sendBtnSpinner');
       const announcementResult = document.getElementById('announcementResult');
-
       sendBtnText.style.display = 'none';
       sendBtnSpinner.style.display = 'inline';
       sendBtn.disabled = true;
-
       try {
         const chatIdsSnap = await get(ref(db, 'announcement/chatIds'));
         const botTokenSnap = await get(ref(db, 'announcement/botToken'));
-
         if (!chatIdsSnap.exists() || !botTokenSnap.exists()) {
           throw new Error('Missing chatIds or botToken in Firebase');
         }
-
-        const chatIdsObj = chatIdsSnap.val(); 
+        const chatIdsObj = chatIdsSnap.val();
         const chatIds = chatIdsObj ? Object.keys(chatIdsObj) : [];
         const telegramBotToken = botTokenSnap.val();
-
         let mediaBase64 = '';
         let mediaType = '';
-
         if (selectedMediaFile) {
           mediaBase64 = await fileToBase64(selectedMediaFile);
           mediaType = selectedMediaFile.type;
         }
-
         const payload = {
           message,
           media: mediaBase64,
@@ -1048,38 +865,30 @@ onValue(ref(db, 'queue'), (snapshot) => {
           chatIds: Array.isArray(chatIds) ? chatIds : [chatIds],
           telegramBotToken
         };
-
         const response = await fetch('/.netlify/functions/announce', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-
         const result = await response.json();
-
         if (!response.ok) {
           throw new Error(result.error || 'Failed to send announcement');
         }
-
         announcementResult.style.display = 'block';
         announcementResult.style.padding = '16px';
         announcementResult.style.borderRadius = '12px';
         announcementResult.style.marginTop = '16px';
-
         if (result.success > 0) {
           announcementResult.style.background = '#dcfce7';
           announcementResult.style.color = '#166534';
           announcementResult.innerHTML = `✅ Successfully sent to ${result.success} recipient(s)`;
-
           if (result.failed > 0) {
             announcementResult.innerHTML += `<br>⚠️ Failed to send to ${result.failed} recipient(s)`;
           }
-
           document.getElementById('announcementMessage').value = '';
           announcementMedia.value = '';
           announcementPreview.innerHTML = '';
           selectedMediaFile = null;
-
           showToast('Announcement sent successfully!');
         } else {
           announcementResult.style.background = '#fee2e2';
@@ -1087,7 +896,6 @@ onValue(ref(db, 'queue'), (snapshot) => {
           announcementResult.innerHTML = `⚠️ Failed to send announcement`;
           showToast('Failed to send announcement', 'error');
         }
-
         setTimeout(() => {
           announcementResult.style.display = 'none';
         }, 5000);
@@ -1100,7 +908,6 @@ onValue(ref(db, 'queue'), (snapshot) => {
         announcementResult.style.color = '#991b1b';
         announcementResult.innerHTML = `⚠️ ${error.message}`;
         showToast(error.message, 'error');
-
         setTimeout(() => {
           announcementResult.style.display = 'none';
         }, 5000);
@@ -1110,10 +917,8 @@ onValue(ref(db, 'queue'), (snapshot) => {
         sendBtn.disabled = false;
       }
     });
-
     let queueTrendChart = null;
     let counterPerfChart = null;
-
     function initializeCharts() {
       if (!queueTrendChart) {
         const ctx = document.getElementById('queueTrendChart');
@@ -1144,7 +949,6 @@ onValue(ref(db, 'queue'), (snapshot) => {
           });
         }
       }
-
       if (!counterPerfChart) {
         const ctx = document.getElementById('counterPerfChart');
         if (ctx) {
@@ -1172,19 +976,16 @@ onValue(ref(db, 'queue'), (snapshot) => {
         }
       }
     }
-
     function updateCharts(queues) {
       if (queueTrendChart) {
         const last7Days = [];
         const today = new Date();
-
         for (let i = 6; i >= 0; i--) {
           const date = new Date(today);
           date.setDate(date.getDate() - i);
           date.setHours(0, 0, 0, 0);
           last7Days.push(date.getTime());
         }
-
         const dailyCounts = last7Days.map(dayTime => {
           return queues.filter(q => {
             const queueDate = new Date(q.timestamp);
@@ -1192,76 +993,66 @@ onValue(ref(db, 'queue'), (snapshot) => {
             return queueDate.getTime() === dayTime;
           }).length;
         });
-
         queueTrendChart.data.datasets[0].data = dailyCounts;
         queueTrendChart.update();
       }
-
       if (counterPerfChart) {
         const counterStats = {};
-
         queues.forEach(q => {
           if (q.counterId) {
             counterStats[q.counterId] = (counterStats[q.counterId] || 0) + 1;
           }
         });
-
         const labels = Object.keys(counterStats);
         const data = Object.values(counterStats);
-
         counterPerfChart.data.labels = labels;
         counterPerfChart.data.datasets[0].data = data;
         counterPerfChart.update();
       }
     }
-
     // New ad banner handler (supports image, GIF, video)
-document.getElementById('adImageFile').addEventListener('change', async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const url = URL.createObjectURL(file);
-  const preview = document.getElementById('adPreview');
-  preview.innerHTML = '';
-
-  if (file.type.startsWith('video/')) {
-    const video = document.createElement('video');
-    video.src = url;
-    video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
-    video.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb;';
-    preview.appendChild(video);
-  } else {
-    const img = document.createElement('img');
-    img.src = url;
-    img.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb; object-fit: cover;';
-    preview.appendChild(img);
-  }
-
-  const base64 = await fileToBase64(file);
-  croppedImages.adImage = base64;
-  showToast('Ad banner ready! Click Update Settings to save');
-});
-
-// Auto-show current banner (image/GIF/video) on load
-onValue(ref(db, 'settings/adImage'), (snap) => {
-  if (snap.exists()) {
-    const val = snap.val();
-    const preview = document.getElementById('adPreview');
-    preview.innerHTML = '';
-    if (val.startsWith('data:video/')) {
-      const video = document.createElement('video');
-      video.src = val;
-      video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
-      video.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb;';
-      preview.appendChild(video);
-    } else {
-      const img = document.createElement('img');
-      img.src = val;
-      img.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb; object-fit: cover;';
-      preview.appendChild(img);
-    }
-  }
-});
+    document.getElementById('adImageFile').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const preview = document.getElementById('adPreview');
+      preview.innerHTML = '';
+      if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = url;
+        video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
+        video.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb;';
+        preview.appendChild(video);
+      } else {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb; object-fit: cover;';
+        preview.appendChild(img);
+      }
+      const base64 = await fileToBase64(file);
+      croppedImages.adImage = base64;
+      showToast('Ad banner ready! Click Update Settings to save');
+    });
+    // Auto-show current banner (image/GIF/video) on load
+    onValue(ref(db, 'settings/adImage'), (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        const preview = document.getElementById('adPreview');
+        preview.innerHTML = '';
+        if (val.startsWith('data:video/')) {
+          const video = document.createElement('video');
+          video.src = val;
+          video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
+          video.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb;';
+          preview.appendChild(video);
+        } else {
+          const img = document.createElement('img');
+          img.src = val;
+          img.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb; object-fit: cover;';
+          preview.appendChild(img);
+        }
+      }
+    });
     initializeCharts();
   </script>
 </body>
