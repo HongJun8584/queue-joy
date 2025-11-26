@@ -604,40 +604,84 @@
       howToUseModal.classList.remove('active');
     });
     onValue(ref(db, 'queue'), (snapshot) => {
-      if (snapshot.exists()) {
-        const queues = Object.values(snapshot.val());
-        // NEW: Count served from separate counter (accurate forever)
-        get(ref(db, 'analytics/servedCount')).then(snap => {
-          const totalServed = snap.val() || 0;
-          document.getElementById('analystTotalServed').textContent = totalServed;
-          document.getElementById('analystCompleted').textContent = totalServed;
-        });
-        const waiting = queues.filter(q => q.status === 'waiting').length;
-        const serving = queues.filter(q => q.status === 'serving').length;
-        const cancelled = queues.filter(q => q.status === 'cancelled').length;
-        document.getElementById('totalQueues').textContent = queues.length;
-        document.getElementById('activeQueues').textContent = waiting;
-        document.getElementById('analystWaiting').textContent = waiting;
-        document.getElementById('analystServing').textContent = serving;
-        document.getElementById('analystCancelled').textContent = cancelled;
-        // Fixed avg wait (only waiting queues)
-        const waitingQueues = queues.filter(q => q.status === 'waiting' && q.timestamp);
-        const avgWait = waitingQueues.length > 0
-          ? Math.round(waitingQueues.reduce((acc, q) => acc + (Date.now() - new Date(q.timestamp)) / 60000, 0) / waitingQueues.length)
-          : 0;
-        document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
-        // Rest unchanged
-        const today = new Date().setHours(0,0,0,0);
-        const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
-        document.getElementById('todayQueues').textContent = todayCount;
-        updateCharts(queues);
-      } else {
-        // reset all to 0
-        ['totalQueues','activeQueues','todayQueues','analystTotalServed','analystCompleted','analystWaiting','analystServing','analystCancelled','analystAvgWait'].forEach(id =>
-          document.getElementById(id).textContent = '0'
-        );
+      // If queue is empty
+      if (!snapshot.exists()) {
+        [
+          'totalQueues','activeQueues','todayQueues',
+          'analystTotalServed','analystCompleted',
+          'analystWaiting','analystServing',
+          'analystCancelled','analystAvgWait'
+        ].forEach(id => document.getElementById(id).textContent = '0');
+    
+        updateCharts([]);
+        return;
       }
+    
+      const queues = Object.values(snapshot.val());
+    
+      // --- SERVED COUNT (always correct) ---
+      get(ref(db, 'analytics/servedCount')).then(snap => {
+        const totalServed = snap.val() || 0;
+        document.getElementById('analystTotalServed').textContent = totalServed;
+        document.getElementById('analystCompleted').textContent = totalServed;
+      });
+    
+      // --- SAFE TIMESTAMP PARSER ---
+      const parseTS = (ts) => {
+        if (!ts) return null;
+    
+        // numeric string or number
+        const n = Number(ts);
+        if (!isNaN(n) && n > 1000000000000 && n < Date.now() + 86400000 * 7) {
+          // valid timestamp within +7 days tolerance
+          return n;
+        }
+    
+        return null; // invalid → ignore
+      };
+    
+      // --- STATUS COUNTS ---
+      const waiting   = queues.filter(q => q.status === 'waiting').length;
+      const serving   = queues.filter(q => q.status === 'serving').length;
+      const cancelled = queues.filter(q => q.status === 'cancelled').length;
+    
+      document.getElementById('totalQueues').textContent = queues.length;
+      document.getElementById('activeQueues').textContent = waiting;
+      document.getElementById('analystWaiting').textContent = waiting;
+      document.getElementById('analystServing').textContent = serving;
+      document.getElementById('analystCancelled').textContent = cancelled;
+    
+      // --- AVERAGE WAIT TIME (fault-tolerant) ---
+      const validWaiting = queues
+        .filter(q => q.status === 'waiting')
+        .map(q => parseTS(q.timestamp))
+        .filter(ts => ts !== null);
+    
+      const avgWait = validWaiting.length
+        ? Math.round(
+            validWaiting.reduce((acc, ts) =>
+              acc + (Date.now() - ts) / 60000, 0
+            ) / validWaiting.length
+          )
+        : 0;
+    
+      document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
+    
+      // --- TODAY COUNT (fault-tolerant) ---
+      const todayStart = new Date().setHours(0,0,0,0);
+      const todayEnd   = todayStart + 86400000; // midnight next day
+    
+      const todayCount = queues
+        .map(q => parseTS(q.timestamp))
+        .filter(ts => ts !== null && ts >= todayStart && ts < todayEnd)
+        .length;
+    
+      document.getElementById('todayQueues').textContent = todayCount;
+    
+      // --- UPDATE CHARTS ---
+      updateCharts(queues);
     });
+
     onValue(ref(db, 'counters'), (snapshot) => {
       if (snapshot.exists()) {
         const counters = Object.values(snapshot.val());
