@@ -1,5 +1,5 @@
 // netlify/functions/notifyCounter.js
-// Best-effort, robust Netlify function to notify customers (Telegram).
+// Enhanced/robust Netlify function to notify customers (Telegram).
 // - POST JSON body:
 //   {
 //     "calledFull": "VANILLA002",
@@ -10,15 +10,13 @@
 //   }
 // - Envs:
 //    BOT_TOKEN (required)
-//    REDIS_URL (optional) -> if set, uses ioredis (recommended). Install ioredis in package.json.
+//    REDIS_URL (optional)
 // Notes:
 // - Sends two kinds of Telegram messages:
-//   1) REMINDER (sent to everyone in same series when another number is called).
-//      Example (logical): "🔔 REMINDER\nNumber VANILLA001 was called. Your number is VANILLA002. We'll notify you again when it's your turn."
-//   2) IT'S YOUR TURN (sent to the exact matched ticket).
-//      Example: "🎯 Dear customer, Your number COFFEE016 has been called. Please proceed to COUNTER COFFEE ..."
-// - Both messages include an "Explore QueueJoy" inline button linking to https://helloqueuejoy.netlify.app
-// - If REDIS_URL is provided, active tickets & stats persist there. Otherwise ephemeral file at /tmp (not durable across cold-starts).
+//   REMINDER (everyone in same series except exact match)
+//   IT'S YOUR TURN (exact matched ticket)
+// - Only one inline button: "👉 Explore QueueJoy" (no Status / Unsubscribe).
+// - If REDIS_URL provided, uses ioredis. Otherwise ephemeral file at /tmp (not durable).
 
 const fetch = globalThis.fetch || require('node-fetch');
 const fs = require('fs');
@@ -49,16 +47,30 @@ const CORS = {
 };
 
 function nowIso() { return new Date().toISOString(); }
+
+// Normalize numbers for consistent comparisons: strip unwanted chars, uppercase.
+function normalizeNumber(n) {
+  if (!n && n !== 0) return '';
+  return String(n)
+    .trim()
+    .replace(/\s+/g, '')                // remove spaces
+    .replace(/[^A-Za-z0-9\-\_\.]/g, '') // allow letters, digits, -, _, .
+    .toUpperCase();
+}
+
+// Extract series part (letters / prefix) of a ticket like COFFEE014 -> COFFEE
 function seriesOf(numberStr) {
   if (!numberStr) return '';
-  const m = String(numberStr).match(/^([A-Za-z\-_.]+)[0-9]*$/);
+  const cleaned = normalizeNumber(numberStr);
+  const m = String(cleaned).match(/^([A-Za-z\-_.]+)[0-9]*$/);
   if (m) return m[1].toUpperCase();
-  const parts = String(numberStr).split(/(\d+)/).filter(Boolean);
+  const parts = String(cleaned).split(/(\d+)/).filter(Boolean);
   return (parts[0] || '').toUpperCase();
 }
+
 function ticketKeyFor({ ticketId, chatId, theirNumber }) {
   if (ticketId) return String(ticketId);
-  return `${String(chatId)}|${String(theirNumber)}`;
+  return `${String(chatId)}|${normalizeNumber(theirNumber)}`;
 }
 
 // -------- persistence helpers (Redis or ephemeral) --------
@@ -80,20 +92,29 @@ async function saveStore(obj) {
 }
 async function redisGet(key) {
   if (!RedisClient) return null;
-  const v = await RedisClient.get(key);
-  return v ? JSON.parse(v) : null;
+  try {
+    const v = await RedisClient.get(key);
+    return v ? JSON.parse(v) : null;
+  } catch (e) {
+    console.warn('redisGet error', e.message);
+    return null;
+  }
 }
 async function redisSet(key, val) {
   if (!RedisClient) return;
-  await RedisClient.set(key, JSON.stringify(val));
+  try {
+    await RedisClient.set(key, JSON.stringify(val));
+  } catch (e) { console.warn('redisSet error', e.message); }
 }
 async function redisDel(key) {
   if (!RedisClient) return;
-  await RedisClient.del(key);
+  try {
+    await RedisClient.del(key);
+  } catch (e) { console.warn('redisDel error', e.message); }
 }
 
-// -------- Telegram send helper (with Explore button) --------
-async function tgSendMessage(chatId, text, inlineButtons) {
+// -------- Telegram send helper (only Explore button) --------
+async function tgSendMessage(chatId, text, inlineButtons /* optional */) {
   if (!BOT_TOKEN) return { ok: false, error: 'Missing BOT_TOKEN env' };
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const body = {
@@ -103,16 +124,12 @@ async function tgSendMessage(chatId, text, inlineButtons) {
     disable_web_page_preview: true,
   };
 
-  // default inline buttons: Explore QueueJoy (url) + status/unsubscribe callbacks
-  const exploreButton = [{ text: '👉 Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }];
-  const controlRow = [
-    { text: 'ℹ️ Status', callback_data: '/status' },
-    { text: '✖️ Unsubscribe', callback_data: '/unsubscribe' },
-  ];
-  body.reply_markup = { inline_keyboard: [exploreButton, controlRow] };
+  // Only the Explore button. If caller supplies inlineButtons, merge them as additional rows
+  const exploreButtonRow = [{ text: '👉 Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }];
+  body.reply_markup = { inline_keyboard: [exploreButtonRow] };
   if (Array.isArray(inlineButtons) && inlineButtons.length) {
-    // if caller provided custom inline buttons, replace first row (useful for A/B tests)
-    body.reply_markup.inline_keyboard = inlineButtons.concat([controlRow]);
+    // append provided rows after explore button
+    body.reply_markup.inline_keyboard = [exploreButtonRow].concat(inlineButtons);
   }
 
   try {
@@ -144,7 +161,8 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON body' }) };
   }
 
-  const calledFull = String(payload.calledFull || '').trim();
+  const calledFullRaw = String(payload.calledFull || '').trim();
+  const calledFull = normalizeNumber(calledFullRaw);
   const counterName = payload.counterName ? String(payload.counterName).trim() : '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
   if (!calledFull) {
@@ -161,7 +179,8 @@ exports.handler = async function (event) {
   for (const r of rawRecipients) {
     const chatId = r?.chatId || r?.chat_id || r?.id;
     if (!chatId) continue;
-    const theirNumber = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '').toString();
+    const theirNumberRaw = (r?.theirNumber || r?.number || r?.recipientFull || r?.fullNumber || '');
+    const theirNumber = normalizeNumber(theirNumberRaw);
     if (!theirNumber) continue;
     const recipientSeries = seriesOf(theirNumber);
     if (!recipientSeries) continue;
@@ -197,6 +216,19 @@ exports.handler = async function (event) {
     } else {
       ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
     }
+
+    // if ticket exists and already served, skip to avoid duplicate notifications
+    if (ticket && ticket.servedAt) {
+      results.push({
+        chatId,
+        theirNumber,
+        ticketKey: key,
+        action: 'skipped-already-served',
+        reason: 'ticket.servedAt present',
+      });
+      continue;
+    }
+
     if (!ticket) {
       ticket = {
         ticketKey: key,
@@ -213,22 +245,21 @@ exports.handler = async function (event) {
 
     const isMatch = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
 
-    // Compose messages exactly as user requested (logical version):
-    // REMINDER for everyone else in same series, always sent.
-    // IT'S YOUR TURN for exact match.
+    // Compose message body and uniform suffix
+    const exploreSuffix = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
+
     let text;
     if (isMatch) {
       ticket.calledAt = nowIso();
-      ticket.servedAt = nowIso(); // we mark served
-      text = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to <b>${counterName || 'the counter'}</b> at your convenience. Thank you.\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.`;
+      ticket.servedAt = nowIso(); // mark served immediately
+      text = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to <b>${counterName || 'the counter'}</b> at your convenience. Thank you.${exploreSuffix}`;
     } else {
-      // Reminder message — every time someone in front is called we remind those behind
       ticket.calledAt = ticket.calledAt || nowIso();
       ticket.notifiedStayAt = nowIso();
-      text = `🔔 REMINDER\nNumber <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b>. We'll notify you again when it's your turn.`;
+      text = `🔔 REMINDER\nNumber <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b>. We'll notify you again when it's your turn.${exploreSuffix}`;
     }
 
-    // persist ticket
+    // persist/update ticket before sending (so other concurrent calls can see)
     if (useRedis) {
       await redisSet(`ticket:${key}`, ticket);
     } else {
@@ -237,9 +268,18 @@ exports.handler = async function (event) {
       await saveStore(store);
     }
 
-    // If served, update stats and remove active ticket
+    // Send the message via Telegram, catch errors
+    let sendRes = null;
+    try {
+      sendRes = await tgSendMessage(chatId, text);
+    } catch (err) {
+      sendRes = { ok: false, error: String(err) };
+    }
+
+    // If this was the exact match (served), immediately update stats and remove the ticket
     let statUpdate = null;
-    if (ticket.servedAt) {
+    if (isMatch && ticket.servedAt) {
+      // compute service time
       const createdMs = (new Date(ticket.createdAt)).getTime();
       const servedMs = (new Date(ticket.servedAt)).getTime();
       const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
@@ -252,6 +292,8 @@ exports.handler = async function (event) {
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         await redisSet(statKey, stats);
+        // Remove ticket from Redis active tickets
+        await redisDel(`ticket:${key}`);
       } else {
         store.stats = store.stats || {};
         stats = store.stats[ticket.series] || { totalServed: 0, totalServiceMs: 0, lastServedAt: null };
@@ -259,14 +301,9 @@ exports.handler = async function (event) {
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         store.stats[ticket.series] = stats;
-        await saveStore(store);
-      }
 
-      // remove active ticket (clean up)
-      if (useRedis) {
-        await redisDel(`ticket:${key}`);
-      } else {
-        delete store.tickets[key];
+        // Remove ticket from ephemeral active tickets
+        if (store.tickets && store.tickets[key]) delete store.tickets[key];
         await saveStore(store);
       }
 
@@ -280,8 +317,7 @@ exports.handler = async function (event) {
       };
     }
 
-    // Send the message via Telegram
-    const sendRes = await tgSendMessage(chatId, text);
+    // If not match (reminder), leave ticket active (we updated notifiedStayAt earlier)
     results.push({
       chatId,
       theirNumber,
@@ -292,7 +328,7 @@ exports.handler = async function (event) {
     });
   }
 
-  // Prepare stats snapshot for calledSeries
+  // Prepare stats snapshot for calledSeries (best-effort)
   let statsSnapshot = null;
   if (useRedis) {
     try {
