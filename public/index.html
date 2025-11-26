@@ -15,8 +15,6 @@
     .fade-in { animation: fadeIn 0.45s cubic-bezier(.2,.9,.2,1); }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
     .db-image { max-height: 180px; object-fit: cover; }
-    .ad-container { min-height: 150px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: .5rem; }
-    .ad-media { width: 100%; height: 180px; object-fit: cover; display: block; }
   </style>
 
   <!-- Firebase v10 (module) -->
@@ -87,12 +85,11 @@
       const btnSpinner = document.getElementById('btnSpinner');
       const errorMessage = document.getElementById('errorMessage');
       const successMessage = document.getElementById('successMessage');
-
-      // --- Updated ad panel elements (only change) ---
       const adLinkEl = document.getElementById('adLink');
-      const adContainer = document.getElementById('adContainer');
+      const adPanel = document.getElementById('adPanel');
       const noAd = document.getElementById('noAd');
       const adTextEl = document.getElementById('adText');
+      const smallTopTextEl = document.getElementById('smallTopText'); // <- NEW: top small text element mapping
 
       function showError(msg) {
         console.warn(msg);
@@ -152,69 +149,12 @@
         // button text keeps CTA override if present
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // --- AD PANEL: updated rendering logic (supports images, GIFs, MP4/WebM/OGG videos) ---
-        const adUrl = pick(s.adImage) || pick(s.adUrl) || null;
-
-        function clearAd() {
-          adContainer.innerHTML = '';
-          adContainer.classList.add('hidden');
-          noAd.classList.remove('hidden');
-        }
-
-        if (adUrl) {
-          try {
-            adContainer.innerHTML = '';
-            noAd.classList.add('hidden');
-
-            const cleanUrl = String(adUrl).split('?')[0].toLowerCase();
-            const ext = (cleanUrl.includes('.') ? cleanUrl.split('.').pop() : '');
-
-            let mediaEl;
-            if (['mp4','webm','ogg'].includes(ext)) {
-              mediaEl = document.createElement('video');
-              mediaEl.src = adUrl;
-              mediaEl.autoplay = true;
-              mediaEl.loop = true;
-              mediaEl.muted = true;
-              mediaEl.playsInline = true;
-              mediaEl.controls = false;
-              mediaEl.className = 'ad-media';
-              // ensure video restarts if metadata loads late
-              mediaEl.addEventListener('loadedmetadata', () => {
-                try { mediaEl.play(); } catch (e) { /* ignore */ }
-              });
-            } else {
-              // treat as image / gif fallback
-              mediaEl = document.createElement('img');
-              mediaEl.src = adUrl;
-              mediaEl.alt = 'Advertisement';
-              mediaEl.loading = 'lazy';
-              mediaEl.className = 'ad-media';
-            }
-
-            adContainer.appendChild(mediaEl);
-            adContainer.classList.remove('hidden');
-            noAd.classList.add('hidden');
-          } catch (e) {
-            console.warn('Ad rendering failed', e);
-            clearAd();
-          }
-        } else {
-          clearAd();
-        }
-
-        adTextEl.textContent = pick(s.adText) || '';
-        adTextEl.classList.toggle('hidden', !adTextEl.textContent);
-
-        if (s.adLink) {
-          adLinkEl.href = s.adLink;
-          adLinkEl.target = '_blank';
-          adLinkEl.rel = 'noopener noreferrer';
-        } else {
-          adLinkEl.href = '#';
-          adLinkEl.removeAttribute('target');
-          adLinkEl.removeAttribute('rel');
-        }
+        // ad
+        if (s.adImage) { adPanel.src = s.adImage; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
+        else { adPanel.src = ''; adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
+        adTextEl.textContent = pick(s.adText) || ''; adTextEl.classList.toggle('hidden', !adTextEl.textContent);
+        if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
+        else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
       }, err => console.warn('settings read failed', err));
 
       /* --- auto-redirect if lastQueueId still waiting --- */
@@ -411,11 +351,11 @@
       <div id="successMessage" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg"><p class="text-green-600 text-sm"></p></div>
     </section>
 
-    <!-- Advertisement card (ONLY this section updated) -->
+    <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
       <a id="adLink" href="#" class="block">
-        <div id="adContainer" class="ad-container w-full rounded-lg shadow-md bg-gray-100"></div>
+        <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden db-image">
       </a>
       <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
       <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
