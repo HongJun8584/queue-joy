@@ -1,26 +1,10 @@
 // netlify/functions/notifyCounter.js
-// Enhanced/robust Netlify function to notify customers (Telegram).
-// - POST JSON body:
-//   {
-//     "calledFull": "VANILLA002",
-//     "counterName": "COUNTER ICE CREAM VANILLA",
-//     "recipients": [
-//       { "chatId": "123456", "theirNumber": "VANILLA002", "ticketId": "t-abc", "createdAt": "2025-11-19T14:00:00Z" }
-//     ]
-//   }
-// - Envs:
-//    BOT_TOKEN (required)
-//    REDIS_URL (optional)
-// Notes:
-// - Sends two kinds of Telegram messages:
-//   REMINDER (everyone in same series except exact match)
-//   IT'S YOUR TURN (exact matched ticket)
-// - Only one inline button: "👉 Explore QueueJoy" (no Status / Unsubscribe).
-// - If REDIS_URL provided, uses ioredis. Otherwise ephemeral file at /tmp (not durable).
+// Robust, fixed version: cleans numbers, only reminds people behind the called number,
+// avoids duplicate reminders for same call, removes ticket when served.
+// Envs: BOT_TOKEN (required), REDIS_URL (optional)
 
 const fetch = globalThis.fetch || require('node-fetch');
 const fs = require('fs');
-const { URL } = require('url');
 
 const REDIS_URL = process.env.REDIS_URL || null;
 let useRedis = false;
@@ -31,7 +15,7 @@ if (REDIS_URL) {
     RedisClient = new IORedis(REDIS_URL);
     useRedis = true;
   } catch (e) {
-    console.warn('ioredis not available or failed to connect, falling back to ephemeral store:', e.message);
+    console.warn('ioredis unavailable, falling back to ephemeral store:', e.message);
     useRedis = false;
     RedisClient = null;
   }
@@ -48,24 +32,43 @@ const CORS = {
 
 function nowIso() { return new Date().toISOString(); }
 
-// Normalize numbers for consistent comparisons: strip unwanted chars, uppercase.
+// Strong normalization: remove spaces, remove non allowed chars, uppercase
 function normalizeNumber(n) {
-  if (!n && n !== 0) return '';
+  if (n === undefined || n === null) return '';
   return String(n)
     .trim()
     .replace(/\s+/g, '')                // remove spaces
-    .replace(/[^A-Za-z0-9\-\_\.]/g, '') // allow letters, digits, -, _, .
+    .replace(/[^A-Za-z0-9\-\_\.]/g, '') // keep letters, digits, -, _, .
     .toUpperCase();
 }
 
-// Extract series part (letters / prefix) of a ticket like COFFEE014 -> COFFEE
+// Parse normalized number into prefix + numeric suffix (if any)
+// e.g. COFFEE014 -> { prefix: 'COFFEE', num: 14, raw: 'COFFEE014' }
+// returns num = null when there's no trailing digits
+function parseNumber(raw) {
+  const s = normalizeNumber(raw);
+  const m = s.match(/^([A-Z\-\_\.]+)?0*([0-9]+)$/i); // prefix optional, numeric suffix with leading zeros trimmed
+  if (m) {
+    const prefix = (m[1] || '').toUpperCase() || '';
+    const num = parseInt(m[2], 10);
+    return { prefix, num, raw: s };
+  }
+  // fallback: maybe letters-only or mixed; try to split letters then digits
+  const parts = s.split(/(\d+)/).filter(Boolean);
+  if (parts.length >= 2) {
+    const prefix = (parts[0] || '').toUpperCase();
+    const digits = parts[1].replace(/^0+/, '') || '0';
+    const num = parseInt(digits, 10);
+    return { prefix, num, raw: s };
+  }
+  // no numeric suffix
+  return { prefix: s.toUpperCase(), num: null, raw: s };
+}
+
 function seriesOf(numberStr) {
   if (!numberStr) return '';
-  const cleaned = normalizeNumber(numberStr);
-  const m = String(cleaned).match(/^([A-Za-z\-_.]+)[0-9]*$/);
-  if (m) return m[1].toUpperCase();
-  const parts = String(cleaned).split(/(\d+)/).filter(Boolean);
-  return (parts[0] || '').toUpperCase();
+  const p = parseNumber(numberStr);
+  return (p.prefix || '').toUpperCase();
 }
 
 function ticketKeyFor({ ticketId, chatId, theirNumber }) {
@@ -73,7 +76,24 @@ function ticketKeyFor({ ticketId, chatId, theirNumber }) {
   return `${String(chatId)}|${normalizeNumber(theirNumber)}`;
 }
 
-// -------- persistence helpers (Redis or ephemeral) --------
+// Redis helpers
+async function redisGet(key) {
+  if (!RedisClient) return null;
+  try {
+    const v = await RedisClient.get(key);
+    return v ? JSON.parse(v) : null;
+  } catch (e) { console.warn('redisGet error', e.message); return null; }
+}
+async function redisSet(key, val) {
+  if (!RedisClient) return;
+  try { await RedisClient.set(key, JSON.stringify(val)); } catch (e) { console.warn('redisSet error', e.message); }
+}
+async function redisDel(key) {
+  if (!RedisClient) return;
+  try { await RedisClient.del(key); } catch (e) { console.warn('redisDel error', e.message); }
+}
+
+// Ephemeral file store helpers
 async function loadStore() {
   if (useRedis) return null;
   try {
@@ -86,35 +106,11 @@ async function loadStore() {
 }
 async function saveStore(obj) {
   if (useRedis) return;
-  try {
-    fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8');
-  } catch (e) { console.warn('saveStore error', e.message); }
-}
-async function redisGet(key) {
-  if (!RedisClient) return null;
-  try {
-    const v = await RedisClient.get(key);
-    return v ? JSON.parse(v) : null;
-  } catch (e) {
-    console.warn('redisGet error', e.message);
-    return null;
-  }
-}
-async function redisSet(key, val) {
-  if (!RedisClient) return;
-  try {
-    await RedisClient.set(key, JSON.stringify(val));
-  } catch (e) { console.warn('redisSet error', e.message); }
-}
-async function redisDel(key) {
-  if (!RedisClient) return;
-  try {
-    await RedisClient.del(key);
-  } catch (e) { console.warn('redisDel error', e.message); }
+  try { fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8'); } catch (e) { console.warn('saveStore error', e.message); }
 }
 
-// -------- Telegram send helper (only Explore button) --------
-async function tgSendMessage(chatId, text, inlineButtons /* optional */) {
+// Telegram helper: ONLY Explore QueueJoy button
+async function tgSendMessage(chatId, text, extraRows = []) {
   if (!BOT_TOKEN) return { ok: false, error: 'Missing BOT_TOKEN env' };
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const body = {
@@ -123,15 +119,11 @@ async function tgSendMessage(chatId, text, inlineButtons /* optional */) {
     parse_mode: 'HTML',
     disable_web_page_preview: true,
   };
-
-  // Only the Explore button. If caller supplies inlineButtons, merge them as additional rows
-  const exploreButtonRow = [{ text: '👉 Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }];
-  body.reply_markup = { inline_keyboard: [exploreButtonRow] };
-  if (Array.isArray(inlineButtons) && inlineButtons.length) {
-    // append provided rows after explore button
-    body.reply_markup.inline_keyboard = [exploreButtonRow].concat(inlineButtons);
+  const exploreRow = [{ text: '👉 Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }];
+  body.reply_markup = { inline_keyboard: [exploreRow] };
+  if (Array.isArray(extraRows) && extraRows.length) {
+    body.reply_markup.inline_keyboard = [exploreRow].concat(extraRows);
   }
-
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -142,19 +134,14 @@ async function tgSendMessage(chatId, text, inlineButtons /* optional */) {
     let json = null;
     try { json = textResp ? JSON.parse(textResp) : null; } catch (e) {}
     return { ok: res.ok, status: res.status, bodyText: textResp, bodyJson: json };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  } catch (err) { return { ok: false, error: String(err) }; }
 }
 
-// -------- main handler --------
+// Main handler
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Only POST allowed' }) };
-
-  if (!BOT_TOKEN) {
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Missing BOT_TOKEN env' }) };
-  }
+  if (!BOT_TOKEN) return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Missing BOT_TOKEN env' }) };
 
   let payload;
   try { payload = JSON.parse(event.body || '{}'); } catch (e) {
@@ -163,8 +150,10 @@ exports.handler = async function (event) {
 
   const calledFullRaw = String(payload.calledFull || '').trim();
   const calledFull = normalizeNumber(calledFullRaw);
+  const calledParsed = parseNumber(calledFull);
   const counterName = payload.counterName ? String(payload.counterName).trim() : '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
+
   if (!calledFull) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
   }
@@ -174,7 +163,7 @@ exports.handler = async function (event) {
   let store = null;
   if (!useRedis) store = await loadStore();
 
-  // Normalize recipients and dedupe by chatId (one message per chat)
+  // Normalize recipients and dedupe by chatId
   const dedupe = new Map();
   for (const r of rawRecipients) {
     const chatId = r?.chatId || r?.chat_id || r?.id;
@@ -184,7 +173,7 @@ exports.handler = async function (event) {
     if (!theirNumber) continue;
     const recipientSeries = seriesOf(theirNumber);
     if (!recipientSeries) continue;
-    if (recipientSeries !== calledSeries) continue; // only notify same series
+    if (recipientSeries !== calledSeries) continue; // only same series
 
     const ticketId = r?.ticketId || r?.ticket || null;
     const key = String(chatId);
@@ -192,7 +181,7 @@ exports.handler = async function (event) {
     if (!existing) {
       dedupe.set(key, { chatId: key, theirNumber, ticketId, createdAt: r?.createdAt || null });
     } else {
-      // prefer an exact match to calledFull if multiple entries exist for same chat
+      // prefer exact match if multiple for same chat
       const thisMatches = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
       const existingMatches = existing.theirNumber && existing.theirNumber.toLowerCase() === calledFull.toLowerCase();
       if (!existingMatches && thisMatches) dedupe.set(key, { chatId: key, theirNumber, ticketId, createdAt: r?.createdAt || null });
@@ -209,7 +198,7 @@ exports.handler = async function (event) {
     const ticketId = item.ticketId || null;
     const key = ticketKeyFor({ ticketId, chatId, theirNumber });
 
-    // load or create ticket record
+    // load ticket
     let ticket = null;
     if (useRedis) {
       ticket = await redisGet(`ticket:${key}`);
@@ -217,18 +206,13 @@ exports.handler = async function (event) {
       ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
     }
 
-    // if ticket exists and already served, skip to avoid duplicate notifications
+    // if ticket already served, skip
     if (ticket && ticket.servedAt) {
-      results.push({
-        chatId,
-        theirNumber,
-        ticketKey: key,
-        action: 'skipped-already-served',
-        reason: 'ticket.servedAt present',
-      });
+      results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-already-served' });
       continue;
     }
 
+    // create if missing
     if (!ticket) {
       ticket = {
         ticketKey: key,
@@ -240,50 +224,73 @@ exports.handler = async function (event) {
         notifiedStayAt: null,
         calledAt: null,
         servedAt: null,
+        lastNotifiedForCalled: null, // avoid re-sending for same calledFull
       };
     }
 
     const isMatch = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
 
-    // Compose message body and uniform suffix
-    const exploreSuffix = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
+    // If we've already notified this ticket for this exact calledFull, skip (prevents duplicate notifications)
+    if (!isMatch && ticket.lastNotifiedForCalled && ticket.lastNotifiedForCalled === calledFull) {
+      results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-duplicate-for-same-call', calledFull });
+      continue;
+    }
 
+    // Reminder send rule:
+    // - If exact match -> send "It's your turn" (serve & remove)
+    // - Else if both called and their numbers have numeric suffixes -> send reminder ONLY if theirNum > calledNum (they are behind)
+    // - Else (no numeric info) -> send reminder (legacy fallback)
+    const theirParsed = parseNumber(theirNumber);
+    let shouldSendReminder = false;
+    if (isMatch) {
+      shouldSendReminder = true;
+    } else {
+      if (calledParsed.num !== null && theirParsed.num !== null) {
+        // numeric compare
+        shouldSendReminder = theirParsed.num > calledParsed.num;
+      } else {
+        // fallback when numeric parts not available: send reminder (old behavior)
+        shouldSendReminder = true;
+      }
+    }
+
+    if (!shouldSendReminder) {
+      // do not send; persist ticket (no change) and continue
+      // but update ticket in store to be safe (no side-effects)
+      if (useRedis) await redisSet(`ticket:${key}`, ticket);
+      else { store.tickets = store.tickets || {}; store.tickets[key] = ticket; await saveStore(store); }
+      results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-not-behind', reason: 'their number is not behind the called number' });
+      continue;
+    }
+
+    // Compose message with uniform suffix
+    const exploreSuffix = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
     let text;
     if (isMatch) {
       ticket.calledAt = nowIso();
-      ticket.servedAt = nowIso(); // mark served immediately
+      ticket.servedAt = nowIso();
       text = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to <b>${counterName || 'the counter'}</b> at your convenience. Thank you.${exploreSuffix}`;
     } else {
       ticket.calledAt = ticket.calledAt || nowIso();
       ticket.notifiedStayAt = nowIso();
+      ticket.lastNotifiedForCalled = calledFull; // mark so we don't re-notify for same call
       text = `🔔 REMINDER\nNumber <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b>. We'll notify you again when it's your turn.${exploreSuffix}`;
     }
 
-    // persist/update ticket before sending (so other concurrent calls can see)
-    if (useRedis) {
-      await redisSet(`ticket:${key}`, ticket);
-    } else {
-      store.tickets = store.tickets || {};
-      store.tickets[key] = ticket;
-      await saveStore(store);
-    }
+    // persist ticket pre-send
+    if (useRedis) await redisSet(`ticket:${key}`, ticket);
+    else { store.tickets = store.tickets || {}; store.tickets[key] = ticket; await saveStore(store); }
 
-    // Send the message via Telegram, catch errors
-    let sendRes = null;
-    try {
-      sendRes = await tgSendMessage(chatId, text);
-    } catch (err) {
-      sendRes = { ok: false, error: String(err) };
-    }
+    // send
+    let sendRes;
+    try { sendRes = await tgSendMessage(chatId, text); } catch (e) { sendRes = { ok: false, error: String(e) }; }
 
-    // If this was the exact match (served), immediately update stats and remove the ticket
+    // If exact match -> update stats and remove active ticket
     let statUpdate = null;
     if (isMatch && ticket.servedAt) {
-      // compute service time
       const createdMs = (new Date(ticket.createdAt)).getTime();
       const servedMs = (new Date(ticket.servedAt)).getTime();
       const serviceMs = Math.max(0, servedMs - (isNaN(createdMs) ? servedMs : createdMs));
-
       const statKey = `stats:${ticket.series}`;
       let stats = null;
       if (useRedis) {
@@ -292,7 +299,6 @@ exports.handler = async function (event) {
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         await redisSet(statKey, stats);
-        // Remove ticket from Redis active tickets
         await redisDel(`ticket:${key}`);
       } else {
         store.stats = store.stats || {};
@@ -301,12 +307,9 @@ exports.handler = async function (event) {
         stats.totalServiceMs = (stats.totalServiceMs || 0) + serviceMs;
         stats.lastServedAt = ticket.servedAt;
         store.stats[ticket.series] = stats;
-
-        // Remove ticket from ephemeral active tickets
         if (store.tickets && store.tickets[key]) delete store.tickets[key];
         await saveStore(store);
       }
-
       statUpdate = {
         series: ticket.series,
         totalServed: stats.totalServed,
@@ -317,24 +320,15 @@ exports.handler = async function (event) {
       };
     }
 
-    // If not match (reminder), leave ticket active (we updated notifiedStayAt earlier)
-    results.push({
-      chatId,
-      theirNumber,
-      ticketKey: key,
-      action: isMatch ? 'served' : 'reminder',
-      sendRes,
-      statUpdate,
-    });
+    results.push({ chatId, theirNumber, ticketKey: key, action: isMatch ? 'served' : 'reminder', sendRes, statUpdate });
   }
 
-  // Prepare stats snapshot for calledSeries (best-effort)
+  // stats snapshot
   let statsSnapshot = null;
   if (useRedis) {
     try {
       const s = await redisGet(`stats:${calledSeries}`);
-      if (s) statsSnapshot = s;
-      else statsSnapshot = { series: calledSeries, totalServed: 0 };
+      statsSnapshot = s || { series: calledSeries, totalServed: 0 };
     } catch (e) { statsSnapshot = { series: calledSeries, totalServed: 0 }; }
   } else {
     statsSnapshot = store.stats && store.stats[calledSeries] ? store.stats[calledSeries] : { series: calledSeries, totalServed: 0 };
