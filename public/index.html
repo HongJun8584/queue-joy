@@ -150,8 +150,39 @@
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
         // ad
-        if (s.adImage) { adPanel.src = s.adImage; adPanel.classList.remove('hidden'); noAd.classList.add('hidden'); }
-        else { adPanel.src = ''; adPanel.classList.add('hidden'); noAd.classList.remove('hidden'); }
+const adContainer = document.getElementById('adContainer');
+
+        if (s.adImage) {
+          // Clear previous content
+          adContainer.innerHTML = '';
+        
+          // Determine if the URL is a video
+          const isVideo = /\.(mp4|webm|ogg)$/i.test(s.adImage);
+          
+          if (isVideo) {
+            const videoEl = document.createElement('video');
+            videoEl.src = s.adImage;
+            videoEl.autoplay = true;
+            videoEl.loop = true;
+            videoEl.muted = true;       // important for autoplay in browsers
+            videoEl.playsInline = true; // mobile support
+            videoEl.className = 'w-full object-cover db-image';
+            adContainer.appendChild(videoEl);
+          } else {
+            const imgEl = document.createElement('img');
+            imgEl.src = s.adImage;
+            imgEl.alt = 'Advertisement';
+            imgEl.className = 'w-full object-cover db-image';
+            adContainer.appendChild(imgEl);
+          }
+        
+          adContainer.classList.remove('hidden');
+          noAd.classList.add('hidden');
+        } else {
+          adContainer.innerHTML = '';
+          adContainer.classList.add('hidden');
+          noAd.classList.remove('hidden');
+        }
         adTextEl.textContent = pick(s.adText) || ''; adTextEl.classList.toggle('hidden', !adTextEl.textContent);
         if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
         else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
@@ -354,9 +385,11 @@
     <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <a id="adLink" href="#" class="block">
-        <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden db-image">
-      </a>
+    <a id="adLink" href="#" class="block relative">
+      <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
+        <!-- ad content (img/video) will be injected here dynamically -->
+      </div>
+    </a>
       <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
       <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
     </aside>
