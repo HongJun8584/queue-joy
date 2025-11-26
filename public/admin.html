@@ -491,17 +491,19 @@
           </div>
 
           <div style="margin-bottom: 32px;">
-            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Advertisement Banner (Landscape - 16:9 ratio)</label>
-            <div style="display: flex; align-items: center; gap: 16px;">
-              <img id="adImagePreview" class="preview-image" style="display: none; width: 120px;">
+            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">
+              Advertisement Banner (Image, GIF or Video – 16:9 recommended)
+            </label>
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <div id="adPreview"></div>
               <div class="file-input-wrapper">
                 <label class="file-input-label">
-                  🖼️ Upload & Crop Ad Banner
-                  <input type="file" id="adImageFile" accept="image/*">
+                  Upload Banner (Image/GIF/Video)
+                  <input type="file" id="adImageFile" accept="image/*,video/mp4,video/webm">
                 </label>
               </div>
             </div>
-            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/adImage</p>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Supports images, animated GIFs, and videos (MP4/WebM)</p>
           </div>
 
           <button class="btn-primary" id="updateSettingsBtn" style="width: 100%;">
@@ -684,42 +686,46 @@
       howToUseModal.classList.remove('active');
     });
 
-    onValue(ref(db, 'queue'), (snapshot) => {
-      if (snapshot.exists()) {
-        const queues = Object.values(snapshot.val());
-        const total = queues.length;
-        const waiting = queues.filter(q => q.status === 'waiting').length;
-        const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
-        const serving = queues.filter(q => q.status === 'serving').length;
-        const cancelled = queues.filter(q => q.status === 'cancelled').length;
+onValue(ref(db, 'queue'), (snapshot) => {
+  if (snapshot.exists()) {
+    const queues = Object.values(snapshot.val());
 
-        document.getElementById('totalQueues').textContent = total;
-        document.getElementById('activeQueues').textContent = waiting;
+    // NEW: Count served from separate counter (accurate forever)
+    get(ref(db, 'analytics/servedCount')).then(snap => {
+      const totalServed = snap.val() || 0;
+      document.getElementById('analystTotalServed').textContent = totalServed;
+      document.getElementById('analystCompleted').textContent = totalServed;
+    });
 
-        const today = new Date().setHours(0, 0, 0, 0);
-        const todayCount = queues.filter(q => {
-          const queueDate = new Date(q.timestamp).setHours(0, 0, 0, 0);
-          return queueDate === today;
-        }).length;
-        document.getElementById('todayQueues').textContent = todayCount;
+    const waiting = queues.filter(q => q.status === 'waiting').length;
+    const serving = queues.filter(q => q.status === 'serving').length;
+    const cancelled = queues.filter(q => q.status === 'cancelled').length;
 
-        document.getElementById('analystTotalServed').textContent = completed;
-        document.getElementById('analystCompleted').textContent = completed;
-        document.getElementById('analystWaiting').textContent = waiting;
-        document.getElementById('analystServing').textContent = serving;
-        document.getElementById('analystCancelled').textContent = cancelled;
+    document.getElementById('totalQueues').textContent = queues.length;
+    document.getElementById('activeQueues').textContent = waiting;
+    document.getElementById('analystWaiting').textContent = waiting;
+    document.getElementById('analystServing').textContent = serving;
+    document.getElementById('analystCancelled').textContent = cancelled;
 
-        const waitingQueues = queues.filter(q => q.status === 'waiting' && q.timestamp);
-        if (waitingQueues.length > 0) {
-          const totalWaitTime = waitingQueues.reduce((acc, q) => {
-            const waitMinutes = (Date.now() - new Date(q.timestamp).getTime()) / 60000;
-            return acc + waitMinutes;
-          }, 0);
-          const avgWait = Math.round(totalWaitTime / waitingQueues.length);
-          document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
-        } else {
-          document.getElementById('analystAvgWait').textContent = '0';
-        }
+    // Fixed avg wait (only waiting queues)
+    const waitingQueues = queues.filter(q => q.status === 'waiting' && q.timestamp);
+    const avgWait = waitingQueues.length > 0 
+      ? Math.round(waitingQueues.reduce((acc, q) => acc + (Date.now() - new Date(q.timestamp)) / 60000, 0) / waitingQueues.length)
+      : 0;
+    document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
+
+    // Rest unchanged
+    const today = new Date().setHours(0,0,0,0);
+    const todayCount = queues.filter(q => new Date(q.timestamp).setHours(0,0,0,0) === today).length;
+    document.getElementById('todayQueues').textContent = todayCount;
+    updateCharts(queues);
+  } else {
+    // reset all to 0
+    ['totalQueues','activeQueues','todayQueues','analystTotalServed','analystCompleted','analystWaiting','analystServing','analystCancelled','analystAvgWait'].forEach(id => 
+      document.getElementById(id).textContent = '0'
+    );
+  }
+});
 
         updateCharts(queues);
       } else {
@@ -787,7 +793,6 @@
       }
     });
 
-    onValue(ref(db, 'settings/adImage'), (snap) => {
       if (snap.exists()) {
         const adImagePreview = document.getElementById('adImagePreview');
         adImagePreview.src = snap.val();
@@ -853,7 +858,6 @@
       });
     });
 
-    document.getElementById('adImageFile').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -1211,6 +1215,53 @@
       }
     }
 
+    // New ad banner handler (supports image, GIF, video)
+document.getElementById('adImageFile').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+  const preview = document.getElementById('adPreview');
+  preview.innerHTML = '';
+
+  if (file.type.startsWith('video/')) {
+    const video = document.createElement('video');
+    video.src = url;
+    video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
+    video.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb;';
+    preview.appendChild(video);
+  } else {
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb; object-fit: cover;';
+    preview.appendChild(img);
+  }
+
+  const base64 = await fileToBase64(file);
+  croppedImages.adImage = base64;
+  showToast('Ad banner ready! Click Update Settings to save');
+});
+
+// Auto-show current banner (image/GIF/video) on load
+onValue(ref(db, 'settings/adImage'), (snap) => {
+  if (snap.exists()) {
+    const val = snap.val();
+    const preview = document.getElementById('adPreview');
+    preview.innerHTML = '';
+    if (val.startsWith('data:video/')) {
+      const video = document.createElement('video');
+      video.src = val;
+      video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
+      video.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb;';
+      preview.appendChild(video);
+    } else {
+      const img = document.createElement('img');
+      img.src = val;
+      img.style.cssText = 'max-width: 400px; max-height: 225px; border-radius: 12px; border: 2px solid #e5e7eb; object-fit: cover;';
+      preview.appendChild(img);
+    }
+  }
+});
     initializeCharts();
   </script>
 </body>
