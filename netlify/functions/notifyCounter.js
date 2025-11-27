@@ -31,15 +31,30 @@ const MOVING_AVG_COUNT = 10; // for last N tickets
 
 // ---------- Helpers ----------
 const nowIso = () => new Date().toISOString();
-const normalizeNumber = n => String(n||'').trim().replace(/\s+/g,'').replace(/[^A-Za-z0-9\-_.]/g,'').toUpperCase();
+// stronger normalize: remove extra whitespace, unify separators, uppercase.
+const normalizeNumber = n => {
+  if (n === undefined || n === null) return '';
+  let s = String(n);
+  s = s.trim();
+  // replace common separators with dash to normalize (space, slash, colon)
+  s = s.replace(/[\s\/\\]+/g,'-');
+  // remove characters except A-Z0-9 and -_.
+  s = s.replace(/[^A-Za-z0-9\-_.]/g,'');
+  // collapse multiple dashes/dots/underscores
+  s = s.replace(/[-_.]{2,}/g, m => m[0]);
+  return s.toUpperCase();
+};
 const seriesOf = n => {
   const cleaned = normalizeNumber(n);
-  const m = cleaned.match(/^([A-Za-z\-_.]+)[0-9]*$/);
+  if(!cleaned) return '';
+  // prefer leading letter-group until first digit (allow - _ . in group)
+  const m = cleaned.match(/^([A-Z\-_.]+)[0-9].*$/i);
   if (m) return m[1].toUpperCase();
+  // fallback: take prefix before first digit or the whole string
   const parts = cleaned.split(/(\d+)/).filter(Boolean);
   return (parts[0]||'').toUpperCase();
 };
-const ticketKeyFor = ({ticketId, chatId, theirNumber}) => ticketId ? String(ticketId) : `${chatId}|${normalizeNumber(theirNumber)}`;
+const ticketKeyFor = ({ticketId, chatId, theirNumber}) => ticketId ? String(ticketId) : `${String(chatId)}|${normalizeNumber(theirNumber)}`;
 
 // ---------- Store Helpers ----------
 async function loadStore() {
@@ -51,7 +66,7 @@ async function loadStore() {
 }
 async function saveStore(obj){
   if(useRedis) return;
-  try{ fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8'); } catch(e){ console.warn('saveStore',e.message);}
+  try{ fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8'); } catch(e){ console.warn('saveStore',e.message);} 
 }
 async function redisGet(key){ if(!RedisClient) return null; try { const v = await RedisClient.get(key); return v?JSON.parse(v):null;} catch(e){console.warn('redisGet',e.message); return null;} }
 async function redisSet(key,val){ if(!RedisClient) return; try{ await RedisClient.set(key,JSON.stringify(val)); } catch(e){console.warn('redisSet',e.message);} }
@@ -99,47 +114,48 @@ exports.handler = async function(event){
   if(!useRedis) store = await loadStore();
 
   // ---------- Deduplicate & normalize ----------
+  // Use ticketKey (ticketId or chatId+theirNumber) so we keep all recipients (including multiple per chatId)
   const dedupe = new Map();
   for(const r of rawRecipients){
     const chatId = r?.chatId||r?.chat_id||r?.id;
     if(!chatId) continue;
-    const theirNumber = normalizeNumber(r?.theirNumber||r?.number||r?.recipientFull||r?.fullNumber||'');
+    const theirNumber = normalizeNumber(r?.theirNumber||r?.number||r?.recipientFull||r?.fullNumber||r?.ticketNumber||'');
     if(!theirNumber) continue;
     const recipientSeries = seriesOf(theirNumber);
     if(recipientSeries!==calledSeries) continue;
     const ticketId = r?.ticketId||r?.ticket||null;
-    const key = String(chatId);
-    const existing = dedupe.get(key);
-    if(!existing) dedupe.set(key,{chatId:key,theirNumber,ticketId,createdAt:r?.createdAt||nowIso()});
-    else {
-      const thisMatches = theirNumber.toLowerCase()===calledFull.toLowerCase();
-      const existingMatches = existing.theirNumber.toLowerCase()===calledFull.toLowerCase();
-      if(!existingMatches && thisMatches) dedupe.set(key,{chatId:key,theirNumber,ticketId,createdAt:r?.createdAt||nowIso()});
+    const key = ticketKeyFor({ticketId, chatId, theirNumber});
+    // store every unique ticketKey (no overwriting other recipients in the same chat)
+    if(!dedupe.has(key)) {
+      dedupe.set(key, { chatId: String(chatId), theirNumber, ticketId, createdAt: r?.createdAt||nowIso() });
     }
   }
   if(!dedupe.size) return {statusCode:200,headers:CORS,body:JSON.stringify({ok:true,calledFull,calledSeries,sent:0,message:'No recipients in same series'})};
 
   const results=[];
+  const telegramPromises=[]; // array of Promise objects
+  const telegramToResultIndex = []; // parallel map: telegramPromises[i] -> results[telegramToResultIndex[i]]
+
   const now = Date.now();
   const nowISO = new Date(now).toISOString();
   const firebaseUpdates={};
-  const telegramPromises=[];
+  let servedCountIncrement = 0; // number of ticketIds we marked served in this run
 
-  for(const [chatId,item] of dedupe.entries()){
-    const {theirNumber,ticketId} = item;
-    const key = ticketKeyFor({ticketId,chatId,theirNumber});
-    let ticket = useRedis? await redisGet(`ticket:${key}`) : (store.tickets&&store.tickets[key])||null;
+  for(const [key,item] of dedupe.entries()){
+    const {theirNumber,ticketId,chatId} = item;
+    const ticketKey = ticketKeyFor({ticketId, chatId, theirNumber});
+    let ticket = useRedis? await redisGet(`ticket:${ticketKey}`) : (store.tickets&&store.tickets[ticketKey])||null;
 
     if(ticket && ticket.servedAt){
-      results.push({chatId,theirNumber,ticketKey:key,action:'skipped-already-served',reason:'ticket.servedAt present'});
+      results.push({chatId,theirNumber,ticketKey,action:'skipped-already-served',reason:'ticket.servedAt present'});
       continue;
     }
 
     if(!ticket){
       ticket = {
-        ticketKey:key,
+        ticketKey:ticketKey,
         ticketId:ticketId||null,
-        chatId,
+        chatId: String(chatId),
         theirNumber,
         series: seriesOf(theirNumber)||calledSeries,
         createdAt:item.createdAt||nowISO,
@@ -157,7 +173,7 @@ exports.handler = async function(event){
     // Cancel stale non-matching
     if(ageMs>MAX_AGE_MS && !isMatch && ticketId){
       firebaseUpdates[`/queue/${ticketId}/status`] = 'cancelled';
-      results.push({chatId,theirNumber,ticketKey:key,action:'cancelled-stale'});
+      results.push({chatId,theirNumber,ticketKey,action:'cancelled-stale'});
       continue;
     }
 
@@ -169,7 +185,7 @@ exports.handler = async function(event){
       text = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to <b>${counterName||'the counter'}</b>. Thank you.${exploreSuffix}`;
       if(ticketId){
         firebaseUpdates[`/queue/${ticketId}/status`] = 'served';
-        firebaseUpdates['/analytics/servedCount'] = null; // will increment after fetch
+        servedCountIncrement += 1;
       }
     } else {
       ticket.calledAt = ticket.calledAt||nowISO;
@@ -179,20 +195,27 @@ exports.handler = async function(event){
 
     // Persist ticket
     if(useRedis){
-      await redisSet(`ticket:${key}`,ticket);
+      await redisSet(`ticket:${ticketKey}`,ticket);
     } else {
       store.tickets = store.tickets||{};
-      store.tickets[key] = ticket;
+      store.tickets[ticketKey] = ticket;
       await saveStore(store);
     }
 
+    // Prepare result entry and telegram promise mapping (so indexes remain correct)
+    const resEntry = {chatId,theirNumber,ticketKey,action:isMatch?'served':'reminder'};
+    results.push(resEntry);
+    // push promise and remember which result index it corresponds to
     telegramPromises.push(tgSendMessage(chatId,text,inlineButtons));
-    results.push({chatId,theirNumber,ticketKey:key,action:isMatch?'served':'reminder'});
+    telegramToResultIndex.push(results.length-1);
   }
 
   // ---------- Send Telegram messages ----------
   const telegramResults = await Promise.allSettled(telegramPromises);
-  telegramResults.forEach((res,i)=>{ results[i].sendRes=res.status==='fulfilled'?res.value:{ok:false,error:res.reason}; });
+  telegramResults.forEach((r,i)=>{
+    const resultIndex = telegramToResultIndex[i];
+    results[resultIndex].sendRes = r.status==='fulfilled'?r.value:{ok:false,error:r.reason};
+  });
 
   // ---------- Update Firebase servedCount in batch ----------
   if(Object.keys(firebaseUpdates).length>0){
@@ -200,7 +223,7 @@ exports.handler = async function(event){
       // Fetch current servedCount
       const servedRes = await fetch(`${DATABASE_URL}/analytics/servedCount.json`);
       const currentServed = await servedRes.json() || 0;
-      firebaseUpdates['/analytics/servedCount'] = currentServed + 1;
+      firebaseUpdates['/analytics/servedCount'] = currentServed + servedCountIncrement;
 
       await fetch(`${DATABASE_URL}.json`,{
         method:'PATCH',
