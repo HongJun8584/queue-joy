@@ -8,7 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
   <style>
     * {
       margin: 0;
@@ -208,13 +211,17 @@
       to { transform: rotate(360deg); }
     }
 
-    .preview-image, .preview-video, .preview-gif {
-      max-width: 120px;
-      max-height: 120px;
+    .cropper-container {
+      max-height: 400px;
+      margin: 20px 0;
+    }
+
+    .preview-image {
+      width: 80px;
+      height: 80px;
       object-fit: cover;
       border-radius: 12px;
       border: 2px solid #e5e7eb;
-      margin-top: 8px;
     }
 
     .file-input-wrapper {
@@ -241,20 +248,6 @@
     input[type="file"] {
       position: absolute;
       left: -9999px;
-    }
-
-    .metric-badge {
-      display: inline-block;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 14px;
-      margin: 4px;
-    }
-
-    .chart-container {
-      position: relative;
-      height: 300px;
     }
   </style>
 </head>
@@ -364,7 +357,7 @@
                 <input type="file" id="announcementMedia" accept="image/*,video/*,audio/*">
               </label>
             </div>
-            <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Supports images, videos, GIFs, and audio (max 5MB) due to telegram restrictions</p>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 8px;">Supports images, videos, GIFs, and audio (max 50MB)</p>
             <div id="announcementPreview" style="margin-top: 16px;"></div>
           </div>
 
@@ -399,11 +392,6 @@
             <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 600; margin-bottom: 8px;">Active Counters</p>
             <p id="analystActiveCounters" style="font-size: 36px; font-weight: 700; color: white;">0</p>
           </div>
-
-          <div class="glass-card" style="padding: 24px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(16, 185, 129, 0.8));">
-            <p style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 600; margin-bottom: 8px;">Median Wait</p>
-            <p style="font-size: 36px; font-weight: 700; color: white;"><span id="analystMedianWait">0</span><span style="font-size: 18px;"> min</span></p>
-          </div>
         </div>
 
         <!-- Queue Status Breakdown -->
@@ -429,49 +417,16 @@
           </div>
         </div>
 
-        <!-- Wait Time Analytics -->
-        <div class="glass-card" style="padding: 32px; margin-bottom: 32px;">
-          <h3 style="font-size: 20px; font-weight: 700; color: #1f2937; margin-bottom: 24px;">⏱️ Wait Time Analytics</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-            <div>
-              <p style="color: #6b7280; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Average</p>
-              <p style="font-size: 28px; font-weight: 700; color: #667eea;"><span id="waitAverage">0</span><span style="font-size: 16px;"> min</span></p>
-            </div>
-            <div>
-              <p style="color: #6b7280; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Median</p>
-              <p style="font-size: 28px; font-weight: 700; color: #8b5cf6;"><span id="waitMedian">0</span><span style="font-size: 16px;"> min</span></p>
-            </div>
-            <div>
-              <p style="color: #6b7280; font-size: 13px; font-weight: 600; margin-bottom: 4px;">90th Percentile</p>
-              <p style="font-size: 28px; font-weight: 700; color: #ec4899;"><span id="wait90th">0</span><span style="font-size: 16px;"> min</span></p>
-            </div>
-            <div>
-              <p style="color: #6b7280; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Longest Wait</p>
-              <p style="font-size: 28px; font-weight: 700; color: #f59e0b;"><span id="waitLongest">0</span><span style="font-size: 16px;"> min</span></p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Busiest Hours -->
-        <div class="glass-card" style="padding: 32px; margin-bottom: 32px;">
-          <h3 style="font-size: 20px; font-weight: 700; color: #1f2937; margin-bottom: 24px;">🕐 Busiest Hours (Last 7 Days)</h3>
-          <div id="busiestHoursContainer" style="display: flex; flex-wrap: wrap; gap: 12px;"></div>
-        </div>
-
         <!-- Charts -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
           <div class="glass-card" style="padding: 32px;">
             <h3 style="font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 20px;">Queue Trend (Last 7 Days)</h3>
-            <div class="chart-container">
-              <canvas id="queueTrendChart"></canvas>
-            </div>
+            <canvas id="queueTrendChart"></canvas>
           </div>
 
           <div class="glass-card" style="padding: 32px;">
             <h3 style="font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 20px;">Counter Performance</h3>
-            <div class="chart-container">
-              <canvas id="counterPerfChart"></canvas>
-            </div>
+            <canvas id="counterPerfChart"></canvas>
           </div>
         </div>
       </div>
@@ -508,45 +463,45 @@
           </div>
 
           <div style="margin-bottom: 24px;">
-            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Logo (Image/GIF/Video)</label>
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-              <div id="logoPreviewContainer"></div>
+            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Logo (Square - 1:1 ratio)</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <img id="logoPreview" class="preview-image" style="display: none;">
               <div class="file-input-wrapper">
                 <label class="file-input-label">
-                  🖼️ Upload Logo
-                  <input type="file" id="logoFile" accept="image/*,video/*">
+                  🖼️ Upload & Crop Logo
+                  <input type="file" id="logoFile" accept="image/*">
                 </label>
               </div>
             </div>
-            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/logo | Supports images, GIFs, and videos (videos will loop)</p>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/logo</p>
           </div>
 
           <div style="margin-bottom: 24px;">
-            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Logo URL (Image/GIF/Video)</label>
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-              <div id="logoUrlPreviewContainer"></div>
+            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Logo URL (Square - 1:1 ratio)</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <img id="logoUrlPreview" class="preview-image" style="display: none;">
               <div class="file-input-wrapper">
                 <label class="file-input-label">
-                  🖼️ Upload Logo URL
-                  <input type="file" id="logoUrlFile" accept="image/*,video/*">
+                  🖼️ Upload & Crop Logo URL
+                  <input type="file" id="logoUrlFile" accept="image/*">
                 </label>
               </div>
             </div>
-            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/logoUrl | Supports images, GIFs, and videos (videos will loop)</p>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/logoUrl</p>
           </div>
 
           <div style="margin-bottom: 32px;">
-            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Advertisement Banner (Image/GIF/Video)</label>
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-              <div id="adImagePreviewContainer"></div>
+            <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 12px;">Advertisement Banner (Landscape - 16:9 ratio)</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <img id="adImagePreview" class="preview-image" style="display: none; width: 120px;">
               <div class="file-input-wrapper">
                 <label class="file-input-label">
-                  🖼️ Upload Ad Banner
-                  <input type="file" id="adImageFile" accept="image/*,video/*">
+                  🖼️ Upload & Crop Ad Banner
+                  <input type="file" id="adImageFile" accept="image/*">
                 </label>
               </div>
             </div>
-            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/adImage | Supports images, GIFs, and videos (videos will loop)</p>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Firebase: settings/adImage</p>
           </div>
 
           <button class="btn-primary" id="updateSettingsBtn" style="width: 100%;">
@@ -554,6 +509,20 @@
             <span id="updateBtnSpinner" style="display: none;"><span class="spinner"></span> Updating...</span>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crop Modal -->
+  <div id="cropModal" class="modal">
+    <div class="modal-content">
+      <h3 id="cropModalTitle" style="font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 20px;">Crop Image</h3>
+      <div style="max-width: 100%; overflow: hidden;">
+        <img id="cropImage" style="max-width: 100%; display: block;">
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 24px;">
+        <button class="btn-primary" id="cropSaveBtn" style="flex: 1;">✂️ Crop & Save</button>
+        <button id="cropCancelBtn" style="padding: 14px 28px; background: #e5e7eb; color: #374151; border: none; border-radius: 16px; font-weight: 600; cursor: pointer;">Cancel</button>
       </div>
     </div>
   </div>
@@ -582,20 +551,30 @@
           <ul style="list-style: disc; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.8;">
             <li>Track total customers served and average wait times</li>
             <li>View queue status breakdown (completed, waiting, serving, cancelled)</li>
-            <li>Analyze wait time metrics (median, 90th percentile)</li>
-            <li>See busiest hours and queue trends over 7 days</li>
-            <li>Monitor counter performance with detailed charts</li>
+            <li>Analyze queue trends over the last 7 days</li>
+            <li>Monitor counter performance with charts</li>
           </ul>
         </div>
 
         <div style="padding: 20px; background: #dcfce7; border-radius: 16px;">
           <h4 style="font-weight: 700; color: #16a34a; margin-bottom: 12px;">⚙️ Business Settings</h4>
           <ul style="list-style: disc; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.8;">
-            <li>Configure business settings and branding</li>
-            <li>Upload logos, banners (images, GIFs, or videos)</li>
-            <li>Videos automatically loop for continuous display</li>
+            <li>Configure 7 essential business settings</li>
+            <li>Upload and crop logos (square 1:1 ratio)</li>
+            <li>Upload and crop ad banner (landscape 16:9 ratio)</li>
             <li>All changes sync to Firebase in real-time</li>
             <li>Click "Update Business Settings" to save changes</li>
+          </ul>
+        </div>
+
+        <div style="padding: 20px; background: #fef3c7; border-radius: 16px;">
+          <h4 style="font-weight: 700; color: #d97706; margin-bottom: 12px;">✂️ Image Cropping</h4>
+          <ul style="list-style: disc; padding-left: 20px; color: #374151; font-size: 14px; line-height: 1.8;">
+            <li>Upload an image using file input</li>
+            <li>Cropping modal appears automatically</li>
+            <li>Logos use 1:1 square ratio</li>
+            <li>Ad banner uses 16:9 landscape ratio</li>
+            <li>Click "Crop & Save" to finalize</li>
           </ul>
         </div>
       </div>
@@ -668,7 +647,6 @@
     sidebarItems.forEach(item => {
       item.addEventListener('click', () => {
         const view = item.dataset.view;
-
         sidebarItems.forEach(i => i.classList.remove('active'));
         item.classList.add('active');
 
@@ -706,345 +684,56 @@
       howToUseModal.classList.remove('active');
     });
 
-    function parseTimestamp(ts) {
-      if (!ts) return null;
+    onValue(ref(db, 'queue'), (snapshot) => {
+      if (snapshot.exists()) {
+        const queues = Object.values(snapshot.val());
+        const total = queues.length;
+        const waiting = queues.filter(q => q.status === 'waiting').length;
+        const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
+        const serving = queues.filter(q => q.status === 'serving').length;
+        const cancelled = queues.filter(q => q.status === 'cancelled').length;
 
-      let timestamp;
-      if (typeof ts === 'string') {
-        timestamp = parseInt(ts, 10);
-        if (isNaN(timestamp)) {
-          const parsed = new Date(ts).getTime();
-          if (isNaN(parsed)) return null;
-          timestamp = parsed;
+        document.getElementById('totalQueues').textContent = total;
+        document.getElementById('activeQueues').textContent = waiting;
+
+        const today = new Date().setHours(0, 0, 0, 0);
+        const todayCount = queues.filter(q => {
+          const queueDate = new Date(q.timestamp).setHours(0, 0, 0, 0);
+          return queueDate === today;
+        }).length;
+        document.getElementById('todayQueues').textContent = todayCount;
+
+        document.getElementById('analystTotalServed').textContent = completed;
+        document.getElementById('analystCompleted').textContent = completed;
+        document.getElementById('analystWaiting').textContent = waiting;
+        document.getElementById('analystServing').textContent = serving;
+        document.getElementById('analystCancelled').textContent = cancelled;
+
+        const waitingQueues = queues.filter(q => q.status === 'waiting' && q.timestamp);
+        if (waitingQueues.length > 0) {
+          const totalWaitTime = waitingQueues.reduce((acc, q) => {
+            const waitMinutes = (Date.now() - new Date(q.timestamp).getTime()) / 60000;
+            return acc + waitMinutes;
+          }, 0);
+          const avgWait = Math.round(totalWaitTime / waitingQueues.length);
+          document.getElementById('analystAvgWait').textContent = Math.max(0, avgWait);
+        } else {
+          document.getElementById('analystAvgWait').textContent = '0';
         }
-      } else if (typeof ts === 'number') {
-        timestamp = ts;
+
+        updateCharts(queues);
       } else {
-        return null;
+        document.getElementById('totalQueues').textContent = '0';
+        document.getElementById('activeQueues').textContent = '0';
+        document.getElementById('todayQueues').textContent = '0';
+        document.getElementById('analystTotalServed').textContent = '0';
+        document.getElementById('analystCompleted').textContent = '0';
+        document.getElementById('analystWaiting').textContent = '0';
+        document.getElementById('analystServing').textContent = '0';
+        document.getElementById('analystCancelled').textContent = '0';
+        document.getElementById('analystAvgWait').textContent = '0';
       }
-
-      const now = Date.now();
-      const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
-      const oneYearFuture = now + (365 * 24 * 60 * 60 * 1000);
-
-      if (timestamp < oneYearAgo || timestamp > oneYearFuture) {
-        return null;
-      }
-
-      return timestamp;
-    }
-
-    function isToday(timestamp) {
-      if (!timestamp) return false;
-      const ts = parseTimestamp(timestamp);
-      if (!ts) return false;
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tsDate = new Date(ts);
-      tsDate.setHours(0, 0, 0, 0);
-
-      return today.getTime() === tsDate.getTime();
-    }
-
-    function safeDate(timestamp) {
-      const ts = parseTimestamp(timestamp);
-      return ts ? new Date(ts) : null;
-    }
-
-    function calculateWaitTimes(queues) {
-      const waitTimes = [];
-
-      queues.forEach(q => {
-        if (q.status === 'waiting' && q.timestamp) {
-          const ts = parseTimestamp(q.timestamp);
-          if (ts) {
-            const waitMinutes = Math.floor((Date.now() - ts) / 60000);
-            if (waitMinutes >= 0 && waitMinutes <= 1440) {
-              waitTimes.push(waitMinutes);
-            }
-          }
-        }
-      });
-
-      if (waitTimes.length === 0) {
-        return {
-          average: 0,
-          median: 0,
-          p90: 0,
-          longest: 0
-        };
-      }
-
-      const sorted = [...waitTimes].sort((a, b) => a - b);
-      const sum = sorted.reduce((acc, val) => acc + val, 0);
-      const average = Math.round(sum / sorted.length);
-      const median = sorted.length % 2 === 0
-        ? Math.round((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2)
-        : sorted[Math.floor(sorted.length / 2)];
-      const p90Index = Math.floor(sorted.length * 0.9);
-      const p90 = sorted[p90Index] || 0;
-      const longest = sorted[sorted.length - 1];
-
-      return { average, median, p90, longest };
-    }
-
-    function calculateSevenDaySummary(queues) {
-      const days = [];
-      const today = new Date();
-
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        date.setHours(0, 0, 0, 0);
-        const dayStart = date.getTime();
-        const dayEnd = dayStart + (24 * 60 * 60 * 1000);
-
-        const dayQueues = queues.filter(q => {
-          const ts = parseTimestamp(q.timestamp);
-          return ts && ts >= dayStart && ts < dayEnd;
-        });
-
-        const total = dayQueues.length;
-        const completed = dayQueues.filter(q => q.status === 'done' || q.status === 'served').length;
-        const cancelled = dayQueues.filter(q => q.status === 'cancelled').length;
-
-        const waitTimes = [];
-        dayQueues.forEach(q => {
-          if (q.timestamp) {
-            const ts = parseTimestamp(q.timestamp);
-            if (ts) {
-              const waitMinutes = Math.floor((Date.now() - ts) / 60000);
-              if (waitMinutes >= 0 && waitMinutes <= 1440) {
-                waitTimes.push(waitMinutes);
-              }
-            }
-          }
-        });
-
-        const avgWait = waitTimes.length > 0
-          ? Math.round(waitTimes.reduce((acc, val) => acc + val, 0) / waitTimes.length)
-          : 0;
-
-        const hourCounts = new Array(24).fill(0);
-        dayQueues.forEach(q => {
-          const ts = parseTimestamp(q.timestamp);
-          if (ts) {
-            const hour = new Date(ts).getHours();
-            hourCounts[hour]++;
-          }
-        });
-
-        const maxCount = Math.max(...hourCounts);
-        const busiestHour = maxCount > 0 ? hourCounts.indexOf(maxCount) : 0;
-
-        days.push({
-          date: date.toISOString().split('T')[0],
-          total,
-          completed,
-          cancelled,
-          avgWait,
-          busiestHour
-        });
-      }
-
-      return { days };
-    }
-
-    function calculateBusiestHours(queues) {
-      const hourCounts = new Array(24).fill(0);
-
-      queues.forEach(q => {
-        const ts = parseTimestamp(q.timestamp);
-        if (ts) {
-          const date = safeDate(q.timestamp);
-          if (date) {
-            const now = new Date();
-            const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-
-            if (date >= sevenDaysAgo) {
-              const hour = date.getHours();
-              hourCounts[hour]++;
-            }
-          }
-        }
-      });
-
-      const hoursWithCounts = hourCounts.map((count, hour) => ({ hour, count }))
-        .filter(h => h.count > 0)
-        .sort((a, b) => b.count - a.count);
-
-      return hoursWithCounts.slice(0, 5);
-    }
-
-    function updateUI(queues) {
-      const total = queues.length;
-      const waiting = queues.filter(q => q.status === 'waiting').length;
-      const completed = queues.filter(q => q.status === 'done' || q.status === 'served').length;
-      const serving = queues.filter(q => q.status === 'serving').length;
-      const cancelled = queues.filter(q => q.status === 'cancelled').length;
-
-      document.getElementById('totalQueues').textContent = total;
-      document.getElementById('activeQueues').textContent = waiting;
-
-      const todayCount = queues.filter(q => isToday(q.timestamp)).length;
-      document.getElementById('todayQueues').textContent = todayCount;
-
-      document.getElementById('analystTotalServed').textContent = completed;
-      document.getElementById('analystCompleted').textContent = completed;
-      document.getElementById('analystWaiting').textContent = waiting;
-      document.getElementById('analystServing').textContent = serving;
-      document.getElementById('analystCancelled').textContent = cancelled;
-
-      const waitStats = calculateWaitTimes(queues);
-      document.getElementById('analystAvgWait').textContent = waitStats.average;
-      document.getElementById('analystMedianWait').textContent = waitStats.median;
-      document.getElementById('waitAverage').textContent = waitStats.average;
-      document.getElementById('waitMedian').textContent = waitStats.median;
-      document.getElementById('wait90th').textContent = waitStats.p90;
-      document.getElementById('waitLongest').textContent = waitStats.longest;
-
-      const busiestHours = calculateBusiestHours(queues);
-      const busiestContainer = document.getElementById('busiestHoursContainer');
-      busiestContainer.innerHTML = '';
-
-      if (busiestHours.length === 0) {
-        busiestContainer.innerHTML = '<p style="color: #6b7280; font-size: 14px;">No data available</p>';
-      } else {
-        busiestHours.forEach((item, index) => {
-          const badge = document.createElement('div');
-          badge.className = 'metric-badge';
-          const colors = ['#667eea', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
-          badge.style.backgroundColor = colors[index % colors.length];
-          badge.style.color = 'white';
-
-          const hourLabel = item.hour === 0 ? '12 AM'
-            : item.hour < 12 ? `${item.hour} AM`
-            : item.hour === 12 ? '12 PM'
-            : `${item.hour - 12} PM`;
-
-          badge.textContent = `${hourLabel}: ${item.count} queues`;
-          busiestContainer.appendChild(badge);
-        });
-      }
-
-      updateCharts(queues);
-    }
-
-onValue(ref(db, 'queue'), async (snapshot) => {
-  // Handle empty DB
-  if (!snapshot.exists()) {
-    [
-      'totalQueues','activeQueues','todayQueues',
-      'analystTotalServed','analystCompleted','analystWaiting',
-      'analystServing','analystCancelled','analystAvgWait',
-      'analystMedianWait','analyst90pWait','analystMaxWait'
-    ].forEach(id => document.getElementById(id).textContent = '0');
-
-    updateCharts([]);
-    return;
-  }
-
-  const rawQueues = Object.values(snapshot.val());
-  const now = Date.now();
-
-  // -------------------------------
-  // 1️⃣ SANITIZE TIMESTAMPS
-  // -------------------------------
-  const queues = rawQueues
-    .map(q => {
-      const ts = Number(q.timestamp);
-
-      if (!ts || isNaN(ts)) return null;
-      if (ts > now + 86400000) return null; // reject >24h future
-      if (ts < 1000000000000) return null;  // reject unrealistic timestamps
-
-      return { ...q, timestamp: ts };
-    })
-    .filter(Boolean);
-
-  // -------------------------------
-  // 2️⃣ TODAY COUNT (SAFE)
-  // -------------------------------
-  const todayStart = new Date().setHours(0,0,0,0);
-  const todayEnd = new Date().setHours(24,0,0,0);
-
-  const todayCount = queues.filter(q => 
-    q.timestamp >= todayStart && q.timestamp < todayEnd
-  ).length;
-  document.getElementById('todayQueues').textContent = todayCount;
-
-  // -------------------------------
-  // 3️⃣ BASIC COUNTS
-  // -------------------------------
-  const waiting = queues.filter(q => q.status === 'waiting');
-  const serving = queues.filter(q => q.status === 'serving');
-  const cancelled = queues.filter(q => q.status === 'cancelled');
-
-  document.getElementById('totalQueues').textContent = queues.length;
-  document.getElementById('activeQueues').textContent = waiting.length;
-  document.getElementById('analystWaiting').textContent = waiting.length;
-  document.getElementById('analystServing').textContent = serving.length;
-  document.getElementById('analystCancelled').textContent = cancelled.length;
-
-  // -------------------------------
-  // 4️⃣ TOTAL SERVED
-  // -------------------------------
-  const servedSnap = await get(ref(db, 'analytics/servedCount'));
-  const served = servedSnap.val() || 0;
-  document.getElementById('analystTotalServed').textContent = served;
-  document.getElementById('analystCompleted').textContent = served;
-
-  // -------------------------------
-  // 5️⃣ WAIT TIME ANALYTICS (SAFE)
-  // -------------------------------
-  const waits = waiting.map(q => (now - q.timestamp) / 60000); // minutes
-
-  if (waits.length === 0) {
-    document.getElementById('analystAvgWait').textContent = 0;
-    document.getElementById('analystMedianWait').textContent = 0;
-    document.getElementById('analyst90pWait').textContent = 0;
-    document.getElementById('analystMaxWait').textContent = 0;
-  } else {
-    waits.sort((a, b) => a - b);
-
-    const avg = Math.round(waits.reduce((a, b) => a + b, 0) / waits.length);
-    const median = Math.round(
-      waits.length % 2 === 0
-      ? (waits[waits.length/2 - 1] + waits[waits.length/2]) / 2
-      : waits[(waits.length - 1) / 2]
-    );
-    const p90 = Math.round(waits[Math.floor(waits.length * 0.9)]);
-    const max = Math.round(waits[waits.length - 1]);
-
-    document.getElementById('analystAvgWait').textContent = Math.max(0, avg);
-    document.getElementById('analystMedianWait').textContent = Math.max(0, median);
-    document.getElementById('analyst90pWait').textContent = Math.max(0, p90);
-    document.getElementById('analystMaxWait').textContent = Math.max(0, max);
-  }
-
-  // -------------------------------
-  // 6️⃣ BUSIEST HOURS (LAST 7 DAYS)
-  // -------------------------------
-  const last7 = now - 7*24*60*60*1000;
-  const recent = queues.filter(q => q.timestamp >= last7);
-
-  const hourCount = {};
-  recent.forEach(q => {
-    const h = new Date(q.timestamp).getHours();
-    hourCount[h] = (hourCount[h] || 0) + 1;
-  });
-
-  // Render busiest hours
-  const busiestDiv = document.getElementById('busiestHours');
-  busiestDiv.innerHTML = Object.entries(hourCount)
-    .sort((a,b) => b[1] - a[1])
-    .map(([h,c]) => `${h}:00 — ${c} queues`)
-    .join('<br>');
-
-  updateCharts(queues);
-});
-
+    });
 
     onValue(ref(db, 'counters'), (snapshot) => {
       if (snapshot.exists()) {
@@ -1082,91 +771,143 @@ onValue(ref(db, 'queue'), async (snapshot) => {
       }
     });
 
-    function createMediaPreview(src, container, type = 'image') {
-      container.innerHTML = '';
-
-      if (type === 'video' || src.startsWith('data:video')) {
-        const video = document.createElement('video');
-        video.src = src;
-        video.className = 'preview-video';
-        video.loop = true;
-        video.autoplay = true;
-        video.muted = true;
-        video.style.maxWidth = '120px';
-        video.style.maxHeight = '120px';
-        container.appendChild(video);
-      } else {
-        const img = document.createElement('img');
-        img.src = src;
-        img.className = 'preview-image';
-        container.appendChild(img);
-      }
-    }
-
     onValue(ref(db, 'settings/logo'), (snap) => {
       if (snap.exists()) {
-        const container = document.getElementById('logoPreviewContainer');
-        createMediaPreview(snap.val(), container);
+        const logoPreview = document.getElementById('logoPreview');
+        logoPreview.src = snap.val();
+        logoPreview.style.display = 'block';
       }
     });
 
     onValue(ref(db, 'settings/logoUrl'), (snap) => {
       if (snap.exists()) {
-        const container = document.getElementById('logoUrlPreviewContainer');
-        createMediaPreview(snap.val(), container);
+        const logoUrlPreview = document.getElementById('logoUrlPreview');
+        logoUrlPreview.src = snap.val();
+        logoUrlPreview.style.display = 'block';
       }
     });
 
     onValue(ref(db, 'settings/adImage'), (snap) => {
       if (snap.exists()) {
-        const container = document.getElementById('adImagePreviewContainer');
-        createMediaPreview(snap.val(), container);
+        const adImagePreview = document.getElementById('adImagePreview');
+        adImagePreview.src = snap.val();
+        adImagePreview.style.display = 'block';
       }
     });
 
-    let uploadedMedia = {
+    let currentCropper = null;
+    let currentCropType = '';
+    let croppedImages = {
       logo: null,
       logoUrl: null,
       adImage: null
     };
 
+    const cropModal = document.getElementById('cropModal');
+    const cropImage = document.getElementById('cropImage');
+    const cropModalTitle = document.getElementById('cropModalTitle');
+    const cropSaveBtn = document.getElementById('cropSaveBtn');
+    const cropCancelBtn = document.getElementById('cropCancelBtn');
+
     document.getElementById('logoFile').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      currentCropType = 'logo';
+      cropModalTitle.textContent = 'Crop Logo (Square 1:1)';
+
       const base64 = await fileToBase64(file);
-      uploadedMedia.logo = base64;
+      cropImage.src = base64;
+      cropModal.classList.add('active');
 
-      const container = document.getElementById('logoPreviewContainer');
-      createMediaPreview(base64, container, file.type.startsWith('video') ? 'video' : 'image');
+      if (currentCropper) {
+        currentCropper.destroy();
+      }
 
-      showToast('Logo uploaded! Click "Update Business Settings" to save.');
+      currentCropper = new Cropper(cropImage, {
+        aspectRatio: 1,
+        viewMode: 2,
+        autoCropArea: 1
+      });
     });
 
     document.getElementById('logoUrlFile').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      currentCropType = 'logoUrl';
+      cropModalTitle.textContent = 'Crop Logo URL (Square 1:1)';
+
       const base64 = await fileToBase64(file);
-      uploadedMedia.logoUrl = base64;
+      cropImage.src = base64;
+      cropModal.classList.add('active');
 
-      const container = document.getElementById('logoUrlPreviewContainer');
-      createMediaPreview(base64, container, file.type.startsWith('video') ? 'video' : 'image');
+      if (currentCropper) {
+        currentCropper.destroy();
+      }
 
-      showToast('Logo URL uploaded! Click "Update Business Settings" to save.');
+      currentCropper = new Cropper(cropImage, {
+        aspectRatio: 1,
+        viewMode: 2,
+        autoCropArea: 1
+      });
     });
 
     document.getElementById('adImageFile').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      currentCropType = 'adImage';
+      cropModalTitle.textContent = 'Crop Ad Banner (Landscape 16:9)';
+
       const base64 = await fileToBase64(file);
-      uploadedMedia.adImage = base64;
+      cropImage.src = base64;
+      cropModal.classList.add('active');
 
-      const container = document.getElementById('adImagePreviewContainer');
-      createMediaPreview(base64, container, file.type.startsWith('video') ? 'video' : 'image');
+      if (currentCropper) {
+        currentCropper.destroy();
+      }
 
-      showToast('Ad banner uploaded! Click "Update Business Settings" to save.');
+      currentCropper = new Cropper(cropImage, {
+        aspectRatio: 16 / 9,
+        viewMode: 2,
+        autoCropArea: 1
+      });
+    });
+
+    cropSaveBtn.addEventListener('click', () => {
+      if (!currentCropper) return;
+
+      const canvas = currentCropper.getCroppedCanvas();
+      const cropped = canvas.toDataURL('image/jpeg', 0.9);
+
+      croppedImages[currentCropType] = cropped;
+
+      const previewElement = document.getElementById(`${currentCropType}Preview`);
+      previewElement.src = cropped;
+      previewElement.style.display = 'block';
+
+      cropModal.classList.remove('active');
+      currentCropper.destroy();
+      currentCropper = null;
+
+      showToast('Image cropped successfully!');
+    });
+
+    cropCancelBtn.addEventListener('click', () => {
+      cropModal.classList.remove('active');
+      if (currentCropper) {
+        currentCropper.destroy();
+        currentCropper = null;
+      }
+
+      if (currentCropType === 'logo') {
+        document.getElementById('logoFile').value = '';
+      } else if (currentCropType === 'logoUrl') {
+        document.getElementById('logoUrlFile').value = '';
+      } else if (currentCropType === 'adImage') {
+        document.getElementById('adImageFile').value = '';
+      }
     });
 
     const updateSettings = async () => {
@@ -1190,19 +931,21 @@ onValue(ref(db, 'queue'), async (snapshot) => {
           titleinmiddle: document.getElementById('titleinmiddle').value || currentSettings.titleinmiddle || ''
         };
 
-        if (uploadedMedia.logo) {
-          updates.logo = uploadedMedia.logo;
+        if (croppedImages.logo) {
+          updates.logo = croppedImages.logo;
         }
-        if (uploadedMedia.logoUrl) {
-          updates.logoUrl = uploadedMedia.logoUrl;
+
+        if (croppedImages.logoUrl) {
+          updates.logoUrl = croppedImages.logoUrl;
         }
-        if (uploadedMedia.adImage) {
-          updates.adImage = uploadedMedia.adImage;
+
+        if (croppedImages.adImage) {
+          updates.adImage = croppedImages.adImage;
         }
 
         await set(ref(db, 'settings'), updates);
 
-        uploadedMedia = { logo: null, logoUrl: null, adImage: null };
+        croppedImages = { logo: null, logoUrl: null, adImage: null };
 
         showToast('Settings updated successfully!');
       } catch (error) {
@@ -1282,8 +1025,7 @@ onValue(ref(db, 'queue'), async (snapshot) => {
           throw new Error('Missing chatIds or botToken in Firebase');
         }
 
-        const chatIdsObj = chatIdsSnap.val();
-        const chatIds = chatIdsObj ? Object.keys(chatIdsObj) : [];
+        const chatIds = chatIdsSnap.val();
         const telegramBotToken = botTokenSnap.val();
 
         let mediaBase64 = '';
@@ -1386,7 +1128,7 @@ onValue(ref(db, 'queue'), async (snapshot) => {
             },
             options: {
               responsive: true,
-              maintainAspectRatio: false,
+              maintainAspectRatio: true,
               plugins: {
                 legend: { display: true }
               },
@@ -1413,7 +1155,7 @@ onValue(ref(db, 'queue'), async (snapshot) => {
             },
             options: {
               responsive: true,
-              maintainAspectRatio: false,
+              maintainAspectRatio: true,
               plugins: {
                 legend: { display: false }
               },
@@ -1428,20 +1170,31 @@ onValue(ref(db, 'queue'), async (snapshot) => {
 
     function updateCharts(queues) {
       if (queueTrendChart) {
-        const summary = calculateSevenDaySummary(queues);
-        const labels = summary.days.map(d => {
-          const date = new Date(d.date);
-          return date.toLocaleDateString('en-US', { weekday: 'short' });
-        });
-        const data = summary.days.map(d => d.total);
+        const last7Days = [];
+        const today = new Date();
 
-        queueTrendChart.data.labels = labels;
-        queueTrendChart.data.datasets[0].data = data;
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          last7Days.push(date.getTime());
+        }
+
+        const dailyCounts = last7Days.map(dayTime => {
+          return queues.filter(q => {
+            const queueDate = new Date(q.timestamp);
+            queueDate.setHours(0, 0, 0, 0);
+            return queueDate.getTime() === dayTime;
+          }).length;
+        });
+
+        queueTrendChart.data.datasets[0].data = dailyCounts;
         queueTrendChart.update();
       }
 
       if (counterPerfChart) {
         const counterStats = {};
+
         queues.forEach(q => {
           if (q.counterId) {
             counterStats[q.counterId] = (counterStats[q.counterId] || 0) + 1;
