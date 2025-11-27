@@ -263,13 +263,17 @@
     </div>
   </div>
 
-  <div id="adPanelContainer" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
-    <div class="bg-white rounded-xl shadow-lg p-3">
-      <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-      <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
-    </div>
+<div id="adPanelContainer" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
+  <div class="bg-white rounded-xl shadow-lg p-3">
+    <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
+    <!-- Image fallback -->
+    <img id="adPanelImage" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+    <!-- Video support -->
+    <video id="adPanelVideo" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover" autoplay loop muted playsinline></video>
+    <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
   </div>
+</div>
+
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -435,18 +439,35 @@ window.connectTelegram = async function() {
       window.location.href = 'https://queuejoy.netlify.app/game.html';
     });
 
-    adRef = ref(db, "settings/adImage");
-    onValue(adRef, (snap) => {
-      const adUrl = snap.val();
-      if (adUrl) { 
-        adPanel.src = adUrl; 
-        adPanel.classList.remove('hidden'); 
-        noAd.classList.add('hidden'); 
-      } else { 
-        adPanel.classList.add('hidden'); 
-        noAd.classList.remove('hidden'); 
-      }
-    });
+  const adImage = document.getElementById('adPanelImage');
+  const adVideo = document.getElementById('adPanelVideo');
+
+  adRef = ref(db, "settings/adMedia"); // change in Firebase: "adMedia" can be image or video URL
+  onValue(adRef, (snap) => {
+    const url = snap.val();
+    if (!url) {
+      adImage.classList.add('hidden');
+      adVideo.classList.add('hidden');
+      noAd.classList.remove('hidden');
+      return;
+    }
+  
+    noAd.classList.add('hidden');
+    
+    // Check file extension
+    const ext = url.split('.').pop().toLowerCase();
+    if (ext === 'mp4' || ext === 'webm' || ext === 'ogg') {
+      adVideo.src = url;
+      adVideo.classList.remove('hidden');
+      adVideo.play().catch(()=>{}); // start autoplay
+      adImage.classList.add('hidden');
+    } else {
+      adImage.src = url;
+      adImage.classList.remove('hidden');
+      adVideo.classList.add('hidden');
+    }
+  });
+
 
   function computeEstimatedWaitText(ahead, avgMins) {
     // prefer a valid positive avg from the counter, otherwise try settings fallback,
