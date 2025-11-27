@@ -267,9 +267,9 @@
   <div class="bg-white rounded-xl shadow-lg p-3">
     <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
     <!-- Image fallback -->
-    <img id="adPanelImage" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
+    <img id="adPanelImage" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-40 object-cover">
     <!-- Video support -->
-    <video id="adPanelVideo" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover" autoplay loop muted playsinline></video>
+    <video id="adPanelVideo" class="w-full rounded-lg shadow-md hidden max-h-40 object-cover" playsinline muted loop autoplay></video>
     <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
   </div>
 </div>
@@ -277,9 +277,9 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
+    // Endpoints
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
     const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
 
@@ -295,6 +295,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // DOM refs
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServingEl = document.getElementById('nowServing');
@@ -302,7 +303,6 @@
     const estimatedWaitEl = document.getElementById('estimatedWait');
     const indicator = document.getElementById('statusIndicator');
     const errorMessage = document.getElementById('errorMessage');
-    const adPanel = document.getElementById('adPanel');
     const noAd = document.getElementById('noAd');
     const telegramStatus = document.getElementById('telegramStatus');
     const telegramIcon = document.getElementById('telegramIcon');
@@ -314,71 +314,27 @@
     const buttonText = document.getElementById('buttonText');
     const finalConnectButton = document.getElementById('finalConnectButton');
 
+    const adImage = document.getElementById('adPanelImage');
+    const adVideo = document.getElementById('adPanelVideo');
+
     let queueRef = null, counterRef = null, servingRef = null, adRef = null;
     let currentQueueKey = null;
     let currentQueueData = null;
     let currentCounterId = null;
     let latestConnectLink = null;
     let linkGenerating = false;
-    let avgServiceTimeForCounter = null;
+    let avgServiceTimeForCounter = 3; // minutes
     let currentSlide = 0;
+    let sentTurnNotifyServingValue = null; // prevents duplicate notifications for same serving value
 
-    window.nextSlide = function() {
-      const slides = document.querySelectorAll('.onboarding-slide');
-      slides[currentSlide].classList.remove('active');
-      currentSlide = (currentSlide + 1) % slides.length;
-      slides[currentSlide].classList.add('active');
-      
-      if (currentSlide === 2) {
-        triggerGenerateLink();
-      }
-    };
-
-    window.skipOnboarding = function() {
-      onboardingModal.style.display = 'none';
-    };
-
-window.connectTelegram = async function() {
-  if (!latestConnectLink) {
-    buttonText.innerHTML = '<span class="spinner-inline"></span>Generating link...';
-    try {
-      latestConnectLink = await generateConnectLink();
-    } catch(e) {
-      latestConnectLink = TELEGRAM_BOT_URL; // fallback
-    }
-  }
-
-  buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
-  finalConnectButton.disabled = true;
-
-  // Open the bot link with the unique token
-  const win = window.open(latestConnectLink, '_blank', 'noopener,noreferrer');
-
-  // Mark in Firebase that the user clicked connect (so the bot can associate chatId later)
-  if (currentQueueKey) {
-    const token = latestConnectLink.split('start=')[1] || null;
-    if (token) {
-      try {
-        await fetch(`/.netlify/functions/markTokenUsed`, {  // optional, if you implement this
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueKey: currentQueueKey, token })
-        });
-      } catch(e) {}
-    }
-  }
-
-  setTimeout(() => onboardingModal.style.display = 'none', 500);
-};
-
-
-    const showError = (msg) => {
+    // Helpers
+    function showError(msg) {
       errorMessage.querySelector('p').textContent = msg;
       errorMessage.classList.remove('hidden');
       setTimeout(() => errorMessage.classList.add('hidden'), 5000);
-    };
+    }
 
-      function setTelegramUIConnected(connected) {
+    function setTelegramUIConnected(connected) {
       if (connected) {
         telegramStatus.textContent = "Connected — you'll get Telegram notifications";
         telegramStatus.classList.remove('text-gray-600');
@@ -394,17 +350,47 @@ window.connectTelegram = async function() {
       }
     }
 
+    function computeEstimatedWaitText(ahead, avgMins) {
+      let avg = Number(avgMins);
+      if (!Number.isFinite(avg) || avg <= 0) avg = 3;
+      if (ahead === 0) return 'Less than a minute';
+      const est = Math.round(ahead * avg);
+      return `${ahead} ${ahead > 1 ? 'people' : 'person'} — approx ${est} min`;
+    }
+
+    function padNum(num, len = 3) {
+      return String(num).padStart(len, '0');
+    }
+
+    // Onboarding controls
+    window.nextSlide = function() {
+      const slides = document.querySelectorAll('.onboarding-slide');
+      slides[currentSlide].classList.remove('active');
+      currentSlide = (currentSlide + 1) % slides.length;
+      slides[currentSlide].classList.add('active');
+      if (currentSlide === 2) triggerGenerateLink();
+    };
+
+    window.skipOnboarding = function() { onboardingModal.style.display = 'none'; };
+
+    connectTopBtn.addEventListener('click', () => {
+      const slides = document.querySelectorAll('.onboarding-slide');
+      slides.forEach(s => s.classList.remove('active'));
+      currentSlide = 0;
+      slides[0].classList.add('active');
+      onboardingModal.style.display = 'flex';
+    });
+
+    gameBtn.addEventListener('click', () => { window.location.href = 'https://queuejoy.netlify.app/game.html'; });
+
+    // Telegram link helpers
     async function generateConnectLink() {
       if (!currentQueueKey) throw new Error('Missing queueKey');
       const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ queueKey: currentQueueKey })
       });
-      if (!res.ok) {
-        const txt = await res.text().catch(()=>'');
-        throw new Error(`Server error ${res.status} ${txt}`);
-      }
+      if (!res.ok) throw new Error('Link generation failed');
       const j = await res.json();
       if (!j.link) throw new Error('No link returned');
       return j.link;
@@ -422,67 +408,70 @@ window.connectTelegram = async function() {
       } catch (err) {
         latestConnectLink = null;
         connectStatusText.textContent = 'Will use direct bot link.';
-      } finally {
-        linkGenerating = false;
+      } finally { linkGenerating = false; }
+    }
+
+    window.connectTelegram = async function() {
+      const fallback = 'https://t.me/QueueJoyBot';
+      try {
+        if (!latestConnectLink) {
+          buttonText.innerHTML = '<span class="spinner-inline"></span>Generating link...';
+          latestConnectLink = await generateConnectLink().catch(()=>null);
+        }
+      } catch(e){ latestConnectLink = null; }
+
+      const openLink = latestConnectLink || fallback;
+      buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
+      finalConnectButton.disabled = true;
+
+      // open in new tab/window (user initiated click so should not be blocked)
+      const win = window.open(openLink, '_blank', 'noopener,noreferrer');
+
+      // try to mark token used (best-effort)
+      try {
+        const token = (openLink && openLink.includes('start=')) ? openLink.split('start=')[1] : null;
+        if (token && currentQueueKey) {
+          await fetch('/.netlify/functions/markTokenUsed', {
+            method: 'POST', headers: { 'Content-Type':'application/json' },
+            body: JSON.stringify({ queueKey: currentQueueKey, token })
+          }).catch(()=>{});
+        }
+      } catch(e){}
+
+      setTimeout(()=> onboardingModal.style.display = 'none', 500);
+    };
+
+    // AD panel
+    adRef = ref(db, 'settings/adMedia');
+    onValue(adRef, (snap) => {
+      const url = snap.val();
+      if (!url) {
+        adImage.classList.add('hidden');
+        adVideo.classList.add('hidden');
+        noAd.classList.remove('hidden');
+        return;
       }
-    }
-
-    connectTopBtn.addEventListener('click', () => {
-      const slides = document.querySelectorAll('.onboarding-slide');
-      slides.forEach(s => s.classList.remove('active'));
-      currentSlide = 0;
-      slides[0].classList.add('active');
-      onboardingModal.style.display = 'flex';
+      noAd.classList.add('hidden');
+      const ext = url.split('.').pop().split('?')[0].toLowerCase();
+      if (['mp4','webm','ogg'].includes(ext)) {
+        adVideo.src = url;
+        adVideo.loop = true;
+        adVideo.muted = true;
+        adVideo.playsInline = true;
+        adVideo.autoplay = true;
+        adVideo.classList.remove('hidden');
+        adVideo.play().catch(()=>{});
+        adImage.classList.add('hidden');
+      } else {
+        adImage.src = url;
+        adImage.classList.remove('hidden');
+        adVideo.classList.add('hidden');
+      }
+    }, (err)=>{
+      console.warn('adRef error', err);
     });
 
-    gameBtn.addEventListener('click', () => {
-      window.location.href = 'https://queuejoy.netlify.app/game.html';
-    });
-
-  const adImage = document.getElementById('adPanelImage');
-  const adVideo = document.getElementById('adPanelVideo');
-
-  adRef = ref(db, "settings/adMedia"); // change in Firebase: "adMedia" can be image or video URL
-  onValue(adRef, (snap) => {
-    const url = snap.val();
-    if (!url) {
-      adImage.classList.add('hidden');
-      adVideo.classList.add('hidden');
-      noAd.classList.remove('hidden');
-      return;
-    }
-  
-    noAd.classList.add('hidden');
-    
-    // Check file extension
-    const ext = url.split('.').pop().toLowerCase();
-    if (ext === 'mp4' || ext === 'webm' || ext === 'ogg') {
-      adVideo.src = url;
-      adVideo.classList.remove('hidden');
-      adVideo.play().catch(()=>{}); // start autoplay
-      adImage.classList.add('hidden');
-    } else {
-      adImage.src = url;
-      adImage.classList.remove('hidden');
-      adVideo.classList.add('hidden');
-    }
-  });
-
-
-  function computeEstimatedWaitText(ahead, avgMins) {
-    // prefer a valid positive avg from the counter, otherwise try settings fallback,
-    // finally fall back to a conservative default (3 minutes) — change if you want.
-    let avg = Number(avgMins);
-    if (!Number.isFinite(avg) || avg <= 0) {
-      avg = 3;
-    }
-  
-    if (ahead === 0) return 'Soon';
-    const est = Math.round(ahead * avg);
-    return `${ahead} person${ahead > 1 ? 's' : ''} — approx ${est} min`;
-  }
-
-
+    // MAIN: subscribe to queue entry
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const queueKey = params.get('queueId');
@@ -493,8 +482,8 @@ window.connectTelegram = async function() {
       }
       currentQueueKey = queueKey;
 
-      queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, (snap) => {
+      queueRef = ref(db, `queue/${currentQueueKey}`);
+      onValue(queueRef, async (snap) => {
         if (!snap.exists()) {
           showError('Queue entry not found. Returning...');
           setTimeout(()=> window.location.href = 'index.html', 1800);
@@ -506,93 +495,99 @@ window.connectTelegram = async function() {
         const { counterId, queueId } = currentQueueData || {};
         yourNumber.textContent = queueId || '--';
 
-        setTelegramUIConnected(!!currentQueueData.telegramConnected);
+        setTelegramUIConnected(!!(currentQueueData && (currentQueueData.telegramConnected || currentQueueData.chatId)));
 
-        const nowConnected = !!currentQueueData.telegramConnected;
-        if (nowConnected && !prevConnected) {
+        if ((currentQueueData && currentQueueData.telegramConnected) && !prevConnected) {
           onboardingModal.style.display = 'none';
         }
 
+        // subscribe to counter only if counterId present and changed
         if (counterId && (!counterRef || currentCounterId !== counterId)) {
           if (counterRef) off(counterRef);
           currentCounterId = counterId;
           counterRef = ref(db, `counters/${counterId}`);
+
           onValue(counterRef, async (counterSnap) => {
             if (!counterSnap.exists()) return;
             const counterData = counterSnap.val();
-            import { set, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-            // Auto-create missing fields for this counter
-            const defaults = {
-              avgServiceTime: 5,
-              active: counterData.active === undefined ? true : counterData.active,
-              busy: counterData.busy === undefined ? false : counterData.busy,
-              lastAdvanceAt: counterData.lastAdvanceAt || Date.now(),
-              lastIssued: counterData.lastIssued || 0,
-              order: counterData.order || 1,
-              prefix: counterData.prefix || (counterData.name ? counterData.name.slice(0,3).toUpperCase() : "C")
-            };
-            
-            update(ref(db, `counters/${currentCounterId}`), defaults).catch(e => console.warn("Failed to add default counter structure", e));
+            // Ensure defaults exist (best-effort) without clobbering admin values
+            const defaults = {};
+            if (counterData.avgServiceTime === undefined) defaults.avgServiceTime = 5;
+            if (counterData.active === undefined) defaults.active = true;
+            if (counterData.busy === undefined) defaults.busy = false;
+            if (counterData.lastAdvanceAt === undefined) defaults.lastAdvanceAt = Date.now();
+            if (counterData.lastIssued === undefined) defaults.lastIssued = 0;
+            if (counterData.order === undefined) defaults.order = 1;
+            if (!counterData.prefix) defaults.prefix = (counterData.name ? counterData.name.slice(0,3).toUpperCase() : 'C');
 
-            counterNameEl.textContent = counterData.name || counterId;
+            if (Object.keys(defaults).length) {
+              update(ref(db, `counters/${currentCounterId}`), defaults).catch(e => console.warn('Failed to add default counter structure', e));
+            }
 
-            // Determine avgServiceTimeForCounter robustly without overwriting other logic
+            counterNameEl.textContent = counterData.name || currentCounterId;
+
+            // robust avg service time resolution
             let avg = Number(counterData.avgServiceTime);
             if (!Number.isFinite(avg) || avg <= 0) {
-              // try global settings fallback
               try {
                 const sSnap = await get(ref(db, 'settings/avgServiceTime'));
                 if (sSnap.exists()) {
                   const sVal = Number(sSnap.val());
                   avg = (Number.isFinite(sVal) && sVal > 0) ? sVal : 3;
-                } else {
-                  avg = 3; // conservative default
-                }
-              } catch (e) {
-                avg = 3;
-              }
+                } else avg = 3;
+              } catch (e) { avg = 3; }
             }
             avgServiceTimeForCounter = avg;
 
+            const prefix = (counterData && counterData.prefix) || '';
+            const ticketStr = currentQueueData && currentQueueData.queueId ? String(currentQueueData.queueId) : '';
+            const yourNumberNum = ticketStr ? parseInt(ticketStr.replace(/\D/g, ''), 10) : NaN;
 
-            const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
-            const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix,''),10) : NaN;
-
+            // subscribe to nowServing for this counter
             if (servingRef) off(servingRef);
-            servingRef = ref(db, `counters/${counterId}/nowServing`);
+            servingRef = ref(db, `counters/${currentCounterId}/nowServing`);
             onValue(servingRef, (nowSnap) => {
               const currentServing = Number(nowSnap.val() || 0);
-              nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
+              nowServingEl.textContent = `${prefix}${padNum(currentServing, 3)}`;
 
-              const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
-              peopleAheadEl.textContent = ahead;
+              const ahead = (Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0);
+              peopleAheadEl.textContent = String(ahead);
               estimatedWaitEl.textContent = computeEstimatedWaitText(ahead, avgServiceTimeForCounter);
 
               if (ahead === 0) {
                 indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
 
-                const body = currentQueueData && currentQueueData.chatId
-                  ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` }
-                  : { message: `🎟 It's now the customer's turn!\nQueue: ${currentQueueKey}` };
+                // avoid duplicate notifications for same serving value
+                if (sentTurnNotifyServingValue !== currentServing) {
+                  sentTurnNotifyServingValue = currentServing;
 
-                fetch(SEND_TELEGRAM_ENDPOINT, {
-                  method:'POST',
-                  headers:{ 'Content-Type':'application/json' },
-                  body: JSON.stringify(body)
-                }).catch(()=>{});
+                  const body = (currentQueueData && currentQueueData.chatId)
+                    ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!
+Queue: ${currentQueueKey}` }
+                    : { message: `🎟 A customer is being served — queue: ${currentQueueKey}` };
 
-                setTimeout(()=> {
-                  try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
-                }, 1200);
+                  fetch(SEND_TELEGRAM_ENDPOINT, {
+                    method:'POST', headers:{ 'Content-Type':'application/json' },
+                    body: JSON.stringify(body)
+                  }).catch(()=>{});
+
+                  // short delay then redirect to friendly your_turn page
+                  setTimeout(()=> {
+                    try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
+                  }, 1100);
+                }
 
               } else {
                 indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
               }
             });
-          });
+
+          }, (err)=>{ console.warn('counterRef error', err); });
+
         }
-      });
+      }, (err)=>{ console.warn('queueRef error', err); });
+
     });
 
     window.addEventListener('beforeunload', () => {
