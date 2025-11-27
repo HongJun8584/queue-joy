@@ -499,6 +499,21 @@ window.connectTelegram = async function() {
           onValue(counterRef, async (counterSnap) => {
             if (!counterSnap.exists()) return;
             const counterData = counterSnap.val();
+            import { set, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+            // Auto-create missing fields for this counter
+            const defaults = {
+              avgServiceTime: 5,
+              active: counterData.active === undefined ? true : counterData.active,
+              busy: counterData.busy === undefined ? false : counterData.busy,
+              lastAdvanceAt: counterData.lastAdvanceAt || Date.now(),
+              lastIssued: counterData.lastIssued || 0,
+              order: counterData.order || 1,
+              prefix: counterData.prefix || (counterData.name ? counterData.name.slice(0,3).toUpperCase() : "C")
+            };
+            
+            update(ref(db, `counters/${currentCounterId}`), defaults).catch(e => console.warn("Failed to add default counter structure", e));
+
             counterNameEl.textContent = counterData.name || counterId;
 
             // Determine avgServiceTimeForCounter robustly without overwriting other logic
