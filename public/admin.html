@@ -931,14 +931,221 @@
       updateCharts(queues);
     }
 
-    onValue(ref(db, 'queue'), (snapshot) => {
-      if (snapshot.exists()) {
-        const queues = Object.values(snapshot.val());
-        updateUI(queues);
-      } else {
-        updateUI([]);
-      }
+onValue(ref(db, 'queue'), (snapshot) => {
+  // Helper: write to UI if element exists
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(text);
+  };
+
+  // If DB empty -> reset
+  if (!snapshot.exists()) {
+    [
+      'totalQueues','activeQueues','todayQueues',
+      'analystTotalServed','analystCompleted',
+      'analystWaiting','analystServing',
+      'analystCancelled','analystAvgWait',
+      'analystMedianWait','analystP90Wait','analystLongestWait',
+      'busiestHoursList'
+    ].forEach(id => setText(id, '0'));
+    updateCharts([]);
+    return;
+  }
+
+  const rawQueues = Object.values(snapshot.val());
+
+  // --- read authoritative servedCount ---
+  get(ref(db, 'analytics/servedCount')).then(snap => {
+    const totalServed = snap.val() || 0;
+    setText('analystTotalServed', totalServed);
+    setText('analystCompleted', totalServed);
+  });
+
+  // --- timestamp parser and validator ---
+  // Accepts numbers or numeric strings. Rejects obviously bad values.
+  const now = Date.now();
+  const MAX_FUTURE_MS = 7 * 24 * 60 * 60 * 1000; // +7 days tolerance
+  const MIN_REASONABLE_MS = 100000000000; // ~2001-09-09 (reject tiny numbers)
+  const parseTimestamp = (ts) => {
+    if (ts === null || ts === undefined) return null;
+    // handle Firebase serverTimestamp placeholder (object) and other non-primitive
+    if (typeof ts === 'object') return null;
+    const n = Number(ts);
+    if (Number.isFinite(n) && n >= MIN_REASONABLE_MS && n <= now + MAX_FUTURE_MS) {
+      return Math.floor(n);
+    }
+    return null;
+  };
+
+  // --- build arrays for analysis ---
+  // Keep original list for charts that may expect full objects
+  const queues = rawQueues.slice();
+
+  // compute counts by status & guard missing status
+  const waitingCount = queues.filter(q => q && q.status === 'waiting').length;
+  const servingCount = queues.filter(q => q && q.status === 'serving').length;
+  const cancelledCount = queues.filter(q => q && q.status === 'cancelled').length;
+
+  setText('totalQueues', queues.length);
+  setText('activeQueues', waitingCount);
+  setText('analystWaiting', waitingCount);
+  setText('analystServing', servingCount);
+  setText('analystCancelled', cancelledCount);
+
+  // --- generate timestamp lists & diagnostics ---
+  const tsListAll = queues.map(q => parseTimestamp(q && q.timestamp)).filter(ts => ts !== null);
+  const invalidTSCount = queues.length - tsListAll.length;
+  if (queues.length > 0 && invalidTSCount / queues.length >= 0.15) {
+    console.warn(`Queue analytics: ${invalidTSCount}/${queues.length} timestamps invalid (>=15%). Consider fixing clients' timestamp writes.`);
+  }
+
+  // --- WAIT TIME ANALYTICS (use waiting entries only for current wait) ---
+  const waitingTSs = queues
+    .filter(q => q && q.status === 'waiting')
+    .map(q => parseTimestamp(q && q.timestamp))
+    .filter(ts => ts !== null && ts <= now); // only past timestamps
+
+  const waitingDurationsMin = waitingTSs.map(ts => Math.max(0, Math.round((now - ts) / 60000))); // minutes, integer
+  // If no valid waiting durations, values default to 0
+  const avgWait = waitingDurationsMin.length
+    ? Math.round(waitingDurationsMin.reduce((a,b) => a + b, 0) / waitingDurationsMin.length)
+    : 0;
+
+  // median and percentiles function (array of numbers)
+  const percentile = (arr, p) => {
+    if (!arr || arr.length === 0) return 0;
+    const a = arr.slice().sort((x,y) => x - y);
+    const idx = (p/100) * (a.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    if (lo === hi) return a[lo];
+    const frac = idx - lo;
+    return Math.round(a[lo] * (1 - frac) + a[hi] * frac);
+  };
+
+  const medianWait = percentile(waitingDurationsMin, 50);
+  const p90Wait = percentile(waitingDurationsMin, 90);
+  const longestWait = waitingDurationsMin.length ? Math.max(...waitingDurationsMin) : 0;
+
+  setText('analystAvgWait', Math.max(0, avgWait));
+  setText('analystMedianWait', Math.max(0, medianWait));
+  setText('analystP90Wait', Math.max(0, p90Wait));
+  setText('analystLongestWait', Math.max(0, longestWait));
+
+  // --- TODAY COUNT (based on creation timestamp) ---
+  const todayStart = new Date().setHours(0,0,0,0);
+  const todayEnd = new Date().setHours(24,0,0,0); // next day's midnight
+  const todayCount = queues
+    .map(q => parseTimestamp(q && q.timestamp))
+    .filter(ts => ts !== null && ts >= todayStart && ts < todayEnd)
+    .length;
+  setText('todayQueues', todayCount);
+
+  // --- BUSIEST HOURS (creation counts) for last 7 days window ---
+  // Build hour buckets for each queue creation ts (0-23). We will also compute counts per hour for last 7 days.
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const windowStart = now - SEVEN_DAYS_MS;
+
+  // hourBuckets: { 'YYYY-MM-DD': {0: n, 1: n, ... } }
+  const hourBuckets = {};
+  const dayTotals = {}; // totals per date string YYYY-MM-DD for 7-day trend
+  const formatDate = (ts) => {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+
+  queues.forEach(q => {
+    const ts = parseTimestamp(q && q.timestamp);
+    if (ts === null || ts < windowStart || ts > now) return;
+    const dateKey = formatDate(ts);
+    const hour = new Date(ts).getHours();
+    hourBuckets[dateKey] = hourBuckets[dateKey] || {};
+    hourBuckets[dateKey][hour] = (hourBuckets[dateKey][hour] || 0) + 1;
+    dayTotals[dateKey] = (dayTotals[dateKey] || 0) + 1;
+  });
+
+  // accumulate busiest hours across the 7-day window:
+  const totalHourCounts = Array.from({length:24}, (_,i) => 0);
+  Object.keys(hourBuckets).forEach(dateKey => {
+    for (let h = 0; h < 24; h++) {
+      totalHourCounts[h] += hourBuckets[dateKey][h] || 0;
+    }
+  });
+
+  // convert to list sorted desc
+  const busiestHours = totalHourCounts
+    .map((count, hour) => ({hour, count}))
+    .filter(x => x.count > 0)
+    .sort((a,b) => b.count - a.count);
+
+  // Prepare a brief textual list (top 5)
+  const busiestText = busiestHours.slice(0,5).map(x => {
+    const label = (x.hour === 0) ? '12 AM' :
+                  (x.hour < 12) ? `${x.hour} AM` :
+                  (x.hour === 12) ? '12 PM' :
+                  `${x.hour - 12} PM`;
+    return `${label}: ${x.count} queues`;
+  }).join('\n');
+
+  // Attempt to write to an element, else skip
+  if (document.getElementById('busiestHoursList')) {
+    document.getElementById('busiestHoursList').textContent = busiestText || 'No data';
+  }
+
+  // --- 7-day trend data (creation counts) ---
+  const trendDays = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayTs = new Date(now - i * 24 * 60 * 60 * 1000).setHours(0,0,0,0);
+    const key = formatDate(dayTs);
+    trendDays.push({
+      date: key,
+      total: dayTotals[key] || 0
     });
+  }
+  // Expose trend to updateCharts if needed:
+  if (typeof updateCharts === 'function') {
+    try { updateCharts(queues, {trendDays, busiestHours, counterPerformance: null}); }
+    catch(e) { /* harmless if updateCharts signature different */ }
+  }
+
+  // --- COUNTER PERFORMANCE (simple counts by counterId) ---
+  const counterMap = {};
+  queues.forEach(q => {
+    const cid = q && q.counterId ? q.counterId : 'unknown';
+    counterMap[cid] = counterMap[cid] || {created:0, waiting:0, serving:0, cancelled:0};
+    counterMap[cid].created += 1;
+    if (q && q.status === 'waiting') counterMap[cid].waiting += 1;
+    if (q && q.status === 'serving') counterMap[cid].serving += 1;
+    if (q && q.status === 'cancelled') counterMap[cid].cancelled += 1;
+  });
+
+  // If there's an element for counterPerformance, dump a minimal report
+  if (document.getElementById('counterPerformance')) {
+    const lines = Object.entries(counterMap).map(([cid, stats]) =>
+      `${cid}: created ${stats.created}, waiting ${stats.waiting}, serving ${stats.serving}, cancelled ${stats.cancelled}`
+    );
+    document.getElementById('counterPerformance').textContent = lines.join('\n') || 'No counters';
+  }
+
+  // ---- finish ----
+  // set a few core values again (redundant safety)
+  setText('totalQueues', queues.length);
+  setText('activeQueues', waitingCount);
+  setText('analystWaiting', waitingCount);
+  setText('analystServing', servingCount);
+  setText('analystCancelled', cancelledCount);
+
+  // console debug - remove in prod if noisy
+  console.debug('Analytics computed:', {
+    queuesTotal: queues.length,
+    waitingCount, servingCount, cancelledCount,
+    avgWait, medianWait, p90Wait, longestWait,
+    todayCount, busiestHoursTop: busiestHours.slice(0,3)
+  });
+});
 
     onValue(ref(db, 'counters'), (snapshot) => {
       if (snapshot.exists()) {
