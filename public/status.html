@@ -448,12 +448,19 @@ window.connectTelegram = async function() {
       }
     });
 
-    function computeEstimatedWaitText(ahead, avgMins) {
-      avgMins = Number(avgMins) || 2;
-      if (ahead === 0) return 'Soon';
-      const est = Math.round(ahead * avgMins);
-      return `${ahead} person${ahead>1?'s':''} — approx ${est} min`;
+  function computeEstimatedWaitText(ahead, avgMins) {
+    // prefer a valid positive avg from the counter, otherwise try settings fallback,
+    // finally fall back to a conservative default (3 minutes) — change if you want.
+    let avg = Number(avgMins);
+    if (!Number.isFinite(avg) || avg <= 0) {
+      avg = 3;
     }
+  
+    if (ahead === 0) return 'Soon';
+    const est = Math.round(ahead * avg);
+    return `${ahead} person${ahead > 1 ? 's' : ''} — approx ${est} min`;
+  }
+
 
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
@@ -494,17 +501,24 @@ window.connectTelegram = async function() {
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || counterId;
 
-            avgServiceTimeForCounter = Number(counterData.avgServiceTime) || null;
-            if (!avgServiceTimeForCounter) {
+            // Determine avgServiceTimeForCounter robustly without overwriting other logic
+            let avg = Number(counterData.avgServiceTime);
+            if (!Number.isFinite(avg) || avg <= 0) {
+              // try global settings fallback
               try {
                 const sSnap = await get(ref(db, 'settings/avgServiceTime'));
                 if (sSnap.exists()) {
-                  avgServiceTimeForCounter = Number(sSnap.val()) || 2;
+                  const sVal = Number(sSnap.val());
+                  avg = (Number.isFinite(sVal) && sVal > 0) ? sVal : 3;
                 } else {
-                  avgServiceTimeForCounter = 2;
+                  avg = 3; // conservative default
                 }
-              } catch (e) { avgServiceTimeForCounter = 2; }
+              } catch (e) {
+                avg = 3;
+              }
             }
+            avgServiceTimeForCounter = avg;
+
 
             const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
             const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix,''),10) : NaN;
