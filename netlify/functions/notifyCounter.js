@@ -1,10 +1,25 @@
 // netlify/functions/notifyCounter.js
-// Robust, fixed version: cleans numbers, only reminds people behind the called number,
-// avoids duplicate reminders for same call, removes ticket when served.
-// Envs: BOT_TOKEN (required), REDIS_URL (optional)
+// Improved notifyCounter: robust number cleaning, reminders only to "behind" numbers,
+// prevents duplicates, supports Redis or ephemeral store, and *cleans served numbers from Firebase*.
+// Envs (recommended):
+// BOT_TOKEN (required),
+// REDIS_URL (optional),
+// FIREBASE_DATABASE_URL (optional),
+// FIREBASE_SERVICE_ACCOUNT (optional) -> JSON string of service account, or set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY (PEM string with \n escapes),
+// FIREBASE_TICKETS_PATH (optional) default: 'tickets' (path where queued tickets are stored)
 
 const fetch = globalThis.fetch || require('node-fetch');
 const fs = require('fs');
+
+// Optional: firebase-admin (only used if FIREBASE_DATABASE_URL present)
+let admin = null;
+let firebaseDb = null;
+try {
+  admin = require('firebase-admin');
+} catch (e) {
+  // firebase-admin may not be installed in some environments — we'll handle gracefully
+  admin = null;
+}
 
 const REDIS_URL = process.env.REDIS_URL || null;
 let useRedis = false;
@@ -23,6 +38,8 @@ if (REDIS_URL) {
 
 const BOT_TOKEN = process.env.BOT_TOKEN || null;
 const TMP_STORE = '/tmp/queuejoy_store.json';
+const FIREBASE_DB_URL = process.env.FIREBASE_DATABASE_URL || process.env.FIREBASE_DB_URL || null;
+const FIREBASE_TICKETS_PATH = process.env.FIREBASE_TICKETS_PATH || 'tickets';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -32,28 +49,24 @@ const CORS = {
 
 function nowIso() { return new Date().toISOString(); }
 
-// Strong normalization: remove spaces, remove non allowed chars, uppercase
+// ---------------- Number helpers ----------------
 function normalizeNumber(n) {
   if (n === undefined || n === null) return '';
   return String(n)
     .trim()
-    .replace(/\s+/g, '')                // remove spaces
-    .replace(/[^A-Za-z0-9\-\_\.]/g, '') // keep letters, digits, -, _, .
+    .replace(/\s+/g, '')
+    .replace(/[^A-Za-z0-9\-\_\.]/g, '')
     .toUpperCase();
 }
 
-// Parse normalized number into prefix + numeric suffix (if any)
-// e.g. COFFEE014 -> { prefix: 'COFFEE', num: 14, raw: 'COFFEE014' }
-// returns num = null when there's no trailing digits
 function parseNumber(raw) {
   const s = normalizeNumber(raw);
-  const m = s.match(/^([A-Z\-\_\.]+)?0*([0-9]+)$/i); // prefix optional, numeric suffix with leading zeros trimmed
+  const m = s.match(/^([A-Z\-\_\.]+)?0*([0-9]+)$/i);
   if (m) {
     const prefix = (m[1] || '').toUpperCase() || '';
     const num = parseInt(m[2], 10);
     return { prefix, num, raw: s };
   }
-  // fallback: maybe letters-only or mixed; try to split letters then digits
   const parts = s.split(/(\d+)/).filter(Boolean);
   if (parts.length >= 2) {
     const prefix = (parts[0] || '').toUpperCase();
@@ -61,7 +74,6 @@ function parseNumber(raw) {
     const num = parseInt(digits, 10);
     return { prefix, num, raw: s };
   }
-  // no numeric suffix
   return { prefix: s.toUpperCase(), num: null, raw: s };
 }
 
@@ -76,24 +88,17 @@ function ticketKeyFor({ ticketId, chatId, theirNumber }) {
   return `${String(chatId)}|${normalizeNumber(theirNumber)}`;
 }
 
-// Redis helpers
+// ---------------- Persistence helpers ----------------
 async function redisGet(key) {
   if (!RedisClient) return null;
-  try {
-    const v = await RedisClient.get(key);
-    return v ? JSON.parse(v) : null;
-  } catch (e) { console.warn('redisGet error', e.message); return null; }
+  try { const v = await RedisClient.get(key); return v ? JSON.parse(v) : null; } catch (e) { console.warn('redisGet error', e.message); return null; }
 }
 async function redisSet(key, val) {
   if (!RedisClient) return;
   try { await RedisClient.set(key, JSON.stringify(val)); } catch (e) { console.warn('redisSet error', e.message); }
 }
-async function redisDel(key) {
-  if (!RedisClient) return;
-  try { await RedisClient.del(key); } catch (e) { console.warn('redisDel error', e.message); }
-}
+async function redisDel(key) { if (!RedisClient) return; try { await RedisClient.del(key); } catch (e) { console.warn('redisDel error', e.message); } }
 
-// Ephemeral file store helpers
 async function loadStore() {
   if (useRedis) return null;
   try {
@@ -104,12 +109,88 @@ async function loadStore() {
   } catch (e) { console.warn('loadStore error', e.message); }
   return { tickets: {}, stats: {} };
 }
-async function saveStore(obj) {
-  if (useRedis) return;
-  try { fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8'); } catch (e) { console.warn('saveStore error', e.message); }
+async function saveStore(obj) { if (useRedis) return; try { fs.writeFileSync(TMP_STORE, JSON.stringify(obj), 'utf8'); } catch (e) { console.warn('saveStore error', e.message); } }
+
+// ---------------- Firebase helpers (optional) ----------------
+function initFirebaseIfNeeded() {
+  if (!FIREBASE_DB_URL || !admin) return false;
+  try {
+    if (admin.apps && admin.apps.length) return true; // already initialized
+
+    // Two ways to authenticate: whole service account JSON in FIREBASE_SERVICE_ACCOUNT,
+    // or using FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.
+    const svc = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (svc) {
+      const parsed = JSON.parse(svc);
+      admin.initializeApp({ credential: admin.credential.cert(parsed), databaseURL: FIREBASE_DB_URL });
+    } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+      const key = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: key,
+        }),
+        databaseURL: FIREBASE_DB_URL,
+      });
+    } else {
+      // last resort: try default credentials
+      admin.initializeApp({ databaseURL: FIREBASE_DB_URL });
+    }
+
+    firebaseDb = admin.database();
+    return true;
+  } catch (e) {
+    console.warn('Firebase init failed:', e.message || e);
+    return false;
+  }
 }
 
-// Telegram helper: ONLY Explore QueueJoy button
+async function cleanFirebaseServed(calledFull, calledSeries, ticketId = null, chatId = null) {
+  if (!initFirebaseIfNeeded()) return { cleaned: 0, note: 'firebase-not-initialized' };
+  const path = FIREBASE_TICKETS_PATH;
+  try {
+    // If ticketId available, prefer to remove that specific node
+    if (ticketId) {
+      const ref = firebaseDb.ref(`${path}/${ticketId}`);
+      const snap = await ref.once('value');
+      if (snap.exists()) {
+        await ref.remove();
+        return { cleaned: 1, by: 'ticketId' };
+      }
+    }
+
+    // Otherwise scan children for matches in same series and remove matching ones
+    const topRef = firebaseDb.ref(path);
+    const snapshot = await topRef.once('value');
+    let removed = 0;
+    snapshot.forEach(child => {
+      try {
+        const data = child.val() || {};
+        const theirNumber = normalizeNumber(data.theirNumber || data.number || data.fullNumber || data.recipientFull || '');
+        const s = seriesOf(theirNumber);
+        if (s && s === calledSeries) {
+          // if theirNumber equals calledFull -> remove
+          if (theirNumber === calledFull) {
+            child.ref.remove();
+            removed += 1;
+          }
+          // also try to remove by matching chatId
+          else if (chatId && String(data.chatId || data.id) === String(chatId)) {
+            child.ref.remove();
+            removed += 1;
+          }
+        }
+      } catch (e) { /* ignore per-child errors */ }
+    });
+    return { cleaned: removed, by: 'scan' };
+  } catch (e) {
+    console.warn('cleanFirebaseServed error', e.message || e);
+    return { cleaned: 0, error: String(e) };
+  }
+}
+
+// ---------------- Telegram ----------------
 async function tgSendMessage(chatId, text, extraRows = []) {
   if (!BOT_TOKEN) return { ok: false, error: 'Missing BOT_TOKEN env' };
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
@@ -121,15 +202,9 @@ async function tgSendMessage(chatId, text, extraRows = []) {
   };
   const exploreRow = [{ text: '👉 Explore QueueJoy', url: 'https://helloqueuejoy.netlify.app' }];
   body.reply_markup = { inline_keyboard: [exploreRow] };
-  if (Array.isArray(extraRows) && extraRows.length) {
-    body.reply_markup.inline_keyboard = [exploreRow].concat(extraRows);
-  }
+  if (Array.isArray(extraRows) && extraRows.length) body.reply_markup.inline_keyboard = [exploreRow].concat(extraRows);
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const res = await fetch(url, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
     const textResp = await res.text().catch(() => null);
     let json = null;
     try { json = textResp ? JSON.parse(textResp) : null; } catch (e) {}
@@ -137,16 +212,14 @@ async function tgSendMessage(chatId, text, extraRows = []) {
   } catch (err) { return { ok: false, error: String(err) }; }
 }
 
-// Main handler
+// ---------------- Main handler ----------------
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Only POST allowed' }) };
   if (!BOT_TOKEN) return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Missing BOT_TOKEN env' }) };
 
   let payload;
-  try { payload = JSON.parse(event.body || '{}'); } catch (e) {
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON body' }) };
-  }
+  try { payload = JSON.parse(event.body || '{}'); } catch (e) { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
 
   const calledFullRaw = String(payload.calledFull || '').trim();
   const calledFull = normalizeNumber(calledFullRaw);
@@ -154,12 +227,9 @@ exports.handler = async function (event) {
   const counterName = payload.counterName ? String(payload.counterName).trim() : '';
   const rawRecipients = Array.isArray(payload.recipients) ? payload.recipients : [];
 
-  if (!calledFull) {
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
-  }
+  if (!calledFull) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'calledFull is required' }) };
 
   const calledSeries = seriesOf(calledFull);
-  // load ephemeral store if needed
   let store = null;
   if (!useRedis) store = await loadStore();
 
@@ -181,18 +251,18 @@ exports.handler = async function (event) {
     if (!existing) {
       dedupe.set(key, { chatId: key, theirNumber, ticketId, createdAt: r?.createdAt || null });
     } else {
-      // prefer exact match if multiple for same chat
       const thisMatches = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
       const existingMatches = existing.theirNumber && existing.theirNumber.toLowerCase() === calledFull.toLowerCase();
       if (!existingMatches && thisMatches) dedupe.set(key, { chatId: key, theirNumber, ticketId, createdAt: r?.createdAt || null });
     }
   }
 
-  if (!dedupe.size) {
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull, calledSeries, sent: 0, message: 'No recipients in same series' }) };
-  }
+  if (!dedupe.size) return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, calledFull, calledSeries, sent: 0, message: 'No recipients in same series' }) };
 
   const results = [];
+  // Initialize Firebase once if available
+  const firebaseAvailable = initFirebaseIfNeeded();
+
   for (const [chatId, item] of dedupe.entries()) {
     const theirNumber = item.theirNumber || '';
     const ticketId = item.ticketId || null;
@@ -200,19 +270,11 @@ exports.handler = async function (event) {
 
     // load ticket
     let ticket = null;
-    if (useRedis) {
-      ticket = await redisGet(`ticket:${key}`);
-    } else {
-      ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
-    }
+    if (useRedis) ticket = await redisGet(`ticket:${key}`);
+    else ticket = (store.tickets && store.tickets[key]) ? store.tickets[key] : null;
 
-    // if ticket already served, skip
-    if (ticket && ticket.servedAt) {
-      results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-already-served' });
-      continue;
-    }
+    if (ticket && ticket.servedAt) { results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-already-served' }); continue; }
 
-    // create if missing
     if (!ticket) {
       ticket = {
         ticketKey: key,
@@ -224,46 +286,33 @@ exports.handler = async function (event) {
         notifiedStayAt: null,
         calledAt: null,
         servedAt: null,
-        lastNotifiedForCalled: null, // avoid re-sending for same calledFull
+        lastNotifiedForCalled: null,
       };
     }
 
     const isMatch = theirNumber && theirNumber.toLowerCase() === calledFull.toLowerCase();
 
-    // If we've already notified this ticket for this exact calledFull, skip (prevents duplicate notifications)
     if (!isMatch && ticket.lastNotifiedForCalled && ticket.lastNotifiedForCalled === calledFull) {
       results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-duplicate-for-same-call', calledFull });
       continue;
     }
 
-    // Reminder send rule:
-    // - If exact match -> send "It's your turn" (serve & remove)
-    // - Else if both called and their numbers have numeric suffixes -> send reminder ONLY if theirNum > calledNum (they are behind)
-    // - Else (no numeric info) -> send reminder (legacy fallback)
     const theirParsed = parseNumber(theirNumber);
     let shouldSendReminder = false;
-    if (isMatch) {
-      shouldSendReminder = true;
-    } else {
-      if (calledParsed.num !== null && theirParsed.num !== null) {
-        // numeric compare
-        shouldSendReminder = theirParsed.num > calledParsed.num;
-      } else {
-        // fallback when numeric parts not available: send reminder (old behavior)
-        shouldSendReminder = true;
-      }
+    if (isMatch) shouldSendReminder = true;
+    else {
+      if (calledParsed.num !== null && theirParsed.num !== null) shouldSendReminder = theirParsed.num > calledParsed.num;
+      else shouldSendReminder = true; // fallback historic behaviour
     }
 
     if (!shouldSendReminder) {
-      // do not send; persist ticket (no change) and continue
-      // but update ticket in store to be safe (no side-effects)
       if (useRedis) await redisSet(`ticket:${key}`, ticket);
       else { store.tickets = store.tickets || {}; store.tickets[key] = ticket; await saveStore(store); }
       results.push({ chatId, theirNumber, ticketKey: key, action: 'skipped-not-behind', reason: 'their number is not behind the called number' });
       continue;
     }
 
-    // Compose message with uniform suffix
+    // Compose message
     const exploreSuffix = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
     let text;
     if (isMatch) {
@@ -273,7 +322,7 @@ exports.handler = async function (event) {
     } else {
       ticket.calledAt = ticket.calledAt || nowIso();
       ticket.notifiedStayAt = nowIso();
-      ticket.lastNotifiedForCalled = calledFull; // mark so we don't re-notify for same call
+      ticket.lastNotifiedForCalled = calledFull;
       text = `🔔 REMINDER\nNumber <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b>. We'll notify you again when it's your turn.${exploreSuffix}`;
     }
 
@@ -285,8 +334,9 @@ exports.handler = async function (event) {
     let sendRes;
     try { sendRes = await tgSendMessage(chatId, text); } catch (e) { sendRes = { ok: false, error: String(e) }; }
 
-    // If exact match -> update stats and remove active ticket
+    // If exact match -> update stats, remove active ticket from store and clean Firebase
     let statUpdate = null;
+    let firebaseCleanResult = null;
     if (isMatch && ticket.servedAt) {
       const createdMs = (new Date(ticket.createdAt)).getTime();
       const servedMs = (new Date(ticket.servedAt)).getTime();
@@ -318,18 +368,18 @@ exports.handler = async function (event) {
         lastServedAt: stats.lastServedAt,
         lastServiceMs: serviceMs,
       };
+
+      // clean from Firebase if possible
+      try { firebaseCleanResult = await cleanFirebaseServed(calledFull, calledSeries, ticket.ticketId, chatId); } catch (e) { firebaseCleanResult = { error: String(e) }; }
     }
 
-    results.push({ chatId, theirNumber, ticketKey: key, action: isMatch ? 'served' : 'reminder', sendRes, statUpdate });
+    results.push({ chatId, theirNumber, ticketKey: key, action: isMatch ? 'served' : 'reminder', sendRes, statUpdate, firebaseCleanResult });
   }
 
   // stats snapshot
   let statsSnapshot = null;
   if (useRedis) {
-    try {
-      const s = await redisGet(`stats:${calledSeries}`);
-      statsSnapshot = s || { series: calledSeries, totalServed: 0 };
-    } catch (e) { statsSnapshot = { series: calledSeries, totalServed: 0 }; }
+    try { const s = await redisGet(`stats:${calledSeries}`); statsSnapshot = s || { series: calledSeries, totalServed: 0 }; } catch (e) { statsSnapshot = { series: calledSeries, totalServed: 0 }; }
   } else {
     statsSnapshot = store.stats && store.stats[calledSeries] ? store.stats[calledSeries] : { series: calledSeries, totalServed: 0 };
   }
@@ -337,15 +387,6 @@ exports.handler = async function (event) {
   return {
     statusCode: 200,
     headers: CORS,
-    body: JSON.stringify({
-      ok: true,
-      calledFull,
-      calledSeries,
-      counterName,
-      sent: results.length,
-      results,
-      statsSnapshot,
-      persistence: useRedis ? 'redis' : 'ephemeral-file',
-    }),
+    body: JSON.stringify({ ok: true, calledFull, calledSeries, counterName, sent: results.length, results, statsSnapshot, persistence: useRedis ? 'redis' : 'ephemeral-file', firebaseAvailable }),
   };
 };
