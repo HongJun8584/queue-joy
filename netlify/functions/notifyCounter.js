@@ -18,7 +18,7 @@ if (REDIS_URL) {
 }
 
 const BOT_TOKEN = process.env.BOT_TOKEN || null;
-const DATABASE_URL = "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app";
+const DATABASE_URL = process.env.DATABASE_URL || "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app";
 const TMP_STORE = '/tmp/queuejoy_store.json';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +31,8 @@ const MOVING_AVG_COUNT = 10; // for last N tickets
 
 // ---------- Helpers ----------
 const nowIso = () => new Date().toISOString();
+const nowMs = () => Date.now();
+
 // stronger normalize: remove extra whitespace, unify separators, uppercase.
 const normalizeNumber = n => {
   if (n === undefined || n === null) return '';
@@ -47,12 +49,34 @@ const normalizeNumber = n => {
 const seriesOf = n => {
   const cleaned = normalizeNumber(n);
   if(!cleaned) return '';
-  // prefer leading letter-group until first digit (allow - _ . in group)
-  const m = cleaned.match(/^([A-Z\-_.]+)[0-9].*$/i);
-  if (m) return m[1].toUpperCase();
-  // fallback: take prefix before first digit or the whole string
+  // prefer leading letter-group until first digit
+  const m = cleaned.match(/^([A-Z\-_.]+)(\d.*)?$/i);
+  if (m) return (m[1]||'').toUpperCase();
+  // fallback: split before first digit
   const parts = cleaned.split(/(\d+)/).filter(Boolean);
   return (parts[0]||'').toUpperCase();
+};
+// extract numeric suffix (e.g. COFFEE001 -> 1). returns NaN if none
+const numericSuffix = s => {
+  if (!s) return NaN;
+  const m = String(s).match(/(\d+)$/);
+  return m ? parseInt(m[1],10) : NaN;
+};
+// return whether theirNumber is strictly behind calledNumber in the same series
+const isBehindCalled = (theirNumber, calledNumber) => {
+  const t = normalizeNumber(theirNumber);
+  const c = normalizeNumber(calledNumber);
+  if(!t || !c) return false;
+  const seriesT = seriesOf(t);
+  const seriesC = seriesOf(c);
+  if (seriesT !== seriesC) return false; // different series -> don't consider behind
+  const tn = numericSuffix(t);
+  const cn = numericSuffix(c);
+  if (!isNaN(tn) && !isNaN(cn)) return tn > cn;
+  // fallback: compare remainder after prefix lexicographically (best effort)
+  const tailT = t.slice(seriesT.length) || t;
+  const tailC = c.slice(seriesC.length) || c;
+  return tailT > tailC;
 };
 const ticketKeyFor = ({ticketId, chatId, theirNumber}) => ticketId ? String(ticketId) : `${String(chatId)}|${normalizeNumber(theirNumber)}`;
 
@@ -92,6 +116,27 @@ async function tgSendMessage(chatId,text,inlineButtons=[]){
   } catch(err){ return {ok:false,error:String(err)}; }
 }
 
+// ---------- Stats helpers ----------
+async function loadSeriesStats(series, store){
+  if(useRedis){
+    const s = await redisGet(`stats:${series}`);
+    if(s) return s;
+    return { totalServed:0, totalServiceMs:0, minServiceMs:null, maxServiceMs:null, movingAvgServiceMsLast10:[] };
+  } else {
+    store.stats = store.stats || {};
+    return store.stats[series] || { totalServed:0, totalServiceMs:0, minServiceMs:null, maxServiceMs:null, movingAvgServiceMsLast10:[] };
+  }
+}
+async function saveSeriesStats(series, stats, store){
+  if(useRedis){
+    await redisSet(`stats:${series}`, stats);
+  } else {
+    store.stats = store.stats || {};
+    store.stats[series] = stats;
+    await saveStore(store);
+  }
+}
+
 // ---------- Main ----------
 exports.handler = async function(event){
   if(event.httpMethod==='OPTIONS') return {statusCode:204,headers:CORS,body:''};
@@ -103,18 +148,18 @@ exports.handler = async function(event){
 
   const calledFullRaw = String(payload.calledFull||'').trim();
   const calledFull = normalizeNumber(calledFullRaw);
-  const counterName = payload.counterName?String(payload.counterName).trim():'';
-  const rawRecipients = Array.isArray(payload.recipients)?payload.recipients:[];
+  const counterName = payload.counterName?String(payload.counterName).trim():''; // friendly label shown to customer
+  const rawRecipients = Array.isArray(payload.recipients)?payload.recipients:[]; // list of recipient objects
   const inlineButtons = Array.isArray(payload.inlineButtons)?payload.inlineButtons:[];
 
   if(!calledFull) return {statusCode:400,headers:CORS,body:JSON.stringify({error:'calledFull required'})};
 
   const calledSeries = seriesOf(calledFull);
+  const calledNumericSuffix = numericSuffix(calledFull);
   let store = null;
   if(!useRedis) store = await loadStore();
 
   // ---------- Deduplicate & normalize ----------
-  // Use ticketKey (ticketId or chatId+theirNumber) so we keep all recipients (including multiple per chatId)
   const dedupe = new Map();
   for(const r of rawRecipients){
     const chatId = r?.chatId||r?.chat_id||r?.id;
@@ -122,10 +167,9 @@ exports.handler = async function(event){
     const theirNumber = normalizeNumber(r?.theirNumber||r?.number||r?.recipientFull||r?.fullNumber||r?.ticketNumber||'');
     if(!theirNumber) continue;
     const recipientSeries = seriesOf(theirNumber);
-    if(recipientSeries!==calledSeries) continue;
+    if(recipientSeries!==calledSeries) continue; // only same series
     const ticketId = r?.ticketId||r?.ticket||null;
     const key = ticketKeyFor({ticketId, chatId, theirNumber});
-    // store every unique ticketKey (no overwriting other recipients in the same chat)
     if(!dedupe.has(key)) {
       dedupe.set(key, { chatId: String(chatId), theirNumber, ticketId, createdAt: r?.createdAt||nowIso() });
     }
@@ -133,24 +177,26 @@ exports.handler = async function(event){
   if(!dedupe.size) return {statusCode:200,headers:CORS,body:JSON.stringify({ok:true,calledFull,calledSeries,sent:0,message:'No recipients in same series'})};
 
   const results=[];
-  const telegramPromises=[]; // array of Promise objects
-  const telegramToResultIndex = []; // parallel map: telegramPromises[i] -> results[telegramToResultIndex[i]]
-
-  const now = Date.now();
+  const telegramPromises=[];
+  const telegramToResultIndex=[];
+  const now = nowMs();
   const nowISO = new Date(now).toISOString();
-  const firebaseUpdates={};
-  let servedCountIncrement = 0; // number of ticketIds we marked served in this run
+  const firebaseUpdates={}; // batched PATCH body for firebase .json
+  let servedCountIncrement = 0;
 
+  // Ensure analytics/servedCount fetch/update later uses ms; we'll patch servedCount separately
   for(const [key,item] of dedupe.entries()){
     const {theirNumber,ticketId,chatId} = item;
     const ticketKey = ticketKeyFor({ticketId, chatId, theirNumber});
     let ticket = useRedis? await redisGet(`ticket:${ticketKey}`) : (store.tickets&&store.tickets[ticketKey])||null;
 
+    // If ticket already served, skip
     if(ticket && ticket.servedAt){
       results.push({chatId,theirNumber,ticketKey,action:'skipped-already-served',reason:'ticket.servedAt present'});
       continue;
     }
 
+    // Build ticket if missing
     if(!ticket){
       ticket = {
         ticketKey:ticketKey,
@@ -158,44 +204,116 @@ exports.handler = async function(event){
         chatId: String(chatId),
         theirNumber,
         series: seriesOf(theirNumber)||calledSeries,
-        createdAt:item.createdAt||nowISO,
+        createdAt:item.createdAt||nowISO, // keep ISO for compatibility
+        createdAtMs: Date.now(), // ensure we keep ms for analytics
         expiresAt: new Date(now+MAX_AGE_MS).toISOString(),
         notifiedStayAt:null,
         calledAt:null,
         servedAt:null,
       };
+    } else {
+      // ensure createdAtMs exists (helps analytics if older tickets used ISO or seconds)
+      if(!ticket.createdAtMs){
+        // try to parse createdAt; if it's numeric and too small treat as seconds and convert
+        const cand = ticket.createdAt;
+        let createdMs = NaN;
+        if (typeof cand === 'number') createdMs = cand;
+        else if (typeof cand === 'string'){
+          const n = Number(cand);
+          if(!isNaN(n)) createdMs = n;
+          else {
+            const d = new Date(cand);
+            createdMs = isNaN(d.getTime())?NaN:d.getTime();
+          }
+        }
+        if (!isNaN(createdMs)) {
+          // if in seconds (e.g. < 1e12) convert to ms
+          if (createdMs < 1000000000000) createdMs = createdMs * 1000;
+          ticket.createdAtMs = createdMs;
+        } else {
+          ticket.createdAtMs = Date.now();
+        }
+      }
     }
 
-    const isMatch = theirNumber.toLowerCase()===calledFull.toLowerCase();
-    const createdMs = new Date(ticket.createdAt).getTime();
-    const ageMs = isNaN(createdMs)?0:now - createdMs;
+    // Is this the exact match -> YOUR TURN
+    const isMatch = theirNumber.toLowerCase() === calledFull.toLowerCase();
 
-    // Cancel stale non-matching
-    if(ageMs>MAX_AGE_MS && !isMatch && ticketId){
-      firebaseUpdates[`/queue/${ticketId}/status`] = 'cancelled';
+    // If not matched, check whether they are behind the called number
+    const behind = !isMatch && isBehindCalled(theirNumber, calledFull);
+
+    // If not behind and not match -> they're ahead/irrelevant -> skip (do not remind)
+    if(!isMatch && !behind){
+      results.push({chatId,theirNumber,ticketKey,action:'skipped-ahead'});
+      continue;
+    }
+
+    // Avoid sending reminder to someone who already was served/cancelled
+    if(ticket.servedAt){
+      results.push({chatId,theirNumber,ticketKey,action:'skipped-already-served'});
+      continue;
+    }
+
+    // Cancel stale non-matching with ticketId (older than MAX_AGE_MS)
+    const createdMs = ticket.createdAtMs || (new Date(ticket.createdAt).getTime() || 0);
+    const ageMs = isNaN(createdMs)?0:now - createdMs;
+    if(ageMs>MAX_AGE_MS && !isMatch && ticket.ticketId){
+      firebaseUpdates[`/queue/${ticket.ticketId}/status`] = 'cancelled';
       results.push({chatId,theirNumber,ticketKey,action:'cancelled-stale'});
+      // persist local ticket as cancelled
+      ticket.expiresAt = new Date(now).toISOString();
+      if(useRedis) await redisSet(`ticket:${ticketKey}`, ticket);
+      else { store.tickets = store.tickets||{}; store.tickets[ticketKey] = ticket; await saveStore(store); }
       continue;
     }
 
     const exploreSuffix = '\n\nCurious how this works? Tap 👉 "Explore QueueJoy" below to see tools your shop can use to keep customers happy.';
     let text;
     if(isMatch){
+      // YOUR TURN: mark served
       ticket.calledAt = nowISO;
       ticket.servedAt = nowISO;
+      ticket.servedAtMs = now;
       text = `🎯 Dear customer,\n\nYour number <b>${calledFull}</b> has been called. Please proceed to <b>${counterName||'the counter'}</b>. Thank you.${exploreSuffix}`;
-      if(ticketId){
-        firebaseUpdates[`/queue/${ticketId}/status`] = 'served';
-        servedCountIncrement += 1;
+      if(ticket.ticketId){
+        firebaseUpdates[`/queue/${ticket.ticketId}/status`] = 'served';
+        firebaseUpdates[`/queue/${ticket.ticketId}/servedAt`] = now;
       }
+      servedCountIncrement += 1;
+
+      // compute serviceMs = servedAtMs - createdAtMs
+      const createdAtMs = ticket.createdAtMs || (new Date(ticket.createdAt).getTime());
+      const serviceMs = (isNaN(createdAtMs) ? 0 : Math.max(0, now - createdAtMs));
+      if(ticket.ticketId){
+        firebaseUpdates[`/queue/${ticket.ticketId}/serviceMs`] = serviceMs;
+      }
+
+      // update series stats
+      const series = ticket.series || calledSeries;
+      const sstats = await loadSeriesStats(series, store);
+      sstats.totalServed = (sstats.totalServed||0) + 1;
+      sstats.totalServiceMs = (sstats.totalServiceMs||0) + serviceMs;
+      sstats.minServiceMs = (sstats.minServiceMs===null) ? serviceMs : Math.min(sstats.minServiceMs, serviceMs);
+      sstats.maxServiceMs = (sstats.maxServiceMs===null) ? serviceMs : Math.max(sstats.maxServiceMs, serviceMs);
+      sstats.movingAvgServiceMsLast10 = sstats.movingAvgServiceMsLast10 || [];
+      sstats.movingAvgServiceMsLast10.push(serviceMs);
+      if(sstats.movingAvgServiceMsLast10.length > MOVING_AVG_COUNT) sstats.movingAvgServiceMsLast10.shift();
+      await saveSeriesStats(series, sstats, store);
+
     } else {
-      ticket.calledAt = ticket.calledAt||nowISO;
+      // REMINDER for people behind the called number
+      ticket.calledAt = ticket.calledAt || nowISO;
       ticket.notifiedStayAt = nowISO;
+      ticket.lastReminderMs = now;
       text = `🔔 REMINDER\nNumber <b>${calledFull}</b> was called. Your number is <b>${theirNumber}</b>. We'll notify you again when it's your turn.${exploreSuffix}`;
+      if(ticket.ticketId){
+        firebaseUpdates[`/queue/${ticket.ticketId}/lastReminderAt`] = now;
+      }
     }
 
-    // Persist ticket
+    // Persist ticket (ephemeral store or redis)
     if(useRedis){
-      await redisSet(`ticket:${ticketKey}`,ticket);
+      await redisSet(`ticket:${ticketKey}`, ticket);
     } else {
       store.tickets = store.tickets||{};
       store.tickets[ticketKey] = ticket;
@@ -205,7 +323,6 @@ exports.handler = async function(event){
     // Prepare result entry and telegram promise mapping (so indexes remain correct)
     const resEntry = {chatId,theirNumber,ticketKey,action:isMatch?'served':'reminder'};
     results.push(resEntry);
-    // push promise and remember which result index it corresponds to
     telegramPromises.push(tgSendMessage(chatId,text,inlineButtons));
     telegramToResultIndex.push(results.length-1);
   }
@@ -217,14 +334,17 @@ exports.handler = async function(event){
     results[resultIndex].sendRes = r.status==='fulfilled'?r.value:{ok:false,error:r.reason};
   });
 
-  // ---------- Update Firebase servedCount in batch ----------
+  // ---------- Update Firebase servedCount + per-queue updates in batch ----------
   if(Object.keys(firebaseUpdates).length>0){
     try{
-      // Fetch current servedCount
+      // Fetch current servedCount (ms-safe integer)
       const servedRes = await fetch(`${DATABASE_URL}/analytics/servedCount.json`);
       const currentServed = await servedRes.json() || 0;
-      firebaseUpdates['/analytics/servedCount'] = currentServed + servedCountIncrement;
-
+      // If we incremented servedCount locally, patch analytics/servedCount
+      if (servedCountIncrement>0){
+        firebaseUpdates['/analytics/servedCount'] = currentServed + servedCountIncrement;
+      }
+      // Patch all updates in one call
       await fetch(`${DATABASE_URL}.json`,{
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
@@ -233,19 +353,25 @@ exports.handler = async function(event){
     } catch(e){ console.warn('Firebase batch update failed',e.message); }
   }
 
-  // ---------- Compute Stats ----------
+  // ---------- Compute Stats Snapshot for returning in response ----------
   const statsSnapshot={series:calledSeries,totalServed:0,totalServiceMs:0,minServiceMs:null,maxServiceMs:null,movingAvgServiceMsLast10:0};
-  if(useRedis){
-    const s = await redisGet(`stats:${calledSeries}`) || {totalServed:0,totalServiceMs:0,minServiceMs:null,maxServiceMs:null,movingAvgServiceMsLast10:[]};
-    statsSnapshot.totalServed = s.totalServed;
-    statsSnapshot.totalServiceMs = s.totalServiceMs;
-    statsSnapshot.minServiceMs = s.minServiceMs;
-    statsSnapshot.maxServiceMs = s.maxServiceMs;
-    statsSnapshot.movingAvgServiceMsLast10 = s.movingAvgServiceMsLast10?.length?s.movingAvgServiceMsLast10.reduce((a,b)=>a+b,0)/s.movingAvgServiceMsLast10.length:0;
-  } else {
-    const seriesStats = store.stats && store.stats[calledSeries];
-    if(seriesStats) Object.assign(statsSnapshot,seriesStats);
-  }
+  try{
+    const s = await (useRedis ? redisGet(`stats:${calledSeries}`) : (store.stats && store.stats[calledSeries]));
+    if(s){
+      statsSnapshot.totalServed = s.totalServed || 0;
+      statsSnapshot.totalServiceMs = s.totalServiceMs || 0;
+      statsSnapshot.minServiceMs = s.minServiceMs || null;
+      statsSnapshot.maxServiceMs = s.maxServiceMs || null;
+      statsSnapshot.movingAvgServiceMsLast10 = (s.movingAvgServiceMsLast10 && s.movingAvgServiceMsLast10.length)
+        ? Math.round(s.movingAvgServiceMsLast10.reduce((a,b)=>a+b,0) / s.movingAvgServiceMsLast10.length)
+        : 0;
+    } else {
+      // if no stats in store, try to read analytics/servedCount for a baseline
+      const servedRes = await fetch(`${DATABASE_URL}/analytics/servedCount.json`);
+      const currentServed = await servedRes.json() || 0;
+      statsSnapshot.totalServed = currentServed;
+    }
+  } catch(e){ console.warn('statsSnapshot', e.message); }
 
   return {
     statusCode:200,
