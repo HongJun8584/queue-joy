@@ -142,82 +142,76 @@
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
         // --- AD handling (robust) ---
-        const adContainer = document.getElementById('adContainer');
-        adContainer.innerHTML = ''; // clear previous
+const adContainer = document.getElementById('adContainer');
+adContainer.innerHTML = ''; // clear previous
 
-        if (s.adImage) {
-          const url = String(s.adImage).trim();
+if (s.adImage) {
+  const url = String(s.adImage).trim();
 
-          // detect video extension (loose)
-          const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+  // detect video extension OR base64 video
+  const isVideo =
+    /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) ||
+    url.startsWith('data:video/');
 
-          if (isVideo) {
-            const videoEl = document.createElement('video');
+  if (isVideo) {
+    const videoEl = document.createElement('video');
 
-            // explicit attributes (helps with autoplay policies & mobile)
-            videoEl.setAttribute('playsinline', '');
-            videoEl.setAttribute('autoplay', '');
-            videoEl.setAttribute('loop', '');
-            videoEl.setAttribute('muted', '');
-            videoEl.setAttribute('preload', 'metadata');
+    // autoplay-safe config
+    videoEl.setAttribute('playsinline', '');
+    videoEl.setAttribute('autoplay', '');
+    videoEl.setAttribute('loop', '');
+    videoEl.setAttribute('muted', '');
+    videoEl.setAttribute('preload', 'metadata');
 
-            // safer DOM props too
-            videoEl.playsInline = true;
-            videoEl.autoplay = true;
-            videoEl.loop = true;
-            videoEl.muted = true;
-            videoEl.preload = 'metadata';
+    videoEl.playsInline = true;
+    videoEl.autoplay = true;
+    videoEl.loop = true;
+    videoEl.muted = true;
+    videoEl.preload = 'metadata';
 
-            videoEl.className = 'w-full object-cover db-image';
+    videoEl.className = 'w-full object-cover db-image';
+    videoEl.src = url;
 
-            // avoid mixed content
-            if (location.protocol === 'https:' && url.startsWith('http:')) {
-              console.warn('Potential mixed-content: page is HTTPS but video is HTTP — browser will block it.');
-            }
+    adContainer.appendChild(videoEl);
 
-            // attach source and try to play
-            videoEl.src = url;
-            adContainer.appendChild(videoEl);
+    videoEl.addEventListener('error', (ev) => {
+      console.warn('Ad video error', ev, videoEl.error && videoEl.error.code);
+    });
 
-            // debug hooks
-            videoEl.addEventListener('error', (ev) => {
-              console.warn('Ad video element error', ev, videoEl.error && videoEl.error.code, videoEl.currentSrc);
-            });
-            videoEl.addEventListener('loadedmetadata', () => {
-              console.info('Ad video metadata loaded', videoEl.currentSrc, 'duration', videoEl.duration);
-            });
+    videoEl.addEventListener('loadedmetadata', () => {
+      console.info('Ad video metadata loaded', videoEl.currentSrc);
+    });
 
-            // Some browsers require an explicit play() call even for autoplay when inserted dynamically.
-            videoEl.play().catch(err => {
-              console.warn('Video play() rejected / failed:', err);
-              // fallback: show controls so user can start it manually
-              videoEl.setAttribute('controls', '');
-            });
+    videoEl.play().catch(err => {
+      console.warn('Video play() failed:', err);
+      videoEl.setAttribute('controls', '');
+    });
 
-          } else {
-            // image or gif
-            const imgEl = document.createElement('img');
-            imgEl.src = url;
-            imgEl.alt = 'Advertisement';
-            imgEl.className = 'w-full object-cover db-image';
-            imgEl.onload = () => console.info('Ad image loaded', url);
-            imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
-            adContainer.appendChild(imgEl);
-          }
+  } else {
+    // image / gif
+    const imgEl = document.createElement('img');
+    imgEl.src = url;
+    imgEl.alt = 'Advertisement';
+    imgEl.className = 'w-full object-cover db-image';
+    imgEl.onload = () => console.info('Ad image loaded', url);
+    imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
+    adContainer.appendChild(imgEl);
+  }
 
-          adContainer.classList.remove('hidden');
-          noAd.classList.add('hidden');
-        } else {
-          adContainer.innerHTML = '';
-          adContainer.classList.add('hidden');
-          noAd.classList.remove('hidden');
-        }
+  adContainer.classList.remove('hidden');
+  noAd.classList.add('hidden');
+
+} else {
+  adContainer.innerHTML = '';
+  adContainer.classList.add('hidden');
+  noAd.classList.remove('hidden');
+}
 
         // ad text and link handling (unchanged)
         adTextEl.textContent = pick(s.adText) || '';
         adTextEl.classList.toggle('hidden', !adTextEl.textContent);
         if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
-        else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
+        else { adLinkEl.href = 'helloqueuejoy.netlify.app'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
 
       }, err => console.warn('settings read failed', err));
 
