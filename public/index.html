@@ -31,10 +31,6 @@
       runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // === Local DB export path (for your reference) ===
-    // Developer: uploaded file path — you can convert/serve this file as needed:
-    const LOCAL_DB_EXPORT_PATH = "/mnt/data/queue-joy-aa21b-default-rtdb-export (6).json";
-
     // ----- Firebase config (unchanged) -----
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -86,10 +82,9 @@
       const errorMessage = document.getElementById('errorMessage');
       const successMessage = document.getElementById('successMessage');
       const adLinkEl = document.getElementById('adLink');
-      const adPanel = document.getElementById('adPanel');
-      const noAd = document.getElementById('noAd');
       const adTextEl = document.getElementById('adText');
-      const smallTopTextEl = document.getElementById('smallTopText'); // <- NEW: top small text element mapping
+      const noAd = document.getElementById('noAd');
+      const smallTopTextEl = document.getElementById('smallTopText');
 
       function showError(msg) {
         console.warn(msg);
@@ -142,88 +137,103 @@
         }
 
         // main headline & intro
-        // main heading uses the new key titleinmiddle (fallbacks preserved)
         mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
-        // intro text uses introText first, otherwise use smallTextOnTop if that's where you put it
         introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
-        // button text keeps CTA override if present
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-// ad (robust video / image handling)
-const adContainer = document.getElementById('adContainer');
-adContainer.innerHTML = ''; // clear previous
+        // --- AD handling (robust) ---
+        const adContainer = document.getElementById('adContainer');
+        adContainer.innerHTML = ''; // clear previous
 
-if (s.adImage) {
-  const url = String(s.adImage).trim();
+        if (s.adImage) {
+          const url = String(s.adImage).trim();
 
-  // detect video extension (loose)
-  const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+          // detect video extension (loose)
+          const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
 
-  if (isVideo) {
-    const videoEl = document.createElement('video');
+          if (isVideo) {
+            const videoEl = document.createElement('video');
 
-    // explicit attributes (helps with autoplay policies & mobile)
-    videoEl.setAttribute('playsinline', ''); // mobile
-    videoEl.setAttribute('autoplay', '');    // request autoplay
-    videoEl.setAttribute('loop', '');        // loop
-    videoEl.setAttribute('muted', '');       // MUST be muted for autoplay
-    videoEl.setAttribute('preload', 'metadata');
+            // explicit attributes (helps with autoplay policies & mobile)
+            videoEl.setAttribute('playsinline', '');
+            videoEl.setAttribute('autoplay', '');
+            videoEl.setAttribute('loop', '');
+            videoEl.setAttribute('muted', '');
+            videoEl.setAttribute('preload', 'metadata');
 
-    // safer DOM props too
-    videoEl.playsInline = true;
-    videoEl.autoplay = true;
-    videoEl.loop = true;
-    videoEl.muted = true;
-    videoEl.preload = 'metadata';
+            // safer DOM props too
+            videoEl.playsInline = true;
+            videoEl.autoplay = true;
+            videoEl.loop = true;
+            videoEl.muted = true;
+            videoEl.preload = 'metadata';
 
-    // class for sizing; .db-image already limits height
-    videoEl.className = 'w-full object-cover db-image';
+            videoEl.className = 'w-full object-cover db-image';
 
-    // avoid mixed content: if your page is https, log if url is http
-    if (location.protocol === 'https:' && url.startsWith('http:')) {
-      console.warn('Potential mixed-content: page is HTTPS but video is HTTP — browser will block it.');
-    }
+            // avoid mixed content
+            if (location.protocol === 'https:' && url.startsWith('http:')) {
+              console.warn('Potential mixed-content: page is HTTPS but video is HTTP — browser will block it.');
+            }
 
-    // set crossorigin if you expect cross-origin CORS issues (optional)
-    // videoEl.crossOrigin = 'anonymous';
+            // attach source and try to play
+            videoEl.src = url;
+            adContainer.appendChild(videoEl);
 
-    // attach source and try to play (play() returns a Promise we can inspect)
-    videoEl.src = url;
-    adContainer.appendChild(videoEl);
+            // debug hooks
+            videoEl.addEventListener('error', (ev) => {
+              console.warn('Ad video element error', ev, videoEl.error && videoEl.error.code, videoEl.currentSrc);
+            });
+            videoEl.addEventListener('loadedmetadata', () => {
+              console.info('Ad video metadata loaded', videoEl.currentSrc, 'duration', videoEl.duration);
+            });
 
-    // debug hooks
-    videoEl.addEventListener('error', (ev) => {
-      console.warn('Ad video element error', ev, videoEl.error && videoEl.error.code, videoEl.currentSrc);
-    });
-    videoEl.addEventListener('loadedmetadata', () => {
-      console.info('Ad video metadata loaded', videoEl.currentSrc, 'duration', videoEl.duration);
-    });
+            // Some browsers require an explicit play() call even for autoplay when inserted dynamically.
+            videoEl.play().catch(err => {
+              console.warn('Video play() rejected / failed:', err);
+              // fallback: show controls so user can start it manually
+              videoEl.setAttribute('controls', '');
+            });
 
-    // Some browsers require an explicit play() call even for autoplay when inserted dynamically.
-    videoEl.play().catch(err => {
-      // Common causes: autoplay blocked (shouldn't happen if muted), user gesture required, or URL blocked
-      console.warn('Video play() rejected / failed:', err);
-      // As fallback show a poster image or let the <video> show controls for user to start
-      videoEl.setAttribute('controls', '');
-    });
+          } else {
+            // image or gif
+            const imgEl = document.createElement('img');
+            imgEl.src = url;
+            imgEl.alt = 'Advertisement';
+            imgEl.className = 'w-full object-cover db-image';
+            imgEl.onload = () => console.info('Ad image loaded', url);
+            imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
+            adContainer.appendChild(imgEl);
+          }
 
-  } else {
-    // image or gif
-    const imgEl = document.createElement('img');
-    imgEl.src = url;
-    imgEl.alt = 'Advertisement';
-    imgEl.className = 'w-full object-cover db-image';
-    imgEl.onload = () => console.info('Ad image loaded', url);
-    imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
-    adContainer.appendChild(imgEl);
-  }
+          adContainer.classList.remove('hidden');
+          noAd.classList.add('hidden');
+        } else {
+          adContainer.innerHTML = '';
+          adContainer.classList.add('hidden');
+          noAd.classList.remove('hidden');
+        }
 
-  adContainer.classList.remove('hidden');
-  noAd.classList.add('hidden');
-} else {
-  adContainer.classList.add('hidden');
-  noAd.classList.remove('hidden');
-}
+        // ad text and link handling (unchanged)
+        adTextEl.textContent = pick(s.adText) || '';
+        adTextEl.classList.toggle('hidden', !adTextEl.textContent);
+        if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
+        else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
+
+      }, err => console.warn('settings read failed', err));
+
+      /* --- auto-redirect if lastQueueId still waiting --- */
+      (async function autoRedirect() {
+        try {
+          const lastQueueId = sessionStorage.getItem('lastQueueId');
+          if (!lastQueueId) return;
+          const snap = await get(child(ref(db), `queue/${lastQueueId}`));
+          if (snap.exists() && snap.val().status === 'waiting') {
+            window.location.href = `status.html?queueId=${lastQueueId}`;
+          }
+        } catch (e) {
+          console.warn('autoRedirect check failed', e);
+        }
+      })();
 
       /* ------------ fetch active counters (deterministic) ------------ */
       async function fetchActiveCounters() {
@@ -233,7 +243,6 @@ if (s.adImage) {
         const raw = [];
         snap.forEach(s => {
           const val = s.val() || {};
-          // normalize active: treat undefined -> active, 'false'/'0'/0 -> inactive
           const activeRaw = val.active;
           const active =
             activeRaw === undefined ||
@@ -248,13 +257,8 @@ if (s.adImage) {
           raw.push({ id: s.key, ...val, _active: !!active });
         });
 
-        // Only counters that are active
         const activeList = raw.filter(c => c && c._active);
 
-        // stable deterministic sort:
-        // 1) explicit numeric 'order' (smallest first). Missing order -> push to end.
-        // 2) numeric id if both numeric
-        // 3) localeCompare (numeric aware)
         activeList.sort((a, b) => {
           const ao = (a.order !== undefined && a.order !== '' && a.order !== null) ? Number(a.order) : Number.POSITIVE_INFINITY;
           const bo = (b.order !== undefined && b.order !== '' && b.order !== null) ? Number(b.order) : Number.POSITIVE_INFINITY;
@@ -274,7 +278,6 @@ if (s.adImage) {
         setLoading(true);
 
         try {
-          // 1) get active counters (snapshot)
           const activeCounters = await fetchActiveCounters();
           console.debug('Active counters:', activeCounters.map(c => ({ id: c.id, order: c.order, active: c._active })));
 
@@ -283,8 +286,7 @@ if (s.adImage) {
             return;
           }
 
-          // 2) Increment the global RR counter (atomic)
-          // <-- uses settings/lastCounterIndex which matches the new key in your DB
+          // round-robin index (atomic)
           const rrRef = ref(db, 'settings/lastCounterIndex');
 
           const rrResult = await runTxWithRetries(rrRef, cur => {
@@ -302,12 +304,9 @@ if (s.adImage) {
             throw new Error('Invalid round-robin counter value returned.');
           }
 
-          // 3) compute index robustly:  A-B-C-A...
           const n = activeCounters.length;
-          const index = ((globalCounter - 1) % n + n) % n; // safe modulo
+          const index = ((globalCounter - 1) % n + n) % n;
           let chosen = activeCounters[index];
-
-          // Safety fallback: if chosen missing (shouldn't happen), pick first active
           if (!chosen) {
             console.warn('Round-robin: chosen counter missing for index, falling back to first active counter', { globalCounter, index, n });
             chosen = activeCounters[0];
@@ -315,7 +314,7 @@ if (s.adImage) {
 
           console.info('Round-robin selected:', { globalCounter, index, chosenId: chosen.id });
 
-          // 4) increment chosen.lastIssued atomically (per-counter)
+          // increment per-counter lastIssued
           const lastIssuedRef = ref(db, `counters/${chosen.id}/lastIssued`);
           const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
           if (!lastIssuedTx || lastIssuedTx.committed !== true) {
@@ -328,7 +327,7 @@ if (s.adImage) {
           const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // 5) push queue entry (single write)
+          // push queue entry
           const newNode = push(ref(db, 'queue'));
           await set(newNode, {
             counterId: chosen.id,
@@ -337,11 +336,9 @@ if (s.adImage) {
             status: 'waiting'
           });
 
-          // store for auto-redirect
           try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
 
           showSuccess(`You're number ${queueId}`);
-          // small delay so user sees the confirmation
           setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 750);
 
         } catch (err) {
@@ -408,11 +405,11 @@ if (s.adImage) {
     <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-    <a id="adLink" href="helloqueuejoy.netlify.app" class="block relative">
-      <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
-        <!-- ad content (img/video) will be injected here dynamically -->
-      </div>
-    </a>
+      <a id="adLink" href="helloqueuejoy.netlify.app" class="block relative">
+        <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
+          <!-- ad content (img/video) will be injected here dynamically -->
+        </div>
+      </a>
       <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
       <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
     </aside>
