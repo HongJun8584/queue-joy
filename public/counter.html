@@ -1,922 +1,713 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Queue Joy - Counter Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .transition-all { transition: all 0.3s ease; }
-        .modal-backdrop {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-        }
-        .slide-up {
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in {
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .pulse-ring {
-            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.5; }
-            100% { transform: scale(0.8); opacity: 1; }
-        }
-        .shake {
-            animation: shake 0.5s;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-        .notification-toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-            animation: slideInRight 0.3s ease-out;
-        }
-        @keyframes slideInRight {
-            from { transform: translateX(400px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ef4444;
-            color: white;
-            border-radius: 9999px;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counter Management - Queue Joy</title>
+  <meta name="description" content="Manage queue counters and call numbers in real-time">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  
+  <style>
+    body { 
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.4s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .pulse-ring {
+      animation: pulseRing 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    @keyframes pulseRing {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.5; }
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      animation: fadeIn 0.2s ease-in;
+    }
+    
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.3s ease-out;
+    }
+    
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(17, 153, 142, 0.4);
+    }
+    
+    .counter-card {
+      background: white;
+      border-radius: 16px;
+      border: 2px solid #e5e7eb;
+      transition: all 0.3s ease;
+    }
+    
+    .counter-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+    }
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+<body class="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen">
 
-    <!-- Notification Container -->
-    <div id="notificationContainer"></div>
-
-    <!-- PIN Modal -->
-    <div id="pinModal" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50">
-        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8 space-y-6 slide-up mx-4">
-            <div class="text-center space-y-3">
-                <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                    </svg>
-                </div>
-                <h1 class="text-2xl font-bold text-gray-800">Counter Access</h1>
-                <p class="text-gray-600">Enter PIN to continue</p>
-            </div>
-
-            <form id="pinForm" class="space-y-4">
-                <div class="relative">
-                    <input
-                        type="password"
-                        id="pinInput"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-center text-lg tracking-wider font-semibold transition-all"
-                        placeholder="Enter PIN"
-                        maxlength="4"
-                        autocomplete="off"
-                    />
-                    <button
-                        type="button"
-                        id="togglePin"
-                        class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div id="pinError" class="hidden">
-                    <p class="text-sm text-red-600 text-center font-medium">❌ Incorrect PIN</p>
-                </div>
-
-                <button
-                    type="submit"
-                    id="pinSubmit"
-                    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                    <span id="pinBtnText">Access Panel</span>
-                </button>
-            </form>
+  <!-- Header -->
+  <header class="bg-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">Counter Management</h1>
+            <p class="text-sm text-gray-500">Queue Joy System</p>
+          </div>
         </div>
-    </div>
-
-    <!-- Main Counter Panel -->
-    <div id="counterPanel" class="hidden min-h-screen p-4 pb-20">
-        <div class="max-w-6xl mx-auto">
-
-            <!-- Header -->
-            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                            <span class="text-3xl">🎯</span>
-                            Counter Dashboard
-                        </h1>
-                        <p class="text-sm text-gray-600 mt-1">Real-time queue management system</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button id="helpBtn" class="p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition-all relative">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </button>
-                        <button id="menuBtn" class="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all relative">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                            </svg>
-                            <span id="newCustomerBadge" class="hidden badge">0</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Counter Type Selection -->
-            <div id="typeStep" class="bg-white rounded-2xl shadow-lg p-8">
-                <div class="text-center mb-8">
-                    <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-2xl font-bold text-gray-800">Choose Counter Setup</h2>
-                    <p class="text-gray-600 mt-2">Select how you want to configure your counters</p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    <button id="multipleCounters" class="group p-6 border-2 border-gray-200 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left">
-                        <div class="w-16 h-16 bg-indigo-100 group-hover:bg-indigo-200 rounded-xl flex items-center justify-center mb-4 transition-all">
-                            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Multiple Counters</h3>
-                        <p class="text-sm text-gray-600">Manage up to 7 service counters simultaneously</p>
-                    </button>
-
-                    <button id="singleCounter" class="group p-6 border-2 border-gray-200 rounded-2xl hover:border-purple-500 hover:bg-purple-50 transition-all text-left">
-                        <div class="w-16 h-16 bg-purple-100 group-hover:bg-purple-200 rounded-xl flex items-center justify-center mb-4 transition-all">
-                            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Single Counter</h3>
-                        <p class="text-sm text-gray-600">Manage one dedicated service counter</p>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Counter Setup -->
-            <div id="setupMode" class="hidden bg-white rounded-2xl shadow-lg p-8">
-                <div class="text-center mb-8">
-                    <div class="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                    </div>
-                    <h2 id="setupTitle" class="text-2xl font-bold text-gray-800">Setup Counters</h2>
-                    <p id="setupDescription" class="text-gray-600 mt-2">Configure your counter settings</p>
-                </div>
-
-                <!-- Multiple Setup -->
-                <div id="multipleSetup" class="hidden max-w-3xl mx-auto">
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="text-sm font-semibold text-gray-700">Select Counters</span>
-                        <span id="counterCount" class="text-sm font-semibold text-indigo-600">0/7 selected</span>
-                    </div>
-                    <div id="counterList" class="space-y-3 max-h-[500px] overflow-y-auto pr-2"></div>
-                </div>
-
-                <!-- Single Setup -->
-                <div id="singleSetup" class="hidden max-w-md mx-auto space-y-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
-                        <input
-                            type="text"
-                            id="singleCounterName"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                            placeholder="e.g., Service Counter"
-                            value="Service Counter"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Prefix</label>
-                        <input
-                            type="text"
-                            id="singleCounterPrefix"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center text-xl font-bold uppercase transition-all"
-                            placeholder="A"
-                            maxlength="7"
-                        />
-                        <p class="text-xs text-gray-500 mt-2">Max 7 characters (A-Z, 0-9)</p>
-                    </div>
-                    <div id="singleError" class="hidden">
-                        <p class="text-sm text-red-600 text-center font-medium">❌ Please fill in all fields</p>
-                    </div>
-                </div>
-
-                <button
-                    id="setupBtn"
-                    class="w-full max-w-md mx-auto block mt-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    disabled
-                >
-                    <span id="setupBtnText">Complete Setup</span>
-                </button>
-            </div>
-
-            <!-- Dashboard -->
-            <div id="dashboardMode" class="hidden space-y-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="countersList"></div>
-
-                <button id="addMoreBtn" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Add More Counters
-                </button>
-            </div>
-
+        <div class="flex gap-2">
+          <button id="addCounterBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-xl shadow-lg flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Add Counter
+          </button>
+          <button id="generateTicketBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-xl shadow-lg flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Generate Ticket
+          </button>
         </div>
+      </div>
     </div>
+  </header>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
-        <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-8 slide-up max-h-[80vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-2xl font-bold text-indigo-600">How It Works</h3>
-                <button id="closeHelp" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            <div class="space-y-5 text-sm text-gray-700">
-                <div class="p-4 bg-blue-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">🔐</span> PIN Access
-                    </h4>
-                    <p>Use PIN <strong>0108</strong> to access the counter panel securely.</p>
-                </div>
-                <div class="p-4 bg-green-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">📞</span> Call Next
-                    </h4>
-                    <p>Issues a new number and updates "Now Serving" display instantly.</p>
-                </div>
-                <div class="p-4 bg-yellow-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">⏭️</span> Skip Number
-                    </h4>
-                    <p>Move to the next queued number without issuing a new one.</p>
-                </div>
-                <div class="p-4 bg-purple-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">🔄</span> Reset Counter
-                    </h4>
-                    <p>Resets both serving and issued numbers back to 1.</p>
-                </div>
-                <div class="p-4 bg-pink-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">🔔</span> Real-time Notifications
-                    </h4>
-                    <p>Get instant alerts when customers take new queue numbers.</p>
-                </div>
-                <div class="p-4 bg-indigo-50 rounded-xl">
-                    <h4 class="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <span class="text-xl">✏️</span> Edit Counters
-                    </h4>
-                    <p>Modify counter names and prefixes from the counter menu.</p>
-                </div>
-            </div>
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div id="countersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Counter cards will be dynamically added here -->
+    </div>
+    
+    <div id="emptyState" class="text-center py-20 hidden">
+      <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+        </svg>
+      </div>
+      <h3 class="text-xl font-semibold text-gray-900 mb-2">No Counters Yet</h3>
+      <p class="text-gray-600 mb-6">Get started by adding your first counter</p>
+      <button id="addCounterBtnEmpty" class="btn-primary text-white font-semibold px-8 py-3 rounded-xl shadow-lg">
+        Add Your First Counter
+      </button>
+    </div>
+  </main>
+
+  <!-- Add/Edit Counter Modal -->
+  <div id="counterModal" class="modal">
+    <div class="modal-content">
+      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl">
+        <h2 id="counterModalTitle" class="text-2xl font-bold">Add Counter</h2>
+      </div>
+      <form id="counterForm" class="p-6 space-y-4">
+        <input type="hidden" id="counterIdInput">
+        
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
+          <input type="text" id="counterNameInput" required maxlength="50" 
+            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors" 
+            placeholder="e.g., COUNTER ICE CREAM">
         </div>
+        
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefix (Max 7 characters)</label>
+          <input type="text" id="counterPrefixInput" required maxlength="7" 
+            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors uppercase" 
+            placeholder="e.g., ICE">
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 btn-primary text-white font-semibold py-3 rounded-xl">
+            Save Counter
+          </button>
+          <button type="button" id="closeCounterModalBtn" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <!-- Menu Dropdown -->
-    <div id="menuDropdown" class="hidden fixed top-20 right-4 bg-white shadow-2xl rounded-2xl p-4 w-64 z-50 slide-up border border-gray-100">
-        <div class="space-y-2">
-            <button id="logoutBtn" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-red-600 transition-colors p-3 rounded-xl hover:bg-red-50">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                Logout
+  <!-- Generate Ticket Modal -->
+  <div id="ticketModal" class="modal">
+    <div class="modal-content">
+      <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 rounded-t-2xl">
+        <h2 class="text-2xl font-bold">Generate Ticket</h2>
+      </div>
+      <form id="ticketForm" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Select Counter</label>
+          <select id="ticketCounterSelect" required 
+            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none transition-colors">
+            <option value="">Choose a counter...</option>
+          </select>
+        </div>
+        
+        <div id="ticketPreview" class="hidden bg-gray-50 rounded-xl p-6 text-center space-y-4">
+          <div class="text-6xl font-bold text-gray-900" id="ticketNumberDisplay">--</div>
+          <div id="ticketQRCode" class="flex justify-center"></div>
+          <p class="text-sm text-gray-600">Scan to check status</p>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" id="generateBtn" class="flex-1 btn-success text-white font-semibold py-3 rounded-xl">
+            Generate Ticket
+          </button>
+          <button type="button" id="printTicketBtn" class="hidden flex-1 bg-indigo-600 text-white font-semibold py-3 rounded-xl hover:bg-indigo-700 transition-colors">
+            Print Ticket
+          </button>
+          <button type="button" id="closeTicketModalBtn" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition-colors">
+            Close
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content max-w-sm">
+      <div class="p-6 text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900 mb-2">Delete Counter?</h3>
+        <p class="text-gray-600 mb-6">This action cannot be undone.</p>
+        <div class="flex gap-3">
+          <button id="confirmDeleteBtn" class="flex-1 bg-red-600 text-white font-semibold py-3 rounded-xl hover:bg-red-700 transition-colors">
+            Delete
+          </button>
+          <button id="cancelDeleteBtn" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, update, remove, push, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const SITE_URL = 'https://queuejoy.netlify.app';
+    const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // DOM Elements
+    const countersGrid = document.getElementById('countersGrid');
+    const emptyState = document.getElementById('emptyState');
+    const addCounterBtn = document.getElementById('addCounterBtn');
+    const addCounterBtnEmpty = document.getElementById('addCounterBtnEmpty');
+    const generateTicketBtn = document.getElementById('generateTicketBtn');
+    
+    const counterModal = document.getElementById('counterModal');
+    const counterModalTitle = document.getElementById('counterModalTitle');
+    const counterForm = document.getElementById('counterForm');
+    const counterIdInput = document.getElementById('counterIdInput');
+    const counterNameInput = document.getElementById('counterNameInput');
+    const counterPrefixInput = document.getElementById('counterPrefixInput');
+    const closeCounterModalBtn = document.getElementById('closeCounterModalBtn');
+    
+    const ticketModal = document.getElementById('ticketModal');
+    const ticketForm = document.getElementById('ticketForm');
+    const ticketCounterSelect = document.getElementById('ticketCounterSelect');
+    const ticketPreview = document.getElementById('ticketPreview');
+    const ticketNumberDisplay = document.getElementById('ticketNumberDisplay');
+    const ticketQRCode = document.getElementById('ticketQRCode');
+    const generateBtn = document.getElementById('generateBtn');
+    const printTicketBtn = document.getElementById('printTicketBtn');
+    const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
+    
+    const deleteModal = document.getElementById('deleteModal');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+    let countersData = {};
+    let deleteTargetId = null;
+    let generatedTicketId = null;
+
+    // Listen to counters
+    const countersRef = ref(db, 'counters');
+    onValue(countersRef, (snapshot) => {
+      countersData = snapshot.val() || {};
+      renderCounters();
+      updateTicketSelect();
+    });
+
+    // Render counters
+    function renderCounters() {
+      const counterIds = Object.keys(countersData);
+      
+      if (counterIds.length === 0) {
+        countersGrid.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      countersGrid.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+      countersGrid.innerHTML = '';
+
+      counterIds.forEach(counterId => {
+        const counter = countersData[counterId];
+        const card = createCounterCard(counterId, counter);
+        countersGrid.appendChild(card);
+      });
+    }
+
+    // Create counter card
+    function createCounterCard(counterId, counter) {
+      const div = document.createElement('div');
+      div.className = 'counter-card p-6 fade-in';
+      
+      const nowServing = counter.nowServing || 0;
+      const lastIssued = counter.lastIssued || 0;
+      const prefix = counter.prefix || '';
+      const isActive = counter.active !== false;
+      const isBusy = counter.busy === true;
+      
+      const nowServingFormatted = `${prefix}${String(nowServing).padStart(3, '0')}`;
+      const nextNumber = nowServing + 1;
+      const nextNumberFormatted = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+      
+      div.innerHTML = `
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">${counter.name || counterId}</h3>
+            <p class="text-sm text-gray-500">${prefix} Series</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="editCounter('${counterId}')" class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors" title="Edit">
+              <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              </svg>
             </button>
-            <a href="/" class="w-full text-left flex items-center gap-3 text-gray-700 font-medium hover:text-indigo-600 transition-colors p-3 rounded-xl hover:bg-indigo-50">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                Customer View
-            </a>
+            <button onclick="deleteCounter('${counterId}')" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors" title="Delete">
+              <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+          </div>
         </div>
-    </div>
+        
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4">
+          <p class="text-sm text-gray-600 mb-1">Now Serving</p>
+          <p class="text-4xl font-bold text-indigo-900 ${isBusy ? 'pulse-ring' : ''}">${nowServingFormatted}</p>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="bg-gray-50 rounded-lg p-3">
+            <p class="text-xs text-gray-500 mb-1">Last Issued</p>
+            <p class="text-xl font-bold text-gray-900">${prefix}${String(lastIssued).padStart(3, '0')}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <p class="text-xs text-gray-500 mb-1">Next Number</p>
+            <p class="text-xl font-bold text-gray-900">${nextNumberFormatted}</p>
+          </div>
+        </div>
+        
+        <div class="flex gap-2">
+          <button onclick="callNext('${counterId}')" ${!isActive || isBusy ? 'disabled' : ''} 
+            class="flex-1 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 disabled:from-gray-300 disabled:to-gray-300 text-white font-semibold py-3 rounded-xl transition-all transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+            Call Next
+          </button>
+          <button onclick="resetCounter('${counterId}')" 
+            class="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-colors" title="Reset">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+      
+      return div;
+    }
 
-    <!-- Firebase & Main Script -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    // Update ticket select dropdown
+    function updateTicketSelect() {
+      ticketCounterSelect.innerHTML = '<option value="">Choose a counter...</option>';
+      Object.keys(countersData).forEach(counterId => {
+        const counter = countersData[counterId];
+        const option = document.createElement('option');
+        option.value = counterId;
+        option.textContent = `${counter.name || counterId} (${counter.prefix || ''})`;
+        ticketCounterSelect.appendChild(option);
+      });
+    }
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-            authDomain: "queue-joy-aa21b.firebaseapp.com",
-            databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "queue-joy-aa21b",
-            storageBucket: "queue-joy-aa21b.appspot.com",
-            messagingSenderId: "950240394209",
-            appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-        };
+    // Add Counter
+    addCounterBtn.addEventListener('click', () => {
+      counterModalTitle.textContent = 'Add Counter';
+      counterForm.reset();
+      counterIdInput.value = '';
+      counterModal.classList.add('show');
+    });
 
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
+    addCounterBtnEmpty.addEventListener('click', () => {
+      counterModalTitle.textContent = 'Add Counter';
+      counterForm.reset();
+      counterIdInput.value = '';
+      counterModal.classList.add('show');
+    });
 
-        let activeCounters = {};
-        let counterType = '';
-        let selectedCounters = [];
-        let prefixes = {};
-        let lastSeenQueue = {};
-        let newCustomerCount = 0;
-        let notificationSound;
+    // Edit Counter
+    window.editCounter = (counterId) => {
+      const counter = countersData[counterId];
+      if (!counter) return;
+      
+      counterModalTitle.textContent = 'Edit Counter';
+      counterIdInput.value = counterId;
+      counterNameInput.value = counter.name || '';
+      counterPrefixInput.value = counter.prefix || '';
+      counterModal.classList.add('show');
+    };
 
-        // Initialize notification sound
-        function initSound() {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.frequency.value = 800;
-            oscillator.type = 'sine';
-            gainNode.gain.value = 0;
-            oscillator.start();
-            notificationSound = { oscillator, gainNode, audioContext };
+    // Save Counter
+    counterForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = counterNameInput.value.trim();
+      const prefix = counterPrefixInput.value.trim().toUpperCase();
+      const counterId = counterIdInput.value;
+      
+      if (!name || !prefix || prefix.length > 7) {
+        alert('Please provide valid counter name and prefix (max 7 characters)');
+        return;
+      }
+      
+      try {
+        if (counterId) {
+          // Update existing counter
+          await update(ref(db, `counters/${counterId}`), {
+            name,
+            prefix
+          });
+        } else {
+          // Create new counter
+          const counterNum = Object.keys(countersData).length + 1;
+          const newCounterId = `counter${counterNum}`;
+          await set(ref(db, `counters/${newCounterId}`), {
+            name,
+            prefix,
+            active: true,
+            busy: false,
+            nowServing: 0,
+            lastIssued: 0,
+            lastAdvanceAt: Date.now()
+          });
         }
+        
+        counterModal.classList.remove('show');
+        counterForm.reset();
+      } catch (error) {
+        console.error('Error saving counter:', error);
+        alert('Failed to save counter');
+      }
+    });
 
-        function playNotificationSound() {
-            if (notificationSound) {
-                const { gainNode } = notificationSound;
-                gainNode.gain.setValueAtTime(0.3, notificationSound.audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, notificationSound.audioContext.currentTime + 0.5);
-            }
-        }
+    // Delete Counter
+    window.deleteCounter = (counterId) => {
+      deleteTargetId = counterId;
+      deleteModal.classList.add('show');
+    };
 
-        // Show notification toast
-        function showNotification(title, message, type = 'info') {
-            const container = document.getElementById('notificationContainer');
-            const toast = document.createElement('div');
+    confirmDeleteBtn.addEventListener('click', async () => {
+      if (!deleteTargetId) return;
+      
+      try {
+        await remove(ref(db, `counters/${deleteTargetId}`));
+        deleteModal.classList.remove('show');
+        deleteTargetId = null;
+      } catch (error) {
+        console.error('Error deleting counter:', error);
+        alert('Failed to delete counter');
+      }
+    });
 
-            const bgColors = {
-                info: 'bg-blue-500',
-                success: 'bg-green-500',
-                warning: 'bg-yellow-500',
-                error: 'bg-red-500'
-            };
+    // Reset Counter
+    window.resetCounter = async (counterId) => {
+      if (!confirm('Reset this counter to 0?')) return;
+      
+      try {
+        await update(ref(db, `counters/${counterId}`), {
+          nowServing: 0,
+          lastIssued: 0,
+          busy: false,
+          lastAdvanceAt: Date.now()
+        });
+      } catch (error) {
+        console.error('Error resetting counter:', error);
+        alert('Failed to reset counter');
+      }
+    };
 
-            toast.className = `notification-toast ${bgColors[type]} text-white p-4 rounded-xl shadow-2xl`;
-            toast.innerHTML = `
-                <div class="flex items-start gap-3">
-                    <div class="text-2xl">${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : '🔔'}</div>
-                    <div class="flex-1">
-                        <p class="font-semibold">${title}</p>
-                        <p class="text-sm opacity-90">${message}</p>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            `;
-
-            container.appendChild(toast);
-            playNotificationSound();
-
-            setTimeout(() => toast.remove(), 5000);
-        }
-
-        // Update badge
-        function updateBadge() {
-            const badge = document.getElementById('newCustomerBadge');
-            if (newCustomerCount > 0) {
-                badge.textContent = newCustomerCount;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-
-        // Check authentication
-        if (sessionStorage.getItem('counterAccess') === 'true') {
-            document.getElementById('pinModal').classList.add('hidden');
-            document.getElementById('counterPanel').classList.remove('hidden');
-            initSound();
-            loadCounters();
-        }
-
-        // PIN handling
-        document.getElementById('togglePin').addEventListener('click', () => {
-            const input = document.getElementById('pinInput');
-            input.type = input.type === 'password' ? 'text' : 'password';
+    // Call Next Number
+    window.callNext = async (counterId) => {
+      const counter = countersData[counterId];
+      if (!counter) return;
+      
+      try {
+        const nowServing = counter.nowServing || 0;
+        const nextNumber = nowServing + 1;
+        const prefix = counter.prefix || '';
+        const calledFull = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+        
+        // Update counter
+        await update(ref(db, `counters/${counterId}`), {
+          nowServing: nextNumber,
+          busy: true,
+          lastAdvanceAt: Date.now()
         });
 
-        document.getElementById('pinForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const pin = document.getElementById('pinInput').value;
-
-            if (pin === '0108') {
-                sessionStorage.setItem('counterAccess', 'true');
-                document.getElementById('pinModal').classList.add('hidden');
-                document.getElementById('counterPanel').classList.remove('hidden');
-                initSound();
-                loadCounters();
-            } else {
-                document.getElementById('pinError').classList.remove('hidden');
-                document.getElementById('pinInput').value = '';
-                document.getElementById('pinInput').classList.add('shake');
-                setTimeout(() => document.getElementById('pinInput').classList.remove('shake'), 500);
+        // Get all waiting queue entries for this counter
+        const queueRef = ref(db, 'queue');
+        const queueSnap = await get(queueRef);
+        
+        const recipients = [];
+        if (queueSnap.exists()) {
+          const allQueue = queueSnap.val();
+          Object.keys(allQueue).forEach(queueKey => {
+            const queueEntry = allQueue[queueKey];
+            // Only include entries assigned to this counter
+            if (queueEntry.counterId === counterId && queueEntry.chatId) {
+              recipients.push({
+                chatId: queueEntry.chatId,
+                theirNumber: queueEntry.queueId,
+                ticketId: queueKey
+              });
             }
-        });
-
-        // Load counters
-        async function loadCounters() {
-            try {
-                const snapshot = await get(ref(database, 'settings/counters'));
-                if (snapshot.exists()) {
-                    activeCounters = snapshot.val();
-                    if (Object.keys(activeCounters).length > 0) {
-                        showDashboard();
-                    } else {
-                        showTypeSelection();
-                    }
-                } else {
-                    showTypeSelection();
-                }
-            } catch (error) {
-                console.error('Error loading counters:', error);
-                showTypeSelection();
-            }
+          });
         }
 
-        function showTypeSelection() {
-            document.getElementById('typeStep').classList.remove('hidden');
-            document.getElementById('setupMode').classList.add('hidden');
-            document.getElementById('dashboardMode').classList.add('hidden');
-        }
-
-        function showSetup() {
-            document.getElementById('typeStep').classList.add('hidden');
-            document.getElementById('setupMode').classList.remove('hidden');
-            document.getElementById('dashboardMode').classList.add('hidden');
-
-            if (counterType === 'multiple') {
-                document.getElementById('setupTitle').textContent = 'Setup Multiple Counters';
-                document.getElementById('setupDescription').textContent = 'Select and configure up to 7 counters';
-                document.getElementById('multipleSetup').classList.remove('hidden');
-                document.getElementById('singleSetup').classList.add('hidden');
-                generateCounterList();
-            } else {
-                document.getElementById('setupTitle').textContent = 'Setup Single Counter';
-                document.getElementById('setupDescription').textContent = 'Configure your service counter';
-                document.getElementById('multipleSetup').classList.add('hidden');
-                document.getElementById('singleSetup').classList.remove('hidden');
-                validateSingleSetup();
-            }
-        }
-
-        function showDashboard() {
-            document.getElementById('typeStep').classList.add('hidden');
-            document.getElementById('setupMode').classList.add('hidden');
-            document.getElementById('dashboardMode').classList.remove('hidden');
-            renderCounters();
-            setupRealtimeListeners();
-        }
-
-        // Counter type selection
-        document.getElementById('multipleCounters').addEventListener('click', () => {
-            counterType = 'multiple';
-            showSetup();
-        });
-
-        document.getElementById('singleCounter').addEventListener('click', () => {
-            counterType = 'single';
-            showSetup();
-        });
-
-        // Generate counter list for multiple setup
-        function generateCounterList() {
-            const list = document.getElementById('counterList');
-            list.innerHTML = '';
-
-            for (let i = 1; i <= 7; i++) {
-                const id = `counter${i}`;
-                const div = document.createElement('div');
-                div.className = 'bg-gray-50 rounded-xl p-4 space-y-3';
-                div.innerHTML = `
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" id="${id}" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" />
-                        <span class="text-lg font-semibold text-gray-800">Counter ${i}</span>
-                    </label>
-                    <div id="${id}-config" class="hidden space-y-3 pl-8">
-                        <input type="text" placeholder="Counter Name" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-field="name" value="Counter ${i}" />
-                        <input type="text" placeholder="Prefix" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase font-bold" data-field="prefix" maxlength="7" />
-                        <div class="error-msg hidden text-sm text-red-600 font-medium"></div>
-                    </div>
-                `;
-
-                const checkbox = div.querySelector(`#${id}`);
-                const config = div.querySelector(`#${id}-config`);
-                const nameInput = config.querySelector('[data-field="name"]');
-                const prefixInput = config.querySelector('[data-field="prefix"]');
-
-                checkbox.addEventListener('change', () => {
-                    if (checkbox.checked) {
-                        if (selectedCounters.length >= 7) {
-                            checkbox.checked = false;
-                            return;
-                        }
-                        selectedCounters.push(id);
-                        config.classList.remove('hidden');
-                        if (!prefixes[id]) prefixes[id] = { name: `Counter ${i}`, prefix: '' };
-                    } else {
-                        selectedCounters = selectedCounters.filter(c => c !== id);
-                        config.classList.add('hidden');
-                        delete prefixes[id];
-                    }
-                    updateCounterCount();
-                    validateMultipleSetup();
-                });
-
-                nameInput.addEventListener('input', (e) => {
-                    if (!prefixes[id]) prefixes[id] = {};
-                    prefixes[id].name = e.target.value;
-                    validateMultipleSetup();
-                });
-
-                prefixInput.addEventListener('input', (e) => {
-                    e.target.value = e.target.value.toUpperCase();
-                    if (!prefixes[id]) prefixes[id] = {};
-                    prefixes[id].prefix = e.target.value;
-                    validateMultipleSetup();
-                });
-
-                list.appendChild(div);
-            }
-        }
-
-        function updateCounterCount() {
-            document.getElementById('counterCount').textContent = `${selectedCounters.length}/7 selected`;
-        }
-
-        function validateMultipleSetup() {
-            const errors = {};
-            const usedPrefixes = new Set();
-
-            selectedCounters.forEach(id => {
-                const config = prefixes[id] || {};
-                const errorDiv = document.querySelector(`#${id}-config .error-msg`);
-
-                if (!config.name?.trim()) {
-                    errors[id] = 'Name required';
-                } else if (!config.prefix) {
-                    errors[id] = 'Prefix required';
-                } else if (!/^[A-Z0-9]{1,7}$/.test(config.prefix)) {
-                    errors[id] = 'Invalid format (A-Z, 0-9, max 7 chars)';
-                } else if (usedPrefixes.has(config.prefix)) {
-                    errors[id] = 'Prefix already used';
-                } else {
-                    usedPrefixes.add(config.prefix);
-                }
-
-                if (errors[id]) {
-                    errorDiv.textContent = errors[id];
-                    errorDiv.classList.remove('hidden');
-                } else {
-                    errorDiv.classList.add('hidden');
-                }
+        // Send notifications via notifyCounter function
+        if (recipients.length > 0) {
+          try {
+            const notifyRes = await fetch(`${SITE_URL}${NOTIFY_ENDPOINT}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                calledFull,
+                counterName: counter.name || counterId,
+                recipients
+              })
             });
-
-            document.getElementById('setupBtn').disabled = !(selectedCounters.length > 0 && Object.keys(errors).length === 0);
+            
+            const notifyData = await notifyRes.json();
+            console.log('Notification results:', notifyData);
+          } catch (notifyErr) {
+            console.error('Failed to send notifications:', notifyErr);
+          }
         }
 
-        // Single counter validation
-        function validateSingleSetup() {
-            const name = document.getElementById('singleCounterName').value.trim();
-            const prefix = document.getElementById('singleCounterPrefix').value.trim().toUpperCase();
-            const isValid = name && prefix && /^[A-Z0-9]{1,7}$/.test(prefix);
+        // Reset busy state after 3 seconds
+        setTimeout(async () => {
+          await update(ref(db, `counters/${counterId}`), { busy: false });
+        }, 3000);
 
-            document.getElementById('singleError').classList.toggle('hidden', isValid || (!name && !prefix));
-            document.getElementById('setupBtn').disabled = !isValid;
+      } catch (error) {
+        console.error('Error calling next:', error);
+        alert('Failed to call next number');
+        await update(ref(db, `counters/${counterId}`), { busy: false });
+      }
+    };
+
+    // Generate Ticket
+    generateTicketBtn.addEventListener('click', () => {
+      ticketForm.reset();
+      ticketPreview.classList.add('hidden');
+      printTicketBtn.classList.add('hidden');
+      generateBtn.classList.remove('hidden');
+      generatedTicketId = null;
+      ticketModal.classList.add('show');
+    });
+
+    ticketForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const counterId = ticketCounterSelect.value;
+      if (!counterId) {
+        alert('Please select a counter');
+        return;
+      }
+      
+      const counter = countersData[counterId];
+      if (!counter) return;
+      
+      try {
+        const lastIssued = counter.lastIssued || 0;
+        const nextTicket = lastIssued + 1;
+        const prefix = counter.prefix || '';
+        const queueId = `${prefix}${String(nextTicket).padStart(3, '0')}`;
+        
+        // Update counter's lastIssued
+        await update(ref(db, `counters/${counterId}`), {
+          lastIssued: nextTicket
+        });
+        
+        // Create queue entry
+        const queueRef = push(ref(db, 'queue'));
+        await set(queueRef, {
+          counterId,
+          queueId,
+          status: 'waiting',
+          timestamp: Date.now()
+        });
+        
+        generatedTicketId = queueRef.key;
+        
+        // Show ticket preview
+        ticketNumberDisplay.textContent = queueId;
+        ticketQRCode.innerHTML = '';
+        
+        const statusUrl = `${SITE_URL}/status.html?queueId=${generatedTicketId}`;
+        const canvas = document.createElement('canvas');
+        await QRCode.toCanvas(canvas, statusUrl, {
+          width: 200,
+          margin: 2,
+          color: {
+            dark: '#1f2937',
+            light: '#ffffff'
+          }
+        });
+        ticketQRCode.appendChild(canvas);
+        
+        ticketPreview.classList.remove('hidden');
+        generateBtn.classList.add('hidden');
+        printTicketBtn.classList.remove('hidden');
+        
+      } catch (error) {
+        console.error('Error generating ticket:', error);
+        alert('Failed to generate ticket');
+      }
+    });
+
+    printTicketBtn.addEventListener('click', () => {
+      window.print();
+    });
+
+    // Close modals
+    closeCounterModalBtn.addEventListener('click', () => {
+      counterModal.classList.remove('show');
+    });
+
+    closeTicketModalBtn.addEventListener('click', () => {
+      ticketModal.classList.remove('show');
+    });
+
+    cancelDeleteBtn.addEventListener('click', () => {
+      deleteModal.classList.remove('show');
+      deleteTargetId = null;
+    });
+
+    // Close modal on backdrop click
+    [counterModal, ticketModal, deleteModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('show');
         }
+      });
+    });
 
-        document.getElementById('singleCounterName').addEventListener('input', validateSingleSetup);
-        document.getElementById('singleCounterPrefix').addEventListener('input', (e) => {
-            e.target.value = e.target.value.toUpperCase();
-            validateSingleSetup();
-        });
-
-        // Setup counters
-        document.getElementById('setupBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('setupBtn');
-            btn.disabled = true;
-            document.getElementById('setupBtnText').textContent = 'Setting up...';
-
-            try {
-                const countersData = {};
-
-                if (counterType === 'single') {
-                    const name = document.getElementById('singleCounterName').value.trim();
-                    const prefix = document.getElementById('singleCounterPrefix').value.trim().toUpperCase();
-                    countersData['counter1'] = { name, prefix, nowServing: 1, lastIssued: 1, active: true };
-                } else {
-                    selectedCounters.forEach(id => {
-                        const config = prefixes[id];
-                        countersData[id] = {
-                            name: config.name.trim(),
-                            prefix: config.prefix.trim().toUpperCase(),
-                            nowServing: 1,
-                            lastIssued: 1,
-                            active: true
-                        };
-                    });
-                }
-
-                await set(ref(database, 'settings/counters'), countersData);
-
-                for (const [id, config] of Object.entries(countersData)) {
-                    await set(ref(database, `counters/${id}`), {
-                        name: config.name,
-                        prefix: config.prefix,
-                        nowServing: config.nowServing,
-                        lastIssued: config.lastIssued,
-                        active: true,
-                        busy: false
-                    });
-                }
-
-                showNotification('Success', 'Counters setup complete!', 'success');
-                activeCounters = countersData;
-                showDashboard();
-            } catch (error) {
-                console.error('Setup error:', error);
-                showNotification('Error', 'Failed to setup counters', 'error');
-            } finally {
-                btn.disabled = false;
-                document.getElementById('setupBtnText').textContent = 'Complete Setup';
-            }
-        });
-
-        // Render counters
-        function renderCounters() {
-            const list = document.getElementById('countersList');
-            list.innerHTML = '';
-
-            Object.entries(activeCounters).forEach(([id, counter]) => {
-                const card = document.createElement('div');
-                card.className = 'bg-white rounded-2xl shadow-lg p-6 space-y-4 hover:shadow-xl transition-all relative border-2 border-transparent hover:border-indigo-200';
-
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">${counter.name}</p>
-                            <p class="text-4xl font-bold text-indigo-600 my-2">${counter.prefix}${String(counter.nowServing).padStart(3, '0')}</p>
-                            <p class="text-xs text-gray-400">Now Serving</p>
-                        </div>
-                        <div class="text-right">
-                            <div class="bg-pink-100 rounded-xl px-4 py-2">
-                                <p class="text-2xl font-bold text-pink-600">${counter.prefix}${String(counter.lastIssued).padStart(3, '0')}</p>
-                                <p class="text-xs text-gray-500">Last Issued</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="feedback-${id}" class="hidden p-3 rounded-xl text-sm font-medium"></div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <button id="call-${id}" class="py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all font-semibold" ${!counter.active ? 'disabled' : ''}>
-                            📞 Call Next
-                        </button>
-                        <button id="skip-${id}" class="py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 hover:scale-105 transition-all font-semibold" ${!counter.active ? 'disabled' : ''}>
-                            ⏭️ Skip
-                        </button>
-                        <button id="reset-${id}" class="py-3 bg-yellow-200 text-yellow-800 rounded-xl hover:bg-yellow-300 hover:scale-105 transition-all font-semibold">
-                            🔄 Reset
-                        </button>
-                        <button id="edit-${id}" class="py-3 bg-blue-200 text-blue-800 rounded-xl hover:bg-blue-300 hover:scale-105 transition-all font-semibold">
-                            ✏️ Edit
-                        </button>
-                    </div>
-
-                    <button id="remove-${id}" class="w-full py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 hover:scale-105 transition-all font-semibold">
-                        🗑️ Remove Counter
-                    </button>
-                `;
-
-                list.appendChild(card);
-                setupCounterActions(id, counter);
-            });
-        }
-
-        // Setup counter actions
-        function setupCounterActions(id, counter) {
-            document.getElementById(`call-${id}`).addEventListener('click', () => handleAction(id, 'call'));
-            document.getElementById(`skip-${id}`).addEventListener('click', () => handleAction(id, 'skip'));
-            document.getElementById(`reset-${id}`).addEventListener('click', () => handleAction(id, 'reset'));
-            document.getElementById(`edit-${id}`).addEventListener('click', () => editCounter(id));
-            document.getElementById(`remove-${id}`).addEventListener('click', () => handleAction(id, 'remove'));
-        }
-
-        async function handleAction(id, action) {
-            const counter = activeCounters[id];
-            if (!counter) return;
-
-            if (action === 'reset' && !confirm(`Reset ${counter.name}?`)) return;
-            if (action === 'remove' && !confirm(`Remove ${counter.name}?`)) return;
-
-            try {
-                const updates = {};
-
-                if (action === 'call') {
-                    const next = counter.lastIssued + 1;
-                    updates[`settings/counters/${id}/lastIssued`] = next;
-                    updates[`settings/counters/${id}/nowServing`] = next;
-                    updates[`counters/${id}/lastIssued`] = next;
-                    updates[`counters/${id}/nowServing`] = next;
-                    showFeedback(id, `✅ ${counter.prefix}${String(next).padStart(3, '0')} called!`, 'success');
-                } else if (action === 'skip') {
-                    const next = counter.nowServing < counter.lastIssued ? counter.nowServing + 1 : counter.lastIssued + 1;
-                    updates[`settings/counters/${id}/nowServing`] = next;
-                    updates[`counters/${id}/nowServing`] = next;
-                    if (next > counter.lastIssued) {
-                        updates[`settings/counters/${id}/lastIssued`] = next;
-                        updates[`counters/${id}/lastIssued`] = next;
-                    }
-                    showFeedback(id, `⏭️ Skipped to ${counter.prefix}${String(next).padStart(3, '0')}`, 'success');
-                } else if (action === 'reset') {
-                    updates[`settings/counters/${id}/nowServing`] = 1;
-                    updates[`settings/counters/${id}/lastIssued`] = 1;
-                    updates[`counters/${id}/nowServing`] = 1;
-                    updates[`counters/${id}/lastIssued`] = 1;
-                    showFeedback(id, `🔄 Reset to ${counter.prefix}001`, 'success');
-                } else if (action === 'remove') {
-                    updates[`settings/counters/${id}`] = null;
-                    updates[`counters/${id}`] = null;
-                    showFeedback(id, `🗑️ ${counter.name} removed`, 'success');
-                }
-
-                await update(ref(database), updates);
-
-                if (action === 'remove') {
-                    delete activeCounters[id];
-                    if (Object.keys(activeCounters).length === 0) showTypeSelection();
-                    else renderCounters();
-                }
-            } catch (error) {
-                console.error('Action error:', error);
-                showFeedback(id, `❌ Error: ${error.message}`, 'error');
-            }
-        }
-
-        async function editCounter(id) {
-            const counter = activeCounters[id];
-            const newName = prompt('Enter new counter name:', counter.name);
-            if (newName && newName.trim() !== counter.name) {
-                try {
-                    await set(ref(database, `settings/counters/${id}/name`), newName.trim());
-                    await set(ref(database, `counters/${id}/name`), newName.trim());
-                    showNotification('Success', 'Counter name updated', 'success');
-                } catch (error) {
-                    showNotification('Error', 'Failed to update name', 'error');
-                }
-            }
-
-            const newPrefix = prompt('Enter new prefix (A-Z, 0-9, max 7):', counter.prefix);
-            if (newPrefix && /^[A-Z0-9]{1,7}$/.test(newPrefix.toUpperCase()) && newPrefix.toUpperCase() !== counter.prefix) {
-                const isUnique = !Object.values(activeCounters).some(c => c.prefix === newPrefix.toUpperCase() && c !== counter);
-                if (isUnique) {
-                    try {
-                        await set(ref(database, `settings/counters/${id}/prefix`), newPrefix.toUpperCase());
-                        await set(ref(database, `counters/${id}/prefix`), newPrefix.toUpperCase());
-                        showNotification('Success', 'Counter prefix updated', 'success');
-                    } catch (error) {
-                        showNotification('Error', 'Failed to update prefix', 'error');
-                    }
-                } else {
-                    showNotification('Error', 'Prefix already in use', 'error');
-                }
-            }
-        }
-
-        function showFeedback(id, message, type) {
-            const feedback = document.getElementById(`feedback-${id}`);
-            feedback.className = `p-3 rounded-xl text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
-            feedback.textContent = message;
-            feedback.classList.remove('hidden');
-            setTimeout(() => feedback.classList.add('hidden'), 3000);
-        }
-
-        // Setup realtime listeners
-        function setupRealtimeListeners() {
-            onValue(ref(database, 'settings/counters'), (snapshot) => {
-                if (snapshot.exists()) {
-                    activeCounters = snapshot.val();
-                    renderCounters();
-                }
-            });
-
-            // Listen for new customers in queue
-            onValue(ref(database, 'queue'), (snapshot) => {
-                if (snapshot.exists()) {
-                    const queue = snapshot.val();
-                    Object.entries(queue).forEach(([ticketId, data]) => {
-                        if (!lastSeenQueue[ticketId] && data.status === 'waiting') {
-                            const counter = Object.values(activeCounters).find(c => c.prefix === data.prefix);
-                            if (counter) {
-                                newCustomerCount++;
-                                updateBadge();
-                                showNotification(
-                                    'New Customer',
-                                    `${data.prefix}${String(data.number).padStart(3, '0')} joined ${counter.name}`,
-                                    'info'
-                                );
-                            }
-                        }
-                        lastSeenQueue[ticketId] = true;
-                    });
-                }
-            });
-        }
-
-        // Menu and help
-        document.getElementById('menuBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const menu = document.getElementById('menuDropdown');
-            menu.classList.toggle('hidden');
-            if (!menu.classList.contains('hidden')) {
-                newCustomerCount = 0;
-                updateBadge();
-            }
-        });
-
-        document.getElementById('helpBtn').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.remove('hidden');
-        });
-
-        document.getElementById('closeHelp').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.add('hidden');
-        });
-
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            sessionStorage.removeItem('counterAccess');
-            location.reload();
-        });
-
-        document.getElementById('addMoreBtn').addEventListener('click', () => {
-            counterType = '';
-            selectedCounters = [];
-            prefixes = {};
-            showTypeSelection();
-        });
-
-        document.addEventListener('click', (e) => {
-            const menu = document.getElementById('menuDropdown');
-            const menuBtn = document.getElementById('menuBtn');
-            if (!menu.contains(e.target) && !menuBtn.contains(e.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-
-        // Close modals on outside click
-        document.getElementById('helpModal').addEventListener('click', (e) => {
-            if (e.target.id === 'helpModal') {
-                document.getElementById('helpModal').classList.add('hidden');
-            }
-        });
-    </script>
+    // Uppercase prefix input
+    counterPrefixInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+  </script>
 </body>
 </html>
