@@ -17,6 +17,7 @@
     .top-controls { z-index:80; position:absolute; right:.75rem; top:.75rem; display:flex; gap:.5rem; }
 
     #adPanelContainer { z-index:40; }
+    #adContainer video, #adContainer img { max-height: 96px; width: 100%; object-fit: cover; border-radius: 0.5rem; display: block; }
     @media (max-width:420px){ .top-controls{ right:.5rem; top:.5rem } }
 
     /* Onboarding Modal Styles */
@@ -266,8 +267,10 @@
   <div id="adPanelContainer" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <img id="adPanel" src="" alt="Advertisement" class="w-full rounded-lg shadow-md hidden max-h-24 object-cover">
-      <div id="noAd" class="text-center text-gray-400 text-sm py-4">No advertisement available</div>
+      <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
+        <!-- ad content injected here: <video> or <img> -->
+      </div>
+      <div id="noAd" class="text-center text-gray-400 text-sm py-4 hidden">No advertisement available</div>
     </div>
   </div>
 
@@ -298,7 +301,7 @@
     const estimatedWaitEl = document.getElementById('estimatedWait');
     const indicator = document.getElementById('statusIndicator');
     const errorMessage = document.getElementById('errorMessage');
-    const adPanel = document.getElementById('adPanel');
+    const adContainer = document.getElementById('adContainer');
     const noAd = document.getElementById('noAd');
     const telegramStatus = document.getElementById('telegramStatus');
     const telegramIcon = document.getElementById('telegramIcon');
@@ -319,12 +322,13 @@
     let avgServiceTimeForCounter = null;
     let currentSlide = 0;
 
+    // ---------- onboarding helpers ----------
     window.nextSlide = function() {
       const slides = document.querySelectorAll('.onboarding-slide');
       slides[currentSlide].classList.remove('active');
       currentSlide = (currentSlide + 1) % slides.length;
       slides[currentSlide].classList.add('active');
-      
+
       if (currentSlide === 2) {
         triggerGenerateLink();
       }
@@ -334,39 +338,36 @@
       onboardingModal.style.display = 'none';
     };
 
-window.connectTelegram = async function() {
-  if (!latestConnectLink) {
-    buttonText.innerHTML = '<span class="spinner-inline"></span>Generating link...';
-    try {
-      latestConnectLink = await generateConnectLink();
-    } catch(e) {
-      latestConnectLink = TELEGRAM_BOT_URL; // fallback
-    }
-  }
+    window.connectTelegram = async function() {
+      if (!latestConnectLink) {
+        buttonText.innerHTML = '<span class="spinner-inline"></span>Generating link...';
+        try {
+          latestConnectLink = await generateConnectLink();
+        } catch(e) {
+          latestConnectLink = TELEGRAM_BOT_URL; // fallback
+        }
+      }
 
-  buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
-  finalConnectButton.disabled = true;
+      buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
+      finalConnectButton.disabled = true;
 
-  // Open the bot link with the unique token
-  const win = window.open(latestConnectLink, '_blank', 'noopener,noreferrer');
+      const win = window.open(latestConnectLink, '_blank', 'noopener,noreferrer');
 
-  // Mark in Firebase that the user clicked connect (so the bot can associate chatId later)
-  if (currentQueueKey) {
-    const token = latestConnectLink.split('start=')[1] || null;
-    if (token) {
-      try {
-        await fetch(`/.netlify/functions/markTokenUsed`, {  // optional, if you implement this
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueKey: currentQueueKey, token })
-        });
-      } catch(e) {}
-    }
-  }
+      if (currentQueueKey) {
+        const token = (latestConnectLink && latestConnectLink.split('start=')[1]) || null;
+        if (token) {
+          try {
+            await fetch(`/.netlify/functions/markTokenUsed`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ queueKey: currentQueueKey, token })
+            });
+          } catch(e){}
+        }
+      }
 
-  setTimeout(() => onboardingModal.style.display = 'none', 500);
-};
-
+      setTimeout(() => onboardingModal.style.display = 'none', 500);
+    };
 
     const showError = (msg) => {
       errorMessage.querySelector('p').textContent = msg;
@@ -374,7 +375,7 @@ window.connectTelegram = async function() {
       setTimeout(() => errorMessage.classList.add('hidden'), 5000);
     };
 
-      function setTelegramUIConnected(connected) {
+    function setTelegramUIConnected(connected) {
       if (connected) {
         telegramStatus.textContent = "Connected — you'll get Telegram notifications";
         telegramStatus.classList.remove('text-gray-600');
@@ -435,33 +436,123 @@ window.connectTelegram = async function() {
       window.location.href = 'https://queuejoy.netlify.app/game.html';
     });
 
+    // ---------- AD handling (supports video URLs and data:video base64) ----------
+    function clearAdContainerPause() {
+      // stop any playing video cleanly before replacing
+      const prev = adContainer.querySelector('video');
+      if (prev) {
+        try { prev.pause(); } catch(e){}
+        try { prev.removeAttribute('src'); } catch(e){}
+      }
+      adContainer.innerHTML = '';
+    }
+
+    function showAdFromUrl(adUrl) {
+      clearAdContainerPause();
+      if (!adUrl) {
+        noAd.classList.remove('hidden');
+        return;
+      }
+
+      const url = String(adUrl).trim();
+      // detect video: URL extension OR data:video/...
+      const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
+
+      noAd.classList.add('hidden');
+
+      if (isVideo) {
+        const videoEl = document.createElement('video');
+
+        // autoplay-safe attributes
+        videoEl.setAttribute('playsinline', '');
+        videoEl.setAttribute('autoplay', '');
+        videoEl.setAttribute('loop', '');
+        videoEl.setAttribute('muted', '');
+        videoEl.setAttribute('preload', 'metadata');
+
+        videoEl.playsInline = true;
+        videoEl.autoplay = true;
+        videoEl.loop = true;
+        videoEl.muted = true;
+        videoEl.preload = 'metadata';
+
+        videoEl.className = 'w-full object-cover db-image';
+        // set src AFTER attributes
+        videoEl.src = url;
+
+        // append then try play
+        adContainer.appendChild(videoEl);
+
+        videoEl.addEventListener('loadedmetadata', () => {
+          // ready
+        });
+
+        videoEl.addEventListener('error', (ev) => {
+          console.warn('Ad video failed to load/play', ev, videoEl.error && videoEl.error.code);
+          // graceful fallback: show controls so user can start it
+          try { videoEl.setAttribute('controls', ''); } catch(e){}
+        });
+
+        // try to start playback (some browsers require explicit play())
+        videoEl.play().catch(err => {
+          console.warn('video.play() rejected:', err);
+          try { videoEl.setAttribute('controls', ''); } catch(e){}
+        });
+
+      } else {
+        // image/gif
+        const imgEl = document.createElement('img');
+        imgEl.src = url;
+        imgEl.alt = 'Advertisement';
+        imgEl.className = 'w-full object-cover db-image';
+        imgEl.onload = () => {};
+        imgEl.onerror = (e) => {
+          console.warn('Ad image failed to load', e, url);
+          clearAdContainerPause();
+          noAd.classList.remove('hidden');
+        };
+        adContainer.appendChild(imgEl);
+      }
+    }
+
+    // subscribe to ad path
     adRef = ref(db, "settings/adImage");
     onValue(adRef, (snap) => {
       const adUrl = snap.val();
-      if (adUrl) { 
-        adPanel.src = adUrl; 
-        adPanel.classList.remove('hidden'); 
-        noAd.classList.add('hidden'); 
-      } else { 
-        adPanel.classList.add('hidden'); 
-        noAd.classList.remove('hidden'); 
+      if (!adUrl) {
+        clearAdContainerPause();
+        noAd.classList.remove('hidden');
+      } else {
+        showAdFromUrl(adUrl);
       }
     });
 
-  function computeEstimatedWaitText(ahead, avgMins) {
-    // prefer a valid positive avg from the counter, otherwise try settings fallback,
-    // finally fall back to a conservative default (3 minutes) — change if you want.
-    let avg = Number(avgMins);
-    if (!Number.isFinite(avg) || avg <= 0) {
-      avg = 3;
+    // ---------- Estimated wait time helpers ----------
+    function formatMinutesToReadable(mins) {
+      const m = Math.max(0, Math.round(mins));
+      if (m === 0) return 'Less than a minute';
+      if (m < 60) return `${m} min`;
+      const hrs = Math.floor(m / 60);
+      const rem = m % 60;
+      return rem === 0 ? `${hrs} hr${hrs > 1 ? 's' : ''}` : `${hrs} hr ${rem} min`;
     }
-  
-    if (ahead === 0) return 'Soon';
-    const est = Math.round(ahead * avg);
-    return `${ahead} person${ahead > 1 ? 's' : ''} — approx ${est} min`;
-  }
 
+    function computeEstimatedWaitText(ahead, avgMins) {
+      let avg = Number(avgMins);
+      if (!Number.isFinite(avg) || avg <= 0) {
+        avg = 3; // fallback average service time in minutes
+      }
 
+      if (!Number.isFinite(ahead) || ahead <= 0) {
+        // you are next or invalid ahead -> show Now or Less than a minute
+        return 'Now';
+      }
+
+      const estMinutes = Math.round(ahead * avg);
+      return `${ahead} person${ahead > 1 ? 's' : ''} — approx ${formatMinutesToReadable(estMinutes)}`;
+    }
+
+    // ---------- main queue logic ----------
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const queueKey = params.get('queueId');
@@ -501,17 +592,16 @@ window.connectTelegram = async function() {
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || counterId;
 
-            // Determine avgServiceTimeForCounter robustly without overwriting other logic
-            let avg = Number(counterData.avgServiceTime);
+            // get avg service time: prefer counter.avgServiceTime, fallback to settings.avgServiceTime, else default 3
+            let avg = Number(counterData && counterData.avgServiceTime);
             if (!Number.isFinite(avg) || avg <= 0) {
-              // try global settings fallback
               try {
                 const sSnap = await get(ref(db, 'settings/avgServiceTime'));
                 if (sSnap.exists()) {
                   const sVal = Number(sSnap.val());
                   avg = (Number.isFinite(sVal) && sVal > 0) ? sVal : 3;
                 } else {
-                  avg = 3; // conservative default
+                  avg = 3;
                 }
               } catch (e) {
                 avg = 3;
@@ -519,7 +609,7 @@ window.connectTelegram = async function() {
             }
             avgServiceTimeForCounter = avg;
 
-
+            // derive numeric portion of queueId (strip prefix letters)
             const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
             const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix,''),10) : NaN;
 
@@ -527,7 +617,12 @@ window.connectTelegram = async function() {
             servingRef = ref(db, `counters/${counterId}/nowServing`);
             onValue(servingRef, (nowSnap) => {
               const currentServing = Number(nowSnap.val() || 0);
-              nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
+              // show now serving padded with prefix
+              if (Number.isFinite(currentServing) && currentServing > 0) {
+                nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
+              } else {
+                nowServingEl.textContent = `--`;
+              }
 
               const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
               peopleAheadEl.textContent = ahead;
@@ -536,6 +631,7 @@ window.connectTelegram = async function() {
               if (ahead === 0) {
                 indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
 
+                // send telegram notify (best-effort)
                 const body = currentQueueData && currentQueueData.chatId
                   ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` }
                   : { message: `🎟 It's now the customer's turn!\nQueue: ${currentQueueKey}` };
@@ -546,6 +642,7 @@ window.connectTelegram = async function() {
                   body: JSON.stringify(body)
                 }).catch(()=>{});
 
+                // short redirect to your-turn page
                 setTimeout(()=> {
                   try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
                 }, 1200);
