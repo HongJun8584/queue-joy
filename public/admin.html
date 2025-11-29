@@ -931,6 +931,12 @@
       updateCharts(queues);
     }
 
+// REPLACE the old onValue(ref(db, 'queue'), ...) block with this entire block
+// — this preserves your analytics logic and also detects status changes (-> calls notifyCounter)
+window._prevQueueState = window._prevQueueState || {};
+window._lastNotify = window._lastNotify || {};
+window._countersMap = window._countersMap || null;
+
 onValue(ref(db, 'queue'), async (snapshot) => {
   // Handle empty DB
   if (!snapshot.exists()) {
@@ -942,10 +948,13 @@ onValue(ref(db, 'queue'), async (snapshot) => {
     ].forEach(id => document.getElementById(id).textContent = '0');
 
     updateCharts([]);
+    // reset cache
+    window._prevQueueState = {};
     return;
   }
 
-  const rawQueues = Object.values(snapshot.val());
+  const raw = snapshot.val(); // object keyed by firebase key
+  const rawQueues = Object.entries(raw).map(([k,v]) => ({ __key: k, ...v }));
   const now = Date.now();
 
   // -------------------------------
@@ -954,11 +963,9 @@ onValue(ref(db, 'queue'), async (snapshot) => {
   const queues = rawQueues
     .map(q => {
       const ts = Number(q.timestamp);
-
       if (!ts || isNaN(ts)) return null;
       if (ts > now + 86400000) return null; // reject >24h future
-      if (ts < 1000000000000) return null;  // reject unrealistic timestamps
-
+      if (ts < 1000000000000) return null;  // reject unrealistic timestamps (ms expected)
       return { ...q, timestamp: ts };
     })
     .filter(Boolean);
@@ -990,10 +997,16 @@ onValue(ref(db, 'queue'), async (snapshot) => {
   // -------------------------------
   // 4️⃣ TOTAL SERVED
   // -------------------------------
-  const servedSnap = await get(ref(db, 'analytics/servedCount'));
-  const served = servedSnap.val() || 0;
-  document.getElementById('analystTotalServed').textContent = served;
-  document.getElementById('analystCompleted').textContent = served;
+  try {
+    const servedSnap = await get(ref(db, 'analytics/servedCount'));
+    const served = servedSnap.val() || 0;
+    document.getElementById('analystTotalServed').textContent = served;
+    document.getElementById('analystCompleted').textContent = served;
+  } catch (e) {
+    console.warn('failed to read analytics/servedCount', e);
+    document.getElementById('analystTotalServed').textContent = '0';
+    document.getElementById('analystCompleted').textContent = '0';
+  }
 
   // -------------------------------
   // 5️⃣ WAIT TIME ANALYTICS (SAFE)
@@ -1042,9 +1055,84 @@ onValue(ref(db, 'queue'), async (snapshot) => {
     .map(([h,c]) => `${h}:00 — ${c} queues`)
     .join('<br>');
 
+  // -------------------------------
+  // 7️⃣ CONNECT TO notifyCounter.js (auto-notify on status change)
+  //    - detects transitions (prev status -> new status)
+  //    - triggers notifyCounter Netlify function when a queue item's status changes to "serving"
+  // -------------------------------
+  try {
+    const prevState = window._prevQueueState || {};
+    // lazy-load counters map to resolve counterId -> friendly name (caching helps)
+    if (!window._countersMap) {
+      try {
+        const countersSnap = await get(ref(db, 'counters'));
+        window._countersMap = countersSnap.exists() ? countersSnap.val() : {};
+      } catch (e) {
+        console.warn('failed to fetch counters map', e);
+        window._countersMap = {};
+      }
+    }
+
+    for (const q of queues) {
+      const key = q.__key;
+      const old = prevState[key];
+      const oldStatus = old ? old.status : null;
+      const newStatus = q.status;
+
+      // status transition detection
+      if (oldStatus !== newStatus) {
+        // trigger notify when a ticket becomes "serving" (you can add other statuses if needed)
+        if (newStatus === 'serving') {
+          const calledFull = q.queueId || q.queueId || q.ticket || q.number || null;
+          // determine counter name from counters map if possible
+          let counterName = q.counterName || '';
+          if (!counterName && q.counterId && window._countersMap && window._countersMap[q.counterId]) {
+            counterName = window._countersMap[q.counterId].name || q.counterId;
+          } else if (!counterName) {
+            counterName = q.counterId || '';
+          }
+
+          if (calledFull) {
+            const notifyKey = `${key}|${calledFull}|serving`;
+            const last = window._lastNotify[notifyKey] || 0;
+            const DEBOUNCE_MS = 3000; // avoid duplicates in short window
+            if (Date.now() - last > DEBOUNCE_MS) {
+              window._lastNotify[notifyKey] = Date.now();
+              // call Netlify function (it will read /queue itself if payload.recipients absent)
+              fetch('/.netlify/functions/notifyCounter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ calledFull, counterName })
+              })
+                .then(res => res.json().catch(()=>null))
+                .then(json => {
+                  console.log('notifyCounter result', calledFull, counterName, json);
+                })
+                .catch(err => {
+                  console.warn('notifyCounter failed', err);
+                });
+            }
+          }
+        }
+
+        // optionally: handle when an item becomes "served" — push a simple analytics refresh or other action
+        // if (newStatus === 'served') { /* optional extra logic */ }
+      }
+    }
+  } catch (e) {
+    console.warn('notifyCounter integration error', e);
+  }
+
+  // update previous snapshot for next diff
+  const newPrev = {};
+  Object.entries(raw).forEach(([k,v]) => { newPrev[k] = v; });
+  window._prevQueueState = newPrev;
+
+  // -------------------------------
+  // 8️⃣ UPDATE CHARTS/UI
+  // -------------------------------
   updateCharts(queues);
 });
-
 
     onValue(ref(db, 'counters'), (snapshot) => {
       if (snapshot.exists()) {
