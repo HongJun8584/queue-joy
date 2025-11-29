@@ -937,203 +937,30 @@ window._prevQueueState = window._prevQueueState || {};
 window._lastNotify = window._lastNotify || {};
 window._countersMap = window._countersMap || null;
 
-onValue(ref(db, 'queue'), async (snapshot) => {
-  // Handle empty DB
-  if (!snapshot.exists()) {
-    [
-      'totalQueues','activeQueues','todayQueues',
-      'analystTotalServed','analystCompleted','analystWaiting',
-      'analystServing','analystCancelled','analystAvgWait',
-      'analystMedianWait','analyst90pWait','analystMaxWait'
-    ].forEach(id => document.getElementById(id).textContent = '0');
-
-    updateCharts([]);
-    // reset cache
-    window._prevQueueState = {};
-    return;
-  }
-
-  const raw = snapshot.val(); // object keyed by firebase key
-  const rawQueues = Object.entries(raw).map(([k,v]) => ({ __key: k, ...v }));
+onValue(ref(db, 'analytics/serviceEvents'), (snap) => {
   const now = Date.now();
-
-  // -------------------------------
-  // 1️⃣ SANITIZE TIMESTAMPS
-  // -------------------------------
-  const queues = rawQueues
-    .map(q => {
-      const ts = Number(q.timestamp);
-      if (!ts || isNaN(ts)) return null;
-      if (ts > now + 86400000) return null; // reject >24h future
-      if (ts < 1000000000000) return null;  // reject unrealistic timestamps (ms expected)
-      return { ...q, timestamp: ts };
-    })
-    .filter(Boolean);
-
-  // -------------------------------
-  // 2️⃣ TODAY COUNT (SAFE)
-  // -------------------------------
-  const todayStart = new Date().setHours(0,0,0,0);
-  const todayEnd = new Date().setHours(24,0,0,0);
-
-  const todayCount = queues.filter(q => 
-    q.timestamp >= todayStart && q.timestamp < todayEnd
-  ).length;
-  document.getElementById('todayQueues').textContent = todayCount;
-
-  // -------------------------------
-  // 3️⃣ BASIC COUNTS
-  // -------------------------------
-  const waiting = queues.filter(q => q.status === 'waiting');
-  const serving = queues.filter(q => q.status === 'serving');
-  const cancelled = queues.filter(q => q.status === 'cancelled');
-
-  document.getElementById('totalQueues').textContent = queues.length;
-  document.getElementById('activeQueues').textContent = waiting.length;
-  document.getElementById('analystWaiting').textContent = waiting.length;
-  document.getElementById('analystServing').textContent = serving.length;
-  document.getElementById('analystCancelled').textContent = cancelled.length;
-
-  // -------------------------------
-  // 4️⃣ TOTAL SERVED
-  // -------------------------------
-  try {
-    const servedSnap = await get(ref(db, 'analytics/servedCount'));
-    const served = servedSnap.val() || 0;
-    document.getElementById('analystTotalServed').textContent = served;
-    document.getElementById('analystCompleted').textContent = served;
-  } catch (e) {
-    console.warn('failed to read analytics/servedCount', e);
-    document.getElementById('analystTotalServed').textContent = '0';
-    document.getElementById('analystCompleted').textContent = '0';
-  }
-
-  // -------------------------------
-  // 5️⃣ WAIT TIME ANALYTICS (SAFE)
-  // -------------------------------
-  const waits = waiting.map(q => (now - q.timestamp) / 60000); // minutes
-
-  if (waits.length === 0) {
-    document.getElementById('analystAvgWait').textContent = 0;
-    document.getElementById('analystMedianWait').textContent = 0;
-    document.getElementById('analyst90pWait').textContent = 0;
-    document.getElementById('analystMaxWait').textContent = 0;
-  } else {
-    waits.sort((a, b) => a - b);
-
-    const avg = Math.round(waits.reduce((a, b) => a + b, 0) / waits.length);
-    const median = Math.round(
-      waits.length % 2 === 0
-      ? (waits[waits.length/2 - 1] + waits[waits.length/2]) / 2
-      : waits[(waits.length - 1) / 2]
-    );
-    const p90 = Math.round(waits[Math.floor(waits.length * 0.9)]);
-    const max = Math.round(waits[waits.length - 1]);
-
-    document.getElementById('analystAvgWait').textContent = Math.max(0, avg);
-    document.getElementById('analystMedianWait').textContent = Math.max(0, median);
-    document.getElementById('analyst90pWait').textContent = Math.max(0, p90);
-    document.getElementById('analystMaxWait').textContent = Math.max(0, max);
-  }
-
-  // -------------------------------
-  // 6️⃣ BUSIEST HOURS (LAST 7 DAYS)
-  // -------------------------------
-  const last7 = now - 7*24*60*60*1000;
-  const recent = queues.filter(q => q.timestamp >= last7);
-
-  const hourCount = {};
-  recent.forEach(q => {
-    const h = new Date(q.timestamp).getHours();
-    hourCount[h] = (hourCount[h] || 0) + 1;
+  const ONE_YEAR = 365*24*60*60*1000;
+  const raw = snap.exists() ? Object.values(snap.val()) : [];
+  const parsed = raw.map(e => {
+    const serviceMs = parseServiceMs(e);
+    const servedAt = parseServedAt(e?.servedAt);
+    return { raw: e, serviceMs, servedAt };
+  }).filter(x => {
+    if (!Number.isFinite(x.servedAt) || x.servedAt <= 0) return false;
+    if (x.servedAt < now - ONE_YEAR || x.servedAt > now + 7*24*60*60*1000) return false;
+    if (!Number.isFinite(x.serviceMs) || x.serviceMs < 0) return false;
+    return true;
   });
-
-  // Render busiest hours
-  const busiestDiv = document.getElementById('busiestHours');
-  busiestDiv.innerHTML = Object.entries(hourCount)
-    .sort((a,b) => b[1] - a[1])
-    .map(([h,c]) => `${h}:00 — ${c} queues`)
-    .join('<br>');
-
-  // -------------------------------
-  // 7️⃣ CONNECT TO notifyCounter.js (auto-notify on status change)
-  //    - detects transitions (prev status -> new status)
-  //    - triggers notifyCounter Netlify function when a queue item's status changes to "serving"
-  // -------------------------------
-  try {
-    const prevState = window._prevQueueState || {};
-    // lazy-load counters map to resolve counterId -> friendly name (caching helps)
-    if (!window._countersMap) {
-      try {
-        const countersSnap = await get(ref(db, 'counters'));
-        window._countersMap = countersSnap.exists() ? countersSnap.val() : {};
-      } catch (e) {
-        console.warn('failed to fetch counters map', e);
-        window._countersMap = {};
-      }
-    }
-
-    for (const q of queues) {
-      const key = q.__key;
-      const old = prevState[key];
-      const oldStatus = old ? old.status : null;
-      const newStatus = q.status;
-
-      // status transition detection
-      if (oldStatus !== newStatus) {
-        // trigger notify when a ticket becomes "serving" (you can add other statuses if needed)
-        if (newStatus === 'serving') {
-          const calledFull = q.queueId || q.queueId || q.ticket || q.number || null;
-          // determine counter name from counters map if possible
-          let counterName = q.counterName || '';
-          if (!counterName && q.counterId && window._countersMap && window._countersMap[q.counterId]) {
-            counterName = window._countersMap[q.counterId].name || q.counterId;
-          } else if (!counterName) {
-            counterName = q.counterId || '';
-          }
-
-          if (calledFull) {
-            const notifyKey = `${key}|${calledFull}|serving`;
-            const last = window._lastNotify[notifyKey] || 0;
-            const DEBOUNCE_MS = 3000; // avoid duplicates in short window
-            if (Date.now() - last > DEBOUNCE_MS) {
-              window._lastNotify[notifyKey] = Date.now();
-              // call Netlify function (it will read /queue itself if payload.recipients absent)
-              fetch('/.netlify/functions/notifyCounter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ calledFull, counterName })
-              })
-                .then(res => res.json().catch(()=>null))
-                .then(json => {
-                  console.log('notifyCounter result', calledFull, counterName, json);
-                })
-                .catch(err => {
-                  console.warn('notifyCounter failed', err);
-                });
-            }
-          }
-        }
-
-        // optionally: handle when an item becomes "served" — push a simple analytics refresh or other action
-        // if (newStatus === 'served') { /* optional extra logic */ }
-      }
-    }
-  } catch (e) {
-    console.warn('notifyCounter integration error', e);
-  }
-
-  // update previous snapshot for next diff
-  const newPrev = {};
-  Object.entries(raw).forEach(([k,v]) => { newPrev[k] = v; });
-  window._prevQueueState = newPrev;
-
-  // -------------------------------
-  // 8️⃣ UPDATE CHARTS/UI
-  // -------------------------------
-  updateCharts(queues);
+  const totalServed = parsed.length;
+  const allServiceMs = parsed.map(p => p.serviceMs);
+  const avgWaitMin = totalServed === 0 ? 0 : Math.round(allServiceMs.reduce((a,b)=>a+b,0) / totalServed / 60000);
+  const medWaitMin = percentileMs(allServiceMs, 50);
+  setText('analystTotalServed', totalServed);
+  setText('analystCompleted', totalServed);
+  document.getElementById('analystAvgWait').textContent = avgWaitMin;
+  document.getElementById('analystMedianWait').textContent = medWaitMin;
+  // Add other updates from new script as needed (e.g., charts, busiest hours)
 });
-
     onValue(ref(db, 'counters'), (snapshot) => {
       if (snapshot.exists()) {
         const counters = Object.values(snapshot.val());
