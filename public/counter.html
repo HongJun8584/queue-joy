@@ -3,687 +3,648 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Counter Management - Queue Joy</title>
+  <title>Counter Management — Queue Joy</title>
 
+  <!-- NOTE: Tailwind CDN shows a development warning in the console (expected).
+       For production, build Tailwind via CLI/PostCSS to remove that message. -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
   <style>
-    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-    .fade-in { animation: fadeIn 0.35s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
-    .pulse-ring { animation: pulseRing 1.5s cubic-bezier(0.4,0,0.6,1) infinite; }
-    @keyframes pulseRing { 0%,100%{ transform: scale(1); opacity:1 } 50%{ transform: scale(1.08); opacity:0.6 } }
-    .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background: rgba(0,0,0,0.6); }
-    .modal.show { display:flex; align-items:center; justify-content:center; }
-    .modal-content { background:white; border-radius:16px; width:92%; max-width:760px; max-height:90vh; overflow:auto; box-shadow:0 25px 60px rgba(0,0,0,0.25); }
-    .btn-primary { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); }
-    .btn-success { background: linear-gradient(135deg,#11998e 0%,#38ef7d 100%); }
-    .btn-primary, .btn-success { transition: transform .18s ease, box-shadow .18s ease; color:white; }
-    .btn-primary:hover, .btn-success:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0,0,0,0.12); }
+    :root { --card-bg: #ffffff; }
+    body { font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:linear-gradient(180deg,#eef2ff 0%, #fff0f6 100%); }
+    .fade-in { animation: fadeIn .35s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+    .modal { display:none; position:fixed; inset:0; background: rgba(10,11,13,0.5); z-index:50; align-items:center; justify-content:center; }
+    .modal.show { display:flex; }
+    .card { background: var(--card-bg); border-radius:14px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); }
+    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color:white; }
+    .btn-success { background: linear-gradient(135deg,#10b981,#14b8a6); color:white; }
+    .muted { color:#6b7280; }
+    /* small responsive QR preview */
+    .qr-preview { width: 320px; height: auto; border-radius:12px; overflow:hidden; }
   </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen">
 
+<body>
   <!-- Header -->
-  <header class="bg-white shadow">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+  <header class="bg-white/80 backdrop-blur-sm py-4 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 flex items-center justify-between">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow">
-          <!-- icon -->
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+        <div class="p-3 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
         </div>
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Counter Management</h1>
-          <p class="text-sm text-gray-500">Queue Joy System</p>
+          <h1 class="text-lg font-bold">Counter Management</h1>
+          <div class="text-sm muted">Queue Joy — Admin Console</div>
         </div>
       </div>
 
       <div class="flex gap-3">
-        <button id="addCounterBtn" class="btn-primary px-5 py-2 rounded-xl font-semibold">Add Counter</button>
-        <button id="generateTicketBtn" class="btn-success px-5 py-2 rounded-xl font-semibold">Generate Ticket</button>
+        <button id="addCounterBtn" class="btn-primary px-4 py-2 rounded-md font-semibold">Add Counter</button>
+        <button id="generateTicketBtn" class="btn-success px-4 py-2 rounded-md font-semibold">Generate Ticket</button>
       </div>
     </div>
   </header>
 
   <!-- Main -->
-  <main class="max-w-7xl mx-auto px-4 py-8">
-    <div id="countersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <div id="countersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
-    <div id="emptyState" class="text-center py-20 hidden">
-      <div class="mx-auto w-28 h-28 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-        <svg class="w-12 h-12 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 11h16M4 15h16" /></svg>
+    <div id="emptyState" class="text-center py-24 hidden">
+      <div class="mx-auto w-28 h-28 bg-gray-100 rounded-full mb-4 flex items-center justify-center">
+        <svg class="w-12 h-12 text-gray-400" viewBox="0 0 24 24"><path d="M4 7h16M4 11h16M4 15h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </div>
-      <h3 class="text-xl font-semibold text-gray-900 mb-2">No Counters Yet</h3>
-      <p class="text-gray-600 mb-6">Get started by adding your first counter</p>
-      <button id="addCounterBtnEmpty" class="btn-primary px-6 py-2 rounded-xl font-semibold">Add Your First Counter</button>
+      <h3 class="text-xl font-semibold">No counters yet</h3>
+      <p class="muted mt-2 mb-4">Create counters to start issuing tickets</p>
+      <button id="addCounterBtnEmpty" class="btn-primary px-5 py-2 rounded-md font-semibold">Add First Counter</button>
     </div>
   </main>
 
-  <!-- Add / Edit Counter Modal -->
+  <!-- Add/Edit Counter Modal -->
   <div id="counterModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-tl-lg rounded-tr-lg">
-        <h2 id="counterModalTitle" class="text-2xl font-bold">Add Counter</h2>
+    <div class="card w-full max-w-xl">
+      <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tl-md rounded-tr-md">
+        <div class="flex items-center justify-between">
+          <h3 id="counterModalTitle" class="text-lg font-semibold">Add Counter</h3>
+          <button id="closeCounterModalBtn" class="text-white/90">✕</button>
+        </div>
       </div>
 
       <form id="counterForm" class="p-6 space-y-4">
-        <input type="hidden" id="counterIdInput">
+        <input type="hidden" id="counterIdInput" />
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
-          <input id="counterNameInput" maxlength="50" required class="w-full px-4 py-3 border rounded-xl" placeholder="e.g., COUNTER ICE CREAM" />
+          <label class="text-sm font-semibold">Counter Name</label>
+          <input id="counterNameInput" required maxlength="50" class="mt-2 w-full px-4 py-3 border rounded-md" placeholder="e.g., COUNTER ICE CREAM" />
         </div>
 
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefix (Max 7 characters)</label>
-          <input id="counterPrefixInput" maxlength="7" required class="w-full px-4 py-3 border rounded-xl uppercase" placeholder="e.g., ICE" />
+          <label class="text-sm font-semibold">Prefix (max 7 chars)</label>
+          <input id="counterPrefixInput" required maxlength="7" class="mt-2 w-full px-4 py-3 border rounded-md uppercase" placeholder="e.g., ICE" />
         </div>
 
         <div class="flex gap-3">
-          <button type="submit" class="btn-primary flex-1 py-3 rounded-xl font-semibold">Save Counter</button>
-          <button type="button" id="closeCounterModalBtn" class="bg-gray-100 flex-1 py-3 rounded-xl font-semibold">Cancel</button>
+          <button type="submit" class="btn-primary flex-1 px-4 py-3 rounded-md font-semibold">Save</button>
+          <button type="button" id="cancelCounterBtn" class="bg-gray-100 flex-1 px-4 py-3 rounded-md font-semibold">Cancel</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Generate Ticket Modal -->
+  <!-- Generate Ticket Modal (beautiful UI) -->
   <div id="ticketModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 rounded-tl-lg rounded-tr-lg">
-        <h2 class="text-2xl font-bold">Generate Ticket</h2>
+    <div class="card w-full max-w-3xl overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-green-600 to-teal-600 text-white flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Generate Ticket</h3>
+        <button id="closeTicketModalBtn" class="text-white/90">✕</button>
       </div>
 
-      <form id="ticketForm" class="p-6 space-y-4">
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Select Counter</label>
-          <select id="ticketCounterSelect" class="w-full px-4 py-3 border rounded-xl" required>
-            <option value="">Choose a counter...</option>
-          </select>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+      <form id="ticketForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="md:col-span-2 space-y-4">
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">QR Background</label>
-            <input id="qrBgColor" type="color" value="#ffffff" class="w-full h-12 p-1 rounded-xl border" title="Background color behind QR"/>
+            <label class="text-sm font-semibold">Select Counter</label>
+            <select id="ticketCounterSelect" required class="mt-2 w-full px-4 py-3 border rounded-md">
+              <option value="">Choose a counter...</option>
+            </select>
           </div>
 
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Overlay Text (optional)</label>
-            <input id="qrOverlayText" placeholder="e.g., QueueJoy — Scan to check status" class="w-full px-4 py-3 border rounded-xl"/>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-semibold">QR Background</label>
+              <input id="qrBgColor" type="color" value="#ffffff" class="mt-2 w-full h-12 rounded-md border p-1"/>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold">Text Color</label>
+              <input id="qrTextColor" type="color" value="#111827" class="mt-2 w-full h-12 rounded-md border p-1"/>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold">Overlay Text</label>
+              <input id="qrOverlayText" placeholder="e.g., QueueJoy — Scan to check status" class="mt-2 w-full px-3 py-2 border rounded-md" />
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold">Font Size</label>
+              <input id="qrFontSize" type="number" min="12" max="36" value="18" class="mt-2 w-full px-3 py-2 border rounded-md" />
+            </div>
+
+            <div class="col-span-2">
+              <label class="text-sm font-semibold">Optional Logo (will be embedded)</label>
+              <input id="qrLogoFile" type="file" accept="image/*" class="mt-2" />
+              <p class="text-xs muted mt-1">Client-side only. If provided, the logo is drawn in the card (no upload).</p>
+            </div>
+
+            <div class="col-span-2">
+              <label class="text-sm font-semibold">Base URL for QR (leave to default if unsure)</label>
+              <input id="baseUrlInput" type="url" placeholder="https://queuejoy.netlify.app" class="mt-2 w-full px-3 py-2 border rounded-md" />
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-4">
+            <button id="generateBtn" type="submit" class="btn-success px-4 py-3 rounded-md font-semibold flex-1">Generate Ticket & QR</button>
+            <button id="openStatusBtn" type="button" class="bg-indigo-600 text-white px-4 py-3 rounded-md font-semibold" disabled>Open Status</button>
+            <button id="downloadQRBtn" type="button" class="bg-gray-100 px-4 py-3 rounded-md font-semibold" disabled>Download PNG</button>
           </div>
         </div>
 
-        <div id="ticketPreview" class="hidden bg-gray-50 rounded-xl p-6 text-center space-y-4">
-          <div class="text-5xl font-bold text-gray-900" id="ticketNumberDisplay">--</div>
-          <div id="ticketQRCode" class="flex justify-center"></div>
-          <div class="flex justify-center gap-3">
-            <button id="downloadQRBtn" type="button" class="btn-success px-5 py-2 rounded-xl font-semibold">Download PNG</button>
-            <button id="openStatusBtn" type="button" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-semibold">Open Status</button>
+        <!-- Preview column -->
+        <div class="flex flex-col items-center justify-start gap-4">
+          <div class="text-sm muted">Ticket Preview</div>
+          <div id="ticketPreviewCard" class="card p-4 w-full flex flex-col items-center gap-4">
+            <div id="ticketNumberDisplay" class="text-4xl font-extrabold">—</div>
+            <div id="ticketQRCode" class="qr-preview bg-white p-3 rounded-md flex items-center justify-center"></div>
+            <div id="ticketInfo" class="text-sm muted text-center">After generation you'll see a merged QR + background + text. Downloadable PNG included.</div>
           </div>
-        </div>
-
-        <div class="flex gap-3">
-          <button type="submit" id="generateBtn" class="btn-success flex-1 py-3 rounded-xl font-semibold">Generate Ticket</button>
-          <button type="button" id="closeTicketModalBtn" class="bg-gray-100 flex-1 py-3 rounded-xl font-semibold">Close</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Confirm Delete Modal -->
+  <!-- Delete Modal -->
   <div id="deleteModal" class="modal" aria-hidden="true">
-    <div class="modal-content max-w-sm p-6 text-center">
-      <div class="w-16 h-16 rounded-full bg-red-100 mx-auto flex items-center justify-center mb-4">
-        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3" /></svg>
-      </div>
-      <h3 class="text-xl font-bold mb-2">Delete Counter?</h3>
-      <p class="text-gray-600 mb-6">This action cannot be undone.</p>
+    <div class="card p-6 max-w-sm text-center">
+      <h4 class="text-lg font-semibold mb-2">Delete Counter?</h4>
+      <p class="muted mb-4">This action cannot be undone.</p>
       <div class="flex gap-3">
-        <button id="confirmDeleteBtn" class="bg-red-600 text-white flex-1 py-3 rounded-xl font-semibold">Delete</button>
-        <button id="cancelDeleteBtn" class="bg-gray-100 flex-1 py-3 rounded-xl font-semibold">Cancel</button>
+        <button id="confirmDeleteBtn" class="bg-red-600 text-white px-4 py-2 rounded-md flex-1">Delete</button>
+        <button id="cancelDeleteBtn" class="bg-gray-100 px-4 py-2 rounded-md flex-1">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase + App -->
+  <!-- Firebase + logic -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getDatabase, ref, onValue, set, update, remove, push, get, runTransaction
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getDatabase, ref, onValue, set, update, remove, push, get, runTransaction
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // Keep your SITE and notify endpoint same as original
-    const SITE_URL = 'https://queuejoy.netlify.app';
-    const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
+  // dynamic import of ESM qrcode build to avoid "QRCode is not defined"
+  const QR = await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.esm.min.js');
+  // QR exposes toCanvas and toDataURL as named exports (we'll use toCanvas)
 
-    // Your firebase config (kept from your original file)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.firebasestorage.app",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+  // YOUR SITE & NOTIFY ENDPOINT
+  const DEFAULT_SITE_URL = 'https://queuejoy.netlify.app'; // change if needed
+  const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
+
+  // Firebase config (kept from your original file)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+    authDomain: "queue-joy-aa21b.firebaseapp.com",
+    databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "queue-joy-aa21b",
+    storageBucket: "queue-joy-aa21b.firebasestorage.app",
+    messagingSenderId: "950240394209",
+    appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // DOM refs
+  const countersGrid = document.getElementById('countersGrid');
+  const emptyState = document.getElementById('emptyState');
+
+  const addCounterBtn = document.getElementById('addCounterBtn');
+  const addCounterBtnEmpty = document.getElementById('addCounterBtnEmpty');
+
+  const counterModal = document.getElementById('counterModal');
+  const counterForm = document.getElementById('counterForm');
+  const counterIdInput = document.getElementById('counterIdInput');
+  const counterNameInput = document.getElementById('counterNameInput');
+  const counterPrefixInput = document.getElementById('counterPrefixInput');
+  const counterModalTitle = document.getElementById('counterModalTitle');
+  const closeCounterModalBtn = document.getElementById('closeCounterModalBtn');
+  const cancelCounterBtn = document.getElementById('cancelCounterBtn');
+
+  const ticketModal = document.getElementById('ticketModal');
+  const ticketForm = document.getElementById('ticketForm');
+  const ticketCounterSelect = document.getElementById('ticketCounterSelect');
+  const ticketPreview = document.getElementById('ticketPreviewCard');
+  const ticketNumberDisplay = document.getElementById('ticketNumberDisplay');
+  const ticketQRCode = document.getElementById('ticketQRCode');
+  const downloadQRBtn = document.getElementById('downloadQRBtn');
+  const openStatusBtn = document.getElementById('openStatusBtn');
+  const generateBtn = document.getElementById('generateBtn');
+  const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
+
+  const qrBgColor = document.getElementById('qrBgColor');
+  const qrTextColor = document.getElementById('qrTextColor');
+  const qrOverlayText = document.getElementById('qrOverlayText');
+  const qrFontSize = document.getElementById('qrFontSize');
+  const qrLogoFile = document.getElementById('qrLogoFile');
+  const baseUrlInput = document.getElementById('baseUrlInput');
+
+  const deleteModal = document.getElementById('deleteModal');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+  let countersData = {};
+  let deleteTargetId = null;
+  let generatedTicketId = null;
+  let generatedStatusUrl = null;
+  let logoImage = null; // if uploaded
+
+  // load logo file (client-side only)
+  qrLogoFile.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) { logoImage = null; return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => { logoImage = img; };
+      img.src = ev.target.result;
     };
+    reader.readAsDataURL(file);
+  });
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  // counters listener
+  const countersRef = ref(db, 'counters');
+  onValue(countersRef, snapshot => {
+    countersData = snapshot.val() || {};
+    renderCounters();
+    updateTicketSelect();
+  });
 
-    // DOM refs
-    const countersGrid = document.getElementById('countersGrid');
-    const emptyState = document.getElementById('emptyState');
+  // render counters
+  function renderCounters() {
+    const ids = Object.keys(countersData || {});
+    if (!ids.length) {
+      countersGrid.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      return;
+    }
+    emptyState.classList.add('hidden');
+    countersGrid.classList.remove('hidden');
+    countersGrid.innerHTML = '';
+    ids.forEach(counterId => {
+      const counter = countersData[counterId] || {};
+      const card = document.createElement('div');
+      card.className = 'fade-in card p-5';
+      const nowServing = counter.nowServing || 0;
+      const lastIssued = counter.lastIssued || 0;
+      const prefix = counter.prefix || '';
+      const isActive = counter.active !== false;
+      const isBusy = counter.busy === true;
+      const nowServingText = `${prefix}${String(nowServing).padStart(3,'0')}`;
+      const nextNumberText = `${prefix}${String((lastIssued || 0) + 1).padStart(3,'0')}`;
 
-    const addCounterBtn = document.getElementById('addCounterBtn');
-    const addCounterBtnEmpty = document.getElementById('addCounterBtnEmpty');
-
-    const counterModal = document.getElementById('counterModal');
-    const counterForm = document.getElementById('counterForm');
-    const counterIdInput = document.getElementById('counterIdInput');
-    const counterNameInput = document.getElementById('counterNameInput');
-    const counterPrefixInput = document.getElementById('counterPrefixInput');
-    const counterModalTitle = document.getElementById('counterModalTitle');
-    const closeCounterModalBtn = document.getElementById('closeCounterModalBtn');
-
-    const ticketModal = document.getElementById('ticketModal');
-    const ticketForm = document.getElementById('ticketForm');
-    const ticketCounterSelect = document.getElementById('ticketCounterSelect');
-    const ticketPreview = document.getElementById('ticketPreview');
-    const ticketNumberDisplay = document.getElementById('ticketNumberDisplay');
-    const ticketQRCode = document.getElementById('ticketQRCode');
-    const downloadQRBtn = document.getElementById('downloadQRBtn');
-    const openStatusBtn = document.getElementById('openStatusBtn');
-    const generateBtn = document.getElementById('generateBtn');
-    const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
-    const qrBgColor = document.getElementById('qrBgColor');
-    const qrOverlayText = document.getElementById('qrOverlayText');
-
-    const deleteModal = document.getElementById('deleteModal');
-    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-
-    let countersData = {};
-    let deleteTargetId = null;
-    let generatedTicketId = null;
-    let lastRenderedCounterIds = [];
-
-    // Listen to counters node - keep local state in countersData
-    const countersRef = ref(db, 'counters');
-    onValue(countersRef, snapshot => {
-      countersData = snapshot.val() || {};
-      renderCounters();
-      updateTicketSelect();
-    });
-
-    // Render counters as cards with edit/delete/call/reset
-    function renderCounters() {
-      const ids = Object.keys(countersData || {});
-      // If none - show empty state
-      if (!ids.length) {
-        countersGrid.classList.add('hidden');
-        emptyState.classList.remove('hidden');
-        return;
-      }
-
-      emptyState.classList.add('hidden');
-      countersGrid.classList.remove('hidden');
-      countersGrid.innerHTML = '';
-
-      ids.forEach(counterId => {
-        const counter = countersData[counterId];
-        const card = document.createElement('div');
-        card.className = 'fade-in p-6 bg-white rounded-xl border border-gray-200 shadow-sm';
-        // compute displayed values (safely)
-        const nowServing = counter?.nowServing || 0;
-        const lastIssued = counter?.lastIssued || 0;
-        const prefix = counter?.prefix || '';
-        const isActive = counter?.active !== false;
-        const isBusy = counter?.busy === true;
-        const nowServingFormatted = `${prefix}${String(nowServing).padStart(3, '0')}`;
-        const nextNumberFormatted = `${prefix}${String((lastIssued || 0) + 1).padStart(3, '0')}`;
-
-        card.innerHTML = `
-          <div class="flex justify-between items-start mb-3">
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900">${escapeHtml(counter?.name || counterId)}</h3>
-              <p class="text-sm text-gray-500 mt-1">${escapeHtml(prefix)} series</p>
-            </div>
-            <div class="flex gap-2">
-              <button class="editBtn w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center" title="Edit">
-                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              </button>
-              <button class="deleteBtn w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center" title="Delete">
-                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3"/></svg>
-              </button>
-            </div>
+      card.innerHTML = `
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <div class="text-lg font-semibold">${escapeHtml(counter.name || counterId)}</div>
+            <div class="text-sm muted mt-1">${escapeHtml(prefix)} series</div>
           </div>
-
-          <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4">
-            <p class="text-xs text-gray-500 mb-1">Now Serving</p>
-            <p class="text-3xl font-extrabold text-indigo-900 ${isBusy ? 'pulse-ring' : ''}">${escapeHtml(nowServingFormatted)}</p>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 mb-4">
-            <div class="bg-gray-50 rounded-lg p-3">
-              <p class="text-xs text-gray-500 mb-1">Last Issued</p>
-              <p class="text-lg font-bold text-gray-900">${escapeHtml(prefix)}${String(lastIssued).padStart(3,'0')}</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-3">
-              <p class="text-xs text-gray-500 mb-1">Next Number</p>
-              <p class="text-lg font-bold text-gray-900">${escapeHtml(nextNumberFormatted)}</p>
-            </div>
-          </div>
-
           <div class="flex gap-2">
-            <button class="callBtn flex-1 py-3 rounded-xl font-semibold text-white ${isActive && !isBusy ? '' : 'opacity-50 cursor-not-allowed'}" ${isActive && !isBusy ? '' : 'disabled'} style="background: linear-gradient(90deg,#10b981,#14b8a6);">
-              Call Next
-            </button>
-            <button class="resetBtn px-4 py-3 rounded-xl bg-orange-500 text-white font-semibold">Reset</button>
+            <button class="editBtn p-2 rounded-md bg-gray-100" title="Edit">✎</button>
+            <button class="deleteBtn p-2 rounded-md bg-red-50" title="Delete">🗑</button>
           </div>
-        `;
+        </div>
 
-        // events (use delegation through querySelector)
-        card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(counterId));
-        card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(counterId));
-        card.querySelector('.callBtn').addEventListener('click', () => callNext(counterId));
-        card.querySelector('.resetBtn').addEventListener('click', () => resetCounter(counterId));
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4 mb-4 w-full">
+          <div class="text-xs muted">Now Serving</div>
+          <div class="text-3xl font-extrabold text-indigo-900 ${isBusy ? 'animate-pulse' : ''}">${escapeHtml(nowServingText)}</div>
+        </div>
 
-        countersGrid.appendChild(card);
-      });
-    }
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="bg-gray-50 rounded-md p-3">
+            <div class="text-xs muted">Last Issued</div>
+            <div class="text-lg font-bold">${escapeHtml(prefix)}${String(lastIssued).padStart(3,'0')}</div>
+          </div>
+          <div class="bg-gray-50 rounded-md p-3">
+            <div class="text-xs muted">Next Number</div>
+            <div class="text-lg font-bold">${escapeHtml(nextNumberText)}</div>
+          </div>
+        </div>
 
-    // sanitize display
-    function escapeHtml(s) {
-      if (!s && s !== 0) return '';
-      return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-    }
+        <div class="flex gap-2">
+          <button class="callBtn flex-1 py-2 rounded-md font-semibold text-white" ${(!isActive||isBusy) ? 'disabled style="opacity:0.6;cursor:not-allowed;background:linear-gradient(90deg,#94a3b8,#94a3b8)"' : 'style="background:linear-gradient(90deg,#10b981,#14b8a6)"'}>Call Next</button>
+          <button class="resetBtn px-3 py-2 rounded-md bg-orange-500 text-white font-semibold">Reset</button>
+        </div>
+      `;
 
-    // Fill ticket counter select
-    function updateTicketSelect() {
-      ticketCounterSelect.innerHTML = '<option value="">Choose a counter...</option>';
-      Object.keys(countersData || {}).forEach(id => {
-        const c = countersData[id];
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = `${c.name || id} (${c.prefix || ''})`;
-        ticketCounterSelect.appendChild(opt);
-      });
-    }
+      // attach events
+      card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(counterId));
+      card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(counterId));
+      card.querySelector('.callBtn').addEventListener('click', () => callNext(counterId));
+      card.querySelector('.resetBtn').addEventListener('click', () => resetCounter(counterId));
 
-    // --- Add / Edit counter handlers ---
-    addCounterBtn.addEventListener('click', () => openAddCounter());
-    addCounterBtnEmpty.addEventListener('click', () => openAddCounter());
-    closeCounterModalBtn.addEventListener('click', () => counterModal.classList.remove('show'));
-
-    function openAddCounter() {
-      counterModalTitle.textContent = 'Add Counter';
-      counterForm.reset();
-      counterIdInput.value = '';
-      counterModal.classList.add('show');
-    }
-
-    function openEditCounter(counterId) {
-      const c = countersData[counterId];
-      if (!c) return;
-      counterModalTitle.textContent = 'Edit Counter';
-      counterIdInput.value = counterId;
-      counterNameInput.value = c.name || '';
-      counterPrefixInput.value = c.prefix || '';
-      counterModal.classList.add('show');
-    }
-
-    // Save counter: uses lastAssignedCounter transaction to produce unique id when creating
-    counterForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = counterNameInput.value.trim();
-      const prefix = (counterPrefixInput.value || '').trim().toUpperCase();
-
-      if (!name || !prefix || prefix.length > 7) {
-        alert('Please provide a valid name and prefix (max 7 chars).');
-        return;
-      }
-
-      const editingId = counterIdInput.value;
-
-      try {
-        if (editingId) {
-          // update existing counter
-          await update(ref(db, `counters/${editingId}`), {
-            name, prefix
-          });
-        } else {
-          // atomically increment lastAssignedCounter and create a new counterId using it
-          const lastAssignedRef = ref(db, 'lastAssignedCounter');
-          const result = await runTransaction(lastAssignedRef, (current) => {
-            return (current || 0) + 1;
-          });
-          const newNum = result.snapshot.val();
-          const newCounterId = `counter${newNum}`;
-
-          await set(ref(db, `counters/${newCounterId}`), {
-            name,
-            prefix,
-            active: true,
-            busy: false,
-            nowServing: 0,
-            lastIssued: 0,
-            lastAdvanceAt: Date.now()
-          });
-        }
-
-        counterModal.classList.remove('show');
-      } catch (err) {
-        console.error('Failed saving counter', err);
-        alert('Failed to save counter. Check console.');
-      }
+      countersGrid.appendChild(card);
     });
+  }
 
-    // Delete counter flow
-    function openDeleteCounter(counterId) {
-      deleteTargetId = counterId;
-      deleteModal.classList.add('show');
-    }
+  function escapeHtml(s) {
+    if (s === undefined || s === null) return '';
+    return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  }
 
-    confirmDeleteBtn.addEventListener('click', async () => {
-      if (!deleteTargetId) return;
-      try {
-        await remove(ref(db, `counters/${deleteTargetId}`));
-        deleteModal.classList.remove('show');
-        deleteTargetId = null;
-      } catch (err) {
-        console.error('Delete failed', err);
-        alert('Failed to delete counter');
-      }
+  function updateTicketSelect() {
+    ticketCounterSelect.innerHTML = `<option value="">Choose a counter...</option>`;
+    Object.keys(countersData || {}).forEach(id => {
+      const c = countersData[id];
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = `${c.name || id} (${c.prefix || ''})`;
+      ticketCounterSelect.appendChild(opt);
     });
+  }
 
-    cancelDeleteBtn.addEventListener('click', () => {
-      deleteModal.classList.remove('show');
-      deleteTargetId = null;
-    });
+  // add/edit flows
+  addCounterBtn.addEventListener('click', openAddCounter);
+  addCounterBtnEmpty?.addEventListener('click', openAddCounter);
+  closeCounterModalBtn.addEventListener('click', () => counterModal.classList.remove('show'));
+  cancelCounterBtn.addEventListener('click', () => counterModal.classList.remove('show'));
 
-    // Reset counter
-    async function resetCounter(counterId) {
-      if (!confirm('Reset this counter to 0?')) return;
-      try {
-        await update(ref(db, `counters/${counterId}`), {
-          nowServing: 0,
-          lastIssued: 0,
-          busy: false,
-          lastAdvanceAt: Date.now()
+  function openAddCounter() {
+    counterModalTitle.textContent = 'Add Counter';
+    counterForm.reset();
+    counterIdInput.value = '';
+    counterModal.classList.add('show');
+  }
+
+  function openEditCounter(counterId) {
+    const c = countersData[counterId];
+    if (!c) return;
+    counterModalTitle.textContent = 'Edit Counter';
+    counterIdInput.value = counterId;
+    counterNameInput.value = c.name || '';
+    counterPrefixInput.value = c.prefix || '';
+    counterModal.classList.add('show');
+  }
+
+  // Save counter: uses runTransaction on lastAssignedCounter for unique id when creating
+  counterForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const name = counterNameInput.value.trim();
+    const prefix = (counterPrefixInput.value || '').trim().toUpperCase();
+    if (!name || !prefix || prefix.length > 7) { alert('Enter valid name & prefix (max 7 chars).'); return; }
+
+    const editingId = counterIdInput.value;
+    try {
+      if (editingId) {
+        await update(ref(db, `counters/${editingId}`), { name, prefix });
+      } else {
+        // atomic increment lastAssignedCounter
+        const lastAssignedRef = ref(db, 'lastAssignedCounter');
+        const tx = await runTransaction(lastAssignedRef, (curr) => (curr || 0) + 1);
+        const newNum = tx.snapshot.val();
+        const newCounterId = `counter${newNum}`;
+        await set(ref(db, `counters/${newCounterId}`), {
+          name, prefix, active: true, busy: false, nowServing: 0, lastIssued: 0, lastAdvanceAt: Date.now()
         });
-      } catch (err) {
-        console.error(err);
-        alert('Failed to reset');
       }
+      counterModal.classList.remove('show');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save counter — check console.');
     }
+  });
 
-    // Call Next (update nowServing, set busy temporarily, send notifications)
-    async function callNext(counterId) {
-      const counter = countersData[counterId];
-      if (!counter) return;
-      try {
-        const nowServing = (counter.nowServing || 0) + 1;
-        const prefix = counter.prefix || '';
-        const calledFull = `${prefix}${String(nowServing).padStart(3,'0')}`;
+  // delete flow
+  function openDeleteCounter(counterId) { deleteTargetId = counterId; deleteModal.classList.add('show'); }
+  confirmDeleteBtn.addEventListener('click', async () => {
+    if (!deleteTargetId) return;
+    try { await remove(ref(db, `counters/${deleteTargetId}`)); deleteModal.classList.remove('show'); deleteTargetId = null; }
+    catch (err) { console.error(err); alert('Failed to delete'); }
+  });
+  cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
 
-        // set nowServing and busy
-        await update(ref(db, `counters/${counterId}`), {
-          nowServing,
-          busy: true,
-          lastAdvanceAt: Date.now()
-        });
+  // reset
+  async function resetCounter(counterId) {
+    if (!confirm('Reset this counter to 0?')) return;
+    try {
+      await update(ref(db, `counters/${counterId}`), { nowServing: 0, lastIssued: 0, busy: false, lastAdvanceAt: Date.now() });
+    } catch (err) { console.error(err); alert('Reset failed'); }
+  }
 
-        // collect waiting queue entries assigned to this counter
-        const qRef = ref(db, 'queue');
-        const qSnap = await get(qRef);
-        const recipients = [];
-        if (qSnap.exists()) {
-          const allQ = qSnap.val();
-          Object.keys(allQ).forEach(key => {
-            const entry = allQ[key];
-            if (entry.counterId === counterId && entry.chatId) {
-              recipients.push({
-                chatId: entry.chatId,
-                theirNumber: entry.queueId,
-                ticketId: key
-              });
-            }
-          });
-        }
+  // call next (update nowServing + notify)
+  async function callNext(counterId) {
+    const counter = countersData[counterId];
+    if (!counter) return;
+    try {
+      const nowServing = (counter.nowServing || 0) + 1;
+      const prefix = counter.prefix || '';
+      const calledFull = `${prefix}${String(nowServing).padStart(3,'0')}`;
+      // update nowServing + busy
+      await update(ref(db, `counters/${counterId}`), { nowServing, busy: true, lastAdvanceAt: Date.now() });
 
-        // notify via server function if recipients exist
-        if (recipients.length) {
-          try {
-            const res = await fetch(`${SITE_URL}${NOTIFY_ENDPOINT}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                calledFull,
-                counterName: counter.name || counterId,
-                recipients
-              })
-            });
-            // ignore response contents but log
-            const j = await res.json().catch(()=>null);
-            console.log('notify result', j);
-          } catch (notifyErr) {
-            console.error('Notify failed', notifyErr);
+      // collect recipients (entries assigned to this counter that have chatId)
+      const qSnap = await get(ref(db, 'queue'));
+      const recipients = [];
+      if (qSnap.exists()) {
+        const allQ = qSnap.val();
+        Object.keys(allQ).forEach(k => {
+          const e = allQ[k];
+          if (e.counterId === counterId && e.chatId) {
+            recipients.push({ chatId: e.chatId, theirNumber: e.queueId, ticketId: k });
           }
-        }
+        });
+      }
 
-        // unset busy after short delay (simulate)
-        setTimeout(async () => {
-          try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e){/*ignore*/ }
-        }, 3000);
+      if (recipients.length) {
+        try {
+          await fetch(`${DEFAULT_SITE_URL}${NOTIFY_ENDPOINT}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ calledFull, counterName: counter.name || counterId, recipients })
+          });
+        } catch (notifyErr) { console.error('notify error', notifyErr); }
+      }
 
-      } catch (err) {
-        console.error('callNext error', err);
-        alert('Failed to call next number');
+      setTimeout(async () => {
         try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e){/*ignore*/ }
-      }
-    }
+      }, 2500);
 
-    // --- Ticket generation ---
-    document.getElementById('generateTicketBtn').addEventListener('click', () => {
-      ticketForm.reset();
-      ticketPreview.classList.add('hidden');
+    } catch (err) { console.error(err); alert('Call next failed'); try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e){ } }
+  }
+
+  // ------------- Ticket generation UI & logic -------------
+  document.getElementById('generateTicketBtn').addEventListener('click', () => {
+    ticketForm.reset();
+    ticketQRCode.innerHTML = '';
+    ticketNumberDisplay.textContent = '—';
+    openStatusBtn.disabled = true;
+    downloadQRBtn.disabled = true;
+    baseUrlInput.value = DEFAULT_SITE_URL;
+    ticketModal.classList.add('show');
+  });
+
+  closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
+
+  // On submit: atomically increment counters/<id>/lastIssued then push queue entry, create QR
+  ticketForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const counterId = ticketCounterSelect.value;
+    if (!counterId) { alert('Choose a counter first'); return; }
+    const counter = countersData[counterId];
+    if (!counter) { alert('Counter not found'); return; }
+
+    try {
+      // atomically increment lastIssued
+      const lastIssuedRef = ref(db, `counters/${counterId}/lastIssued`);
+      const tx = await runTransaction(lastIssuedRef, (curr) => (curr || 0) + 1);
+      const newLastIssued = tx.snapshot.val();
+      const prefix = (counter.prefix || '').toString();
+      const queueId = `${prefix}${String(newLastIssued).padStart(3,'0')}`;
+
+      // create queue entry
+      const queueRef = push(ref(db, 'queue'));
+      await set(queueRef, { counterId, queueId, status: 'waiting', timestamp: Date.now() });
+      generatedTicketId = queueRef.key;
+
+      // build final URL for QR
+      const baseUrl = (baseUrlInput.value || DEFAULT_SITE_URL).replace(/\/$/, '');
+      const statusUrl = `${baseUrl}/index.html?queueId=${encodeURIComponent(generatedTicketId)}`;
+      generatedStatusUrl = statusUrl;
+
+      // generate QR as canvas using ESM QR module
       ticketQRCode.innerHTML = '';
-      generatedTicketId = null;
-      ticketModal.classList.add('show');
-    });
-
-    closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
-
-    // Use transaction on counters/<id>/lastIssued to ensure atomic increment
-    ticketForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const counterId = ticketCounterSelect.value;
-      if (!counterId) { alert('Please choose a counter'); return; }
-      const counter = countersData[counterId];
-      if (!counter) return alert('Counter not found');
-
-      try {
-        // increment lastIssued atomically
-        const lastIssuedRef = ref(db, `counters/${counterId}/lastIssued`);
-        const result = await runTransaction(lastIssuedRef, (current) => (current || 0) + 1);
-        const newLastIssued = result.snapshot.val();
-        const prefix = (counter.prefix || '').toString();
-        const queueId = `${prefix}${String(newLastIssued).padStart(3,'0')}`;
-
-        // create queue entry
-        const queueRef = push(ref(db, 'queue'));
-        await set(queueRef, {
-          counterId,
-          queueId,
-          status: 'waiting',
-          timestamp: Date.now()
-        });
-
-        generatedTicketId = queueRef.key;
-        ticketNumberDisplay.textContent = queueId;
-
-        // build link that QR will point to (index.html per your requirement)
-        const statusUrl = `${window.location.origin}/index.html?queueId=${encodeURIComponent(generatedTicketId)}`;
-
-        // generate raw QR as canvas
-        ticketQRCode.innerHTML = '';
-        const qrCanvas = document.createElement('canvas');
-        await QRCode.toCanvas(qrCanvas, statusUrl, {
-          width: 380,
-          margin: 2,
-          color: { dark: '#111827', light: '#ffffff' }
-        });
-
-        // merge bg + qr + overlay text into a single canvas that user can download
-        const merged = mergeQRCodeWithBackground(qrCanvas, qrBgColor.value || '#ffffff', qrOverlayText.value || '');
-        // replace preview with merged canvas (scaled down visually)
-        ticketQRCode.appendChild(merged);
-
-        ticketPreview.classList.remove('hidden');
-      } catch (err) {
-        console.error('generate ticket failed', err);
-        alert('Failed to generate ticket. Check console.');
-      }
-    });
-
-    // Open status page link
-    openStatusBtn.addEventListener('click', () => {
-      if (!generatedTicketId) return;
-      const url = `${window.location.origin}/index.html?queueId=${encodeURIComponent(generatedTicketId)}`;
-      window.open(url, '_blank');
-    });
-
-    // Download merged canvas as PNG
-    downloadQRBtn.addEventListener('click', () => {
-      const canvas = ticketQRCode.querySelector('canvas');
-      if (!canvas) return alert('No QR to download yet');
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
-      link.download = `ticket-${Date.now()}.png`;
-      link.click();
-    });
-
-    // Canvas merge function: returns a canvas element (png-ready)
-    function mergeQRCodeWithBackground(qrCanvas, bgColor, overlayText) {
-      // make a canvas somewhat larger and include spacing for overlay text
-      const qrSize = Math.max(qrCanvas.width, qrCanvas.height);
-      const padding = 28;
-      const overlayHeight = overlayText ? 60 : 0;
-      const w = qrSize + padding * 2;
-      const h = qrSize + padding * 2 + overlayHeight;
-
-      const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
-      const ctx = c.getContext('2d');
-
-      // background
-      ctx.fillStyle = bgColor || '#ffffff';
-      ctx.fillRect(0, 0, w, h);
-
-      // draw rounded white card behind QR for contrast
-      const cardX = padding/2;
-      const cardY = padding/2;
-      const cardW = w - padding;
-      const cardH = qrSize + padding;
-      roundRect(ctx, cardX, cardY, cardW, cardH, 18, bgColor);
-      // place QR centered inside card
-      const qrDestX = (w - qrSize) / 2;
-      const qrDestY = (padding);
-      ctx.drawImage(qrCanvas, qrDestX, qrDestY, qrSize, qrSize);
-
-      // overlay text (bottom center)
-      if (overlayText) {
-        ctx.font = '600 18px Inter, system-ui, -apple-system';
-        ctx.fillStyle = '#111827';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        // position under QR
-        const textX = w / 2;
-        const textY = qrDestY + qrSize + (overlayHeight / 2);
-        // wrap text if it's long (basic wrap)
-        const maxWidth = w - 40;
-        wrapText(ctx, overlayText, textX, textY, maxWidth, 20);
-      }
-
-      return c;
-    }
-
-    // small helper: rounded rectangle
-    function roundRect(ctx, x, y, w, h, r, fillStyle) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-      // a softer card (we'll fill with slightly translucent to show bg)
-      ctx.fillStyle = fillStyle;
-      ctx.fill();
-      // subtle border
-      ctx.strokeStyle = 'rgba(0,0,0,0.04)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    // text wrapper (centered)
-    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-      const words = text.split(' ');
-      let line = '';
-      const lines = [];
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && n > 0) {
-          lines.push(line.trim());
-          line = words[n] + ' ';
-        } else {
-          line = testLine;
-        }
-      }
-      lines.push(line.trim());
-      // draw lines vertically centered around y
-      const totalHeight = lines.length * lineHeight;
-      let startY = y - (totalHeight / 2) + (lineHeight / 2);
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], x, startY + i * lineHeight);
-      }
-    }
-
-    // Utility: small polyfill for String.prototype.replaceAll in older browsers
-    if (!String.prototype.replaceAll) {
-      String.prototype.replaceAll = function(search, replacement) {
-        const target = this;
-        return target.split(search).join(replacement);
-      };
-    }
-
-    // Ensure emptyState button also opens add
-    document.getElementById('addCounterBtnEmpty')?.addEventListener('click', openAddCounter);
-
-    // Helper: close modals on backdrop click
-    [counterModal, ticketModal, deleteModal].forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.classList.remove('show');
-        }
+      const qrCanvas = document.createElement('canvas');
+      await QR.toCanvas(qrCanvas, statusUrl, {
+        width: 420,
+        margin: 2,
+        color: { dark: qrTextColor.value || '#111827', light: (qrBgColor.value || '#ffffff') }
       });
-    });
 
-    // small safety for initial render empty list
-    function tryInitialRender() {
-      // If countersData is empty object, show empty state
-      const keys = Object.keys(countersData || {});
-      if (!keys.length) {
-        countersGrid.classList.add('hidden');
-        emptyState.classList.remove('hidden');
-      }
+      // merge QR with background, overlay text, logo
+      const merged = makeMergedCanvas(qrCanvas, qrBgColor.value || '#fff', qrOverlayText.value || '', parseInt(qrFontSize.value || 18, 10), qrTextColor.value || '#111827', logoImage);
+      // show scaled preview (CSS will shrink)
+      ticketQRCode.appendChild(merged);
+      ticketNumberDisplay.textContent = queueId;
+
+      // enable download / open
+      openStatusBtn.disabled = false;
+      downloadQRBtn.disabled = false;
+      // attach download action via click
+      downloadQRBtn.onclick = () => downloadCanvasPNG(merged, `ticket-${queueId}.png`);
+      openStatusBtn.onclick = () => window.open(statusUrl, '_blank');
+
+    } catch (err) {
+      console.error('generate ticket error', err);
+      alert('Failed to generate ticket — check console.');
+    }
+  });
+
+  // create merged canvas: background color, nice card, QR centered, overlay text below, optional logo on top
+  function makeMergedCanvas(qrCanvas, bgColor, overlayText, fontSize = 18, textColor = '#111827', logoImg = null) {
+    const qrSize = Math.max(qrCanvas.width, qrCanvas.height);
+    const padding = 28;
+    const overlayHeight = overlayText ? (fontSize * 1.8 + 8) : 0;
+    const logoHeight = logoImg ? Math.min(70, Math.round(qrSize * 0.15)) : 0;
+
+    // card size: enough room for QR + logo + overlay
+    const w = qrSize + padding * 2;
+    const h = qrSize + padding * 2 + overlayHeight + logoHeight;
+
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    c.style.maxWidth = '100%';
+    c.style.height = 'auto';
+    const ctx = c.getContext('2d');
+
+    // background
+    ctx.fillStyle = bgColor || '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    // card (slightly inset)
+    const cardX = 8;
+    const cardY = 8;
+    const cardW = w - 16;
+    const cardH = h - 16;
+    roundRect(ctx, cardX, cardY, cardW, cardH, 18);
+    ctx.fillStyle = bgColor || '#fff';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+    ctx.stroke();
+
+    // optionally draw logo above QR (centered)
+    let qrTop = cardY + padding / 2;
+    if (logoImg) {
+      const logoW = logoImg.width * (logoHeight / logoImg.height);
+      const logoX = (w - logoW) / 2;
+      ctx.drawImage(logoImg, logoX, cardY + 12, logoW, logoHeight);
+      qrTop += logoHeight + 6;
     }
 
-    tryInitialRender();
+    // draw QR centered
+    const qrX = (w - qrSize) / 2;
+    ctx.drawImage(qrCanvas, qrX, qrTop, qrSize, qrSize);
+
+    // draw overlay text centered below QR
+    if (overlayText) {
+      ctx.font = `600 ${fontSize}px Inter, system-ui`;
+      ctx.fillStyle = textColor || '#111827';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const textY = qrTop + qrSize + 10;
+      // simple wrapping: break into lines if too long
+      wrapTextCentered(ctx, overlayText, w / 2, textY, w - 40, fontSize * 1.4);
+    }
+
+    // small rounded corners on resulting canvas (already via drawing)
+    return c;
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function wrapTextCentered(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    const lines = [];
+    for (let n = 0; n < words.length; n++) {
+      const test = line + words[n] + ' ';
+      if (ctx.measureText(test).width > maxWidth && n > 0) {
+        lines.push(line.trim());
+        line = words[n] + ' ';
+      } else {
+        line = test;
+      }
+    }
+    lines.push(line.trim());
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], x, y + i * lineHeight);
+    }
+  }
+
+  function downloadCanvasPNG(canvas, filename = 'ticket.png') {
+    const a = document.createElement('a');
+    try {
+      a.href = canvas.toDataURL('image/png');
+      a.download = filename;
+      a.click();
+    } catch (err) {
+      console.error('download error', err);
+      alert('Download failed');
+    }
+  }
+
+  // helper: close modals on outside click
+  [counterModal, ticketModal, deleteModal].forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('show');
+    });
+  });
+
+  // initial try to show empty state properly
+  (function tryInitialRender() {
+    const keys = Object.keys(countersData || {});
+    if (!keys.length) {
+      countersGrid.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+    }
+  })();
+
   </script>
 </body>
 </html>
