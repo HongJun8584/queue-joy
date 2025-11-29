@@ -3,714 +3,675 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Counter Management — Queue Joy</title>
+  <title>Counter Management - Queue Joy</title>
 
-  <!-- Tailwind CDN (dev warning appears in console; build for production to remove). -->
+  <!-- Tailwind CDN (development; console shows informational warning). For production build Tailwind via CLI/PostCSS. -->
   <script src="https://cdn.tailwindcss.com"></script>
-
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- UMD QR library (reliable global QRCode with toCanvas/toDataURL) -->
+  <!-- UMD QR library (provides QRCode.toCanvas globally). Using a stable UMD build so no dynamic import needed. -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
 
   <style>
-    :root { --card-bg: #fff; }
-    body { font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, Arial; background: linear-gradient(180deg,#f0f8ff 0%,#fff0f6 100%); }
-    .card { background: var(--card-bg); border-radius:12px; box-shadow: 0 10px 30px rgba(16,24,40,0.06); }
-    .muted { color:#6b7280; }
-    .modal { display:none; position:fixed; inset:0; z-index:60; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); }
+    body { font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background: linear-gradient(180deg,#eef2ff 0%, #fff0f6 100%); }
+    .fade-in { animation: fadeIn .35s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+    .pulse-ring { animation: pulseRing 1.5s cubic-bezier(.4,0,.6,1) infinite; }
+    @keyframes pulseRing { 0%,100%{ transform:scale(1); opacity:1 } 50%{ transform:scale(1.06); opacity:0.6 } }
+    .modal { display:none; position:fixed; inset:0; z-index:60; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); }
     .modal.show { display:flex; }
-    .qr-preview { width: 320px; height: auto; border-radius:10px; overflow:hidden; }
+    .card { background: white; border-radius:14px; box-shadow: 0 20px 60px rgba(2,6,23,0.08); }
+    .muted { color: #6b7280; }
+    .qr-preview { width: 320px; height: auto; border-radius:12px; overflow:hidden; }
+    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color:white; }
+    .btn-success { background: linear-gradient(135deg,#10b981,#14b8a6); color:white; }
+    /* small helper for card border radius when drawing canvas */
+    canvas { max-width: 100%; height: auto; display: block; }
   </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-  <!-- Header / Auth -->
-  <header class="bg-white shadow-sm py-4">
-    <div class="max-w-7xl mx-auto px-4 flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="p-3 rounded-md bg-gradient-to-br from-indigo-600 to-purple-600 text-white">
-          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/></svg>
+  <!-- Header -->
+  <header class="bg-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
         </div>
         <div>
-          <h1 class="text-xl font-bold">Queue Joy — Counter Management</h1>
-          <div class="text-sm muted">Manage counters, issue tickets, and export QR codes</div>
+          <h1 class="text-2xl font-bold text-gray-900">Counter Management</h1>
+          <p class="text-sm muted">Queue Joy System — Admin</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div id="authStatus" class="text-sm muted">Not signed in</div>
-        <button id="authBtn" class="px-4 py-2 rounded-md bg-indigo-600 text-white">Sign in</button>
+      <div class="flex gap-2">
+        <button id="addCounterBtn" class="btn-primary px-5 py-3 rounded-xl font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          Add Counter
+        </button>
+        <button id="generateTicketBtn" class="btn-success px-5 py-3 rounded-xl font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          Generate Ticket
+        </button>
       </div>
     </div>
   </header>
 
   <!-- Main -->
-  <main class="max-w-7xl mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-6">
-      <div class="flex gap-3">
-        <button id="addCounterBtn" class="px-4 py-2 rounded-md bg-indigo-600 text-white">Add Counter</button>
-        <button id="generateTicketBtn" class="px-4 py-2 rounded-md bg-emerald-500 text-white">Generate Ticket</button>
-      </div>
-      <div class="muted text-sm">Counters & tickets persist in Firebase — same data everywhere</div>
-    </div>
-
-    <div id="countersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div id="countersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
     <div id="emptyState" class="text-center py-20 hidden">
-      <div class="mx-auto w-28 h-28 bg-gray-100 rounded-full mb-4 flex items-center justify-center">
-        <svg class="w-12 h-12 text-gray-400" viewBox="0 0 24 24"><path d="M4 7h16M4 11h16M4 15h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
       </div>
-      <h3 class="text-xl font-semibold">No counters yet</h3>
-      <p class="muted mt-2">Create counters to start issuing tickets</p>
-      <button id="addCounterBtnEmpty" class="mt-4 px-5 py-2 rounded-md bg-indigo-600 text-white">Add First Counter</button>
+      <h3 class="text-xl font-semibold text-gray-900 mb-2">No Counters Yet</h3>
+      <p class="text-gray-600 mb-6">Create your first counter to start issuing tickets</p>
+      <button id="addCounterBtnEmpty" class="btn-primary px-8 py-3 rounded-xl font-semibold">Add Your First Counter</button>
     </div>
   </main>
 
-  <!-- Add / Edit Counter Modal -->
+  <!-- Add/Edit Counter Modal -->
   <div id="counterModal" class="modal" aria-hidden="true">
-    <div class="card w-full max-w-lg p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 id="counterModalTitle" class="text-lg font-semibold">Add Counter</h3>
-        <button id="closeCounterModalBtn" class="text-gray-600">✕</button>
+    <div class="card max-w-lg w-full overflow-hidden">
+      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
+        <h2 id="counterModalTitle" class="text-2xl font-bold">Add Counter</h2>
       </div>
 
-      <form id="counterForm" class="space-y-4">
+      <form id="counterForm" class="p-6 space-y-4">
         <input type="hidden" id="counterIdInput">
         <div>
-          <label class="text-sm font-medium">Counter Name</label>
-          <input id="counterNameInput" class="mt-2 w-full px-4 py-3 border rounded-md" maxlength="50" placeholder="e.g., COUNTER ICE CREAM" required />
-        </div>
-        <div>
-          <label class="text-sm font-medium">Prefix (max 7 chars)</label>
-          <input id="counterPrefixInput" class="mt-2 w-full px-4 py-3 border rounded-md uppercase" maxlength="7" placeholder="e.g., ICE" required />
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Counter Name</label>
+          <input id="counterNameInput" maxlength="50" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500" placeholder="e.g., COUNTER ICE CREAM">
         </div>
 
-        <div class="flex gap-3">
-          <button class="flex-1 px-4 py-3 rounded-md bg-indigo-600 text-white" type="submit">Save</button>
-          <button id="cancelCounterBtn" type="button" class="flex-1 px-4 py-3 rounded-md bg-gray-100">Cancel</button>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Prefix (Max 7 characters)</label>
+          <input id="counterPrefixInput" maxlength="7" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 uppercase" placeholder="e.g., ICE">
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 btn-primary text-white font-semibold py-3 rounded-xl">Save Counter</button>
+          <button type="button" id="closeCounterModalBtn" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl">Cancel</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Auth Modal -->
-  <div id="authModal" class="modal" aria-hidden="true">
-    <div class="card w-full max-w-md p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold">Sign in</h3>
-        <button id="closeAuthModalBtn" class="text-gray-600">✕</button>
-      </div>
-
-      <div class="space-y-3">
-        <input id="authEmail" placeholder="Email" type="email" class="w-full px-4 py-3 border rounded-md" />
-        <input id="authPassword" placeholder="Password" type="password" class="w-full px-4 py-3 border rounded-md" />
-        <div class="flex gap-3">
-          <button id="signInBtn" class="flex-1 px-4 py-3 rounded-md bg-indigo-600 text-white">Sign in</button>
-          <button id="signUpBtn" class="flex-1 px-4 py-3 rounded-md bg-gray-100">Create account</button>
-        </div>
-        <div class="mt-2 text-center muted"> — or — </div>
-        <button id="anonSignInBtn" class="w-full px-4 py-3 rounded-md bg-amber-500 text-white">Sign in anonymously</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Ticket modal -->
   <div id="ticketModal" class="modal" aria-hidden="true">
-    <div class="card w-full max-w-4xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="md:col-span-2 space-y-3">
-        <div>
-          <label class="text-sm font-medium">Select Counter</label>
-          <select id="ticketCounterSelect" class="mt-2 w-full px-4 py-3 border rounded-md">
-            <option value="">Choose a counter...</option>
-          </select>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-sm font-medium">QR Background</label>
-            <input id="qrBgColor" type="color" value="#ffffff" class="mt-2 w-full h-12 rounded-md border" />
-          </div>
-          <div>
-            <label class="text-sm font-medium">Text Color</label>
-            <input id="qrTextColor" type="color" value="#111827" class="mt-2 w-full h-12 rounded-md border" />
-          </div>
-          <div>
-            <label class="text-sm font-medium">Overlay Text</label>
-            <input id="qrOverlayText" placeholder="e.g., QueueJoy — Scan to check status" class="mt-2 w-full px-3 py-2 border rounded-md" />
-          </div>
-          <div>
-            <label class="text-sm font-medium">Font Size</label>
-            <input id="qrFontSize" type="number" min="12" max="36" value="18" class="mt-2 w-full px-3 py-2 border rounded-md" />
-          </div>
-          <div class="col-span-2">
-            <label class="text-sm font-medium">Logo (optional)</label>
-            <input id="qrLogoFile" type="file" accept="image/*" class="mt-2 w-full" />
-            <p class="text-xs muted mt-1">Logo is embedded client-side (no upload). Keep it small for best results.</p>
-          </div>
-          <div class="col-span-2">
-            <label class="text-sm font-medium">Base URL</label>
-            <input id="baseUrlInput" placeholder="https://queuejoy.netlify.app" class="mt-2 w-full px-3 py-2 border rounded-md" />
-            <p class="text-xs muted mt-1">QR will point to <code>BASE/index.html?queueId=KEY</code>. Leave blank for default.</p>
-          </div>
-        </div>
-
-        <div class="flex gap-3 mt-3">
-          <button id="generateBtn" class="flex-1 px-4 py-3 rounded-md bg-emerald-500 text-white">Generate Ticket</button>
-          <button id="openStatusBtn" class="px-4 py-3 rounded-md bg-indigo-600 text-white" disabled>Open Status</button>
-          <button id="downloadQRBtn" class="px-4 py-3 rounded-md bg-gray-100" disabled>Download PNG</button>
-          <button id="closeTicketModalBtn" class="px-4 py-3 rounded-md bg-gray-100">Close</button>
-        </div>
+    <div class="card w-full max-w-4xl overflow-hidden">
+      <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6">
+        <h2 class="text-2xl font-bold">Generate Ticket</h2>
       </div>
 
-      <div class="flex flex-col items-center">
-        <div class="muted mb-2">Ticket Preview</div>
-        <div id="ticketNumberDisplay" class="text-4xl font-extrabold mb-3">—</div>
-        <div id="ticketQRCode" class="qr-preview bg-white p-3 rounded-md flex items-center justify-center w-full"></div>
-        <div id="ticketInfo" class="muted text-sm mt-3 text-center">Preview shows the merged QR + background + overlay text + optional logo</div>
-      </div>
+      <form id="ticketForm" class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="md:col-span-2 space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Select Counter</label>
+            <select id="ticketCounterSelect" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl">
+              <option value="">Choose a counter...</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">QR Background</label>
+              <input id="qrBgColor" type="color" value="#ffffff" class="w-full h-12 rounded-xl border-2 p-1" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Text Color</label>
+              <input id="qrTextColor" type="color" value="#111827" class="w-full h-12 rounded-xl border-2 p-1" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Overlay Text</label>
+              <input id="qrOverlayText" placeholder="QueueJoy — Scan to check status" class="w-full px-4 py-3 border-2 rounded-xl" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Font Size</label>
+              <input id="qrFontSize" type="number" min="12" max="36" value="18" class="w-full px-4 py-3 border-2 rounded-xl" />
+            </div>
+
+            <div class="col-span-2">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Optional Logo (client-side only)</label>
+              <input id="qrLogoFile" type="file" accept="image/*" class="w-full" />
+              <p class="text-xs muted mt-1">Logo embedded client-side; no upload to server. Keep file small for performance.</p>
+            </div>
+
+            <div class="col-span-2">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">Base URL for QR (optional)</label>
+              <input id="baseUrlInput" placeholder="https://queuejoy.netlify.app" class="w-full px-4 py-3 border-2 rounded-xl" />
+              <p class="text-xs muted mt-1">QR will point to <code>BASE/index.html?queueId=KEY</code>. Leave blank to use current origin.</p>
+            </div>
+          </div>
+
+          <div class="flex gap-3 pt-4">
+            <button id="generateBtn" type="submit" class="flex-1 btn-success text-white font-semibold py-3 rounded-xl">Generate Ticket</button>
+            <button id="openStatusBtn" type="button" class="hidden flex-1 bg-indigo-600 text-white font-semibold py-3 rounded-xl">Open Status</button>
+            <button id="downloadQRBtn" type="button" class="hidden flex-1 bg-indigo-600 text-white font-semibold py-3 rounded-xl">Download PNG</button>
+            <button id="closeTicketModalBtn" type="button" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl">Close</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-start gap-4">
+          <div class="text-sm muted">Ticket Preview</div>
+          <div id="ticketNumberDisplay" class="text-5xl font-bold text-gray-900">—</div>
+          <div id="ticketQRCode" class="qr-preview bg-white rounded-xl p-4 flex items-center justify-center"></div>
+          <div class="text-xs muted text-center">Merged QR + background + overlay text. Downloadable as PNG.</div>
+        </div>
+      </form>
     </div>
   </div>
 
-  <!-- Delete confirm -->
+  <!-- Confirm Delete Modal -->
   <div id="deleteModal" class="modal" aria-hidden="true">
-    <div class="card p-6 max-w-sm text-center">
-      <h4 class="text-lg font-semibold mb-2">Delete this counter?</h4>
-      <p class="muted mb-4">This cannot be undone.</p>
+    <div class="card max-w-sm p-6 text-center">
+      <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3" /></svg>
+      </div>
+      <h3 class="text-xl font-bold mb-2">Delete Counter?</h3>
+      <p class="text-gray-600 mb-6">This action cannot be undone.</p>
       <div class="flex gap-3">
-        <button id="confirmDeleteBtn" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-md">Delete</button>
-        <button id="cancelDeleteBtn" class="flex-1 px-4 py-2 bg-gray-100 rounded-md">Cancel</button>
+        <button id="confirmDeleteBtn" class="flex-1 bg-red-600 text-white font-semibold py-3 rounded-xl">Delete</button>
+        <button id="cancelDeleteBtn" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase + logic -->
+  <!-- Firebase and app logic (module so we can import RTDB) -->
   <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getDatabase, ref, onValue, set, update, remove, push, get, runTransaction
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import {
-    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, signOut, signInAnonymously
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, update, remove, push, get, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // CONFIG: keep your existing endpoint (left unchanged)
-  const DEFAULT_SITE_URL = 'https://queuejoy.netlify.app';
-  const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
+    // Ensure DOM loaded before hooking elements to avoid null addEventListener errors
+    document.addEventListener('DOMContentLoaded', () => {
+      // CONFIG: change SITE_URL to your deployed base if you want QR to go to that host
+      const SITE_URL = ''; // default to current origin when empty
+      const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
 
-  // Firebase config (from your project)
-  const firebaseConfig = {
-    apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-    authDomain: "queue-joy-aa21b.firebaseapp.com",
-    databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "queue-joy-aa21b",
-    storageBucket: "queue-joy-aa21b.firebasestorage.app",
-    messagingSenderId: "950240394209",
-    appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const auth = getAuth(app);
-
-  // DOM references
-  const countersGrid = document.getElementById('countersGrid');
-  const emptyState = document.getElementById('emptyState');
-
-  const addCounterBtn = document.getElementById('addCounterBtn');
-  const addCounterBtnEmpty = document.getElementById('addCounterBtnEmpty');
-
-  const counterModal = document.getElementById('counterModal');
-  const counterForm = document.getElementById('counterForm');
-  const counterIdInput = document.getElementById('counterIdInput');
-  const counterNameInput = document.getElementById('counterNameInput');
-  const counterPrefixInput = document.getElementById('counterPrefixInput');
-  const counterModalTitle = document.getElementById('counterModalTitle');
-  const closeCounterModalBtn = document.getElementById('closeCounterModalBtn');
-  const cancelCounterBtn = document.getElementById('cancelCounterBtn');
-
-  const authModal = document.getElementById('authModal');
-  const authBtn = document.getElementById('authBtn');
-  const authStatus = document.getElementById('authStatus');
-  const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
-  const authEmail = document.getElementById('authEmail');
-  const authPassword = document.getElementById('authPassword');
-  const signInBtn = document.getElementById('signInBtn');
-  const signUpBtn = document.getElementById('signUpBtn');
-  const anonSignInBtn = document.getElementById('anonSignInBtn');
-
-  const ticketModal = document.getElementById('ticketModal');
-  const ticketForm = document.getElementById('ticketForm');
-  const ticketCounterSelect = document.getElementById('ticketCounterSelect');
-  const ticketNumberDisplay = document.getElementById('ticketNumberDisplay');
-  const ticketQRCode = document.getElementById('ticketQRCode');
-  const generateBtn = document.getElementById('generateBtn');
-  const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
-  const downloadQRBtn = document.getElementById('downloadQRBtn');
-  const openStatusBtn = document.getElementById('openStatusBtn');
-
-  const qrBgColor = document.getElementById('qrBgColor');
-  const qrTextColor = document.getElementById('qrTextColor');
-  const qrOverlayText = document.getElementById('qrOverlayText');
-  const qrFontSize = document.getElementById('qrFontSize');
-  const qrLogoFile = document.getElementById('qrLogoFile');
-  const baseUrlInput = document.getElementById('baseUrlInput');
-
-  const deleteModal = document.getElementById('deleteModal');
-  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-  const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-
-  let countersData = {};
-  let deleteTargetId = null;
-  let generatedTicketId = null;
-  let generatedStatusUrl = null;
-  let logoImage = null;
-
-  // Load logo into Image object when selected
-  qrLogoFile.addEventListener('change', (e) => {
-    const f = e.target.files?.[0];
-    if (!f) { logoImage = null; return; }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => logoImage = img;
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(f);
-  });
-
-  // Auth UI
-  authBtn.addEventListener('click', () => {
-    authModal.classList.add('show');
-  });
-  closeAuthModalBtn.addEventListener('click', () => authModal.classList.remove('show'));
-
-  signInBtn.addEventListener('click', async () => {
-    const email = authEmail.value.trim();
-    const pw = authPassword.value;
-    if (!email || !pw) return alert('Enter email and password.');
-    try {
-      await signInWithEmailAndPassword(auth, email, pw);
-      authModal.classList.remove('show');
-    } catch (err) {
-      console.error(err);
-      alert('Sign in failed: ' + (err.message || err));
-    }
-  });
-
-  signUpBtn.addEventListener('click', async () => {
-    const email = authEmail.value.trim();
-    const pw = authPassword.value;
-    if (!email || !pw) return alert('Enter email and password.');
-    try {
-      await createUserWithEmailAndPassword(auth, email, pw);
-      authModal.classList.remove('show');
-    } catch (err) {
-      console.error(err);
-      alert('Sign up failed: ' + (err.message || err));
-    }
-  });
-
-  anonSignInBtn.addEventListener('click', async () => {
-    try {
-      await signInAnonymously(auth);
-      authModal.classList.remove('show');
-    } catch (err) {
-      console.error(err);
-      alert('Anonymous sign-in failed');
-    }
-  });
-
-  // track auth state
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      authStatus.textContent = `Signed in ${user.email ? '('+user.email+')' : '(anonymous)'}`;
-      authBtn.textContent = 'Sign out';
-      authBtn.onclick = async () => {
-        try { await signOut(auth); } catch (e) { console.error(e); }
+      // Firebase config (your project)
+      const firebaseConfig = {
+        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+        authDomain: "queue-joy-aa21b.firebaseapp.com",
+        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "queue-joy-aa21b",
+        storageBucket: "queue-joy-aa21b.firebasestorage.app",
+        messagingSenderId: "950240394209",
+        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
       };
-    } else {
-      authStatus.textContent = 'Not signed in';
-      authBtn.textContent = 'Sign in';
-      authBtn.onclick = () => authModal.classList.add('show');
-    }
-  });
 
-  // Listen to counters in DB
-  const countersRef = ref(db, 'counters');
-  onValue(countersRef, snapshot => {
-    countersData = snapshot.val() || {};
-    renderCounters();
-    updateTicketSelect();
-  });
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
 
-  function renderCounters() {
-    const ids = Object.keys(countersData || {});
-    if (!ids.length) {
-      countersGrid.innerHTML = '';
-      countersGrid.classList.add('hidden');
-      emptyState.classList.remove('hidden');
-      return;
-    }
-    emptyState.classList.add('hidden');
-    countersGrid.classList.remove('hidden');
-    countersGrid.innerHTML = '';
-    ids.forEach(id => {
-      const c = countersData[id] || {};
-      const card = document.createElement('div');
-      card.className = 'card p-5';
+      // DOM refs (safe now)
+      const countersGrid = document.getElementById('countersGrid');
+      const emptyState = document.getElementById('emptyState');
 
-      const nowServing = c.nowServing || 0;
-      const lastIssued = c.lastIssued || 0;
-      const prefix = c.prefix || '';
-      const isActive = c.active !== false;
-      const isBusy = c.busy === true;
-      const nowServingText = `${prefix}${String(nowServing).padStart(3,'0')}`;
-      const nextText = `${prefix}${String((lastIssued || 0) + 1).padStart(3,'0')}`;
+      const addCounterBtn = document.getElementById('addCounterBtn');
+      const addCounterBtnEmpty = document.getElementById('addCounterBtnEmpty');
 
-      card.innerHTML = `
-        <div class="flex items-start justify-between mb-3">
-          <div>
-            <div class="text-lg font-semibold">${escapeHtml(c.name || id)}</div>
-            <div class="text-sm muted mt-1">${escapeHtml(prefix)} series</div>
-          </div>
-          <div class="flex gap-2">
-            <button class="editBtn px-2 py-1 rounded-md bg-gray-100">Edit</button>
-            <button class="deleteBtn px-2 py-1 rounded-md bg-red-50">Delete</button>
-          </div>
-        </div>
+      const counterModal = document.getElementById('counterModal');
+      const counterForm = document.getElementById('counterForm');
+      const counterIdInput = document.getElementById('counterIdInput');
+      const counterNameInput = document.getElementById('counterNameInput');
+      const counterPrefixInput = document.getElementById('counterPrefixInput');
+      const counterModalTitle = document.getElementById('counterModalTitle');
+      const closeCounterModalBtn = document.getElementById('closeCounterModalBtn');
 
-        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-md mb-4">
-          <div class="text-xs muted">Now Serving</div>
-          <div class="text-3xl font-extrabold text-indigo-900 ${isBusy ? 'animate-pulse' : ''}">${escapeHtml(nowServingText)}</div>
-        </div>
+      const ticketModal = document.getElementById('ticketModal');
+      const ticketForm = document.getElementById('ticketForm');
+      const ticketCounterSelect = document.getElementById('ticketCounterSelect');
+      const ticketNumberDisplay = document.getElementById('ticketNumberDisplay');
+      const ticketQRCode = document.getElementById('ticketQRCode');
+      const generateBtn = document.getElementById('generateBtn');
+      const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
+      const openStatusBtn = document.getElementById('openStatusBtn');
+      const downloadQRBtn = document.getElementById('downloadQRBtn');
+      const qrBgColor = document.getElementById('qrBgColor');
+      const qrTextColor = document.getElementById('qrTextColor');
+      const qrOverlayText = document.getElementById('qrOverlayText');
+      const qrFontSize = document.getElementById('qrFontSize');
+      const qrLogoFile = document.getElementById('qrLogoFile');
+      const baseUrlInput = document.getElementById('baseUrlInput');
 
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div class="bg-gray-50 p-3 rounded-md">
-            <div class="text-xs muted">Last Issued</div>
-            <div class="text-lg font-bold">${escapeHtml(prefix)}${String(lastIssued).padStart(3,'0')}</div>
-          </div>
-          <div class="bg-gray-50 p-3 rounded-md">
-            <div class="text-xs muted">Next Number</div>
-            <div class="text-lg font-bold">${escapeHtml(nextText)}</div>
-          </div>
-        </div>
+      const deleteModal = document.getElementById('deleteModal');
+      const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+      const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 
-        <div class="flex gap-2">
-          <button class="callBtn flex-1 py-2 rounded-md text-white" ${(!isActive || isBusy) ? 'disabled style="opacity:0.6;cursor:not-allowed;background:linear-gradient(90deg,#94a3b8,#94a3b8)"' : 'style="background:linear-gradient(90deg,#10b981,#14b8a6)"'}>Call Next</button>
-          <button class="resetBtn px-3 py-2 rounded-md bg-orange-500 text-white">Reset</button>
-        </div>
-      `;
+      let countersData = {};
+      let deleteTargetId = null;
+      let generatedTicketId = null;
+      let logoImage = null;
 
-      // attach events
-      card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(id));
-      card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(id));
-      card.querySelector('.callBtn').addEventListener('click', () => callNext(id));
-      card.querySelector('.resetBtn').addEventListener('click', () => resetCounter(id));
-
-      countersGrid.appendChild(card);
-    });
-  }
-
-  function escapeHtml(s) {
-    if (s === undefined || s === null) return '';
-    return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-  }
-
-  function updateTicketSelect() {
-    ticketCounterSelect.innerHTML = `<option value="">Choose a counter...</option>`;
-    Object.keys(countersData || {}).forEach(id => {
-      const c = countersData[id];
-      const opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = `${c.name || id} (${c.prefix || ''})`;
-      ticketCounterSelect.appendChild(opt);
-    });
-  }
-
-  // add/edit handlers
-  addCounterBtn.addEventListener('click', openAddCounter);
-  addCounterBtnEmpty?.addEventListener('click', openAddCounter);
-  closeCounterModalBtn.addEventListener('click', () => counterModal.classList.remove('show'));
-  cancelCounterBtn.addEventListener('click', () => counterModal.classList.remove('show'));
-
-  function openAddCounter() {
-    counterModalTitle.textContent = 'Add Counter';
-    counterForm.reset();
-    counterIdInput.value = '';
-    counterModal.classList.add('show');
-  }
-
-  function openEditCounter(id) {
-    const c = countersData[id];
-    if (!c) return;
-    counterModalTitle.textContent = 'Edit Counter';
-    counterIdInput.value = id;
-    counterNameInput.value = c.name || '';
-    counterPrefixInput.value = c.prefix || '';
-    counterModal.classList.add('show');
-  }
-
-  counterForm.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const name = counterNameInput.value.trim();
-    const prefix = (counterPrefixInput.value || '').trim().toUpperCase();
-    if (!name || !prefix || prefix.length > 7) return alert('Enter valid name & prefix (max 7 chars)');
-
-    const editingId = counterIdInput.value;
-    try {
-      if (editingId) {
-        await update(ref(db, `counters/${editingId}`), { name, prefix });
-      } else {
-        // use transaction on lastAssignedCounter to create stable counter ID
-        const lastAssignedRef = ref(db, 'lastAssignedCounter');
-        const tx = await runTransaction(lastAssignedRef, (curr) => (curr || 0) + 1);
-        const newNum = tx.snapshot.val();
-        const newId = `counter${newNum}`;
-        await set(ref(db, `counters/${newId}`), {
-          name, prefix, active: true, busy: false, nowServing: 0, lastIssued: 0, lastAdvanceAt: Date.now()
-        });
-      }
-      counterModal.classList.remove('show');
-    } catch (err) {
-      console.error(err);
-      alert('Save failed — check console');
-    }
-  });
-
-  // delete
-  function openDeleteCounter(id) { deleteTargetId = id; deleteModal.classList.add('show'); }
-  confirmDeleteBtn.addEventListener('click', async () => {
-    if (!deleteTargetId) return;
-    try {
-      await remove(ref(db, `counters/${deleteTargetId}`));
-      deleteModal.classList.remove('show');
-      deleteTargetId = null;
-    } catch (err) { console.error(err); alert('Delete failed'); }
-  });
-  cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
-
-  // reset
-  async function resetCounter(id) {
-    if (!confirm('Reset to 0?')) return;
-    try { await update(ref(db, `counters/${id}`), { nowServing: 0, lastIssued: 0, busy: false, lastAdvanceAt: Date.now() }); }
-    catch (err) { console.error(err); alert('Reset failed'); }
-  }
-
-  // call next — updates nowServing and notifies users
-  async function callNext(id) {
-    const counter = countersData[id];
-    if (!counter) return;
-    try {
-      const nowServing = (counter.nowServing || 0) + 1;
-      const prefix = counter.prefix || '';
-      const calledFull = `${prefix}${String(nowServing).padStart(3,'0')}`;
-
-      await update(ref(db, `counters/${id}`), { nowServing, busy: true, lastAdvanceAt: Date.now() });
-
-      // gather recipients from queue (assigned to this counter and have chatId)
-      const qSnap = await get(ref(db, 'queue'));
-      const recipients = [];
-      if (qSnap.exists()) {
-        const q = qSnap.val();
-        Object.keys(q).forEach(k => {
-          const e = q[k];
-          if (e.counterId === id && e.chatId) recipients.push({ chatId: e.chatId, theirNumber: e.queueId, ticketId: k });
-        });
-      }
-
-      if (recipients.length) {
-        try {
-          await fetch(`${DEFAULT_SITE_URL}${NOTIFY_ENDPOINT}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ calledFull, counterName: counter.name || id, recipients })
-          });
-        } catch (notifyErr) { console.error('notify error', notifyErr); }
-      }
-
-      setTimeout(async () => { try { await update(ref(db, `counters/${id}`), { busy: false }); } catch(e){} }, 2200);
-    } catch (err) { console.error(err); alert('Call next failed'); try { await update(ref(db, `counters/${id}`), { busy: false }); } catch(e){} }
-  }
-
-  // Ticket modal controls
-  document.getElementById('generateTicketBtn').addEventListener('click', () => {
-    ticketForm.reset();
-    ticketQRCode.innerHTML = '';
-    ticketNumberDisplay.textContent = '—';
-    openStatusBtn.disabled = true;
-    downloadQRBtn.disabled = true;
-    baseUrlInput.value = DEFAULT_SITE_URL;
-    ticketModal.classList.add('show');
-  });
-
-  closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
-
-  // generate ticket using transaction on counters/{id}/lastIssued
-  ticketForm.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const counterId = ticketCounterSelect.value;
-    if (!counterId) return alert('Choose a counter');
-    const counter = countersData[counterId];
-    if (!counter) return alert('Counter missing');
-
-    try {
-      // atomic increment of lastIssued
-      const lastIssuedRef = ref(db, `counters/${counterId}/lastIssued`);
-      const tx = await runTransaction(lastIssuedRef, (curr) => (curr || 0) + 1);
-      const newLastIssued = tx.snapshot.val();
-      const prefix = counter.prefix || '';
-      const queueId = `${prefix}${String(newLastIssued).padStart(3,'0')}`;
-
-      // push queue entry
-      const queueRef = push(ref(db, 'queue'));
-      await set(queueRef, { counterId, queueId, status: 'waiting', timestamp: Date.now() });
-      generatedTicketId = queueRef.key;
-
-      // prepare URL (base + index.html?queueId=KEY)
-      const base = (baseUrlInput.value || DEFAULT_SITE_URL).replace(/\/$/, '');
-      const statusUrl = `${base}/index.html?queueId=${encodeURIComponent(generatedTicketId)}`;
-      generatedStatusUrl = statusUrl;
-
-      // generate QR canvas using global QRCode
-      ticketQRCode.innerHTML = '';
-      const qrCanvas = document.createElement('canvas');
-      await new Promise((resolve, reject) => {
-        try {
-          QRCode.toCanvas(qrCanvas, statusUrl, {
-            width: 420,
-            margin: 2,
-            color: { dark: qrTextColor.value || '#111827', light: qrBgColor.value || '#ffffff' }
-          }, (err) => err ? reject(err) : resolve());
-        } catch (err) { reject(err); }
+      // Load logo (client-only)
+      qrLogoFile.addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        if (!f) { logoImage = null; return; }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => { logoImage = img; };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(f);
       });
 
-      // merge into single canvas
-      const merged = makeMergedCanvas(qrCanvas, qrBgColor.value || '#fff', qrOverlayText.value || '', parseInt(qrFontSize.value || 18,10), qrTextColor.value || '#111827', logoImage);
-      ticketQRCode.appendChild(merged);
-      ticketNumberDisplay.textContent = queueId;
+      // Listen to counters node
+      const countersRef = ref(db, 'counters');
+      onValue(countersRef, snapshot => {
+        countersData = snapshot.val() || {};
+        renderCounters();
+        updateTicketSelect();
+      });
 
-      // enable open & download
-      openStatusBtn.disabled = false;
-      downloadQRBtn.disabled = false;
-      downloadQRBtn.onclick = () => downloadCanvasPNG(merged, `ticket-${queueId}.png`);
-      openStatusBtn.onclick = () => window.open(statusUrl, '_blank');
+      // Render counters
+      function renderCounters() {
+        const ids = Object.keys(countersData || {});
+        if (!ids.length) {
+          countersGrid.classList.add('hidden');
+          emptyState.classList.remove('hidden');
+          return;
+        }
+        emptyState.classList.add('hidden');
+        countersGrid.classList.remove('hidden');
+        countersGrid.innerHTML = '';
 
-    } catch (err) {
-      console.error('generate ticket failed', err);
-      alert('Ticket generation failed — check console.');
-    }
-  });
+        ids.forEach(counterId => {
+          const c = countersData[counterId] || {};
+          const card = document.createElement('div');
+          card.className = 'card p-6 fade-in';
 
-  // merged canvas builder
-  function makeMergedCanvas(qrCanvas, bgColor, overlayText, fontSize = 18, textColor = '#111827', logoImg = null) {
-    const qrSize = Math.max(qrCanvas.width, qrCanvas.height);
-    const padding = 26;
-    const logoHeight = logoImg ? Math.min(64, Math.round(qrSize * 0.12)) : 0;
-    const overlayHeight = overlayText ? (fontSize * 1.6 + 10) : 0;
-    const w = qrSize + padding * 2;
-    const h = qrSize + padding * 2 + overlayHeight + logoHeight;
+          const nowServing = c.nowServing || 0;
+          const lastIssued = c.lastIssued || 0;
+          const prefix = c.prefix || '';
+          const isActive = c.active !== false;
+          const isBusy = c.busy === true;
+          const nowServingFormatted = `${prefix}${String(nowServing).padStart(3, '0')}`;
+          const nextNumFormatted = `${prefix}${String((lastIssued || 0) + 1).padStart(3,'0')}`;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    canvas.style.maxWidth = '100%';
-    const ctx = canvas.getContext('2d');
+          card.innerHTML = `
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900">${escapeHtml(c.name || counterId)}</h3>
+                <p class="text-sm muted">${escapeHtml(prefix)} Series</p>
+              </div>
+              <div class="flex gap-2">
+                <button class="editBtn w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center" title="Edit">✎</button>
+                <button class="deleteBtn w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center" title="Delete">🗑</button>
+              </div>
+            </div>
 
-    // bg
-    ctx.fillStyle = bgColor || '#fff';
-    ctx.fillRect(0, 0, w, h);
+            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4">
+              <p class="text-sm muted mb-1">Now Serving</p>
+              <p class="text-4xl font-bold text-indigo-900 ${isBusy ? 'pulse-ring' : ''}">${escapeHtml(nowServingFormatted)}</p>
+            </div>
 
-    // card area
-    const cardX = 8;
-    const cardY = 8;
-    const cardW = w - 16;
-    const cardH = h - 16;
-    roundRect(ctx, cardX, cardY, cardW, cardH, 16);
-    ctx.fillStyle = bgColor || '#fff';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.04)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs muted mb-1">Last Issued</p>
+                <p class="text-xl font-bold text-gray-900">${escapeHtml(prefix)}${String(lastIssued).padStart(3,'0')}</p>
+              </div>
+              <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs muted mb-1">Next Number</p>
+                <p class="text-xl font-bold text-gray-900">${escapeHtml(nextNumFormatted)}</p>
+              </div>
+            </div>
 
-    // logo (centered) if present
-    let qrTop = cardY + padding/2;
-    if (logoImg) {
-      const aspect = logoImg.width / logoImg.height;
-      const logoW = Math.round(logoHeight * aspect);
-      const logoX = (w - logoW) / 2;
-      ctx.drawImage(logoImg, logoX, cardY + 12, logoW, logoHeight);
-      qrTop += logoHeight + 8;
-    }
+            <div class="flex gap-2">
+              <button class="callBtn flex-1 py-3 rounded-xl font-semibold text-white ${isActive && !isBusy ? '' : 'opacity-50 cursor-not-allowed'}" ${isActive && !isBusy ? '' : 'disabled'} style="background: linear-gradient(90deg,#10b981,#14b8a6);">Call Next</button>
+              <button class="resetBtn px-4 py-3 bg-orange-500 text-white font-semibold rounded-xl">Reset</button>
+            </div>
+          `;
 
-    // draw QR centered
-    const qrX = (w - qrSize)/2;
-    ctx.drawImage(qrCanvas, qrX, qrTop, qrSize, qrSize);
+          // attach events
+          card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(counterId));
+          card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(counterId));
+          card.querySelector('.callBtn').addEventListener('click', () => callNext(counterId));
+          card.querySelector('.resetBtn').addEventListener('click', () => resetCounter(counterId));
 
-    // overlay text
-    if (overlayText) {
-      ctx.font = `600 ${fontSize}px Inter, system-ui`;
-      ctx.fillStyle = textColor || '#111827';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      const textY = qrTop + qrSize + 8;
-      wrapTextCentered(ctx, overlayText, w/2, textY, w - 40, fontSize * 1.35);
-    }
-
-    return canvas;
-  }
-
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  function wrapTextCentered(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(' ');
-    let line = '';
-    const lines = [];
-    for (let i = 0; i < words.length; i++) {
-      const test = line + words[i] + ' ';
-      if (ctx.measureText(test).width > maxWidth && i > 0) {
-        lines.push(line.trim());
-        line = words[i] + ' ';
-      } else {
-        line = test;
+          countersGrid.appendChild(card);
+        });
       }
-    }
-    lines.push(line.trim());
-    for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], x, y + i * lineHeight);
-    }
-  }
 
-  function downloadCanvasPNG(canvas, filename = 'ticket.png') {
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = filename;
-    a.click();
-  }
+      // sanitize output
+      function escapeHtml(s) {
+        if (s === undefined || s === null) return '';
+        return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+      }
 
-  // close modal on backdrop click
-  [counterModal, authModal, ticketModal, deleteModal].forEach(modal => {
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
-  });
+      // update select for tickets
+      function updateTicketSelect() {
+        ticketCounterSelect.innerHTML = '<option value="">Choose a counter...</option>';
+        Object.keys(countersData || {}).forEach(id => {
+          const c = countersData[id];
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = `${c.name || id} (${c.prefix || ''})`;
+          ticketCounterSelect.appendChild(opt);
+        });
+      }
 
-  // small initial empty render
-  (function initEmpty() {
-    const keys = Object.keys(countersData || {});
-    if (!keys.length) {
-      countersGrid.classList.add('hidden');
-      emptyState.classList.remove('hidden');
-    }
-  })();
+      // modal & form handlers
+      addCounterBtn.addEventListener('click', openAddCounter);
+      addCounterBtnEmpty?.addEventListener('click', openAddCounter);
+      closeCounterModalBtn.addEventListener('click', () => counterModal.classList.remove('show'));
+      closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
+      document.getElementById('closeTicketModalBtn')?.addEventListener('click', () => ticketModal.classList.remove('show'));
+      document.getElementById('addCounterBtnEmpty')?.addEventListener('click', openAddCounter);
 
+      function openAddCounter() {
+        counterModalTitle.textContent = 'Add Counter';
+        counterForm.reset();
+        counterIdInput.value = '';
+        counterModal.classList.add('show');
+      }
+
+      function openEditCounter(counterId) {
+        const c = countersData[counterId];
+        if (!c) return;
+        counterModalTitle.textContent = 'Edit Counter';
+        counterIdInput.value = counterId;
+        counterNameInput.value = c.name || '';
+        counterPrefixInput.value = c.prefix || '';
+        counterModal.classList.add('show');
+      }
+
+      // Save counter; create stable counter IDs using lastAssignedCounter transaction
+      counterForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = counterNameInput.value.trim();
+        const prefix = (counterPrefixInput.value || '').trim().toUpperCase();
+        if (!name || !prefix || prefix.length > 7) return alert('Please provide valid counter name and prefix (max 7 chars)');
+
+        const editingId = counterIdInput.value;
+        try {
+          if (editingId) {
+            await update(ref(db, `counters/${editingId}`), { name, prefix });
+          } else {
+            const lastAssignedRef = ref(db, 'lastAssignedCounter');
+            const tx = await runTransaction(lastAssignedRef, (curr) => (curr || 0) + 1);
+            const newNum = tx.snapshot.val();
+            const newId = `counter${newNum}`;
+            await set(ref(db, `counters/${newId}`), {
+              name, prefix, active: true, busy: false, nowServing: 0, lastIssued: 0, lastAdvanceAt: Date.now()
+            });
+          }
+          counterModal.classList.remove('show');
+        } catch (err) {
+          console.error('Save counter error', err);
+          alert('Failed to save counter (check console).');
+        }
+      });
+
+      // delete flow
+      function openDeleteCounter(counterId) {
+        deleteTargetId = counterId;
+        deleteModal.classList.add('show');
+      }
+      confirmDeleteBtn.addEventListener('click', async () => {
+        if (!deleteTargetId) return;
+        try {
+          await remove(ref(db, `counters/${deleteTargetId}`));
+          deleteModal.classList.remove('show');
+          deleteTargetId = null;
+        } catch (err) {
+          console.error('Delete counter error', err);
+          alert('Failed to delete counter');
+        }
+      });
+      cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
+
+      // reset
+      async function resetCounter(counterId) {
+        if (!confirm('Reset this counter to 0?')) return;
+        try {
+          await update(ref(db, `counters/${counterId}`), { nowServing: 0, lastIssued: 0, busy: false, lastAdvanceAt: Date.now() });
+        } catch (err) {
+          console.error('Reset error', err);
+          alert('Failed to reset');
+        }
+      }
+
+      // call next
+      async function callNext(counterId) {
+        const counter = countersData[counterId];
+        if (!counter) return;
+        try {
+          const nowServing = (counter.nowServing || 0) + 1;
+          const prefix = counter.prefix || '';
+          const calledFull = `${prefix}${String(nowServing).padStart(3, '0')}`;
+
+          await update(ref(db, `counters/${counterId}`), { nowServing, busy: true, lastAdvanceAt: Date.now() });
+
+          // collect recipients
+          const qSnap = await get(ref(db, 'queue'));
+          const recipients = [];
+          if (qSnap.exists()) {
+            const allQ = qSnap.val();
+            Object.keys(allQ).forEach(k => {
+              const e = allQ[k];
+              if (e.counterId === counterId && e.chatId) {
+                recipients.push({ chatId: e.chatId, theirNumber: e.queueId, ticketId: k });
+              }
+            });
+          }
+
+          // call notify endpoint if recipients exist
+          if (recipients.length) {
+            try {
+              const site = SITE_URL || window.location.origin;
+              await fetch(`${site}${NOTIFY_ENDPOINT}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ calledFull, counterName: counter.name || counterId, recipients })
+              });
+            } catch (notifyErr) {
+              console.error('Notify error', notifyErr);
+            }
+          }
+
+          setTimeout(async () => {
+            try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e) {}
+          }, 3000);
+        } catch (err) {
+          console.error('Call next failed', err);
+          alert('Failed to call next');
+          try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e) {}
+        }
+      }
+
+      // Ticket modal open/close handlers
+      document.getElementById('generateTicketBtn').addEventListener('click', () => {
+        ticketForm.reset();
+        ticketQRCode.innerHTML = '';
+        ticketNumberDisplay.textContent = '—';
+        openStatusBtn.classList.add('hidden');
+        downloadQRBtn.classList.add('hidden');
+        baseUrlInput.value = '';
+        ticketModal.classList.add('show');
+      });
+
+      closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
+      document.getElementById('closeTicketModalBtn')?.addEventListener('click', () => ticketModal.classList.remove('show'));
+
+      // Generate ticket: uses transaction on counters/{id}/lastIssued for atomic issuing
+      ticketForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const counterId = ticketCounterSelect.value;
+        if (!counterId) return alert('Please select a counter');
+
+        const counter = countersData[counterId];
+        if (!counter) return alert('Selected counter not found');
+
+        try {
+          // atomic increment lastIssued
+          const lastIssuedRef = ref(db, `counters/${counterId}/lastIssued`);
+          const tx = await runTransaction(lastIssuedRef, (curr) => (curr || 0) + 1);
+          const newLastIssued = tx.snapshot.val();
+          const prefix = (counter.prefix || '').toString();
+          const queueId = `${prefix}${String(newLastIssued).padStart(3,'0')}`;
+
+          // create queue entry
+          const queueRef = push(ref(db, 'queue'));
+          await set(queueRef, {
+            counterId,
+            queueId,
+            status: 'waiting',
+            timestamp: Date.now()
+          });
+
+          generatedTicketId = queueRef.key;
+
+          // build status URL for QR
+          const base = (baseUrlInput.value && baseUrlInput.value.trim()) ? baseUrlInput.value.trim().replace(/\/$/, '') : (SITE_URL || window.location.origin);
+          const statusUrl = `${base}/index.html?queueId=${encodeURIComponent(generatedTicketId)}`;
+
+          // generate QR to canvas (UMD QRCode.toCanvas)
+          ticketQRCode.innerHTML = '';
+          const qrCanvas = document.createElement('canvas');
+          await new Promise((resolve, reject) => {
+            try {
+              QRCode.toCanvas(qrCanvas, statusUrl, {
+                width: 420,
+                margin: 2,
+                color: { dark: qrTextColor.value || '#111827', light: qrBgColor.value || '#ffffff' }
+              }, (err) => err ? reject(err) : resolve());
+            } catch (ex) {
+              reject(ex);
+            }
+          });
+
+          // merge QR + background + overlay text + optional logo into single canvas
+          const merged = mergeQRCode(qrCanvas, qrBgColor.value || '#fff', qrOverlayText.value || '', parseInt(qrFontSize.value || 18, 10), qrTextColor.value || '#111827', logoImage);
+          ticketQRCode.appendChild(merged);
+          ticketNumberDisplay.textContent = queueId;
+
+          // show open/download UI
+          openStatusBtn.classList.remove('hidden');
+          downloadQRBtn.classList.remove('hidden');
+          openStatusBtn.onclick = () => window.open(statusUrl, '_blank');
+          downloadQRBtn.onclick = () => downloadCanvasPNG(merged, `ticket-${queueId}.png`);
+        } catch (err) {
+          console.error('Generate ticket failed', err);
+          alert('Failed to generate ticket (see console).');
+        }
+      });
+
+      // Merge QR + bg + text + optional logo into a single canvas
+      function mergeQRCode(qrCanvas, bgColor, overlayText, fontSize, textColor, logoImg) {
+        const qrSize = Math.max(qrCanvas.width, qrCanvas.height);
+        const padding = 28;
+        const logoHeight = logoImg ? Math.min(72, Math.round(qrSize * 0.12)) : 0;
+        const overlayHeight = overlayText ? (fontSize * 1.6 + 8) : 0;
+        const width = qrSize + padding * 2;
+        const height = qrSize + padding * 2 + overlayHeight + logoHeight;
+
+        const c = document.createElement('canvas');
+        c.width = width;
+        c.height = height;
+        c.style.maxWidth = '100%';
+        const ctx = c.getContext('2d');
+
+        // background
+        ctx.fillStyle = bgColor || '#fff';
+        ctx.fillRect(0, 0, width, height);
+
+        // card area (slight inset)
+        const cardX = 8;
+        const cardY = 8;
+        const cardW = width - 16;
+        const cardH = height - 16;
+        roundRect(ctx, cardX, cardY, cardW, cardH, 18);
+        ctx.fillStyle = bgColor || '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // logo (optional), center above QR
+        let qrTop = cardY + padding / 2;
+        if (logoImg) {
+          const aspect = logoImg.width / logoImg.height;
+          const logoW = Math.round(logoHeight * aspect);
+          const logoX = (width - logoW) / 2;
+          ctx.drawImage(logoImg, logoX, cardY + 12, logoW, logoHeight);
+          qrTop += logoHeight + 8;
+        }
+
+        // draw QR centered
+        const qrX = (width - qrSize) / 2;
+        ctx.drawImage(qrCanvas, qrX, qrTop, qrSize, qrSize);
+
+        // overlay text
+        if (overlayText) {
+          ctx.font = `600 ${fontSize}px Inter, system-ui`;
+          ctx.fillStyle = textColor || '#111827';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          const textY = qrTop + qrSize + 10;
+          wrapText(ctx, overlayText, width / 2, textY, width - 40, fontSize * 1.35);
+        }
+
+        return c;
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+
+      function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        let line = '';
+        const lines = [];
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && n > 0) {
+            lines.push(line.trim());
+            line = words[n] + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        lines.push(line.trim());
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i], x, y + i * lineHeight);
+        }
+      }
+
+      function downloadCanvasPNG(canvas, filename = 'ticket.png') {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = filename;
+        link.click();
+      }
+
+      // helper: close modal when backdrop clicked
+      [counterModal, ticketModal, deleteModal].forEach(modal => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.classList.remove('show');
+        });
+      });
+
+      // initial render safety
+      (function tryInitial() {
+        const keys = Object.keys(countersData || {});
+        if (!keys.length) {
+          countersGrid.classList.add('hidden');
+          emptyState.classList.remove('hidden');
+        }
+      })();
+
+    }); // DOMContentLoaded end
   </script>
 </body>
 </html>
