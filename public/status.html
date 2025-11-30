@@ -12,191 +12,28 @@
     body { font-family: 'Inter', sans-serif; }
     .fade-in { animation: fadeIn 0.45s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: translateY(0); } }
-
     .circle-control { width:46px;height:46px;border-radius:9999px;background:white;display:inline-flex;align-items:center;justify-content:center;box-shadow: 0 8px 30px rgba(15,23,42,0.08);cursor:pointer;border:none }
     .top-controls { z-index:80; position:absolute; right:.75rem; top:.75rem; display:flex; gap:.5rem; }
-
     #adPanelContainer { z-index:40; }
     #adContainer video, #adContainer img { max-height: 96px; width: 100%; object-fit: cover; border-radius: 0.5rem; display: block; }
     @media (max-width:420px){ .top-controls{ right:.5rem; top:.5rem } }
-
-    /* Onboarding Modal Styles */
-    .onboarding-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      padding: 1rem;
-    }
-
-    .onboarding-content {
-      background: white;
-      border-radius: 24px;
-      max-width: 400px;
-      width: 100%;
-      overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-
-    .onboarding-slide {
-      display: none;
-      padding: 2.5rem 2rem;
-      text-align: center;
-      min-height: 480px;
-      background: linear-gradient(135deg, #f8f4ff 0%, #fdf2f8 100%);
-    }
-
-    .onboarding-slide.active {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      animation: slideIn 0.4s ease-out;
-    }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(20px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    .onboarding-icon {
-      width: 120px;
-      height: 120px;
-      margin: 0 auto 1.5rem;
-      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-      border-radius: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3.5rem;
-      box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
-    }
-
-    .step-indicators {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin: 1.5rem 0;
-    }
-
-    .step-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #d1d5db;
-      transition: all 0.3s ease;
-    }
-
-    .step-dot.active {
-      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-      width: 24px;
-      border-radius: 4px;
-    }
-
-    .gradient-button {
-      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-      color: white;
-      font-weight: 600;
-      padding: 1rem 2rem;
-      border-radius: 16px;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-      font-size: 1rem;
-      box-shadow: 0 8px 20px rgba(236, 72, 153, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .gradient-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 28px rgba(236, 72, 153, 0.5);
-    }
-
-    .skip-button {
-      background: transparent;
-      color: #9ca3af;
-      border: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      margin-top: 1rem;
-    }
-
-    .spinner-inline { 
-      width:18px;
-      height:18px;
-      border:2px solid rgba(255,255,255,0.3);
-      border-top-color:white;
-      border-radius:50%;
-      display:inline-block;
-      animation:spin .8s linear infinite;
-      margin-right:8px 
-    }
+    .spinner-inline { width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;margin-right:8px }
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4 pb-32">
 
   <!-- Onboarding Modal -->
-  <div id="onboardingModal" class="onboarding-modal">
-    <div class="onboarding-content">
-      <!-- Slide 1 -->
-      <div class="onboarding-slide active" data-slide="0">
-        <div>
-          <div class="onboarding-icon">1️⃣</div>
-          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Connect Telegram</h2>
-          <p class="text-gray-600 leading-relaxed">Get notified instantly when it's your turn with Telegram. No need to keep this page open! You must use the Telegram app on your phone</p>
-        </div>
-        <div>
-          <div class="step-indicators">
-            <div class="step-dot active"></div>
-            <div class="step-dot"></div>
-            <div class="step-dot"></div>
-          </div>
-          <button class="gradient-button" onclick="nextSlide()">Next</button>
-          <button class="skip-button" onclick="skipOnboarding()">Skip</button>
-        </div>
+  <div id="onboardingModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style="display:flex">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6">
+      <h2 class="text-2xl font-bold text-indigo-700 mb-2">Connect Telegram</h2>
+      <p class="text-gray-600 mb-4">Get notified instantly when it's your turn. Tap the button below to connect this queue to Telegram.</p>
+      <div id="connectArea" class="space-y-3">
+        <button id="finalConnectButton" class="w-full py-3 rounded-xl text-white font-semibold" style="background:linear-gradient(135deg,#ec4899,#8b5cf6)">Connect via Telegram</button>
+        <p id="connectStatusText" class="text-sm text-gray-500">Preparing connection...</p>
       </div>
-
-      <!-- Slide 2 -->
-      <div class="onboarding-slide" data-slide="1">
-        <div>
-          <div class="onboarding-icon">2️⃣</div>
-          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">Hit "Start"</h2>
-          <p class="text-gray-600 leading-relaxed">Tap Start to confirm the connection.</p>
-        </div>
-        <div>
-          <div class="step-indicators">
-            <div class="step-dot"></div>
-            <div class="step-dot active"></div>
-            <div class="step-dot"></div>
-          </div>
-          <button class="gradient-button" onclick="nextSlide()">Next</button>
-          <button class="skip-button" onclick="skipOnboarding()">Skip</button>
-        </div>
-      </div>
-
-      <!-- Slide 3 -->
-      <div class="onboarding-slide" data-slide="2">
-        <div>
-          <div class="onboarding-icon">3️⃣</div>
-          <h2 class="text-2xl font-bold mb-3" style="color: #8b5cf6;">All Set</h2>
-          <p class="text-gray-600 leading-relaxed mb-4">You can close everything. Telegram will notify you when it’s your turn.</p>
-          <p id="connectStatusText" class="text-sm text-gray-500 mb-2">Preparing connection...</p>
-        </div>
-        <div>
-          <div class="step-indicators">
-            <div class="step-dot"></div>
-            <div class="step-dot"></div>
-            <div class="step-dot active"></div>
-          </div>
-          <button id="finalConnectButton" class="gradient-button" onclick="connectTelegram()">
-            <span id="buttonText">Connect via Telegram</span>
-          </button>
-          <button class="skip-button" onclick="skipOnboarding()">Maybe Later</button>
-        </div>
+      <div class="text-right mt-3">
+        <button id="closeOnboarding" class="text-sm text-gray-500">Close</button>
       </div>
     </div>
   </div>
@@ -262,14 +99,21 @@
     <div id="errorMessage" class="hidden p-3 bg-red-50 border border-red-200 rounded-lg">
       <p class="text-red-600 text-sm text-center"></p>
     </div>
+
+    <!-- Admin small card showing the computed avg (optional - only visible for admins if included on page) -->
+    <div id="analystCard" class="mt-2 hidden">
+      <div style="padding:18px;background:linear-gradient(135deg,rgba(102,126,234,0.95),rgba(102,126,234,0.8));color:white;border-radius:12px">
+        <p style="opacity:.9;margin:0">Avg Wait Time</p>
+        <h3 style="font-size:20px;font-weight:700;margin:6px 0"><span id="analystAvgWait">0</span> min</h3>
+      </div>
+    </div>
+
   </div>
 
   <div id="adPanelContainer" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-sm px-4">
     <div class="bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
-        <!-- ad content injected here: <video> or <img> -->
-      </div>
+      <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden"></div>
       <div id="noAd" class="text-center text-gray-400 text-sm py-4 hidden">No advertisement available</div>
     </div>
   </div>
@@ -278,7 +122,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
     const SEND_TELEGRAM_ENDPOINT = '/.netlify/functions/sendTelegram';
 
@@ -294,6 +137,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // DOM refs
     const yourNumber = document.getElementById('yourNumber');
     const counterNameEl = document.getElementById('counterName');
     const nowServingEl = document.getElementById('nowServing');
@@ -310,70 +154,27 @@
     const gameBtn = document.getElementById('gameBtn');
     const onboardingModal = document.getElementById('onboardingModal');
     const connectStatusText = document.getElementById('connectStatusText');
-    const buttonText = document.getElementById('buttonText');
     const finalConnectButton = document.getElementById('finalConnectButton');
+    const closeOnboarding = document.getElementById('closeOnboarding');
+    const analystCard = document.getElementById('analystCard');
+    const analystAvgWait = document.getElementById('analystAvgWait');
 
+    // state
     let queueRef = null, counterRef = null, servingRef = null, adRef = null;
     let currentQueueKey = null;
     let currentQueueData = null;
     let currentCounterId = null;
     let latestConnectLink = null;
     let linkGenerating = false;
-    let avgServiceTimeForCounter = null;
-    let currentSlide = 0;
+    let avgServiceTimeForCounter = 3; // minutes
+    let redirectTimeoutId = null;
 
-    // ---------- onboarding helpers ----------
-    window.nextSlide = function() {
-      const slides = document.querySelectorAll('.onboarding-slide');
-      slides[currentSlide].classList.remove('active');
-      currentSlide = (currentSlide + 1) % slides.length;
-      slides[currentSlide].classList.add('active');
-
-      if (currentSlide === 2) {
-        triggerGenerateLink();
-      }
-    };
-
-    window.skipOnboarding = function() {
-      onboardingModal.style.display = 'none';
-    };
-
-    window.connectTelegram = async function() {
-      if (!latestConnectLink) {
-        buttonText.innerHTML = '<span class="spinner-inline"></span>Generating link...';
-        try {
-          latestConnectLink = await generateConnectLink();
-        } catch(e) {
-          latestConnectLink = TELEGRAM_BOT_URL; // fallback
-        }
-      }
-
-      buttonText.innerHTML = '<span class="spinner-inline"></span>Opening Telegram...';
-      finalConnectButton.disabled = true;
-
-      const win = window.open(latestConnectLink, '_blank', 'noopener,noreferrer');
-
-      if (currentQueueKey) {
-        const token = (latestConnectLink && latestConnectLink.split('start=')[1]) || null;
-        if (token) {
-          try {
-            await fetch(`/.netlify/functions/markTokenUsed`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ queueKey: currentQueueKey, token })
-            });
-          } catch(e){}
-        }
-      }
-
-      setTimeout(() => onboardingModal.style.display = 'none', 500);
-    };
-
-    const showError = (msg) => {
+    // UI helpers
+    function showError(msg) {
       errorMessage.querySelector('p').textContent = msg;
       errorMessage.classList.remove('hidden');
-      setTimeout(() => errorMessage.classList.add('hidden'), 5000);
-    };
+      setTimeout(()=> errorMessage.classList.add('hidden'), 6000);
+    }
 
     function setTelegramUIConnected(connected) {
       if (connected) {
@@ -391,6 +192,24 @@
       }
     }
 
+    function formatMinutesToReadable(mins) {
+      const m = Math.max(0, Math.round(mins));
+      if (m === 0) return 'Less than a minute';
+      if (m < 60) return `${m} min`;
+      const hrs = Math.floor(m / 60);
+      const rem = m % 60;
+      return rem === 0 ? `${hrs} hr${hrs > 1 ? 's' : ''}` : `${hrs} hr ${rem} min`;
+    }
+
+    function computeEstimatedWaitText(ahead, avgMins) {
+      let avg = Number(avgMins);
+      if (!Number.isFinite(avg) || avg <= 0) avg = 3;
+      if (!Number.isFinite(ahead) || ahead <= 0) return 'Now';
+      const estMinutes = Math.round(ahead * avg);
+      return `${ahead} person${ahead > 1 ? 's' : ''} — approx ${formatMinutesToReadable(estMinutes)}`;
+    }
+
+    // Connect button logic
     async function generateConnectLink() {
       if (!currentQueueKey) throw new Error('Missing queueKey');
       const res = await fetch(CREATE_LINK_ENDPOINT, {
@@ -407,38 +226,31 @@
       return j.link;
     }
 
-    async function triggerGenerateLink() {
+    async function openConnect() {
       if (linkGenerating) return;
       linkGenerating = true;
       connectStatusText.textContent = 'Generating secure link...';
-      latestConnectLink = null;
+      finalConnectButton.disabled = true;
       try {
-        const link = await generateConnectLink();
-        latestConnectLink = link;
-        connectStatusText.textContent = 'Ready to connect! Tap the button below.';
-      } catch (err) {
-        latestConnectLink = null;
-        connectStatusText.textContent = 'Will use direct bot link.';
+        latestConnectLink = await generateConnectLink();
+      } catch (e) {
+        latestConnectLink = `https://t.me/QueueJoyBot`;
       } finally {
         linkGenerating = false;
       }
+      connectStatusText.textContent = 'Opening Telegram...';
+      window.open(latestConnectLink, '_blank', 'noopener');
+      finalConnectButton.disabled = false;
+      setTimeout(()=> { onboardingModal.style.display = 'none'; }, 500);
     }
 
-    connectTopBtn.addEventListener('click', () => {
-      const slides = document.querySelectorAll('.onboarding-slide');
-      slides.forEach(s => s.classList.remove('active'));
-      currentSlide = 0;
-      slides[0].classList.add('active');
-      onboardingModal.style.display = 'flex';
-    });
+    finalConnectButton.addEventListener('click', openConnect);
+    connectTopBtn.addEventListener('click', () => { onboardingModal.style.display = 'flex'; });
+    closeOnboarding.addEventListener('click', () => { onboardingModal.style.display = 'none'; });
+    gameBtn.addEventListener('click', () => { window.location.href = 'https://queuejoy.netlify.app/game.html'; });
 
-    gameBtn.addEventListener('click', () => {
-      window.location.href = 'https://queuejoy.netlify.app/game.html';
-    });
-
-    // ---------- AD handling (supports video URLs and data:video base64) ----------
+    // AD handling (light)
     function clearAdContainerPause() {
-      // stop any playing video cleanly before replacing
       const prev = adContainer.querySelector('video');
       if (prev) {
         try { prev.pause(); } catch(e){}
@@ -446,114 +258,96 @@
       }
       adContainer.innerHTML = '';
     }
-
     function showAdFromUrl(adUrl) {
       clearAdContainerPause();
       if (!adUrl) {
         noAd.classList.remove('hidden');
         return;
       }
-
       const url = String(adUrl).trim();
-      // detect video: URL extension OR data:video/...
       const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
-
       noAd.classList.add('hidden');
-
       if (isVideo) {
         const videoEl = document.createElement('video');
-
-        // autoplay-safe attributes
-        videoEl.setAttribute('playsinline', '');
-        videoEl.setAttribute('autoplay', '');
-        videoEl.setAttribute('loop', '');
-        videoEl.setAttribute('muted', '');
-        videoEl.setAttribute('preload', 'metadata');
-
-        videoEl.playsInline = true;
-        videoEl.autoplay = true;
-        videoEl.loop = true;
-        videoEl.muted = true;
-        videoEl.preload = 'metadata';
-
-        videoEl.className = 'w-full object-cover db-image';
-        // set src AFTER attributes
+        videoEl.setAttribute('playsinline',''); videoEl.setAttribute('autoplay',''); videoEl.setAttribute('loop',''); videoEl.setAttribute('muted',''); videoEl.setAttribute('preload','metadata');
+        videoEl.className = 'w-full object-cover';
         videoEl.src = url;
-
-        // append then try play
         adContainer.appendChild(videoEl);
-
-        videoEl.addEventListener('loadedmetadata', () => {
-          // ready
-        });
-
-        videoEl.addEventListener('error', (ev) => {
-          console.warn('Ad video failed to load/play', ev, videoEl.error && videoEl.error.code);
-          // graceful fallback: show controls so user can start it
-          try { videoEl.setAttribute('controls', ''); } catch(e){}
-        });
-
-        // try to start playback (some browsers require explicit play())
-        videoEl.play().catch(err => {
-          console.warn('video.play() rejected:', err);
-          try { videoEl.setAttribute('controls', ''); } catch(e){}
-        });
-
+        videoEl.play().catch(()=>{ videoEl.setAttribute('controls',''); });
       } else {
-        // image/gif
-        const imgEl = document.createElement('img');
-        imgEl.src = url;
-        imgEl.alt = 'Advertisement';
-        imgEl.className = 'w-full object-cover db-image';
-        imgEl.onload = () => {};
-        imgEl.onerror = (e) => {
-          console.warn('Ad image failed to load', e, url);
-          clearAdContainerPause();
-          noAd.classList.remove('hidden');
-        };
-        adContainer.appendChild(imgEl);
+        const img = document.createElement('img'); img.src = url; img.alt='Ad'; img.className='w-full object-cover';
+        img.onerror = () => { clearAdContainerPause(); noAd.classList.remove('hidden'); };
+        adContainer.appendChild(img);
       }
     }
-
-    // subscribe to ad path
-    adRef = ref(db, "settings/adImage");
-    onValue(adRef, (snap) => {
-      const adUrl = snap.val();
-      if (!adUrl) {
-        clearAdContainerPause();
-        noAd.classList.remove('hidden');
-      } else {
-        showAdFromUrl(adUrl);
-      }
+    adRef = ref(db, 'settings/adImage');
+    onValue(adRef, snap => {
+      const val = snap.val();
+      if (!val) { clearAdContainerPause(); noAd.classList.remove('hidden'); }
+      else showAdFromUrl(val);
     });
 
-    // ---------- Estimated wait time helpers ----------
-    function formatMinutesToReadable(mins) {
-      const m = Math.max(0, Math.round(mins));
-      if (m === 0) return 'Less than a minute';
-      if (m < 60) return `${m} min`;
-      const hrs = Math.floor(m / 60);
-      const rem = m % 60;
-      return rem === 0 ? `${hrs} hr${hrs > 1 ? 's' : ''}` : `${hrs} hr ${rem} min`;
-    }
+    // Average computation — returns minutes (float)
+    async function computeAvgServiceMinutes(counterId, counterData) {
+      // 1) counter.avgServiceTime
+      let avg = Number(counterData && counterData.avgServiceTime);
+      if (Number.isFinite(avg) && avg > 0) return avg;
 
-    function computeEstimatedWaitText(ahead, avgMins) {
-      let avg = Number(avgMins);
-      if (!Number.isFinite(avg) || avg <= 0) {
-        avg = 3; // fallback average service time in minutes
+      // 2) search likely paths for sample serviceMs
+      const candidatePaths = ['tickets','servedTickets','served','history'];
+      const samples = [];
+      const MAX_SAMPLES = 80;
+
+      for (const p of candidatePaths) {
+        try {
+          const snap = await get(ref(db, p));
+          if (!snap.exists()) continue;
+          const all = snap.val();
+          for (const k in all) {
+            if (!Object.prototype.hasOwnProperty.call(all,k)) continue;
+            const t = all[k];
+            if (!t) continue;
+            const serviceMs = Number(t.serviceMs || t.service_ms || t.servedMs || t.service_time_ms || 0);
+            if (!Number.isFinite(serviceMs) || serviceMs <= 0) continue;
+            // match by counterId OR counter name OR counter field
+            const counterMatches =
+              (t.counterId && String(t.counterId) === String(counterId))
+              || (t.counter && String(t.counter) === String(counterId))
+              || (t.counter && String(t.counter) === String(counterData?.name))
+              || false;
+            if (counterMatches) {
+              samples.push(serviceMs);
+              if (samples.length >= MAX_SAMPLES) break;
+            }
+          }
+        } catch (e) {
+          // ignore read errors and continue
+        }
+        if (samples.length >= MAX_SAMPLES) break;
       }
 
-      if (!Number.isFinite(ahead) || ahead <= 0) {
-        // you are next or invalid ahead -> show Now or Less than a minute
-        return 'Now';
+      if (samples.length > 0) {
+        // mean of samples
+        const sum = samples.reduce((a,b)=>a+b,0);
+        const meanMs = sum / samples.length;
+        return meanMs / 60000; // minutes
       }
 
-      const estMinutes = Math.round(ahead * avg);
-      return `${ahead} person${ahead > 1 ? 's' : ''} — approx ${formatMinutesToReadable(estMinutes)}`;
+      // 3) try global settings
+      try {
+        const sSnap = await get(ref(db, 'settings/avgServiceTime'));
+        if (sSnap.exists()) {
+          const sVal = Number(sSnap.val());
+          if (Number.isFinite(sVal) && sVal > 0) return sVal;
+        }
+      } catch (e) { /* ignore */ }
+
+      // 4) fallback
+      return 3;
     }
 
-    // ---------- main queue logic ----------
-    document.addEventListener('DOMContentLoaded', () => {
+    // main flow
+    document.addEventListener('DOMContentLoaded', async () => {
       const params = new URLSearchParams(window.location.search);
       const queueKey = params.get('queueId');
       if (!queueKey) {
@@ -562,111 +356,107 @@
         return;
       }
       currentQueueKey = queueKey;
-
       queueRef = ref(db, `queue/${queueKey}`);
-      onValue(queueRef, (snap) => {
+
+      onValue(queueRef, async (snap) => {
         if (!snap.exists()) {
           showError('Queue entry not found. Returning...');
           setTimeout(()=> window.location.href = 'index.html', 1800);
           return;
         }
 
-        const prevConnected = !!(currentQueueData && currentQueueData.telegramConnected);
+        const prevTelegram = currentQueueData && currentQueueData.telegramConnected;
         currentQueueData = snap.val();
-        const { counterId, queueId } = currentQueueData || {};
-        yourNumber.textContent = queueId || '--';
-
+        const qid = currentQueueData.queueId || currentQueueData.number || currentQueueData.ticket || 'Unknown';
+        yourNumber.textContent = qid;
         setTelegramUIConnected(!!currentQueueData.telegramConnected);
 
-        const nowConnected = !!currentQueueData.telegramConnected;
-        if (nowConnected && !prevConnected) {
+        if (currentQueueData.telegramConnected && !prevTelegram) {
           onboardingModal.style.display = 'none';
         }
 
-        if (counterId && (!counterRef || currentCounterId !== counterId)) {
-          if (counterRef) off(counterRef);
+        const counterId = currentQueueData.counterId || null;
+        if (!counterId) {
+          counterNameEl.textContent = 'Unassigned';
+          // detach any existing counter listeners
+          if (counterRef) { off(counterRef); counterRef = null; }
+          if (servingRef) { off(servingRef); servingRef = null; }
+          peopleAheadEl.textContent = '--';
+          estimatedWaitEl.textContent = '--';
+          return;
+        }
+
+        // if counter changed, rebind
+        if (!counterRef || currentCounterId !== counterId) {
           currentCounterId = counterId;
+          if (counterRef) off(counterRef);
           counterRef = ref(db, `counters/${counterId}`);
+
           onValue(counterRef, async (counterSnap) => {
             if (!counterSnap.exists()) return;
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || counterId;
 
-            // ---------- get avg service time: prefer counter.avgServiceTime,
-            // then compute from recent served tickets (serviceMs), then settings, else default 3 ----------
-            let avg = Number(counterData && counterData.avgServiceTime);
-            if (!Number.isFinite(avg) || avg <= 0) {
-              // try to compute from recent served ticket records for this counter
-              try {
-                const serviceMsSamples = [];
-                const candidatePaths = ['tickets', 'servedTickets', 'history', 'served'];
+            // compute avg service minutes (tries counter.avgServiceTime -> samples -> settings -> 3)
+            avgServiceTimeForCounter = await computeAvgServiceMinutes(counterId, counterData);
 
-                for (const p of candidatePaths) {
-                  // try to find records under each candidate path
-                  try {
-                    const snap = await get(ref(db, p));
-                    if (!snap.exists()) continue;
-                    const all = snap.val();
-                    for (const k in all) {
-                      if (!Object.prototype.hasOwnProperty.call(all, k)) continue;
-                      const t = all[k];
-                      // accept either counter id or counter name match, and require serviceMs
-                      const counterMatches =
-                        (t.counterId && String(t.counterId) === String(counterId))
-                        || (t.counter && String(t.counter) === String(counterId))
-                        || (t.counter && String(t.counter) === String(counterData?.name))
-                        || false;
-                      if (counterMatches && t.serviceMs && Number.isFinite(Number(t.serviceMs))) {
-                        serviceMsSamples.push(Number(t.serviceMs));
-                      }
-                    }
-                  } catch (e) {
-                    // ignore per-path errors and continue with next path
-                  }
-                  // if we have a good sample size, stop early
-                  if (serviceMsSamples.length >= 10) break;
-                }
-
-                if (serviceMsSamples.length > 0) {
-                  // compute mean serviceMs from samples
-                  const sumMs = serviceMsSamples.reduce((acc, v) => acc + v, 0);
-                  const meanMs = sumMs / serviceMsSamples.length;
-                  // convert milliseconds -> minutes (float)
-                  avg = meanMs / 60000;
-                }
-              } catch (err) {
-                // ignore errors computing sample average
-                avg = NaN;
-              }
+            // update admin display if present
+            if (analystAvgWait) {
+              analystAvgWait.textContent = String(Math.round(Math.max(0, avgServiceTimeForCounter)));
+              analystCard.classList.remove('hidden');
             }
 
-            // still nothing? try global settings
-            if (!Number.isFinite(avg) || avg <= 0) {
-              try {
-                const sSnap = await get(ref(db, 'settings/avgServiceTime'));
-                if (sSnap.exists()) {
-                  const sVal = Number(sSnap.val());
-                  avg = (Number.isFinite(sVal) && sVal > 0) ? sVal : 3;
-                } else {
-                  avg = 3;
+            // attach nowServing
+            if (servingRef) off(servingRef);
+            servingRef = ref(db, `counters/${counterId}/nowServing`);
+            onValue(servingRef, nowSnap => {
+              const currentServing = Number(nowSnap.val() || 0);
+              const prefix = (counterData && counterData.prefix) || (qid && (qid.match(/^[A-Za-z]+/)||[])[0]) || '';
+              if (Number.isFinite(currentServing) && currentServing > 0) {
+                nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
+              } else {
+                nowServingEl.textContent = '--';
+              }
+
+              // compute numeric part of user's number
+              const yourNumberNum = (() => {
+                if (!qid) return NaN;
+                const trimmed = prefix ? String(qid).replace(prefix, '') : String(qid).replace(/^[A-Za-z]+/,'');
+                const n = parseInt(trimmed.replace(/^0+/, '') || trimmed, 10);
+                return Number.isFinite(n) ? n : NaN;
+              })();
+
+              const ahead = (Number.isFinite(yourNumberNum) && Number.isFinite(currentServing)) ? Math.max(0, yourNumberNum - currentServing) : 0;
+              peopleAheadEl.textContent = Number.isFinite(ahead) ? String(ahead) : '--';
+              estimatedWaitEl.textContent = Number.isFinite(ahead) ? computeEstimatedWaitText(ahead, avgServiceTimeForCounter) : '--';
+
+              // if it's the user's turn
+              if (ahead === 0) {
+                indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+
+                // best-effort notify via server function
+                if (currentQueueData && currentQueueData.chatId) {
+                  fetch(SEND_TELEGRAM_ENDPOINT, {
+                    method:'POST',
+                    headers:{ 'Content-Type':'application/json' },
+                    body: JSON.stringify({ chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` })
+                  }).catch(()=>{});
                 }
-              } catch (e) {
-                avg = 3;
+
+                // redirect to your_turn page after short pause (prevent multiple timeouts)
+                if (redirectTimeoutId) clearTimeout(redirectTimeoutId);
+                redirectTimeoutId = setTimeout(()=> {
+                  try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e){}
+                }, 1200);
+              } else {
+                indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
+                if (redirectTimeoutId) { clearTimeout(redirectTimeoutId); redirectTimeoutId = null; }
               }
-            }
-
-            // store and expose globally for status calculations
-            avgServiceTimeForCounter = avg;
-
-            // update analyst UI if present (shows integer minutes)
-            try {
-              const analystEl = document.getElementById('analystAvgWait');
-              if (analystEl) {
-                // round to nearest whole minute for display
-                analystEl.textContent = String(Math.round(Math.max(0, avg)));
-              }
-            } catch (e) { /* ignore UI update errors */ }
-
+            });
+          }); // end onValue counterRef
+        } // end if counter change
+      }); // end onValue queueRef
+    }); // DOMContentLoaded
 
     window.addEventListener('beforeunload', () => {
       try {
@@ -674,8 +464,9 @@
         if (counterRef) off(counterRef);
         if (servingRef) off(servingRef);
         if (adRef) off(adRef);
-      } catch(e){}
+      } catch (e) {}
     });
+
   </script>
 </body>
 </html>
