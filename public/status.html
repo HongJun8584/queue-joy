@@ -7,89 +7,95 @@
 
   <!-- Tailwind for quick styling -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
     :root{
-      --p1:#8b5cf6; --p2:#a78bfa; --bg1:#f6f5ff;
+      --p1:#7c3aed; --p2:#a78bfa; --bg1:#f7f6ff; --glass: rgba(250,246,255,0.8);
     }
+    html,body{height:100%}
     body {
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      margin:0; padding:28px; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
       background: linear-gradient(135deg,var(--bg1),#f3f0ff);
-      min-height:100vh;
-      display:flex; align-items:center; justify-content:center;
-      padding:20px;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      display:flex;align-items:center;justify-content:center;
     }
+
+    /* Card */
     .card {
-      width:100%; max-width:820px; border-radius:18px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,248,255,0.98));
-      box-shadow:0 30px 80px rgba(99,102,241,0.09);
-      padding:26px; position:relative; overflow:hidden;
+      width:100%; max-width:980px; border-radius:20px; padding:24px; position:relative; overflow:hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,247,255,0.98));
+      box-shadow:0 30px 80px rgba(99,102,241,0.08);
+      transition:transform .36s cubic-bezier(.2,.9,.2,1), box-shadow .36s;
     }
-    .brand-blob {
-      width:88px;height:88px;border-radius:18px;
-      background:linear-gradient(135deg,var(--p1),var(--p2));
-      display:flex;align-items:center;justify-content:center;color:white;font-weight:800;
-      box-shadow:0 18px 50px rgba(139,92,246,0.18);
-      transform:translateY(-6px);
-    }
-    .muted { color:#6b7280 }
-    .progress-track { height:18px;border-radius:999px;background:#f1f1f5;position:relative;overflow:hidden }
-    .progress-fill { height:100%; background:linear-gradient(90deg,var(--p1),var(--p2)); display:flex;align-items:center; padding-right:8px; justify-content:flex-end; color:white; font-weight:800; transition:width .6s cubic-bezier(.2,.9,.2,1) }
-    .walker {
-      width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;margin-right:8px;
-      transform:translateY(-6px);
-      box-shadow:0 8px 18px rgba(139,92,246,0.12);
-      transition:transform .28s ease;
-    }
+    .card:hover{ transform: translateY(-6px); box-shadow:0 38px 110px rgba(99,102,241,0.12) }
 
-    .glass { background:rgba(247,245,255,0.7); border-radius:12px;padding:14px;border:1px solid rgba(139,92,246,0.04) }
+    /* Brand */
+    .brand-blob { width:92px;height:92px;border-radius:16px; display:flex;align-items:center;justify-content:center;color:white;font-weight:900;box-shadow:0 18px 50px rgba(124,58,237,0.14); position:relative; overflow:hidden }
+    .brand-blob img{ width:100%;height:100%;object-fit:cover;border-radius:14px;display:block }
+    .brand-fallback { font-size:28px; letter-spacing:1px }
 
-    .circle-btn { width:44px;height:44px;border-radius:999px;background:white;display:inline-flex;align-items:center;justify-content:center;border:none;box-shadow:0 10px 30px rgba(2,6,23,0.06);cursor:pointer }
-    .btn-gradient { background:linear-gradient(135deg,var(--p1),var(--p2)); color:white; padding:.85rem 1.4rem; border-radius:12px; font-weight:700; border:none; box-shadow:0 10px 30px rgba(139,92,246,0.24) }
-    .btn-outline { border:1px solid rgba(99,102,241,0.12); padding:.7rem 1.1rem; border-radius:10px; background:white; font-weight:700; }
+    .muted{ color:#6b7280 }
 
-    /* Onboarding modal */
-    .onboarding-modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:60; padding:16px; backdrop-filter:blur(4px) }
-    .onboarding-card { width:100%; max-width:460px; background:white; border-radius:16px; padding:20px; box-shadow:0 30px 90px rgba(2,6,23,0.4); overflow:hidden }
-    .slide { display:none; animation:slideIn .32s ease both; min-height:320px }
-    .slide.active { display:flex; flex-direction:column; justify-content:space-between }
-    @keyframes slideIn { from { opacity:0; transform:translateY(18px) } to { opacity:1; transform:translateY(0) } }
-    .step-dot { width:8px;height:8px;border-radius:50%;background:#e6e7f8; transition:all .25s }
-    .step-dot.active { width:28px;border-radius:6px;background:linear-gradient(135deg,var(--p1),var(--p2)); }
+    /* Progress bar - modern */
+    .progress-wrap{ margin-top:18px }
+    .progress-track{ height:22px;border-radius:999px;background:linear-gradient(180deg,#f3f2fb,#f7f6ff);position:relative;overflow:hidden;border:1px solid rgba(99,102,241,0.06)}
+    .progress-fill{ height:100%; border-radius:999px; display:flex;align-items:center;padding-right:10px;justify-content:flex-end;color:white;font-weight:800; transition:width .7s cubic-bezier(.2,.9,.2,1); position:relative; overflow:hidden }
+    .progress-fill::before{ content:''; position:absolute; inset:0; background:linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.08) 100%); mix-blend-mode:overlay; pointer-events:none }
+    .progress-stripes{ position:absolute; inset:0; background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 8px, transparent 8px 16px); opacity:0.25; animation:moveStripes 1.6s linear infinite }
+    @keyframes moveStripes{ from{background-position:0 0} to{background-position:40px 0} }
 
-    .spinner { width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.3); border-top-color:white; animation:spin .8s linear infinite; display:inline-block; margin-right:8px }
-    @keyframes spin { to { transform:rotate(360deg) } }
+    .walker{ width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;margin-right:8px;transform:translateY(-6px);box-shadow:0 10px 26px rgba(124,58,237,0.08); transition:transform .28s cubic-bezier(.2,.9,.2,1) }
 
-    /* ad panel bottom */
-    .ad-panel { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; width:100%; max-width:420px; background:white; border-radius:12px; box-shadow:0 22px 60px rgba(2,6,23,0.06); padding:10px; z-index:40 }
-    .ad-media { width:100%; height:96px; object-fit:cover; border-radius:8px }
+    .glass{ background:var(--glass); border-radius:12px;padding:14px;border:1px solid rgba(139,92,246,0.04) }
+
+    .btn-gradient{ background:linear-gradient(135deg,var(--p1),var(--p2)); color:white; padding:.75rem 1.25rem; border-radius:12px; font-weight:800; border:none; box-shadow:0 10px 30px rgba(124,58,237,0.22); cursor:pointer }
+    .btn-outline{ border:1px solid rgba(99,102,241,0.12); padding:.6rem 1rem; border-radius:10px; background:white; font-weight:700 }
+
+    /* subtle shimmer on estimated wait */
+    .shimmer{ position:relative; overflow:hidden }
+    .shimmer::after{ content:''; position:absolute; left:-120%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent); transform:skewX(-20deg); animation:shimmer 2.2s linear infinite }
+    @keyframes shimmer{ 100%{ left:120% } }
+
+    /* onboarding modal (more refined) */
+    .onboarding-modal{ position:fixed; inset:0; background:linear-gradient(180deg, rgba(3,7,18,0.35), rgba(3,7,18,0.35)); display:flex; align-items:center; justify-content:center; z-index:60; padding:16px; }
+    .onboarding-card{ width:100%; max-width:520px; background:white; border-radius:16px; padding:22px; box-shadow:0 30px 90px rgba(2,6,23,0.35) }
+    .slide{ display:none; animation:slideIn .32s ease both; min-height:320px }
+    .slide.active{ display:flex; flex-direction:column; justify-content:space-between }
+
+    .step-dot{ width:8px;height:8px;border-radius:50%;background:#e6e7f8; transition:all .25s }
+    .step-dot.active{ width:28px;border-radius:6px;background:linear-gradient(135deg,var(--p1),var(--p2)); }
+
+    .spinner{ width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.3); border-top-color:white; animation:spin .8s linear infinite; display:inline-block; margin-right:8px }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+
+    /* ad panel */
+    .ad-panel{ position:fixed; left:50%; transform:translateX(-50%); bottom:18px; width:100%; max-width:520px; background:white; border-radius:12px; box-shadow:0 22px 60px rgba(2,6,23,0.06); padding:10px; z-index:40; display:flex; gap:12px; align-items:center }
+    .ad-media{ width:120px; height:72px; object-fit:cover; border-radius:8px }
 
     /* micro animations */
-    .pulse { animation:pulseX 2.2s ease-in-out infinite; }
-    @keyframes pulseX { 0% { transform:scale(1) } 50% { transform:scale(1.02) } 100% { transform:scale(1) } }
+    .pulse{ animation:pulseX 2.8s ease-in-out infinite }
+    @keyframes pulseX{ 0%{ transform:scale(1) } 50%{ transform:scale(1.015) } 100%{ transform:scale(1) } }
 
-    /* responsive */
-    @media (max-width:640px) {
-      .brand-blob { width:68px;height:68px }
-      .card { padding:18px }
+    /* responsive tweaks */
+    @media (max-width:720px){
+      .card{ padding:16px }
+      .brand-blob{ width:72px;height:72px }
+      .ad-media{ width:96px;height:64px }
     }
   </style>
 </head>
 <body>
 
-  <!-- Onboarding (appears immediately on load) -->
+  <!-- Onboarding modal (shows immediately) -->
   <div id="onboardingModal" class="onboarding-modal" aria-hidden="false">
     <div class="onboarding-card" role="dialog" aria-modal="true">
-      <!-- Slide 1 -->
       <div class="slide active" data-slide="0">
         <div style="text-align:center">
-          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(139,92,246,0.18)">✉️</div>
+          <div id="obHero" style="width:120px;height:120px;margin:0 auto;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(124,58,237,0.14);background:linear-gradient(135deg,var(--p1),var(--p2))">✉️</div>
           <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">Connect Telegram</h3>
-          <p style="color:#6b7280;margin-top:8px">Get notified on Telegram — you won't need this page open. Use the Telegram app on your phone to receive push notifications.</p>
+          <p class="muted" style="margin-top:8px">Get push notifications via Telegram so you can close this page and still receive alerts when your number is called.</p>
         </div>
-
         <div>
           <div style="display:flex;gap:8px;justify-content:center;margin:14px 0">
             <div class="step-dot active"></div>
@@ -101,14 +107,12 @@
         </div>
       </div>
 
-      <!-- Slide 2 -->
       <div class="slide" data-slide="1">
         <div style="text-align:center">
-          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;background:linear-gradient(135deg,var(--p2),var(--p1));display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(139,92,246,0.18)">▶️</div>
-          <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">Hit “Start”</h3>
-          <p style="color:#6b7280;margin-top:8px">Tap Start on the Telegram page to complete setup. We'll then be able to notify you automatically.</p>
+          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(124,58,237,0.14);background:linear-gradient(135deg,var(--p2),var(--p1))">▶️</div>
+          <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">Tap Start</h3>
+          <p class="muted" style="margin-top:8px">Tap "Start" in Telegram and we'll save your connection for automatic updates.</p>
         </div>
-
         <div>
           <div style="display:flex;gap:8px;justify-content:center;margin:14px 0">
             <div class="step-dot"></div>
@@ -120,14 +124,12 @@
         </div>
       </div>
 
-      <!-- Slide 3 -->
       <div class="slide" data-slide="2">
         <div style="text-align:center">
-          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(139,92,246,0.18)">✅</div>
+          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(124,58,237,0.14);background:linear-gradient(135deg,var(--p1),var(--p2))">✅</div>
           <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">All Set</h3>
-          <p id="obStatusText" style="color:#6b7280;margin-top:8px">Preparing connection…</p>
+          <p id="obStatusText" class="muted" style="margin-top:8px">Preparing connection…</p>
         </div>
-
         <div>
           <div style="display:flex;gap:8px;justify-content:center;margin:14px 0">
             <div class="step-dot"></div>
@@ -149,7 +151,9 @@
     </div>
 
     <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center">
-      <div class="brand-blob">QJ</div>
+      <div class="brand-blob" id="brandBlob" title="QueueJoy logo">
+        <div class="brand-fallback" id="brandFallback">QJ</div>
+      </div>
       <div style="text-align:center">
         <h1 style="font-size:20px;margin:0;font-weight:900;color:#111827">You are now in line</h1>
         <p class="muted" style="margin-top:6px;max-width:640px">We'll keep you updated. Connect Telegram to receive push notifications when it's your turn.</p>
@@ -157,11 +161,12 @@
     </div>
 
     <!-- progress -->
-    <div style="margin-top:20px">
+    <div class="progress-wrap">
       <div class="progress-track" aria-hidden="true">
-        <div id="progressFill" class="progress-fill" style="width:6%">
+        <div id="progressFill" class="progress-fill" style="width:6%; background: linear-gradient(90deg,var(--p1),var(--p2));">
+          <div class="progress-stripes"></div>
           <div class="walker" id="walker">🚶</div>
-          <div id="progressLabel" style="font-size:12px;margin-left:auto;margin-right:6px">6%</div>
+          <div id="progressLabel" style="font-size:12px;margin-left:auto;margin-right:8px">6%</div>
         </div>
       </div>
     </div>
@@ -183,20 +188,21 @@
         <div class="muted">People Ahead</div>
         <div id="peopleAhead" style="font-weight:800;font-size:20px;margin-top:8px">—</div>
       </div>
-      <div class="glass">
+      <div class="glass shimmer">
         <div class="muted">Estimated Wait</div>
         <div id="estimatedWait" style="font-weight:800;font-size:20px;color:var(--p1);margin-top:8px">—</div>
       </div>
     </div>
 
     <div id="connectionBanner" class="glass" style="display:flex;align-items:center;gap:12px;margin-top:16px">
-      <div style="width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;color:white">🔔</div>
+      <div style="width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;color:white;font-weight:800">🔔</div>
       <div style="flex:1">
         <div id="connectionBannerText" style="font-weight:800">Checking notification status...</div>
         <div id="connectionBannerSub" style="color:#6b7280;font-size:13px">Connect Telegram to receive notifications even with this page closed.</div>
       </div>
-      <div style="min-width:140px">
-        <button id="connectMain" class="btn-gradient">Connect via Telegram</button>
+      <div style="min-width:160px;display:flex;gap:8px;justify-content:flex-end">
+        <button id="connectMain" class="btn-gradient">Connect</button>
+        <button id="closeNotif" class="btn-outline">Dismiss</button>
       </div>
     </div>
 
@@ -205,8 +211,11 @@
 
   <!-- ad panel -->
   <div id="adPanel" class="ad-panel" style="display:none">
-    <div style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:6px">Advertisement</div>
-    <div id="adContainer"></div>
+    <div style="flex:1">
+      <div style="font-size:12px;color:#9ca3af;margin-bottom:6px">Advertisement</div>
+      <div id="adContainer"></div>
+    </div>
+    <div style="width:36px;display:flex;align-items:flex-start;justify-content:flex-end"><button id="closeAd" class="btn-outline">✕</button></div>
   </div>
 
   <script type="module">
@@ -258,6 +267,10 @@
     const adPanel = document.getElementById('adPanel');
     const adContainer = document.getElementById('adContainer');
     const errorBox = document.getElementById('error');
+    const brandBlob = document.getElementById('brandBlob');
+    const brandFallback = document.getElementById('brandFallback');
+    const closeAdBtn = document.getElementById('closeAd');
+    const closeNotifBtn = document.getElementById('closeNotif');
 
     // onboarding state
     let slideIndex = 0;
@@ -268,7 +281,6 @@
       const sl = slides[i];
       if(sl) sl.classList.add('active');
       if(stepDots[i]) stepDots[i].classList.add('active');
-      // when slide 2 visible, trigger generate link in background
       if(i === 2) triggerGenerateLink();
     }
 
@@ -288,366 +300,200 @@
     let avgServiceTimeForCounter = 3;
     let redirecting = false;
 
-    // Helper UI functions
-    function showError(msg){
-      errorBox.style.display = 'block';
-      errorBox.textContent = msg;
-      setTimeout(()=> errorBox.style.display = 'none', 6000);
-    }
+    function showError(msg){ errorBox.style.display = 'block'; errorBox.textContent = msg; setTimeout(()=> errorBox.style.display = 'none', 6000); }
 
     function setTelegramConnectedUI(connected){
       if(connected){
         connectionBannerText.textContent = "Connected — you'll get Telegram notifications";
         connectionBannerSub.textContent = "You can close this page; Telegram will notify you when it's your turn.";
-        connectMainBtn.textContent = "Connected";
-        connectMainBtn.disabled = true;
+        connectMainBtn.textContent = "Connected"; connectMainBtn.disabled = true;
       } else {
         connectionBannerText.textContent = "Not connected — get Telegram notifications";
         connectionBannerSub.textContent = "Connect to receive notifications even when this page is closed.";
-        connectMainBtn.textContent = "Connect via Telegram";
-        connectMainBtn.disabled = false;
+        connectMainBtn.textContent = "Connect"; connectMainBtn.disabled = false;
       }
     }
 
-    // Generate secure telegram link via function
     async function generateConnectLink(){
       if(!currentQueueKey) throw new Error('missing queueKey');
-      const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ queueKey: currentQueueKey })
-      });
-      if(!res.ok) {
-        const t = await res.text().catch(()=>'');
-        throw new Error('create link failed ' + res.status + ' ' + t);
-      }
-      const j = await res.json();
-      if(!j.link) throw new Error('no link returned');
-      return j.link;
+      const res = await fetch(CREATE_LINK_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ queueKey: currentQueueKey }) });
+      if(!res.ok){ const t = await res.text().catch(()=>''); throw new Error('create link failed ' + res.status + ' ' + t); }
+      const j = await res.json(); if(!j.link) throw new Error('no link returned'); return j.link;
     }
 
-    async function triggerGenerateLink(){
-      if(linkGenerating) return;
-      linkGenerating = true;
-      obStatusText.textContent = 'Generating secure link...';
-      obFinishText.innerText = 'Connect via Telegram';
-      latestConnectLink = null;
-      try{
-        const link = await generateConnectLink();
-        latestConnectLink = link;
-        obStatusText.textContent = 'Ready to connect! Tap the button below.';
-      }catch(e){
-        latestConnectLink = TELEGRAM_BOT_URL;
-        obStatusText.textContent = 'Couldn’t generate secure link — using direct bot link.';
-      } finally {
-        linkGenerating = false;
-      }
-    }
+    async function triggerGenerateLink(){ if(linkGenerating) return; linkGenerating = true; obStatusText.textContent = 'Generating secure link...'; obFinishText.innerText = 'Connect via Telegram'; latestConnectLink = null; try{ const link = await generateConnectLink(); latestConnectLink = link; obStatusText.textContent = 'Ready to connect! Tap the button below.'; }catch(e){ latestConnectLink = TELEGRAM_BOT_URL; obStatusText.textContent = 'Couldn’t generate secure link — using direct bot link.'; } finally{ linkGenerating = false; } }
 
-    async function openConnectLink(){
-      if(!latestConnectLink && !linkGenerating){
-        linkGenerating = true;
-        try{ latestConnectLink = await generateConnectLink(); } catch(e){ latestConnectLink = TELEGRAM_BOT_URL; } finally { linkGenerating = false; }
-      }
+    async function openConnectLink(){ if(!latestConnectLink && !linkGenerating){ linkGenerating = true; try{ latestConnectLink = await generateConnectLink(); } catch(e){ latestConnectLink = TELEGRAM_BOT_URL; } finally{ linkGenerating = false; } }
       const win = window.open(latestConnectLink || TELEGRAM_BOT_URL, '_blank', 'noopener,noreferrer');
-      // try to notify server to mark token as used
-      try{
-        const token = (latestConnectLink && latestConnectLink.split('start=')[1]) || null;
-        if(token && currentQueueKey){
-          await fetch(MARK_TOKEN_USED, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ queueKey: currentQueueKey, token })
-          });
-        }
-      }catch(e){ /* ignore */ }
+      try{ const token = (latestConnectLink && latestConnectLink.split('start=')[1]) || null; if(token && currentQueueKey){ await fetch(MARK_TOKEN_USED, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ queueKey: currentQueueKey, token }) }); } }catch(e){ }
     }
 
     obFinish.addEventListener('click', async () => {
-      obFinish.disabled = true;
-      obFinishText.innerHTML = '<span class="spinner"></span>Opening…';
-      try{
-        await openConnectLink();
-        obFinishText.innerHTML = 'Opened';
-        setTimeout(()=> obModal.style.display = 'none', 650);
-      }catch(e){
-        obFinishText.innerHTML = 'Connect via Telegram';
-        showError('Unable to open Telegram.');
-      } finally { obFinish.disabled = false; }
+      obFinish.disabled = true; obFinishText.innerHTML = '<span class="spinner"></span>Opening…';
+      try{ await openConnectLink(); obFinishText.innerHTML = 'Opened'; setTimeout(()=> obModal.style.display = 'none', 650); }catch(e){ obFinishText.innerHTML = 'Connect via Telegram'; showError('Unable to open Telegram.'); } finally{ obFinish.disabled = false; }
     });
 
-    // connect button triggers onboarding modal
     connectMainBtn.addEventListener('click', ()=> { obModal.style.display = 'flex'; showSlide(0); });
     connectMiniBtn.addEventListener('click', ()=> { obModal.style.display = 'flex'; showSlide(0); });
     document.getElementById('miniGame').addEventListener('click', ()=> window.location.href = 'https://queuejoy.netlify.app/game.html');
 
-    // AD helpers
-    function clearAd(){ adContainer.innerHTML=''; adPanel.style.display='none'; }
-    function showAdFromUrl(url){
-      clearAd();
-      if(!url) return;
-      const trimmed = String(url).trim();
-      const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('data:video/');
-      adPanel.style.display = 'block';
-      if(isVideo){
-        const v = document.createElement('video');
-        v.src = trimmed; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
-        v.className = 'ad-media';
-        v.setAttribute('playsinline', ''); v.setAttribute('muted','');
-        adContainer.appendChild(v);
-        v.play().catch(()=> v.setAttribute('controls',''));
-      } else {
-        const img = document.createElement('img');
-        img.src = trimmed; img.className = 'ad-media'; img.alt = 'Ad';
-        img.onerror = ()=> clearAd();
-        adContainer.appendChild(img);
-      }
-    }
+    closeAdBtn.addEventListener('click', ()=> { adPanel.style.display='none'; });
+    closeNotifBtn.addEventListener('click', ()=> { document.getElementById('connectionBanner').style.display='none'; });
 
-    // Utility: extract digits count from a queueId like COFFEE002 -> 3 (digits)
-    function digitsFromQueueId(qid){
-      if(!qid) return 3;
-      const m = qid.match(/(\d+)$/);
-      return m ? m[1].length : 3;
-    }
-    function zeroPad(num, len){
-      return String(num).padStart(len,'0');
-    }
+    // AD helpers (supports image/video/gif data URLs)
+    function clearAd(){ adContainer.innerHTML=''; adPanel.style.display='none'; }
+    function showAdFromUrl(url){ clearAd(); if(!url) return; const trimmed = String(url).trim(); const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('data:video/'); adPanel.style.display='flex'; if(isVideo){ const v = document.createElement('video'); v.src = trimmed; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true; v.className = 'ad-media'; v.setAttribute('playsinline',''); v.setAttribute('muted',''); adContainer.appendChild(v); v.play().catch(()=> v.setAttribute('controls','')); } else { const img = document.createElement('img'); img.src = trimmed; img.className = 'ad-media'; img.alt = 'Ad'; img.onerror = ()=> clearAd(); adContainer.appendChild(img); } }
+
+    function digitsFromQueueId(qid){ if(!qid) return 3; const m = qid.match(/(\d+)$/); return m ? m[1].length : 3; }
+    function zeroPad(num, len){ return String(num).padStart(len,'0'); }
 
     // compute avg service time priority: admin settings -> counter.avgServiceTime -> fallback 3
-    async function readGlobalAvgServiceTime(){
-      try{
-        const snap = await get(ref(db,'settings/avgServiceTime'));
-        if(snap && snap.exists()){
-          const val = Number(snap.val());
-          if(Number.isFinite(val) && val > 0) { avgServiceTimeFromSettings = val; return val; }
-        }
-      }catch(e){}
-      avgServiceTimeFromSettings = null;
-      return null;
-    }
+    async function readGlobalAvgServiceTime(){ try{ const snap = await get(ref(db,'settings/avgServiceTime')); if(snap && snap.exists()){ const val = Number(snap.val()); if(Number.isFinite(val) && val > 0) { avgServiceTimeFromSettings = val; return val; } } }catch(e){} avgServiceTimeFromSettings = null; return null; }
 
-    // keep live subscriptions
-    let qRef = null, allQueueRef = null, adRef = null, counterRef = null, settingsRef = null;
+    // listen refs
+    let qRef = null, allQueueRef = null, adRef = null, counterRef = null, settingsRef = null, logoRef = null;
 
-    // Listen and live-sync
     document.addEventListener('DOMContentLoaded', async () => {
-      // show onboarding first (user wanted popup before entering)
-      obModal.style.display = 'flex';
-      showSlide(0);
+      obModal.style.display = 'flex'; showSlide(0);
 
-      // parse queue key from URL
       const params = new URLSearchParams(window.location.search);
       const queueKey = params.get('queueId');
-      if(!queueKey){
-        showError('Queue ID missing — returning...');
-        setTimeout(()=> window.location.href = 'index.html', 1100);
-        return;
-      }
-      currentQueueKey = queueKey;
-      qRef = ref(db, `queue/${queueKey}`);
+      if(!queueKey){ showError('Queue ID missing — returning...'); setTimeout(()=> window.location.href = 'index.html', 1100); return; }
+      currentQueueKey = queueKey; qRef = ref(db, `queue/${queueKey}`);
 
-      // watch ad setting
-      adRef = ref(db, 'settings/adImage');
-      onValue(adRef, (snap) => {
-        if(snap.exists()) showAdFromUrl(snap.val());
-        else clearAd();
+      // listen logo
+      logoRef = ref(db, 'settings/logoUrl');
+      onValue(logoRef, (snap) => {
+        if(snap.exists()){
+          const v = snap.val(); try{ const img = new Image(); img.onload = ()=> { brandBlob.innerHTML = ''; brandBlob.appendChild(img); brandFallback.style.display = 'none'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; img.style.borderRadius='12px'; };
+            img.src = v; }catch(e){ brandFallback.style.display='block'; }
+        } else { brandFallback.style.display='block'; }
       });
 
-      // watch global avg service time and update whenever changed
+      // watch ad
+      adRef = ref(db, 'settings/adImage');
+      onValue(adRef, (snap) => { if(snap.exists()) showAdFromUrl(snap.val()); else clearAd(); });
+
+      // watch global avg service time
       settingsRef = ref(db, 'settings/avgServiceTime');
       onValue(settingsRef, (snap) => {
-        if(snap.exists()){
-          const val = Number(snap.val());
-          if(Number.isFinite(val) && val>0) avgServiceTimeFromSettings = val;
-        } else {
-          avgServiceTimeFromSettings = null;
-        }
-        // recompute estimate when it changes
-        computePeopleAheadAndEstimate();
+        if(snap.exists()){ const val = Number(snap.val()); if(Number.isFinite(val) && val>0) avgServiceTimeFromSettings = val; }
+        else avgServiceTimeFromSettings = null; computePeopleAheadAndEstimate();
       });
 
-      // listen to your queue entry
       onValue(qRef, async (snap) => {
-        if(!snap.exists()){
-          showError('Queue entry not found — returning');
-          setTimeout(()=> window.location.href = 'index.html', 1200);
-          return;
-        }
-        currentQueueData = snap.val();
-        // show your number
-        yourNumberEl.textContent = currentQueueData.queueId || '--';
+        if(!snap.exists()){ showError('Queue entry not found — returning'); setTimeout(()=> window.location.href = 'index.html', 1200); return; }
+        currentQueueData = snap.val(); yourNumberEl.textContent = currentQueueData.queueId || '--'; setTelegramConnectedUI(!!currentQueueData.telegramConnected);
 
-        // telegram UI
-        setTelegramConnectedUI(!!currentQueueData.telegramConnected);
-
-        // subscribe to assigned counter if present
         const counterId = currentQueueData.counterId || null;
-        if(counterId && counterId !== currentCounterId){
-          if(counterRef) try{ off(counterRef); }catch(e){}
-          currentCounterId = counterId;
-          counterRef = ref(db, `counters/${counterId}`);
-          onValue(counterRef, (cSnap) => {
-            if(!cSnap.exists()) return;
-            const cData = cSnap.val();
-            // update now serving with prefix (if present)
-            const prefix = (cData && cData.prefix) ? String(cData.prefix) : '';
-            const nowServingNumber = (cData && (cData.nowServing !== undefined && cData.nowServing !== null)) ? Number(cData.nowServing) : null;
-            const digits = digitsFromQueueId(currentQueueData.queueId);
-            let nowServingText = '--';
-            if(prefix && Number.isFinite(nowServingNumber)){
-              nowServingText = `${String(prefix)} ${zeroPad(nowServingNumber, digits)}`;
-            } else if(Number.isFinite(nowServingNumber)){
-              nowServingText = String(nowServingNumber);
-            } else {
-              nowServingText = (cData && cData.nowServing) ? String(cData.nowServing) : '--';
-            }
-            nowServingEl.textContent = nowServingText;
+        if(counterId && counterId !== currentCounterId){ if(counterRef) try{ off(counterRef); }catch(e){} currentCounterId = counterId; counterRef = ref(db, `counters/${counterId}`);
+          onValue(counterRef, (cSnap) => { if(!cSnap.exists()) return; const cData = cSnap.val(); const prefix = (cData && cData.prefix) ? String(cData.prefix) : ''; const nowServingNumber = (cData && (cData.nowServing !== undefined && cData.nowServing !== null)) ? Number(cData.nowServing) : null; const digits = digitsFromQueueId(currentQueueData.queueId);
+              let nowServingText = '--'; if(prefix && Number.isFinite(nowServingNumber)){ nowServingText = `${String(prefix)} ${zeroPad(nowServingNumber, digits)}`; } else if(Number.isFinite(nowServingNumber)){ nowServingText = String(nowServingNumber); } else { nowServingText = (cData && cData.nowServing) ? String(cData.nowServing) : '--'; }
+              nowServingEl.textContent = nowServingText;
 
-            // compute avg service time for this counter (respect admin/global setting)
-            (async ()=> {
-              // priority: admin setting (avgServiceTimeFromSettings) if exists
-              if(Number.isFinite(avgServiceTimeFromSettings) && avgServiceTimeFromSettings > 0){
-                avgServiceTimeForCounter = Number(avgServiceTimeFromSettings);
-              } else if(cData && Number.isFinite(Number(cData.avgServiceTime)) && Number(cData.avgServiceTime) > 0){
-                avgServiceTimeForCounter = Number(cData.avgServiceTime);
-              } else {
-                // fallback, keep 3
-                avgServiceTimeForCounter = 3;
-              }
-              computePeopleAheadAndEstimate();
-            })();
+              (async ()=>{
+                if(Number.isFinite(avgServiceTimeFromSettings) && avgServiceTimeFromSettings > 0){ avgServiceTimeForCounter = Number(avgServiceTimeFromSettings); }
+                else if(cData && Number.isFinite(Number(cData.avgServiceTime)) && Number(cData.avgServiceTime) > 0){ avgServiceTimeForCounter = Number(cData.avgServiceTime); }
+                else { avgServiceTimeForCounter = 3; }
+                computePeopleAheadAndEstimate();
+              })();
 
-            // detect if this counter is now serving our ticket -> redirect to your_turn.html
-            detectAndRedirectIfCalled(cData);
+              detectAndRedirectIfCalled(cData);
           });
         } else {
-          // no assigned counter yet
-          nowServingEl.textContent = '--';
-          computePeopleAheadAndEstimate();
+          nowServingEl.textContent = '--'; computePeopleAheadAndEstimate();
         }
 
-        // compute estimates each time queue entry changes
         computePeopleAheadAndEstimate();
       });
 
-      // watch entire queue (people-ahead computation)
       allQueueRef = ref(db, 'queue');
       onValue(allQueueRef, () => computePeopleAheadAndEstimate());
 
-      // when unloading, cleanup listeners
-      window.addEventListener('beforeunload', () => {
-        try { if(qRef) off(qRef); if(allQueueRef) off(allQueueRef); if(adRef) off(adRef); if(counterRef) off(counterRef); if(settingsRef) off(settingsRef); } catch(e){}
-      });
+      window.addEventListener('beforeunload', () => { try{ if(qRef) off(qRef); if(allQueueRef) off(allQueueRef); if(adRef) off(adRef); if(counterRef) off(counterRef); if(settingsRef) off(settingsRef); if(logoRef) off(logoRef); }catch(e){} });
+
+      // read initial global avg
+      try{ await readGlobalAvgServiceTime(); }catch(e){}
     });
 
-    // compute people ahead & estimated wait using admin avg if present
+    // compute people ahead and estimate (accurate & stable)
     async function computePeopleAheadAndEstimate(){
       try{
         if(!currentQueueData) return;
         const allSnap = await get(ref(db, 'queue'));
-        if(!allSnap.exists()){
-          peopleAheadEl.textContent = '0';
-          estimatedWaitEl.textContent = 'Less than a minute';
-          updateProgress(4);
-          return;
-        }
+        if(!allSnap.exists()){ peopleAheadEl.textContent = '0'; estimatedWaitEl.textContent = 'Less than a minute'; updateProgress(4); return; }
         const all = allSnap.val();
         const myTime = Number(currentQueueData.timestamp) || 0;
         const myCounter = currentQueueData.counterId || null;
+
+        // Build a filtered ordered list (only waiting) depending on assignment
+        const waitingList = Object.keys(all)
+          .filter(k => { const t = all[k]; return t && t.status === 'waiting'; })
+          .map(k => ({ key:k, data: all[k], ts: Number(all[k].timestamp) || 0 }))
+          .sort((a,b)=> a.ts - b.ts);
+
+        // Count how many waiting are before us in the same counter (if assigned) OR overall if no counter
         let ahead = 0;
+        let totalForCounter = 0;
         if(myCounter){
-          for(const k in all){
-            if(!Object.prototype.hasOwnProperty.call(all,k)) continue;
-            const t = all[k];
-            if(t && t.status === 'waiting' && String(t.counterId) === String(myCounter) && (Number(t.timestamp) < myTime)) ahead++;
-          }
+          const forCounter = waitingList.filter(w => String(w.data.counterId) === String(myCounter));
+          totalForCounter = forCounter.length;
+          ahead = forCounter.filter(w => w.ts < myTime).length;
         } else {
-          // not assigned: count everyone waiting before you
-          for(const k in all){
-            if(!Object.prototype.hasOwnProperty.call(all,k)) continue;
-            const t = all[k];
-            if(t && t.status === 'waiting' && (Number(t.timestamp) < myTime)) ahead++;
-          }
+          totalForCounter = waitingList.length; // total waiting in queue
+          ahead = waitingList.filter(w => w.ts < myTime).length;
         }
+
         peopleAheadEl.textContent = String(ahead);
 
-        // decide avg minutes: admin setting > counter-specific fallback
+        // pick avg minutes from admin/global -> counter -> fallback
         let avg = (Number.isFinite(avgServiceTimeFromSettings) && avgServiceTimeFromSettings > 0) ? avgServiceTimeFromSettings : (Number.isFinite(avgServiceTimeForCounter) ? avgServiceTimeForCounter : 3);
         if(!Number.isFinite(avg) || avg <= 0) avg = 3;
         const estMinutes = Math.round(ahead * avg);
         estimatedWaitEl.textContent = (ahead === 0) ? 'Now' : `${ahead} person${ahead>1?'s':''} — approx ${formatMinutes(estMinutes)}`;
 
-        // progress: closeness (naive)
-        const bucket = Math.max(1, ahead + 2);
-        const percent = Math.max(4, Math.min(99, Math.round(((bucket - ahead) / bucket) * 100)));
-        updateProgress(percent);
-      }catch(e){
-        console.warn('compute estimate err', e);
-        showError('Could not compute estimate.');
+        // Progress: if assigned & known total for this counter, use position in that bucket for accurate progress
+        let percent = 6;
+        if(totalForCounter > 0){
+          // If we are last in line, small progress; if near front, high progress. Add smoothing.
+          const positionFromFront = Math.max(0, totalForCounter - ahead - 1); // how many have been served since we joined in this bucket
+          // percent calculation uses ratio of position to size to give nicer scale
+          const ratio = (totalForCounter - ahead) / (totalForCounter + 1); // closer to 1 means near front
+          percent = Math.round(4 + Math.min(96, Math.max(6, ratio * 100)));
+        } else {
+          // unknown totals -> naive: use ahead estimate vs sample hood (ahead up to 10)
+          const bucket = Math.max(1, ahead + 2);
+          percent = Math.max(6, Math.min(98, Math.round(((bucket - ahead) / bucket) * 100)));
+        }
+        updateProgress(percent, estMinutes);
+      }catch(e){ console.warn('compute estimate err', e); showError('Could not compute estimate.'); }
+    }
+
+    function formatMinutes(m){ const mm = Math.max(0, Math.round(m)); if(mm === 0) return 'Less than a minute'; if(mm < 60) return `${mm} min${mm>1?'s':''}`; const hrs = Math.floor(mm/60), rem = mm%60; return rem === 0 ? `${hrs} hr${hrs>1?'s':''}` : `${hrs} hr ${rem} min`; }
+
+    function updateProgress(p, estMinutes){ p = Math.max(4, Math.min(100, Math.round(p))); progressFill.style.width = p + '%'; progressLabel.textContent = p >= 95 ? 'Almost' : p + '%'; walker.style.transform = `translateX(${Math.min(16, Math.round((p/100)*140))}px)`; // move walker across
+
+      // tiny pulse when nearing front
+      if(p > 85){ walker.classList.add('pulse'); } else walker.classList.remove('pulse');
+
+      // subtle color shift as you approach
+      if(p > 80) progressFill.style.filter = 'saturate(1.08) brightness(1.02)'; else progressFill.style.filter = '';
+
+      // if estMinutes provided, show in the label as tooltip
+      if(typeof estMinutes === 'number'){
+        progressLabel.title = `Approx ${formatMinutes(estMinutes)} remaining`;
       }
     }
 
-    function formatMinutes(m){
-      const mm = Math.max(0, Math.round(m));
-      if(mm === 0) return 'Less than a minute';
-      if(mm < 60) return `${mm} min${mm>1?'s':''}`;
-      const hrs = Math.floor(mm/60), rem = mm%60;
-      return rem === 0 ? `${hrs} hr${hrs>1?'s':''}` : `${hrs} hr ${rem} min`;
-    }
-
-    function updateProgress(p){
-      p = Math.max(4, Math.min(100, Math.round(p)));
-      progressFill.style.width = p + '%';
-      progressLabel.textContent = p >= 95 ? 'Almost' : p + '%';
-      // move walker slightly to create dynamic feel
-      walker.style.transform = `translateX(${Math.min(8, Math.round((p/100)*10))}px)`;
-    }
-
-    // Detect if served == our ticket -> redirect to your_turn.html
-    function detectAndRedirectIfCalled(counterData){
-      if(!currentQueueData || redirecting) return;
-      try{
-        const prefix = (counterData && counterData.prefix) ? String(counterData.prefix) : null;
-        const nowServingNum = (counterData && (counterData.nowServing !== undefined && counterData.nowServing !== null)) ? Number(counterData.nowServing) : null;
-        if(prefix && Number.isFinite(nowServingNum)){
-          const digits = digitsFromQueueId(currentQueueData.queueId);
-          const nowServingFull = `${prefix}${zeroPad(nowServingNum, digits)}`;
-          if(String(nowServingFull) === String(currentQueueData.queueId)){
-            // small UX: show temporary banner then redirect
-            redirecting = true;
-            connectionBannerText.textContent = "It's your turn — redirecting...";
-            setTimeout(()=> {
-              window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueData.queueId)}`;
-            }, 600);
-          }
-        }
-        // also support explicit queue.status = 'serving' or 'called'
+    // Detect and redirect if called
+    function detectAndRedirectIfCalled(counterData){ if(!currentQueueData || redirecting) return; try{ const prefix = (counterData && counterData.prefix) ? String(counterData.prefix) : null; const nowServingNum = (counterData && (counterData.nowServing !== undefined && counterData.nowServing !== null)) ? Number(counterData.nowServing) : null; if(prefix && Number.isFinite(nowServingNum)){ const digits = digitsFromQueueId(currentQueueData.queueId); const nowServingFull = `${prefix}${zeroPad(nowServingNum, digits)}`; if(String(nowServingFull) === String(currentQueueData.queueId)){ redirecting = true; connectionBannerText.textContent = "It's your turn — redirecting..."; setTimeout(()=> { window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueData.queueId)}`; }, 600); } }
         const status = (currentQueueData && currentQueueData.status) ? String(currentQueueData.status) : '';
-        if(status === 'serving' || status === 'called'){
-          redirecting = true;
-          connectionBannerText.textContent = "It's your turn — redirecting...";
-          setTimeout(()=> {
-            window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueData.queueId)}`;
-          }, 600);
-        }
+        if(status === 'serving' || status === 'called'){ redirecting = true; connectionBannerText.textContent = "It's your turn — redirecting..."; setTimeout(()=> { window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueData.queueId)}`; }, 600); }
       }catch(e){ console.warn('redirect detect error', e); }
     }
 
-    // init: attempt to read global avg once
-    (async()=>{
-      try{ await readGlobalAvgServiceTime(); }catch(e){}
-    })();
-
-    // Pre-generate link after showing slide 2 -> when slide index reaches 2 triggerGenerateLink called via showSlide
-
-    // convenience: open connect from main banner
-    connectMainBtn.addEventListener('click', ()=> { obModal.style.display = 'flex'; showSlide(0); });
-    connectMiniBtn.addEventListener('click', ()=> { obModal.style.display = 'flex'; showSlide(0); });
-
-    // allow clicking outside modal to close only after first slide was skipped
-    obModal.addEventListener('click', (e)=>{
-      if(e.target === obModal) { /* keep shown to force onboarding unless they press skip */ }
-    });
+    // allow clicking outside modal to keep shown unless skipped
+    document.getElementById('onboardingModal').addEventListener('click', (e)=>{ if(e.target === document.getElementById('onboardingModal')){ /* noop */ } });
 
   </script>
 </body>
