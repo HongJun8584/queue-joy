@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QueueJoy — Status</title>
 
+  <!-- Tailwind for quick styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
@@ -12,204 +13,422 @@
     :root{
       --p1:#8b5cf6; --p2:#a78bfa; --bg1:#f6f5ff;
     }
+    * { box-sizing:border-box; }
     body {
       margin:0;
       font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
       background: linear-gradient(135deg,var(--bg1),#f3f0ff);
       min-height:100vh;
-      display:flex; align-items:center; justify-content:center;
-      padding:20px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:16px;
+    }
+    .page-wrapper{
+      width:100%;
+      max-width:880px;
+      display:flex;
+      justify-content:center;
     }
     .card {
-      width:100%; max-width:820px; border-radius:18px;
+      width:100%;
+      max-width:820px;
+      border-radius:20px;
       background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,248,255,0.98));
-      box-shadow:0 30px 80px rgba(99,102,241,0.09);
-      padding:26px; position:relative; overflow:hidden;
+      box-shadow:0 26px 80px rgba(99,102,241,0.16);
+      padding:22px 20px 20px;
+      position:relative;
+      overflow:hidden;
     }
+    @media (min-width:768px){
+      .card{ padding:26px 26px 22px; border-radius:22px; }
+    }
+
     .brand-blob {
-      width:88px;height:88px;border-radius:18px;
+      width:76px;height:76px;border-radius:18px;
       background:linear-gradient(135deg,var(--p1),var(--p2));
       display:flex;align-items:center;justify-content:center;color:white;font-weight:800;
       box-shadow:0 18px 50px rgba(139,92,246,0.18);
-      transform:translateY(-6px);
+      transform:translateY(-4px);
+      font-size:26px;
+    }
+    .muted { color:#6b7280 }
+
+    .progress-track {
+      height:20px;
+      border-radius:999px;
+      background:#f3f4ff;
+      position:relative;
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px rgba(148,163,184,0.18);
+    }
+    .progress-fill {
+      height:100%;
+      background:linear-gradient(90deg,var(--p1),var(--p2));
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      padding-right:10px;
+      color:white;
+      font-weight:800;
+      font-size:11px;
+      letter-spacing:0.04em;
+      transition:width .55s cubic-bezier(.22,.9,.22,1);
+      box-shadow:0 10px 30px rgba(129,140,248,0.45);
+    }
+
+    .glass {
+      background:rgba(247,245,255,0.8);
+      border-radius:14px;
+      padding:12px 12px 10px;
+      border:1px solid rgba(148,163,238,0.14);
+      backdrop-filter:blur(16px);
+    }
+    @media (min-width:768px){
+      .glass{ padding:14px 16px 12px; border-radius:16px; }
+    }
+
+    .circle-btn {
+      width:40px;height:40px;border-radius:999px;background:white;
+      display:inline-flex;align-items:center;justify-content:center;
+      border:none;
+      box-shadow:0 10px 30px rgba(2,6,23,0.08);
+      cursor:pointer;
+      font-size:18px;
+      transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .circle-btn:hover {
+      transform:translateY(-1px) scale(1.03);
+      box-shadow:0 16px 40px rgba(15,23,42,0.16);
+      background:#f9fafb;
+    }
+
+    .btn-gradient {
+      background:linear-gradient(135deg,var(--p1),var(--p2));
+      color:white;
+      padding:.85rem 1.4rem;
+      border-radius:12px;
+      font-weight:700;
+      border:none;
+      box-shadow:0 10px 30px rgba(139,92,246,0.28);
+      width:100%;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      font-size:15px;
+      transition:transform .16s ease, box-shadow .16s ease, filter .16s ease, opacity .16s ease;
+    }
+    .btn-gradient:hover {
+      transform:translateY(-1px);
+      box-shadow:0 18px 42px rgba(129,140,248,0.3);
+      filter:brightness(1.02);
+    }
+    .btn-gradient:disabled{
+      opacity:0.7;
+      cursor:not-allowed;
+      box-shadow:none;
+      transform:none;
+    }
+
+    .btn-outline {
+      border:1px solid rgba(148,163,255,0.3);
+      padding:.7rem 1.1rem;
+      border-radius:10px;
+      background:white;
+      font-weight:600;
+      width:100%;
+      cursor:pointer;
+      font-size:14px;
+      color:#111827;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      transition:background .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+    .btn-outline:hover {
+      background:#f9fafb;
+      box-shadow:0 8px 24px rgba(15,23,42,0.08);
+      transform:translateY(-1px);
+    }
+
+    /* Onboarding modal */
+    .onboarding-modal {
+      position:fixed; inset:0;
+      background:rgba(15,23,42,0.55);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:60;
+      padding:16px;
+      backdrop-filter:blur(10px);
+    }
+    .onboarding-card {
+      width:100%;
+      max-width:460px;
+      background:white;
+      border-radius:20px;
+      padding:20px 18px 18px;
+      box-shadow:0 30px 90px rgba(15,23,42,0.48);
       overflow:hidden;
     }
-    .brand-blob img { width:100%; height:100%; object-fit:cover; }
+    @media (min-width:480px){
+      .onboarding-card{ padding:22px 22px 18px; border-radius:22px; }
+    }
 
-    .muted { color:#6b7280 }
-    .progress-track { height:18px;border-radius:999px;background:#f1f1f5;position:relative;overflow:hidden }
-    .progress-fill { height:100%; background:linear-gradient(90deg,var(--p1),var(--p2)); display:flex;align-items:center; padding-right:12px; justify-content:flex-end; color:white; font-weight:800; transition:width .6s cubic-bezier(.2,.9,.2,1) }
+    .slide {
+      display:none;
+      animation:slideIn .32s ease both;
+      min-height:320px;
+    }
+    .slide.active {
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    @keyframes slideIn {
+      from { opacity:0; transform:translateY(18px) }
+      to { opacity:1; transform:translateY(0) }
+    }
 
-    .glass { background:rgba(247,245,255,0.7); border-radius:12px;padding:14px;border:1px solid rgba(139,92,246,0.04) }
+    .step-dots {
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      margin:14px 0;
+    }
+    .step-dot {
+      width:8px;height:8px;border-radius:999px;background:#e6e7f8;
+      transition:all .25s;
+    }
+    .step-dot.active {
+      width:26px;
+      border-radius:999px;
+      background:linear-gradient(135deg,var(--p1),var(--p2));
+      box-shadow:0 6px 18px rgba(129,140,248,0.35);
+    }
 
-    .circle-btn { width:44px;height:44px;border-radius:999px;background:white;display:inline-flex;align-items:center;justify-content:center;border:none;box-shadow:0 10px 30px rgba(2,6,23,0.06);cursor:pointer }
-    .btn-gradient { background:linear-gradient(135deg,var(--p1),var(--p2)); color:white; padding:.85rem 1.4rem; border-radius:12px; font-weight:700; border:none; box-shadow:0 10px 30px rgba(139,92,246,0.24); cursor:pointer }
-    .btn-outline { border:1px solid rgba(99,102,241,0.12); padding:.7rem 1.1rem; border-radius:10px; background:white; font-weight:700; cursor:pointer }
-
-    .onboarding-modal { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:60; padding:16px; backdrop-filter:blur(4px) }
-    .onboarding-card { width:100%; max-width:460px; background:white; border-radius:16px; padding:20px; box-shadow:0 30px 90px rgba(2,6,23,0.4); overflow:hidden }
-    .slide { display:none; animation:slideIn .32s ease both; min-height:320px }
-    .slide.active { display:flex; flex-direction:column; justify-content:space-between }
-    @keyframes slideIn { from { opacity:0; transform:translateY(18px) } to { opacity:1; transform:translateY(0) } }
-    .step-dot { width:8px;height:8px;border-radius:50%;background:#e6e7f8; transition:all .25s }
-    .step-dot.active { width:28px;border-radius:6px;background:linear-gradient(135deg,var(--p1),var(--p2)); }
-
-    .spinner { width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.3); border-top-color:white; animation:spin .8s linear infinite; display:inline-block; margin-right:8px }
+    .spinner {
+      width:14px;height:14px;border-radius:50%;
+      border:2px solid rgba(255,255,255,0.35);
+      border-top-color:white;
+      animation:spin .8s linear infinite;
+      display:inline-block;
+    }
     @keyframes spin { to { transform:rotate(360deg) } }
 
-    .ad-panel { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; width:100%; max-width:420px; background:white; border-radius:12px; box-shadow:0 22px 60px rgba(2,6,23,0.06); padding:10px; z-index:40 }
-    .ad-media { width:100%; height:96px; object-fit:cover; border-radius:8px }
+    /* ad panel bottom */
+    .ad-panel {
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:14px;
+      width:100%;
+      max-width:420px;
+      background:white;
+      border-radius:14px;
+      box-shadow:0 22px 70px rgba(15,23,42,0.16);
+      padding:9px 9px 10px;
+      z-index:40;
+    }
+    .ad-media {
+      width:100%;
+      height:96px;
+      object-fit:cover;
+      border-radius:10px;
+    }
 
-    .connect-prompt { position:fixed; right:18px; bottom:120px; z-index:60; background:linear-gradient(135deg,var(--p1),var(--p2)); color:white; padding:10px 14px; border-radius:12px; box-shadow:0 18px 50px rgba(139,92,246,0.18); display:flex; gap:10px; align-items:center; cursor:pointer }
-    .connect-prompt.hidden { display:none }
+    .pulse {
+      animation:pulseX 2.2s ease-in-out infinite;
+    }
+    @keyframes pulseX {
+      0% { transform:scale(1) }
+      50% { transform:scale(1.02) }
+      100% { transform:scale(1) }
+    }
 
+    /* responsive tweaks */
     @media (max-width:640px) {
-      .brand-blob { width:68px;height:68px }
-      .card { padding:18px }
-      body { padding:10px }
-      .btn-gradient { padding:.75rem 1rem; font-size:14px }
-      .btn-outline { padding:.6rem .9rem; font-size:14px }
-      .ad-panel { max-width:calc(100% - 20px); bottom:10px }
+      body{
+        padding:10px;
+      }
+      .card {
+        padding:16px 14px 14px;
+        border-radius:18px;
+      }
+      .brand-blob {
+        width:64px;height:64px;font-size:22px;
+      }
     }
   </style>
 </head>
 <body>
 
-  <div id="onboardingModal" class="onboarding-modal" style="display:none" aria-hidden="true">
+<div class="page-wrapper">
+
+  <!-- Onboarding (appears immediately on load) -->
+  <div id="onboardingModal" class="onboarding-modal" aria-hidden="false">
     <div class="onboarding-card" role="dialog" aria-modal="true">
+      <!-- Slide 1 -->
       <div class="slide active" data-slide="0">
         <div style="text-align:center">
-          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(139,92,246,0.18)">✉️</div>
+          <div style="width:120px;height:120px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;font-size:40px;color:white;box-shadow:0 16px 46px rgba(139,92,246,0.24)">✉️</div>
           <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">Connect Telegram</h3>
-          <p style="color:#6b7280;margin-top:8px">Get notified on Telegram — you won't need this page open. Use the Telegram app on your phone to receive push notifications.</p>
+          <p style="color:#6b7280;margin-top:8px;font-size:14px;line-height:1.5">
+            Get notified on Telegram — you don’t need this page open. Use the Telegram app on your phone to receive push notifications.
+          </p>
         </div>
 
         <div>
-          <div style="display:flex;gap:8px;justify-content:center;margin:14px 0">
+          <div class="step-dots">
             <div class="step-dot active"></div>
             <div class="step-dot"></div>
             <div class="step-dot"></div>
           </div>
-          <button id="obNext" class="btn-gradient" style="width:100%">Next</button>
-          <button id="obSkip" class="btn-outline" style="width:100%;margin-top:10px">Skip</button>
+          <button id="obNext" class="btn-gradient">Next</button>
+          <button id="obSkip" class="btn-outline" style="margin-top:10px">Skip for now</button>
         </div>
       </div>
 
+      <!-- Slide 2 -->
       <div class="slide" data-slide="1">
         <div style="text-align:center">
-          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;background:linear-gradient(135deg,var(--p2),var(--p1));display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(139,92,246,0.18)">▶️</div>
-          <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">Hit "Start"</h3>
-          <p style="color:#6b7280;margin-top:8px">Tap Start on the Telegram page to complete setup. We'll then be able to notify you automatically.</p>
+          <div style="width:120px;height:120px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--p2),var(--p1));display:flex;align-items:center;justify-content:center;font-size:40px;color:white;box-shadow:0 16px 46px rgba(139,92,246,0.24)">▶️</div>
+          <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">Tap “Start” in Telegram</h3>
+          <p style="color:#6b7280;margin-top:8px;font-size:14px;line-height:1.5">
+            We’ll open QueueJoy on Telegram. Tap <strong>Start</strong> there so we can notify you automatically.
+          </p>
         </div>
 
         <div>
-          <div style="display:flex;gap:8px;justify-content:center;margin:14px 0">
+          <div class="step-dots">
             <div class="step-dot"></div>
             <div class="step-dot active"></div>
             <div class="step-dot"></div>
           </div>
-          <button id="obNext2" class="btn-gradient" style="width:100%">Next</button>
-          <button id="obBack1" class="btn-outline" style="width:100%;margin-top:10px">Back</button>
+          <button id="obNext2" class="btn-gradient">Next</button>
+          <button id="obBack1" class="btn-outline" style="margin-top:10px">Back</button>
         </div>
       </div>
 
+      <!-- Slide 3 -->
       <div class="slide" data-slide="2">
         <div style="text-align:center">
-          <div style="width:120px;height:120px;margin:0 auto;border-radius:18px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;font-size:36px;color:white;box-shadow:0 12px 40px rgba(139,92,246,0.18)">✅</div>
-          <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">All Set</h3>
-          <p id="obStatusText" style="color:#6b7280;margin-top:8px">Preparing connection…</p>
+          <div style="width:120px;height:120px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;font-size:40px;color:white;box-shadow:0 16px 46px rgba(139,92,246,0.24)">✅</div>
+          <h3 style="margin-top:18px;font-size:20px;font-weight:800;color:#111827">All set in a moment</h3>
+          <p id="obStatusText" style="color:#6b7280;margin-top:8px;font-size:14px;line-height:1.5">
+            Preparing a secure connection link for your ticket…
+          </p>
         </div>
 
         <div>
-          <div style="display:flex;gap:8px;justify-content:center;margin:14px 0">
+          <div class="step-dots">
             <div class="step-dot"></div>
             <div class="step-dot"></div>
             <div class="step-dot active"></div>
           </div>
-          <button id="obFinish" class="btn-gradient" style="width:100%"><span id="obFinishText">Connect via Telegram</span></button>
-          <button id="obBack2" class="btn-outline" style="width:100%;margin-top:10px">Back</button>
+          <button id="obFinish" class="btn-gradient">
+            <span id="obFinishText">Connect via Telegram</span>
+          </button>
+          <button id="obBack2" class="btn-outline" style="margin-top:10px">Back</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Main card -->
   <main class="card" role="main" aria-live="polite">
-    <div style="position:absolute;right:18px;top:18px;display:flex;gap:8px">
-      <button id="miniGame" class="circle-btn" title="Game">🎮</button>
-      <button id="miniConnect" class="circle-btn" title="Connect">✉️</button>
+    <div style="position:absolute;right:16px;top:14px;display:flex;gap:8px">
+      <button id="miniGame" class="circle-btn" title="Play a quick game">🎮</button>
+      <button id="miniConnect" class="circle-btn pulse" title="Connect Telegram">✉️</button>
     </div>
 
-    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center">
-      <div class="brand-blob" id="brandLogo">QJ</div>
-      <div style="text-align:center">
-        <h1 style="font-size:20px;margin:0;font-weight:900;color:#111827">You are now in line</h1>
-        <p class="muted" style="margin-top:6px;max-width:640px">We'll keep you updated. Connect Telegram to receive push notifications when it's your turn.</p>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:6px">
+      <div class="brand-blob">QJ</div>
+      <div style="text-align:center;max-width:620px">
+        <h1 style="font-size:20px;margin:0;font-weight:900;color:#111827">
+          You’re in line — we’re watching your spot
+        </h1>
+        <p class="muted" style="margin-top:6px;font-size:14px;line-height:1.5">
+          Stay on this page or connect Telegram to get a notification the moment it’s your turn.
+        </p>
       </div>
     </div>
 
-    <div style="margin-top:20px">
+    <!-- progress -->
+    <section style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px">
+        <span class="muted" style="font-size:13px">Progress to your turn</span>
+        <span id="progressCaption" style="font-size:12px;font-weight:600;color:#4b5563">Calculating…</span>
+      </div>
       <div class="progress-track" aria-hidden="true">
-        <div id="progressFill" class="progress-fill" style="width:6%">
-          <div id="progressLabel" style="font-size:12px;margin-left:auto;margin-right:6px">6%</div>
+        <div id="progressFill" class="progress-fill" style="width:8%">
+          <div id="progressLabel">8%</div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px">
+    <!-- main stats -->
+    <section style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="glass">
-        <div class="muted">Your Number</div>
-        <div id="yourNumber" style="font-weight:900;font-size:34px;color:var(--p1);margin-top:6px">—</div>
-      </div>
-      <div class="glass">
-        <div class="muted">Now Serving</div>
-        <div id="nowServing" style="font-weight:900;font-size:34px;color:#111827;margin-top:6px">—</div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
-      <div class="glass">
-        <div class="muted">People Ahead</div>
-        <div id="peopleAhead" style="font-weight:800;font-size:20px;margin-top:8px">—</div>
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em">Your Number</div>
+        <div id="yourNumber" style="font-weight:900;font-size:32px;color:var(--p1);margin-top:4px;word-break:break-word">—</div>
       </div>
       <div class="glass">
-        <div class="muted">Estimated Wait</div>
-        <div id="estimatedWait" style="font-weight:800;font-size:20px;color:var(--p1);margin-top:8px">—</div>
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em">Now Serving</div>
+        <div id="nowServing" style="font-weight:900;font-size:32px;color:#111827;margin-top:4px;word-break:break-word">—</div>
       </div>
-    </div>
+    </section>
 
-    <div id="connectionBanner" class="glass" style="display:flex;align-items:center;gap:12px;margin-top:16px">
-      <div style="width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;color:white">🔔</div>
-      <div style="flex:1">
-        <div id="connectionBannerText" style="font-weight:800">Checking notification status...</div>
-        <div id="connectionBannerSub" style="color:#6b7280;font-size:13px">Connect Telegram to receive notifications even with this page closed.</div>
+    <section style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="glass">
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em">People Ahead</div>
+        <div id="peopleAhead" style="font-weight:800;font-size:20px;margin-top:6px">—</div>
       </div>
-      <div style="min-width:140px">
-        <button id="connectMain" class="btn-gradient">Connect via Telegram</button>
+      <div class="glass">
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em">Estimated Wait</div>
+        <div id="estimatedWait" style="font-weight:800;font-size:18px;color:var(--p1);margin-top:6px">—</div>
       </div>
-    </div>
+    </section>
 
-    <div id="error" style="display:none;margin-top:12px;padding:10px;border-radius:10px;background:#fff5f5;border:1px solid #fde2e2;color:#b91c1c;font-weight:700;text-align:center"></div>
+    <section id="connectionBanner" class="glass" style="display:flex;align-items:center;gap:12px;margin-top:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--p1),var(--p2));display:flex;align-items:center;justify-content:center;color:white;font-size:22px;flex-shrink:0">🔔</div>
+      <div style="flex:1;min-width:0">
+        <div id="connectionBannerText" style="font-weight:800;font-size:14px;white-space:normal">
+          Checking notification status…
+        </div>
+        <div id="connectionBannerSub" style="color:#6b7280;font-size:13px;margin-top:2px">
+          Connect Telegram to receive alerts even if this page is closed.
+        </div>
+      </div>
+      <div style="min-width:140px;max-width:180px">
+        <button id="connectMain" class="btn-gradient" style="padding-inline:1.1rem;font-size:13px">Connect Telegram</button>
+      </div>
+    </section>
+
+    <div id="error" style="display:none;margin-top:12px;padding:10px;border-radius:10px;background:#fff5f5;border:1px solid #fde2e2;color:#b91c1c;font-weight:600;font-size:13px;text-align:center"></div>
   </main>
 
-  <div id="adPanel" class="ad-panel" style="display:none">
-    <div style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:6px">Advertisement</div>
-    <div id="adContainer"></div>
-  </div>
+</div>
 
-  <div id="connectPrompt" class="connect-prompt hidden" title="Connect to Telegram">
-    <div>🔔</div>
-    <div style="font-weight:700">Connect to Telegram for notifications</div>
+  <!-- ad panel -->
+  <div id="adPanel" class="ad-panel" style="display:none">
+    <div style="font-size:11px;color:#9ca3af;text-align:center;margin-bottom:4px">Advertisement</div>
+    <div id="adContainer"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, get, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // endpoints (serverless functions)
+    // endpoints
     const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
     const MARK_TOKEN_USED = '/.netlify/functions/markTokenUsed';
     const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
 
+    // firebase config (your project)
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -241,6 +460,7 @@
     const estimatedWaitEl = document.getElementById('estimatedWait');
     const progressFill = document.getElementById('progressFill');
     const progressLabel = document.getElementById('progressLabel');
+    const progressCaption = document.getElementById('progressCaption');
     const connectMainBtn = document.getElementById('connectMain');
     const connectMiniBtn = document.getElementById('miniConnect');
     const connectionBannerText = document.getElementById('connectionBannerText');
@@ -248,56 +468,513 @@
     const adPanel = document.getElementById('adPanel');
     const adContainer = document.getElementById('adContainer');
     const errorBox = document.getElementById('error');
-    const brandLogo = document.getElementById('brandLogo');
-    const connectPrompt = document.getElementById('connectPrompt');
 
-    // state
+    // onboarding state
+    let slideIndex = 0;
+    let onboardingDismissed = false;
+    function showSlide(i){
+      slides.forEach(s => s.classList.remove('active'));
+      stepDots.forEach(d => d.classList.remove('active'));
+      slideIndex = i;
+      const sl = slides[i];
+      if(sl) sl.classList.add('active');
+      const dot = stepDots[i];
+      if(dot) dot.classList.add('active');
+      // when slide 3 visible, trigger generate link in background
+      if(i === 2) triggerGenerateLink();
+    }
+
+    obNext.addEventListener('click', ()=> showSlide(1));
+    obNext2.addEventListener('click', ()=> showSlide(2));
+    obBack1.addEventListener('click', ()=> showSlide(0));
+    obBack2.addEventListener('click', ()=> showSlide(1));
+    obSkip.addEventListener('click', ()=> {
+      onboardingDismissed = true;
+      obModal.style.display = 'none';
+    });
+
+    // allow clicking outside popup to close
+    obModal.addEventListener('click', (e)=>{
+      if(e.target === obModal){
+        onboardingDismissed = true;
+        obModal.style.display = 'none';
+      }
+    });
+
+    // connect flow
     let currentQueueKey = null;
     let currentQueueData = null;
     let currentCounterId = null;
     let latestConnectLink = null;
     let linkGenerating = false;
+    let avgServiceTimeFromSettings = null; // admin.html avg wait priority
+    let avgServiceTimeForCounter = 3;
     let redirecting = false;
 
-    // firebase refs/unsub functions
-    let qRef = null;
-    let allQueueRef = null;
-    let counterRef = null;
-    let settingsRef = null;
-    let qUnsub = null;
-    let allUnsub = null;
-    let counterUnsub = null;
-    let settingsUnsub = null;
-
-    // UI helpers
+    // Helper UI functions
     function showError(msg){
+      if(!errorBox) return;
       errorBox.style.display = 'block';
       errorBox.textContent = msg;
-      setTimeout(()=> errorBox.style.display = 'none', 6000);
+      setTimeout(()=> { if(errorBox) errorBox.style.display = 'none'; }, 6000);
     }
 
     function setTelegramConnectedUI(connected){
       if(connected){
-        connectionBannerText.textContent = "Connected — you'll get Telegram notifications";
-        connectionBannerSub.textContent = "You can close this page; Telegram will notify you when it's your turn.";
+        connectionBannerText.textContent = "Connected — you’ll get Telegram notifications";
+        connectionBannerSub.textContent = "You can safely close this page. We’ll notify you when it’s your turn.";
         connectMainBtn.textContent = "Connected";
         connectMainBtn.disabled = true;
-        connectPrompt.classList.add('hidden');
+        connectMiniBtn.classList.remove('pulse');
       } else {
         connectionBannerText.textContent = "Not connected — get Telegram notifications";
         connectionBannerSub.textContent = "Connect to receive notifications even when this page is closed.";
-        connectMainBtn.textContent = "Connect via Telegram";
+        connectMainBtn.textContent = "Connect Telegram";
         connectMainBtn.disabled = false;
-        connectPrompt.classList.remove('hidden');
+        connectMiniBtn.classList.add('pulse');
       }
     }
 
-    // small utility: parse trailing number from queueId like "CAP004" -> 4
-    function extractNumberFromQueueId(qid){
-      if(!qid) return null;
-      // accept things like CAP004 or COFFEE12 or "A-001"
+    // Generate secure telegram link via function
+    async function generateConnectLink(){
+      if(!currentQueueKey) throw new Error('Missing queueId');
+      const res = await fetch(CREATE_LINK_ENDPOINT, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ queueKey: currentQueueKey })
+      });
+      if(!res.ok) {
+        const t = await res.text().catch(()=> '');
+        throw new Error('create link failed ' + res.status + ' ' + t);
+      }
+      const j = await res.json();
+      if(j.link) return j.link;
+      // fallback: if token returned, build Telegram URL that triggers /start
+      if(j.token){
+        const url = new URL(TELEGRAM_BOT_URL);
+        url.searchParams.set('start', j.token);
+        return url.toString();
+      }
+      throw new Error('no link returned');
+    }
+
+    async function triggerGenerateLink(){
+      if(linkGenerating) return;
+      linkGenerating = true;
+      obStatusText.textContent = 'Generating secure link…';
+      obFinishText.innerText = 'Connect via Telegram';
+      latestConnectLink = null;
+      try{
+        let link = await generateConnectLink();
+        // ensure the Telegram link actually triggers /start
+        if(link && !link.includes('start=')){
+          const url = new URL(TELEGRAM_BOT_URL);
+          const token = (currentQueueData && (currentQueueData.telegramToken || currentQueueData.tgToken || currentQueueData.token)) || null;
+          if(token) url.searchParams.set('start', token);
+          link = url.toString();
+        }
+        latestConnectLink = link || TELEGRAM_BOT_URL;
+        obStatusText.textContent = 'Ready to connect. Tap the button below.';
+      }catch(e){
+        latestConnectLink = TELEGRAM_BOT_URL;
+        obStatusText.textContent = 'Couldn’t generate a unique link — using the main bot link.';
+        console.warn(e);
+      } finally {
+        linkGenerating = false;
+      }
+    }
+
+    async function openConnectLink(){
+      if(!latestConnectLink && !linkGenerating){
+        try{
+          linkGenerating = true;
+          latestConnectLink = await generateConnectLink();
+        }catch(e){
+          console.warn(e);
+          latestConnectLink = TELEGRAM_BOT_URL;
+        } finally {
+          linkGenerating = false;
+        }
+      }
+
+      const finalUrl = latestConnectLink || TELEGRAM_BOT_URL;
+
+      // Prefer full-page navigation so Telegram opens reliably on mobile
+      window.location.href = finalUrl;
+
+      // try to notify server to mark token as used
+      try{
+        const token = (finalUrl && finalUrl.split('start=')[1]) || null;
+        if(token && currentQueueKey){
+          await fetch(MARK_TOKEN_USED, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ queueKey: currentQueueKey, token })
+          });
+        }
+      }catch(e){
+        console.warn('mark token used failed', e);
+      }
+    }
+
+    obFinish.addEventListener('click', async () => {
+      obFinish.disabled = true;
+      obFinishText.innerHTML = '<span class="spinner"></span><span>Opening Telegram…</span>';
+      try{
+        await openConnectLink();
+        obFinishText.innerHTML = 'Opened in Telegram';
+        setTimeout(()=> {
+          onboardingDismissed = true;
+          obModal.style.display = 'none';
+        }, 650);
+      }catch(e){
+        console.error(e);
+        obFinishText.innerHTML = 'Connect via Telegram';
+        showError('Unable to open Telegram. Please try again.');
+      } finally {
+        obFinish.disabled = false;
+      }
+    });
+
+    // connect button triggers onboarding modal
+    function openOnboarding(){
+      if(onboardingDismissed) {
+        // if user already dismissed, go straight to connect
+        showSlide(2);
+        triggerGenerateLink();
+      }
+      obModal.style.display = 'flex';
+      if(!onboardingDismissed) showSlide(0);
+    }
+    connectMainBtn.addEventListener('click', openOnboarding);
+    connectMiniBtn.addEventListener('click', openOnboarding);
+    document.getElementById('miniGame').addEventListener('click', ()=> {
+      window.location.href = 'https://queuejoy.netlify.app/game.html';
+    });
+
+    // AD helpers
+    function clearAd(){
+      adContainer.innerHTML='';
+      adPanel.style.display='none';
+    }
+    function showAdFromUrl(url){
+      clearAd();
+      if(!url) return;
+      const trimmed = String(url).trim();
+      if(!trimmed) return;
+      const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('data:video/');
+      adPanel.style.display = 'block';
+      if(isVideo){
+        const v = document.createElement('video');
+        v.src = trimmed;
+        v.autoplay = true;
+        v.muted = true;
+        v.loop = true;
+        v.playsInline = true;
+        v.className = 'ad-media';
+        v.setAttribute('playsinline', '');
+        v.setAttribute('muted','');
+        adContainer.appendChild(v);
+        v.play().catch(()=> v.setAttribute('controls',''));
+      } else {
+        const img = document.createElement('img');
+        img.src = trimmed;
+        img.className = 'ad-media';
+        img.alt = 'Advertisement';
+        img.onerror = ()=> clearAd();
+        adContainer.appendChild(img);
+      }
+    }
+
+    // Utility helpers
+    function digitsFromQueueId(qid){
+      if(!qid) return 3;
       const m = String(qid).match(/(\d+)$/);
-      return m ? parseInt(m[1].replace(/^0+/, '') || '0', 10) : null;
+      return m ? m[1].length : 3;
+    }
+    function zeroPad(num, len){
+      return String(num).padStart(len,'0');
+    }
+
+    // compute avg service time priority: admin settings -> counter.avgServiceTime -> fallback 3
+    async function readGlobalAvgServiceTime(){
+      try{
+        const snap = await get(ref(db,'settings/avgServiceTime'));
+        if(snap && snap.exists()){
+          const val = Number(snap.val());
+          if(Number.isFinite(val) && val > 0) {
+            avgServiceTimeFromSettings = val;
+            return val;
+          }
+        }
+      }catch(e){
+        console.warn('readGlobalAvgServiceTime error', e);
+      }
+      avgServiceTimeFromSettings = null;
+      return null;
+    }
+
+    // keep live subscriptions
+    let qRef = null, allQueueRef = null, adRef = null, counterRef = null, settingsRef = null;
+
+    // Listen and live-sync
+    document.addEventListener('DOMContentLoaded', async () => {
+      // show onboarding immediately on first load
+      obModal.style.display = 'flex';
+      showSlide(0);
+
+      const params = new URLSearchParams(window.location.search);
+      const queueKey = params.get('queueId');
+      if(!queueKey){
+        showError('Queue ID missing — returning…');
+        setTimeout(()=> window.location.href = 'index.html', 1100);
+        return;
+      }
+      currentQueueKey = queueKey;
+      qRef = ref(db, `queue/${queueKey}`);
+
+      // watch ad setting
+      adRef = ref(db, 'settings/adImage');
+      onValue(adRef, (snap) => {
+        if(snap.exists()) showAdFromUrl(snap.val());
+        else clearAd();
+      });
+
+      // watch global avg service time and update whenever changed
+      settingsRef = ref(db, 'settings/avgServiceTime');
+      onValue(settingsRef, (snap) => {
+        if(snap.exists()){
+          const val = Number(snap.val());
+          if(Number.isFinite(val) && val>0) avgServiceTimeFromSettings = val;
+        } else {
+          avgServiceTimeFromSettings = null;
+        }
+        computePeopleAheadAndEstimate();
+      });
+
+      // listen to your queue entry
+      onValue(qRef, async (snap) => {
+        if(!snap.exists()){
+          showError('Queue entry not found — returning…');
+          setTimeout(()=> window.location.href = 'index.html', 1200);
+          return;
+        }
+        currentQueueData = snap.val();
+
+        // show your number
+        yourNumberEl.textContent = currentQueueData.queueId || currentQueueData.ticket || '--';
+
+        // optional: if Firebase stores nowServing and peopleAhead directly on this node, prefer that
+        if(currentQueueData.nowServingDisplay){
+          nowServingEl.textContent = String(currentQueueData.nowServingDisplay);
+        }
+
+        // telegram UI
+        setTelegramConnectedUI(Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected));
+
+        // subscribe to assigned counter if present
+        const counterId = currentQueueData.counterId || currentQueueData.counter || null;
+        if(counterId && counterId !== currentCounterId){
+          if(counterRef) try{ off(counterRef); }catch(e){}
+          currentCounterId = counterId;
+          counterRef = ref(db, `counters/${counterId}`);
+          onValue(counterRef, (cSnap) => {
+            if(!cSnap.exists()) return;
+            const cData = cSnap.val();
+            updateNowServingFromCounter(cData);
+            updateAvgServiceTimeFromCounter(cData);
+            detectAndRedirectIfCalled(cData);
+          });
+        } else if(!counterId){
+          nowServingEl.textContent = '--';
+        }
+
+        // If Firebase already sends peopleAhead / estimatedWait / progress, respect that
+        applyDirectFirebaseEstimates();
+
+        // compute estimates each time queue entry changes (fallback / live sync)
+        computePeopleAheadAndEstimate();
+      });
+
+      // watch entire queue (people-ahead + progress computation)
+      allQueueRef = ref(db, 'queue');
+      onValue(allQueueRef, () => computePeopleAheadAndEstimate());
+
+      // when unloading, cleanup listeners
+      window.addEventListener('beforeunload', () => {
+        try {
+          if(qRef) off(qRef);
+          if(allQueueRef) off(allQueueRef);
+          if(adRef) off(adRef);
+          if(counterRef) off(counterRef);
+          if(settingsRef) off(settingsRef);
+        } catch(e){
+          console.warn(e);
+        }
+      });
+
+      // initial avg setting
+      try{ await readGlobalAvgServiceTime(); }catch(e){}
+    });
+
+    function updateNowServingFromCounter(cData){
+      if(!currentQueueData) return;
+      const prefix = (cData && cData.prefix) ? String(cData.prefix) : '';
+      const nowServingNumber = (cData && (cData.nowServing !== undefined && cData.nowServing !== null))
+        ? Number(cData.nowServing)
+        : null;
+      const digits = digitsFromQueueId(currentQueueData.queueId);
+      let nowServingText = '--';
+      if(prefix && Number.isFinite(nowServingNumber)){
+        nowServingText = `${String(prefix)} ${zeroPad(nowServingNumber, digits)}`;
+      } else if(Number.isFinite(nowServingNumber)){
+        nowServingText = String(nowServingNumber);
+      } else if(cData && cData.nowServingDisplay){
+        nowServingText = String(cData.nowServingDisplay);
+      } else {
+        nowServingText = (cData && cData.nowServing) ? String(cData.nowServing) : '--';
+      }
+      nowServingEl.textContent = nowServingText;
+    }
+
+    function updateAvgServiceTimeFromCounter(cData){
+      (async ()=> {
+        if(Number.isFinite(avgServiceTimeFromSettings) && avgServiceTimeFromSettings > 0){
+          avgServiceTimeForCounter = Number(avgServiceTimeFromSettings);
+        } else if(cData && Number.isFinite(Number(cData.avgServiceTime)) && Number(cData.avgServiceTime) > 0){
+          avgServiceTimeForCounter = Number(cData.avgServiceTime);
+        } else {
+          avgServiceTimeForCounter = 3;
+        }
+        computePeopleAheadAndEstimate();
+      })();
+    }
+
+    function applyDirectFirebaseEstimates(){
+      if(!currentQueueData) return;
+
+      // direct peopleAhead from node
+      const directAhead = Number(currentQueueData.peopleAhead ?? currentQueueData.ahead ?? currentQueueData.positionAhead);
+      if(Number.isFinite(directAhead)){
+        peopleAheadEl.textContent = String(directAhead);
+      }
+
+      // direct estimated wait (text or minutes)
+      if(typeof currentQueueData.estimatedWaitText === 'string' && currentQueueData.estimatedWaitText.trim()){
+        estimatedWaitEl.textContent = currentQueueData.estimatedWaitText;
+      } else {
+        const directMinutes = Number(currentQueueData.estimatedWaitMinutes ?? currentQueueData.etaMinutes);
+        if(Number.isFinite(directMinutes)){
+          estimatedWaitEl.textContent = formatMinutes(directMinutes);
+        }
+      }
+
+      // direct progress percent
+      const directProgress = Number(currentQueueData.progressPercent ?? currentQueueData.progress ?? currentQueueData.progress_pct);
+      if(Number.isFinite(directProgress)){
+        const pct = Math.max(4, Math.min(100, Math.round(directProgress)));
+        updateProgress(pct, directAhead);
+      }
+    }
+
+    // compute people ahead & estimated wait; prefer Firebase but fall back to calculation
+    async function computePeopleAheadAndEstimate(){
+      try{
+        if(!currentQueueData) return;
+
+        // If Firebase already provides both peopleAhead and progress, treat that as source of truth
+        const directAhead = Number(currentQueueData.peopleAhead ?? currentQueueData.ahead ?? currentQueueData.positionAhead);
+        const directProgress = Number(currentQueueData.progressPercent ?? currentQueueData.progress ?? currentQueueData.progress_pct);
+        const hasDirectAhead = Number.isFinite(directAhead);
+        const hasDirectProgress = Number.isFinite(directProgress);
+
+        const allSnap = await get(ref(db, 'queue'));
+        if(!allSnap.exists()){
+          const aheadVal = hasDirectAhead ? directAhead : 0;
+          peopleAheadEl.textContent = String(aheadVal);
+          const estMinutes = Math.max(0, aheadVal * (Number(avgServiceTimeFromSettings) || avgServiceTimeForCounter || 3));
+          estimatedWaitEl.textContent = aheadVal === 0 ? 'Now' : formatMinutes(estMinutes);
+          const pct = hasDirectProgress ? directProgress : (aheadVal === 0 ? 92 : 10);
+          updateProgress(pct, aheadVal);
+          return;
+        }
+
+        const all = allSnap.val();
+        const myTime = Number(currentQueueData.timestamp) || 0;
+        const myCounter = currentQueueData.counterId || currentQueueData.counter || null;
+        const myStatus = String(currentQueueData.status || '').toLowerCase();
+
+        let ahead = 0;
+        let waitingSameCounter = 0;
+
+        if(myCounter){
+          for(const k in all){
+            if(!Object.prototype.hasOwnProperty.call(all,k)) continue;
+            const t = all[k];
+            if(!t) continue;
+            const status = String(t.status || '').toLowerCase();
+            if(status !== 'waiting') continue;
+            if(String(t.counterId || t.counter || '') !== String(myCounter)) continue;
+            waitingSameCounter++;
+            if(Number(t.timestamp) < myTime) ahead++;
+          }
+        } else {
+          // not assigned: count everyone waiting before you across all counters
+          for(const k in all){
+            if(!Object.prototype.hasOwnProperty.call(all,k)) continue;
+            const t = all[k];
+            if(!t) continue;
+            const status = String(t.status || '').toLowerCase();
+            if(status !== 'waiting') continue;
+            waitingSameCounter++;
+            if(Number(t.timestamp) < myTime) ahead++;
+          }
+        }
+
+        // If Firebase is already tracking peopleAhead, use that as source of truth
+        const finalAhead = hasDirectAhead ? directAhead : ahead;
+        peopleAheadEl.textContent = String(finalAhead);
+
+        // decide avg minutes: admin setting > counter-specific fallback
+        let avg = (Number.isFinite(avgServiceTimeFromSettings) && avgServiceTimeFromSettings > 0)
+          ? avgServiceTimeFromSettings
+          : (Number.isFinite(avgServiceTimeForCounter) ? avgServiceTimeForCounter : 3);
+        if(!Number.isFinite(avg) || avg <= 0) avg = 3;
+
+        // If Firebase provides estimated minutes, prefer it
+        let estMinutes = null;
+        const directMinutes = Number(currentQueueData.estimatedWaitMinutes ?? currentQueueData.etaMinutes);
+        if(Number.isFinite(directMinutes)){
+          estMinutes = directMinutes;
+        } else {
+          estMinutes = Math.max(0, finalAhead * avg);
+        }
+
+        estimatedWaitEl.textContent = (finalAhead === 0 && myStatus === 'waiting')
+          ? 'Next — be ready'
+          : (finalAhead === 0 ? 'Now' : `${finalAhead} ahead — ${formatMinutes(estMinutes)}`);
+
+        // Progress:
+        //  0 ahead   => ~92–96%
+        //  many ahead => closer to 10–40%
+        let percent;
+        if(hasDirectProgress){
+          percent = directProgress;
+        } else {
+          const totalWaiting = Math.max(waitingSameCounter || 0, finalAhead + 1);
+          const positionFromBack = totalWaiting - finalAhead; // 1 when you’re last, totalWaiting when you’re first
+          const raw = (positionFromBack / totalWaiting) * 92; // reserve 8% for "called" state
+          percent = Math.max(6, Math.min(96, Math.round(raw)));
+          if(finalAhead === 0){
+            percent = Math.max(percent, 92);
+          }
+        }
+
+        updateProgress(percent, finalAhead, myStatus);
+      }catch(e){
+        console.warn('compute estimate err', e);
+        showError('Could not update live estimate.');
+      }
     }
 
     function formatMinutes(m){
@@ -308,352 +985,65 @@
       return rem === 0 ? `${hrs} hr${hrs>1?'s':''}` : `${hrs} hr ${rem} min`;
     }
 
-    // Progress UI uses position in queue: percent toward front = ((total - ahead) / total) * 100
-    function updateProgress(ahead, total){
-      if(total <= 0){
-        progressFill.style.width = '6%';
-        progressLabel.textContent = '—';
-        return;
-      }
-      const percent = Math.max(4, Math.min(100, Math.round(((total - ahead) / total) * 100)));
-      progressFill.style.width = percent + '%';
-      progressLabel.textContent = percent >= 95 ? 'Almost' : percent + '%';
-    }
-
-    // Ads
-    function clearAd(){ adContainer.innerHTML=''; adPanel.style.display='none'; }
-    function showAdFromUrl(url){
-      clearAd();
-      if(!url) return;
-      const trimmed = String(url).trim();
-      const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('data:video/');
-      adPanel.style.display = 'block';
-      if(isVideo){
-        const v = document.createElement('video');
-        v.src = trimmed; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
-        v.className = 'ad-media';
-        v.setAttribute('playsinline', ''); v.setAttribute('muted','');
-        adContainer.appendChild(v);
-        v.play().catch(()=> v.setAttribute('controls',''));
+    function updateProgress(p, ahead = null, status = ''){
+      const pct = Math.max(4, Math.min(100, Math.round(p)));
+      progressFill.style.width = pct + '%';
+      if(pct >= 98){
+        progressLabel.textContent = '100%';
       } else {
-        const img = document.createElement('img');
-        img.src = trimmed; img.className = 'ad-media'; img.alt = 'Ad';
-        img.onerror = ()=> clearAd();
-        adContainer.appendChild(img);
+        progressLabel.textContent = pct + '%';
+      }
+
+      const st = String(status || '').toLowerCase();
+      if(st === 'called' || st === 'serving' || st === 'your_turn'){
+        progressCaption.textContent = "It's your turn — please go to the counter.";
+      } else if(ahead === 0){
+        progressCaption.textContent = "You’re next — keep an eye on the screen.";
+      } else if(ahead !== null && ahead > 0){
+        progressCaption.textContent = `${ahead} ahead of you`;
+      } else {
+        progressCaption.textContent = "Tracking your place in line…";
       }
     }
 
-    // Telegram connect link generation
-    async function generateConnectLink(){
-      if(!currentQueueKey) throw new Error('missing queueKey');
-      const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ queueKey: currentQueueKey })
-      });
-      if(!res.ok) {
-        const t = await res.text().catch(()=>'');
-        throw new Error('create link failed ' + res.status + ' ' + t);
-      }
-      const j = await res.json();
-      if(!j.link) throw new Error('no link returned');
-      return j.link;
-    }
-
-    async function triggerGenerateLink(){
-      if(linkGenerating) return;
-      linkGenerating = true;
-      obStatusText.textContent = 'Generating secure link...';
-      obFinishText.innerText = 'Connect via Telegram';
-      latestConnectLink = null;
-      try{
-        const link = await generateConnectLink();
-        latestConnectLink = link;
-        obStatusText.textContent = 'Ready to connect! Tap the button below.';
-      }catch(e){
-        // fallback to direct bot URL if serverless function fails
-        latestConnectLink = TELEGRAM_BOT_URL;
-        obStatusText.textContent = 'Couldn\'t generate secure link — using bot link.';
-        console.warn(e);
-      } finally {
-        linkGenerating = false;
-      }
-    }
-
-    async function openConnectLink(){
-      if(!latestConnectLink && !linkGenerating){
-        try{ latestConnectLink = await generateConnectLink(); } catch(e){ latestConnectLink = TELEGRAM_BOT_URL; }
-      }
-      // open new tab
-      const win = window.open(latestConnectLink || TELEGRAM_BOT_URL, '_blank', 'noopener,noreferrer');
-      // try to detect token from link and mark as used to avoid duplicate tokens (best-effort)
-      try{
-        const maybeToken = (latestConnectLink && latestConnectLink.split('start=')[1]) || null;
-        if(maybeToken && currentQueueKey){
-          await fetch(MARK_TOKEN_USED, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ queueKey: currentQueueKey, token: maybeToken })
-          }).catch(()=>{});
-        }
-      }catch(e){}
-      return win;
-    }
-
-    // onboarding modal control
-    let slideIndex = 0;
-    function showSlide(i){
-      slides.forEach(s => s.classList.remove('active'));
-      stepDots.forEach(d => d.classList.remove('active'));
-      slideIndex = i;
-      const sl = slides[i];
-      if(sl) sl.classList.add('active');
-      if(stepDots[i]) stepDots[i].classList.add('active');
-      if(i === 2) triggerGenerateLink();
-    }
-    obNext.addEventListener('click', ()=> showSlide(1));
-    obNext2.addEventListener('click', ()=> showSlide(2));
-    obBack1.addEventListener('click', ()=> showSlide(0));
-    obBack2.addEventListener('click', ()=> showSlide(1));
-    obSkip.addEventListener('click', ()=> { obModal.style.display = 'none'; obModal.setAttribute('aria-hidden','true'); });
-
-    obModal.addEventListener('click', (e)=>{ if(e.target === obModal) { obModal.style.display = 'none'; obModal.setAttribute('aria-hidden','true'); } });
-
-    obFinish.addEventListener('click', async () => {
-      obFinish.disabled = true;
-      obFinishText.innerHTML = '<span class="spinner"></span>Opening…';
-      try{
-        await openConnectLink();
-        obFinishText.innerHTML = 'Opened';
-        setTimeout(()=> { obModal.style.display = 'none'; obModal.setAttribute('aria-hidden','true'); }, 650);
-      }catch(e){
-        obFinishText.innerHTML = 'Connect via Telegram';
-        showError('Unable to open Telegram.');
-      } finally { obFinish.disabled = false; }
-    });
-
-    connectMainBtn.addEventListener('click', async ()=> {
-      obModal.style.display = 'flex'; obModal.setAttribute('aria-hidden','false'); showSlide(0);
-      // ensure link generation started
-      triggerGenerateLink();
-    });
-    connectMiniBtn.addEventListener('click', ()=> { obModal.style.display = 'flex'; obModal.setAttribute('aria-hidden','false'); showSlide(0); });
-    document.getElementById('miniGame').addEventListener('click', ()=> window.location.href = 'https://queuejoy.netlify.app/game.html');
-
-    // compute people ahead and estimate robustly by building a sorted list of waiting tickets for this counter
-    async function computePeopleAheadAndEstimateCounterBased(counterDataOverride){
-      try{
-        if(!currentQueueData) return;
-
-        const myNumber = extractNumberFromQueueId(currentQueueData.queueId);
-        yourNumberEl.textContent = currentQueueData.queueId || '--';
-
-        // load up-to-date counter data if not provided
-        let counterData = counterDataOverride || null;
-        if(currentCounterId && !counterData){
-          const snap = await get(ref(db, `counters/${currentCounterId}`));
-          if(snap && snap.exists()) counterData = snap.val();
-        }
-
-        // fetch queue snapshot
-        const allSnap = await get(ref(db, 'queue'));
-        const waitingList = [];
-        if(allSnap && allSnap.exists()){
-          const all = allSnap.val();
-          for(const k in all){
-            if(!Object.prototype.hasOwnProperty.call(all,k)) continue;
-            const t = all[k];
-            if(!t || t.status !== 'waiting') continue;
-            // only consider tickets assigned to this counter
-            if(currentCounterId && String(t.counterId) !== String(currentCounterId)) continue;
-            // push object with sort key
-            const tNum = extractNumberFromQueueId(t.queueId);
-            waitingList.push({
-              key: k,
-              queueId: t.queueId,
-              num: Number.isFinite(tNum) ? tNum : null,
-              ts: t.timestamp || 0,
-              telegramConnected: !!t.telegramConnected
-            });
-          }
-        }
-
-        // sort waiting list: if numeric available use numeric ascending, fallback to timestamp asc
-        waitingList.sort((a,b) => {
-          if(a.num !== null && b.num !== null) return a.num - b.num;
-          if(a.ts !== b.ts) return a.ts - b.ts;
-          return (a.queueId || '').localeCompare(b.queueId || '');
-        });
-
-        // find my position/index in the list
-        const myIndex = waitingList.findIndex(item => item.queueId === currentQueueData.queueId);
-        const ahead = myIndex >= 0 ? myIndex : 0;
-        const total = waitingList.length;
-
-        peopleAheadEl.textContent = String(ahead);
-
-        // determine avg service time: settings -> counter -> fallback
-        let avgServiceTime = 3; // minutes default
-        try{
-          const sSnap = await get(ref(db, 'settings/avgServiceTime'));
-          if(sSnap && sSnap.exists()){
-            const val = Number(sSnap.val());
-            if(Number.isFinite(val) && val > 0) avgServiceTime = val;
-          } else if(counterData && Number.isFinite(Number(counterData.avgServiceTime)) && Number(counterData.avgServiceTime) > 0){
-            avgServiceTime = Number(counterData.avgServiceTime);
-          }
-        }catch(e){ /* swallow */ }
-
-        const estMinutes = Math.round(ahead * avgServiceTime);
-        estimatedWaitEl.textContent = (ahead === 0) ? 'Now' : `${formatMinutes(estMinutes)}`;
-
-        updateProgress(ahead, total || (ahead + 1));
-
-      }catch(e){
-        console.warn('compute estimate err', e);
-      }
-    }
-
-    // redirect detection (your turn)
+    // Detect if served == our ticket or Firebase marks us as called -> redirect to your_turn.html
     function detectAndRedirectIfCalled(counterData){
       if(!currentQueueData || redirecting) return;
       try{
-        const myNumber = extractNumberFromQueueId(currentQueueData.queueId);
-        if(myNumber === null) return;
-
-        const nowServingNumber = (counterData && (counterData.nowServing !== undefined && counterData.nowServing !== null)) ? Number(counterData.nowServing) : null;
-
-        // if the counter's nowServing matches our number OR status indicates called/serving, go to your_turn
-        const status = (currentQueueData && currentQueueData.status) ? String(currentQueueData.status) : '';
-        if( (Number.isFinite(nowServingNumber) && nowServingNumber === myNumber) || status === 'serving' || status === 'called' ){
-          redirecting = true;
-          connectionBannerText.textContent = "It's your turn — redirecting...";
-          setTimeout(()=> {
-            window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueData.queueId)}`;
-          }, 500);
+        const status = String(currentQueueData.status || '').toLowerCase();
+        if(status === 'serving' || status === 'called' || status === 'your_turn'){
+          redirectToTurnPage();
+          return;
         }
-      }catch(e){ console.warn('redirect detect error', e); }
+
+        // also support explicit match via prefix + nowServing
+        const prefix = (counterData && counterData.prefix) ? String(counterData.prefix) : null;
+        const nowServingNum = (counterData && (counterData.nowServing !== undefined && counterData.nowServing !== null))
+          ? Number(counterData.nowServing)
+          : null;
+        if(prefix && Number.isFinite(nowServingNum)){
+          const digits = digitsFromQueueId(currentQueueData.queueId);
+          const nowServingFull = `${prefix}${zeroPad(nowServingNum, digits)}`;
+          if(String(nowServingFull) === String(currentQueueData.queueId)){
+            redirectToTurnPage();
+          }
+        }
+      }catch(e){
+        console.warn('redirect detect error', e);
+      }
     }
 
-    // main DOMContentLoaded wiring
-    document.addEventListener('DOMContentLoaded', async () => {
-      // load settings (logo/ad) -> keep listening
-      settingsRef = ref(db, 'settings');
-      settingsUnsub = onValue(settingsRef, (snap) => {
-        if(snap && snap.exists()){
-          const settings = snap.val();
-          if(settings.logoUrl){
-            brandLogo.innerHTML = `<img src="${settings.logoUrl}" alt="Logo" />`;
-          } else {
-            brandLogo.textContent = 'QJ';
-          }
-          if(settings.adImage){
-            showAdFromUrl(settings.adImage);
-          } else {
-            clearAd();
-          }
-        } else {
-          brandLogo.textContent = 'QJ';
-          clearAd();
-        }
-      });
+    function redirectToTurnPage(){
+      if(redirecting) return;
+      redirecting = true;
+      connectionBannerText.textContent = "It’s your turn — redirecting…";
+      connectionBannerSub.textContent = "We’re opening your turn page now.";
+      updateProgress(100, 0, 'serving');
+      setTimeout(()=> {
+        window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey || currentQueueData.queueId || '')}`;
+      }, 600);
+    }
 
-      // read queueId from query param
-      const params = new URLSearchParams(window.location.search);
-      const queueKey = params.get('queueId');
-      if(!queueKey){
-        showError('Queue ID missing — returning...');
-        setTimeout(()=> window.location.href = 'index.html', 1100);
-        return;
-      }
-      currentQueueKey = queueKey;
-      qRef = ref(db, `queue/${queueKey}`);
-
-      // listen to our ticket
-      if(qRef){
-        // detach previous if any
-        try{ if(qUnsub) qUnsub(); }catch(e){}
-        qUnsub = onValue(qRef, async (snap) => {
-          if(!snap || !snap.exists()){
-            showError('Queue entry not found — returning');
-            setTimeout(()=> window.location.href = 'index.html', 1200);
-            return;
-          }
-          currentQueueData = snap.val();
-          yourNumberEl.textContent = currentQueueData.queueId || '--';
-
-          // UI for telegram connection (field exists in your export: telegramConnected)
-          setTelegramConnectedUI(!!currentQueueData.telegramConnected);
-
-          const counterId = currentQueueData.counterId || null;
-          // if counter changes, detach old counter listener and attach new one
-          if(counterId && counterId !== currentCounterId){
-            try{ if(counterUnsub) counterUnsub(); } catch(e){ }
-            currentCounterId = counterId;
-            counterRef = ref(db, `counters/${counterId}`);
-            counterUnsub = onValue(counterRef, (cSnap) => {
-              if(!cSnap || !cSnap.exists()) return;
-              const cData = cSnap.val();
-              const nowServingNumber = (cData && (cData.nowServing !== undefined && cData.nowServing !== null)) ? Number(cData.nowServing) : null;
-              nowServingEl.textContent = Number.isFinite(nowServingNumber) ? String(nowServingNumber) : '--';
-              detectAndRedirectIfCalled(cData);
-              // compute estimates using latest counterData
-              computePeopleAheadAndEstimateCounterBased(cData);
-            });
-          } else if(!counterId){
-            nowServingEl.textContent = '--';
-            currentCounterId = null;
-            try{ if(counterUnsub) counterUnsub(); }catch(e){}
-            counterRef = null;
-          }
-
-          // show the modal if NOT connected to telegram (unless user previously skipped)
-          if(!currentQueueData.telegramConnected){
-            // open onboarding modal so user can connect — but only if not already visible
-            if(obModal.style.display !== 'flex'){
-              obModal.style.display = 'flex';
-              obModal.setAttribute('aria-hidden','false');
-              showSlide(0);
-              triggerGenerateLink();
-            }
-          } else {
-            // ensure modal hidden
-            obModal.style.display = 'none';
-            obModal.setAttribute('aria-hidden','true');
-          }
-
-          // compute ahead + estimate on ticket update
-          computePeopleAheadAndEstimateCounterBased();
-        });
-      }
-
-      // listen to the whole queue so our "people ahead" updates when others join/leave
-      try{ if(allUnsub) allUnsub(); }catch(e){}
-      allQueueRef = ref(db, 'queue');
-      allUnsub = onValue(allQueueRef, () => {
-        computePeopleAheadAndEstimateCounterBased();
-      });
-
-      // clean up on unload
-      window.addEventListener('beforeunload', () => {
-        try {
-          if(qRef) off(qRef);
-          if(allQueueRef) off(allQueueRef);
-          if(counterRef) off(counterRef);
-          if(settingsRef) off(settingsRef);
-        } catch(e){}
-      });
-
-      // small UI prompt click -> open modal
-      connectPrompt.addEventListener('click', ()=> {
-        obModal.style.display = 'flex'; obModal.setAttribute('aria-hidden','false'); showSlide(0);
-        triggerGenerateLink();
-      });
-    });
-
-    // expose a small helper for developers (console)
-    window._queuejoy = {
-      getState: () => ({ currentQueueKey, currentQueueData, currentCounterId, latestConnectLink })
-    };
   </script>
 </body>
 </html>
