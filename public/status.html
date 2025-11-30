@@ -592,8 +592,55 @@
             const counterData = counterSnap.val();
             counterNameEl.textContent = counterData.name || counterId;
 
-            // get avg service time: prefer counter.avgServiceTime, fallback to settings.avgServiceTime, else default 3
+            // ---------- get avg service time: prefer counter.avgServiceTime,
+            // then compute from recent served tickets (serviceMs), then settings, else default 3 ----------
             let avg = Number(counterData && counterData.avgServiceTime);
+            if (!Number.isFinite(avg) || avg <= 0) {
+              // try to compute from recent served ticket records for this counter
+              try {
+                const serviceMsSamples = [];
+                const candidatePaths = ['tickets', 'servedTickets', 'history', 'served'];
+
+                for (const p of candidatePaths) {
+                  // try to find records under each candidate path
+                  try {
+                    const snap = await get(ref(db, p));
+                    if (!snap.exists()) continue;
+                    const all = snap.val();
+                    for (const k in all) {
+                      if (!Object.prototype.hasOwnProperty.call(all, k)) continue;
+                      const t = all[k];
+                      // accept either counter id or counter name match, and require serviceMs
+                      const counterMatches =
+                        (t.counterId && String(t.counterId) === String(counterId))
+                        || (t.counter && String(t.counter) === String(counterId))
+                        || (t.counter && String(t.counter) === String(counterData?.name))
+                        || false;
+                      if (counterMatches && t.serviceMs && Number.isFinite(Number(t.serviceMs))) {
+                        serviceMsSamples.push(Number(t.serviceMs));
+                      }
+                    }
+                  } catch (e) {
+                    // ignore per-path errors and continue with next path
+                  }
+                  // if we have a good sample size, stop early
+                  if (serviceMsSamples.length >= 10) break;
+                }
+
+                if (serviceMsSamples.length > 0) {
+                  // compute mean serviceMs from samples
+                  const sumMs = serviceMsSamples.reduce((acc, v) => acc + v, 0);
+                  const meanMs = sumMs / serviceMsSamples.length;
+                  // convert milliseconds -> minutes (float)
+                  avg = meanMs / 60000;
+                }
+              } catch (err) {
+                // ignore errors computing sample average
+                avg = NaN;
+              }
+            }
+
+            // still nothing? try global settings
             if (!Number.isFinite(avg) || avg <= 0) {
               try {
                 const sSnap = await get(ref(db, 'settings/avgServiceTime'));
@@ -607,54 +654,19 @@
                 avg = 3;
               }
             }
+
+            // store and expose globally for status calculations
             avgServiceTimeForCounter = avg;
 
-            // derive numeric portion of queueId (strip prefix letters)
-            const prefix = (counterData && counterData.prefix) || (queueId && queueId.match(/^[A-Za-z]+/)?.[0]) || "";
-            const yourNumberNum = queueId ? parseInt(String(queueId).replace(prefix,''),10) : NaN;
-
-            if (servingRef) off(servingRef);
-            servingRef = ref(db, `counters/${counterId}/nowServing`);
-            onValue(servingRef, (nowSnap) => {
-              const currentServing = Number(nowSnap.val() || 0);
-              // show now serving padded with prefix
-              if (Number.isFinite(currentServing) && currentServing > 0) {
-                nowServingEl.textContent = `${prefix}${String(currentServing).padStart(3,'0')}`;
-              } else {
-                nowServingEl.textContent = `--`;
+            // update analyst UI if present (shows integer minutes)
+            try {
+              const analystEl = document.getElementById('analystAvgWait');
+              if (analystEl) {
+                // round to nearest whole minute for display
+                analystEl.textContent = String(Math.round(Math.max(0, avg)));
               }
+            } catch (e) { /* ignore UI update errors */ }
 
-              const ahead = Number.isFinite(yourNumberNum) ? Math.max(0, yourNumberNum - currentServing) : 0;
-              peopleAheadEl.textContent = ahead;
-              estimatedWaitEl.textContent = computeEstimatedWaitText(ahead, avgServiceTimeForCounter);
-
-              if (ahead === 0) {
-                indicator.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-
-                // send telegram notify (best-effort)
-                const body = currentQueueData && currentQueueData.chatId
-                  ? { chatId: currentQueueData.chatId, message: `🎟 It's now your turn!\nQueue: ${currentQueueKey}` }
-                  : { message: `🎟 It's now the customer's turn!\nQueue: ${currentQueueKey}` };
-
-                fetch(SEND_TELEGRAM_ENDPOINT, {
-                  method:'POST',
-                  headers:{ 'Content-Type':'application/json' },
-                  body: JSON.stringify(body)
-                }).catch(()=>{});
-
-                // short redirect to your-turn page
-                setTimeout(()=> {
-                  try { window.location.href = `/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`; } catch(e) {}
-                }, 1200);
-
-              } else {
-                indicator.className = 'w-3 h-3 bg-blue-400 rounded-full';
-              }
-            });
-          });
-        }
-      });
-    });
 
     window.addEventListener('beforeunload', () => {
       try {
