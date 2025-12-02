@@ -2,433 +2,299 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>QueueJoy — Your Status</title>
   <meta name="description" content="Track your queue position in real-time" />
+  <meta name="theme-color" content="#8b5cf6" />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
   <style>
-    :root{
-      --primary-500:#8b5cf6;
-      --primary-600:#7c3aed;
-      --primary-700:#6d28d9;
-      --bg-gradient-start:#f6f5ff;
-      --bg-gradient-end:#f3f0ff;
-      --card-shadow:rgba(99,102,241,0.16);
-      --progress-shadow:rgba(129,140,248,0.45);
+    :root {
+      --primary:#8b5cf6;
+      --primary-dark:#7c3aed;
+      --primary-light:#a78bfa;
+      --bg-start:#f6f5ff;
+      --bg-end:#ede9fe;
     }
     
-    * { box-sizing:border-box; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    
+    html, body {
+      font-family:Inter,system-ui,-apple-system,sans-serif;
+      background:linear-gradient(135deg,var(--bg-start),var(--bg-end));
+      min-height:100vh;
+      color:#1f2937;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+    }
     
     body {
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-      background: linear-gradient(135deg,var(--bg-gradient-start),var(--bg-gradient-end));
-      min-height:100vh;
       display:flex;
       align-items:flex-start;
       justify-content:center;
-      padding:16px;
-      color:#1f2937;
+      padding:12px;
+      padding-bottom:180px;
     }
     
-    .page-wrapper{
+    @media (min-width:640px) {
+      body { padding:20px; padding-bottom:200px; }
+    }
+    
+    .page-wrapper {
       width:100%;
-      max-width:900px;
-      display:flex;
-      justify-content:center;
+      max-width:600px;
     }
     
     .card {
-      width:100%;
-      max-width:840px;
-      border-radius:24px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,248,255,0.95));
-      box-shadow:0 26px 80px var(--card-shadow);
-      padding:28px 24px 24px;
+      background:rgba(255,255,255,0.97);
+      border-radius:20px;
+      padding:20px 16px;
+      box-shadow:0 20px 60px rgba(139,92,246,0.15);
       position:relative;
-      overflow:hidden;
-      backdrop-filter:blur(20px);
+      will-change:transform;
     }
     
-    @media (min-width:768px){
-      .card{ padding:32px 32px 28px; border-radius:28px; }
+    @media (min-width:640px) {
+      .card { padding:28px 24px; border-radius:24px; }
     }
 
-    .logo-container {
-      width:84px;
-      height:84px;
-      border-radius:20px;
-      background:linear-gradient(135deg,var(--primary-500),var(--primary-600));
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:white;
-      font-weight:900;
-      box-shadow:0 20px 60px rgba(139,92,246,0.25);
-      font-size:28px;
-      transition:transform 0.3s ease;
-      overflow:hidden;
+    .logo-box {
+      width:64px;height:64px;
+      border-radius:16px;
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:900;font-size:22px;
+      box-shadow:0 12px 30px rgba(139,92,246,0.3);
+      overflow:hidden;flex-shrink:0;
     }
     
-    .logo-container:hover {
-      transform:translateY(-4px) scale(1.02);
-    }
+    .logo-box img { width:100%;height:100%;object-fit:cover; }
     
-    .logo-img {
-      width:100%;
-      height:100%;
-      object-fit:cover;
+    @media (min-width:640px) {
+      .logo-box { width:72px;height:72px;font-size:26px; }
     }
 
     .progress-track {
-      height:24px;
+      height:22px;
       border-radius:999px;
-      background:linear-gradient(90deg, #f3f4f6, #e5e7eb);
+      background:#f3f4f6;
       position:relative;
       overflow:hidden;
-      box-shadow:inset 0 2px 4px rgba(0,0,0,0.06);
+      box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);
     }
     
     .progress-fill {
       height:100%;
-      background:linear-gradient(90deg,var(--primary-600),var(--primary-500));
-      display:flex;
-      align-items:center;
-      justify-content:flex-end;
-      padding-right:12px;
-      color:white;
-      font-weight:800;
-      font-size:12px;
-      letter-spacing:0.04em;
-      transition:width 0.7s cubic-bezier(0.22,0.9,0.22,1);
-      box-shadow:0 4px 20px var(--progress-shadow);
-      position:relative;
-    }
-    
-    .progress-fill::before {
-      content:'';
-      position:absolute;
-      top:0;
-      left:0;
-      right:0;
-      bottom:0;
-      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      animation:shimmer 2s infinite;
-    }
-    
-    @keyframes shimmer {
-      0% { transform:translateX(-100%); }
-      100% { transform:translateX(100%); }
+      background:linear-gradient(90deg,var(--primary-dark),var(--primary));
+      display:flex;align-items:center;justify-content:flex-end;
+      padding-right:10px;
+      color:#fff;font-weight:800;font-size:11px;
+      transition:width 0.6s cubic-bezier(0.22,0.9,0.22,1);
+      box-shadow:0 4px 16px rgba(139,92,246,0.4);
+      min-width:44px;
     }
 
     .glass-card {
-      background:linear-gradient(135deg, rgba(255,255,255,0.9), rgba(247,245,255,0.85));
-      border-radius:16px;
-      padding:16px 16px 14px;
-      border:1px solid rgba(139,92,246,0.1);
-      backdrop-filter:blur(20px);
-      box-shadow:0 4px 16px rgba(0,0,0,0.04);
-      transition:all 0.3s ease;
-    }
-    
-    .glass-card:hover {
-      transform:translateY(-2px);
-      box-shadow:0 8px 24px rgba(139,92,246,0.12);
-    }
-    
-    @media (min-width:768px){
-      .glass-card{ padding:18px 20px 16px; border-radius:18px; }
-    }
-
-    .circle-btn {
-      width:44px;
-      height:44px;
-      border-radius:999px;
-      background:white;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border:none;
-      box-shadow:0 4px 16px rgba(0,0,0,0.08);
-      cursor:pointer;
-      font-size:20px;
-      transition:all 0.2s ease;
-    }
-    
-    .circle-btn:hover {
-      transform:translateY(-2px) scale(1.05);
-      box-shadow:0 8px 24px rgba(0,0,0,0.12);
-      background:#fafafa;
-    }
-    
-    .circle-btn:active {
-      transform:translateY(0) scale(0.98);
-    }
-
-    .btn-primary {
-      background:linear-gradient(135deg,var(--primary-600),var(--primary-500));
-      color:white;
-      padding:0.95rem 1.6rem;
+      background:linear-gradient(135deg,rgba(255,255,255,0.95),rgba(250,248,255,0.9));
       border-radius:14px;
-      font-weight:700;
-      border:none;
-      box-shadow:0 8px 24px rgba(139,92,246,0.3);
-      width:100%;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      font-size:15px;
-      transition:all 0.2s ease;
-      position:relative;
-      overflow:hidden;
+      padding:14px;
+      border:1px solid rgba(139,92,246,0.08);
+      box-shadow:0 4px 12px rgba(0,0,0,0.03);
     }
     
-    .btn-primary::before {
-      content:'';
-      position:absolute;
-      top:0;
-      left:-100%;
-      width:100%;
-      height:100%;
-      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition:left 0.5s;
+    @media (min-width:640px) {
+      .glass-card { padding:16px; border-radius:16px; }
     }
     
-    .btn-primary:hover::before {
-      left:100%;
-    }
-    
-    .btn-primary:hover {
-      transform:translateY(-2px);
-      box-shadow:0 12px 32px rgba(129,140,248,0.35);
-    }
-    
-    .btn-primary:active {
-      transform:translateY(0);
-    }
-    
-    .btn-primary:disabled{
-      opacity:0.6;
-      cursor:not-allowed;
-      box-shadow:none;
-      transform:none;
-    }
-
-    .btn-outline {
-      border:2px solid rgba(139,92,246,0.25);
-      padding:0.8rem 1.3rem;
-      border-radius:12px;
-      background:white;
-      font-weight:600;
-      width:100%;
-      cursor:pointer;
-      font-size:14px;
-      color:#374151;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      transition:all 0.2s ease;
-    }
-    
-    .btn-outline:hover {
-      background:#f9fafb;
-      border-color:rgba(139,92,246,0.4);
-      box-shadow:0 4px 16px rgba(0,0,0,0.06);
-      transform:translateY(-1px);
-    }
-
-    .onboarding-modal {
-      position:fixed;
-      inset:0;
-      background:rgba(15,23,42,0.6);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:999;
-      padding:20px;
-      backdrop-filter:blur(12px);
-      animation:fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity:0; }
-      to { opacity:1; }
-    }
-    
-    .onboarding-card {
-      width:100%;
-      max-width:480px;
-      background:white;
-      border-radius:24px;
-      padding:28px 24px 24px;
-      box-shadow:0 30px 90px rgba(15,23,42,0.5);
-      overflow:hidden;
-      animation:slideUp 0.4s cubic-bezier(0.22,0.9,0.22,1);
-    }
-    
-    @keyframes slideUp {
-      from { opacity:0; transform:translateY(40px) scale(0.95); }
-      to { opacity:1; transform:translateY(0) scale(1); }
-    }
-    
-    @media (min-width:480px){
-      .onboarding-card{ padding:32px 28px 28px; }
-    }
-
-    .slide {
-      display:none;
-      animation:slideIn 0.35s ease both;
-      min-height:360px;
-    }
-    
-    .slide.active {
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-    }
-    
-    @keyframes slideIn {
-      from { opacity:0; transform:translateX(20px); }
-      to { opacity:1; transform:translateX(0); }
-    }
-
-    .step-dots {
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      margin:18px 0;
-    }
-    
-    .step-dot {
-      width:10px;
-      height:10px;
-      border-radius:999px;
-      background:#e5e7eb;
-      transition:all 0.3s ease;
-    }
-    
-    .step-dot.active {
-      width:32px;
-      background:linear-gradient(135deg,var(--primary-600),var(--primary-500));
-      box-shadow:0 4px 12px rgba(129,140,248,0.4);
-    }
-
-    .spinner {
-      width:16px;
-      height:16px;
-      border-radius:50%;
-      border:3px solid rgba(255,255,255,0.3);
-      border-top-color:white;
-      animation:spin 0.8s linear infinite;
-      display:inline-block;
-    }
-    
-    @keyframes spin { 
-      to { transform:rotate(360deg); } 
-    }
-
-    .ad-panel {
-      position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      bottom:16px;
-      width:calc(100% - 32px);
-      max-width:440px;
-      background:white;
-      border-radius:16px;
-      box-shadow:0 20px 60px rgba(15,23,42,0.2);
-      padding:12px;
-      z-index:100;
-      animation:slideUpAd 0.5s ease;
-    }
-    
-    @keyframes slideUpAd {
-      from { opacity:0; transform:translate(-50%, 20px); }
-      to { opacity:1; transform:translate(-50%, 0); }
-    }
-    
-    .ad-media {
-      width:100%;
-      height:120px;
-      object-fit:cover;
-      border-radius:12px;
-    }
-
-    .pulse {
-      animation:pulseAnim 2s ease-in-out infinite;
-    }
-    
-    @keyframes pulseAnim {
-      0%, 100% { transform:scale(1); opacity:1; }
-      50% { transform:scale(1.05); opacity:0.9; }
-    }
-
     .stat-label {
-      font-size:11px;
+      font-size:10px;
       text-transform:uppercase;
-      letter-spacing:0.1em;
+      letter-spacing:0.08em;
       color:#6b7280;
       font-weight:600;
     }
     
     .stat-value {
       font-weight:900;
-      font-size:36px;
-      margin-top:6px;
-      line-height:1;
+      font-size:28px;
+      margin-top:4px;
+      line-height:1.1;
+      word-break:break-word;
     }
     
-    .stat-value-small {
+    .stat-value-sm {
       font-weight:800;
-      font-size:24px;
-      margin-top:6px;
+      font-size:20px;
+      margin-top:4px;
       line-height:1.2;
     }
-
-    @media (max-width:640px) {
-      body { padding:12px; }
-      .card { padding:20px 16px 16px; border-radius:20px; }
-      .logo-container { width:72px; height:72px; font-size:24px; }
+    
+    @media (min-width:640px) {
       .stat-value { font-size:32px; }
-      .stat-value-small { font-size:20px; }
+      .stat-value-sm { font-size:22px; }
+    }
+
+    .circle-btn {
+      width:40px;height:40px;
+      border-radius:50%;
+      background:#fff;
+      border:none;
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+      cursor:pointer;
+      transition:transform 0.15s,box-shadow 0.15s;
     }
     
-    .error-banner {
-      margin-top:16px;
-      padding:14px 16px;
+    .circle-btn:active { transform:scale(0.95); }
+
+    .btn-primary {
+      background:linear-gradient(135deg,var(--primary-dark),var(--primary));
+      color:#fff;
+      padding:14px 20px;
       border-radius:12px;
-      background:linear-gradient(135deg, #fef2f2, #fee2e2);
-      border:2px solid #fecaca;
-      color:#991b1b;
-      font-weight:600;
-      font-size:14px;
-      text-align:center;
-      animation:shake 0.5s ease;
-    }
-    
-    @keyframes shake {
-      0%, 100% { transform:translateX(0); }
-      25% { transform:translateX(-8px); }
-      75% { transform:translateX(8px); }
-    }
-    
-    .success-badge {
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 12px;
-      background:linear-gradient(135deg, #d1fae5, #a7f3d0);
-      border-radius:999px;
-      font-size:13px;
       font-weight:700;
-      color:#065f46;
-      box-shadow:0 4px 12px rgba(16,185,129,0.2);
+      border:none;
+      box-shadow:0 8px 20px rgba(139,92,246,0.3);
+      cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      font-size:14px;
+      transition:transform 0.15s,box-shadow 0.15s,opacity 0.15s;
+      width:100%;
+      min-height:48px;
+    }
+    
+    .btn-primary:active { transform:scale(0.98); }
+    .btn-primary:disabled { opacity:0.6;cursor:not-allowed;transform:none; }
+
+    .btn-outline {
+      border:2px solid rgba(139,92,246,0.2);
+      padding:12px 16px;
+      border-radius:12px;
+      background:#fff;
+      font-weight:600;
+      cursor:pointer;
+      font-size:14px;
+      color:#374151;
+      display:flex;align-items:center;justify-content:center;gap:6px;
+      transition:background 0.15s;
+      width:100%;
+    }
+    
+    .btn-outline:active { background:#f9fafb; }
+
+    /* Modal */
+    .modal-overlay {
+      position:fixed;inset:0;
+      background:rgba(15,23,42,0.6);
+      display:flex;align-items:center;justify-content:center;
+      z-index:999;
+      padding:16px;
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+      opacity:0;
+      visibility:hidden;
+      transition:opacity 0.25s,visibility 0.25s;
+    }
+    
+    .modal-overlay.show { opacity:1;visibility:visible; }
+    
+    .modal-card {
+      width:100%;max-width:400px;
+      background:#fff;
+      border-radius:20px;
+      padding:24px 20px;
+      box-shadow:0 24px 60px rgba(15,23,42,0.4);
+      transform:translateY(20px) scale(0.96);
+      transition:transform 0.3s cubic-bezier(0.22,0.9,0.22,1);
+    }
+    
+    .modal-overlay.show .modal-card {
+      transform:translateY(0) scale(1);
+    }
+    
+    @media (min-width:480px) {
+      .modal-card { padding:28px 24px; }
+    }
+
+    .slide { display:none; }
+    .slide.active { display:block; }
+
+    .step-dots {
+      display:flex;gap:8px;justify-content:center;
+      margin:16px 0;
+    }
+    
+    .step-dot {
+      width:8px;height:8px;border-radius:999px;
+      background:#e5e7eb;
+      transition:all 0.25s;
+    }
+    
+    .step-dot.active {
+      width:28px;
+      background:linear-gradient(90deg,var(--primary-dark),var(--primary));
+      box-shadow:0 4px 10px rgba(139,92,246,0.35);
+    }
+
+    .spinner {
+      width:16px;height:16px;
+      border:3px solid rgba(255,255,255,0.25);
+      border-top-color:#fff;
+      border-radius:50%;
+      animation:spin 0.7s linear infinite;
+    }
+    
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .pulse { animation:pulse 2s ease-in-out infinite; }
+    @keyframes pulse {
+      0%,100% { transform:scale(1); }
+      50% { transform:scale(1.08); }
+    }
+
+    /* Ad panel */
+    .ad-panel {
+      position:fixed;
+      left:50%;transform:translateX(-50%);
+      bottom:12px;
+      width:calc(100% - 24px);max-width:400px;
+      background:#fff;
+      border-radius:14px;
+      box-shadow:0 16px 40px rgba(15,23,42,0.2);
+      padding:10px;
+      z-index:100;
+    }
+    
+    .ad-media {
+      width:100%;height:100px;
+      object-fit:cover;border-radius:10px;
+    }
+
+    .error-banner {
+      margin-top:12px;
+      padding:12px;
+      border-radius:10px;
+      background:#fef2f2;
+      border:1px solid #fecaca;
+      color:#b91c1c;
+      font-weight:600;
+      font-size:13px;
+      text-align:center;
+    }
+    
+    .banner-alert {
+      background:linear-gradient(135deg,#fef3c7,#fde68a);
+      border:1px solid #fcd34d;
+      color:#92400e;
+      padding:10px 12px;
+      border-radius:10px;
+      font-size:12px;
+      font-weight:600;
+      text-align:center;
+      margin-top:12px;
     }
   </style>
 </head>
@@ -437,181 +303,187 @@
 <div class="page-wrapper">
 
   <!-- Onboarding Modal -->
-  <div id="onboardingModal" class="onboarding-modal" style="display:none;" aria-hidden="true">
-    <div class="onboarding-card" role="dialog" aria-modal="true">
+  <div id="onboardingModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
       
-      <!-- Slide 1: Introduction -->
+      <!-- Slide 1 -->
       <div class="slide active" data-slide="0">
-        <div style="text-align:center;">
-          <div style="width:130px;height:130px;margin:0 auto;border-radius:26px;background:linear-gradient(135deg,var(--primary-500),var(--primary-600));display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 20px 60px rgba(139,92,246,0.3);">✉️</div>
-          <h3 style="margin-top:24px;font-size:22px;font-weight:900;color:#111827;">Stay Connected via Telegram</h3>
-          <p style="color:#6b7280;margin-top:12px;font-size:15px;line-height:1.6;max-width:360px;margin-left:auto;margin-right:auto;">
-            Get instant push notifications on your phone when it's your turn. No need to keep this page open!
+        <div style="text-align:center">
+          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">✉️</div>
+          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Get Telegram Notifications</h3>
+          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
+            Receive instant alerts on your phone when it's your turn.
           </p>
         </div>
-
-        <div>
-          <div class="step-dots">
-            <div class="step-dot active"></div>
-            <div class="step-dot"></div>
-            <div class="step-dot"></div>
-          </div>
-          <button id="obNext" class="btn-primary">Continue →</button>
-          <button id="obSkip" class="btn-outline" style="margin-top:12px;">Skip for now</button>
+        <div class="step-dots">
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
         </div>
+        <button id="obNext" class="btn-primary">Continue →</button>
+        <button id="obSkip" class="btn-outline" style="margin-top:10px">Skip for now</button>
       </div>
 
-      <!-- Slide 2: Instructions -->
+      <!-- Slide 2 -->
       <div class="slide" data-slide="1">
-        <div style="text-align:center;">
-          <div style="width:130px;height:130px;margin:0 auto;border-radius:26px;background:linear-gradient(135deg,var(--primary-600),var(--primary-700));display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 20px 60px rgba(139,92,246,0.3);">▶️</div>
-          <h3 style="margin-top:24px;font-size:22px;font-weight:900;color:#111827;">Tap "Start" in Telegram</h3>
-          <p style="color:#6b7280;margin-top:12px;font-size:15px;line-height:1.6;max-width:360px;margin-left:auto;margin-right:auto;">
-            We'll open our bot in Telegram. Just tap <strong>Start</strong> to activate notifications for your ticket.
+        <div style="text-align:center">
+          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">▶️</div>
+          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Tap "Start" in Telegram</h3>
+          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
+            We'll open our bot. Tap <strong>Start</strong> to activate notifications.
           </p>
         </div>
-
-        <div>
-          <div class="step-dots">
-            <div class="step-dot"></div>
-            <div class="step-dot active"></div>
-            <div class="step-dot"></div>
-          </div>
-          <button id="obNext2" class="btn-primary">Next →</button>
-          <button id="obBack1" class="btn-outline" style="margin-top:12px;">← Back</button>
+        <div class="step-dots">
+          <div class="step-dot"></div>
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
         </div>
+        <button id="obNext2" class="btn-primary">Next →</button>
+        <button id="obBack1" class="btn-outline" style="margin-top:10px">← Back</button>
       </div>
 
-      <!-- Slide 3: Connect -->
+      <!-- Slide 3 -->
       <div class="slide" data-slide="2">
-        <div style="text-align:center;">
-          <div style="width:130px;height:130px;margin:0 auto;border-radius:26px;background:linear-gradient(135deg,var(--primary-500),var(--primary-600));display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 20px 60px rgba(139,92,246,0.3);">✅</div>
-          <h3 style="margin-top:24px;font-size:22px;font-weight:900;color:#111827;">Ready to Connect</h3>
-          <p id="obStatusText" style="color:#6b7280;margin-top:12px;font-size:15px;line-height:1.6;max-width:360px;margin-left:auto;margin-right:auto;">
-            Generating your secure connection link...
+        <div style="text-align:center">
+          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">✅</div>
+          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Ready to Connect</h3>
+          <p id="obStatusText" style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
+            Generating your secure link...
           </p>
         </div>
-
-        <div>
-          <div class="step-dots">
-            <div class="step-dot"></div>
-            <div class="step-dot"></div>
-            <div class="step-dot active"></div>
-          </div>
-          <button id="obFinish" class="btn-primary">
-            <span id="obFinishIcon">🚀</span>
-            <span id="obFinishText">Open Telegram</span>
-          </button>
-          <button id="obBack2" class="btn-outline" style="margin-top:12px;">← Back</button>
+        <div class="step-dots">
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot active"></div>
         </div>
+        <button id="obFinish" class="btn-primary" disabled>
+          <span id="obFinishContent">
+            <span class="spinner"></span>
+            <span>Generating...</span>
+          </span>
+        </button>
+        <button id="obBack2" class="btn-outline" style="margin-top:10px">← Back</button>
+      </div>
+
+      <!-- Connected Slide -->
+      <div class="slide" data-slide="connected">
+        <div style="text-align:center">
+          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(16,185,129,0.3)">✅</div>
+          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">You're Connected!</h3>
+          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
+            You'll get a Telegram notification when it's your turn.
+          </p>
+        </div>
+        <button id="obDone" class="btn-primary" style="margin-top:20px">Got it!</button>
       </div>
       
     </div>
   </div>
 
-  <!-- Main Status Card -->
-  <main class="card" role="main" aria-live="polite">
+  <!-- Main Card -->
+  <main class="card">
     
-    <!-- Top Action Buttons -->
-    <div style="position:absolute;right:20px;top:18px;display:flex;gap:10px;z-index:10;">
-      <button id="miniGame" class="circle-btn" title="Play a quick game" aria-label="Play game">🎮</button>
-      <button id="miniConnect" class="circle-btn pulse" title="Connect Telegram" aria-label="Connect Telegram">✉️</button>
+    <!-- Top buttons -->
+    <div style="position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:10">
+      <button id="miniGame" class="circle-btn" title="Play game">🎮</button>
+      <button id="miniConnect" class="circle-btn pulse" title="Connect Telegram">✉️</button>
     </div>
 
-    <!-- Header Section -->
-    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:8px;margin-bottom:24px;">
-      <div class="logo-container" id="logoContainer">
+    <!-- Header -->
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;padding-right:90px">
+      <div class="logo-box" id="logoBox">
         <span id="logoText">QJ</span>
-        <img id="logoImg" class="logo-img" style="display:none;" alt="Logo" />
+        <img id="logoImg" style="display:none" alt="Logo" />
       </div>
-      <div style="text-align:center;max-width:640px;">
-        <h1 style="font-size:24px;margin:0;font-weight:900;color:#111827;line-height:1.3;">
-          You're in the queue — we're tracking your spot
+      <div style="flex:1;min-width:0">
+        <h1 style="font-size:18px;font-weight:800;color:#111827;line-height:1.3;margin:0">
+          You're in the queue
         </h1>
-        <p style="color:#6b7280;margin-top:10px;font-size:15px;line-height:1.6;">
-          Stay on this page or connect Telegram for instant notifications when it's your turn.
+        <p style="color:#6b7280;margin-top:4px;font-size:13px;line-height:1.4">
+          We're tracking your spot in real-time.
         </p>
       </div>
     </div>
 
-    <!-- Progress Section -->
-    <section style="margin-bottom:24px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span class="stat-label" style="text-transform:none;font-size:13px;">Queue Progress</span>
-        <span id="progressCaption" style="font-size:13px;font-weight:700;color:#6b7280;">Loading...</span>
+    <!-- Progress -->
+    <section style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:12px;font-weight:600;color:#6b7280">Queue Progress</span>
+        <span id="progressCaption" style="font-size:12px;font-weight:700;color:#6b7280">Loading...</span>
       </div>
-      <div class="progress-track" role="progressbar" aria-label="Queue progress">
-        <div id="progressFill" class="progress-fill" style="width:8%;">
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill" style="width:8%">
           <span id="progressLabel">8%</span>
         </div>
       </div>
     </section>
 
-    <!-- Main Stats Grid -->
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+    <!-- Stats Grid -->
+    <section style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="glass-card">
         <div class="stat-label">Your Ticket</div>
-        <div id="yourNumber" class="stat-value" style="color:var(--primary-600);word-break:break-word;">—</div>
+        <div id="yourNumber" class="stat-value" style="color:var(--primary)">—</div>
       </div>
       <div class="glass-card">
         <div class="stat-label">Now Serving</div>
-        <div id="nowServing" class="stat-value" style="color:#111827;word-break:break-word;">—</div>
+        <div id="nowServing" class="stat-value" style="color:#111827">—</div>
       </div>
     </section>
 
-    <!-- Secondary Stats Grid -->
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+    <section style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
       <div class="glass-card">
         <div class="stat-label">People Ahead</div>
-        <div id="peopleAhead" class="stat-value-small" style="color:#374151;">—</div>
+        <div id="peopleAhead" class="stat-value-sm" style="color:#374151">—</div>
       </div>
       <div class="glass-card">
         <div class="stat-label">Estimated Wait</div>
-        <div id="estimatedWait" class="stat-value-small" style="color:var(--primary-600);">—</div>
+        <div id="estimatedWait" class="stat-value-sm" style="color:var(--primary)">—</div>
       </div>
     </section>
 
     <!-- Connection Banner -->
-    <section id="connectionBanner" class="glass-card" style="display:flex;align-items:center;gap:14px;">
-      <div style="width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--primary-600),var(--primary-500));display:flex;align-items:center;justify-content:center;color:white;font-size:26px;flex-shrink:0;box-shadow:0 8px 20px rgba(139,92,246,0.25);">🔔</div>
-      <div style="flex:1;min-width:0;">
-        <div id="connectionBannerText" style="font-weight:800;font-size:15px;color:#111827;line-height:1.3;">
-          Checking notification status...
+    <section id="connectionBanner" class="glass-card" style="display:flex;align-items:center;gap:12px">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0">🔔</div>
+      <div style="flex:1;min-width:0">
+        <div id="connectionBannerText" style="font-weight:700;font-size:13px;color:#111827;line-height:1.3">
+          Checking status...
         </div>
-        <div id="connectionBannerSub" style="color:#6b7280;font-size:13px;margin-top:4px;line-height:1.4;">
-          Connect Telegram for alerts even when this page is closed.
+        <div id="connectionBannerSub" style="color:#6b7280;font-size:12px;margin-top:2px;line-height:1.3">
+          Connect for alerts when page is closed.
         </div>
       </div>
-      <div style="min-width:150px;">
-        <button id="connectMain" class="btn-primary" style="padding:0.8rem 1.2rem;font-size:14px;white-space:nowrap;">
-          Connect Telegram
-        </button>
-      </div>
+      <button id="connectMain" class="btn-primary" style="width:auto;padding:10px 14px;font-size:12px;min-height:40px">
+        Connect
+      </button>
     </section>
 
-    <!-- Error Display -->
-    <div id="error" class="error-banner" style="display:none;"></div>
+    <!-- Stay Alert (shown when NOT connected) -->
+    <div id="stayAlert" class="banner-alert" style="display:none">
+      ⚠️ <strong>Stay on this page & keep screen awake</strong> to not miss your turn.
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="error-banner" style="display:none"></div>
     
   </main>
 
 </div>
 
 <!-- Ad Panel -->
-<div id="adPanel" class="ad-panel" style="display:none;">
-  <div style="font-size:10px;color:#9ca3af;text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Advertisement</div>
+<div id="adPanel" class="ad-panel" style="display:none">
+  <div style="font-size:9px;color:#9ca3af;text-align:center;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Advertisement</div>
   <div id="adContainer"></div>
 </div>
 
 <script type="module">
-  // ==================== FIREBASE IMPORTS ====================
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // ==================== CONFIGURATION ====================
+  // Config
   const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
   const MARK_TOKEN_USED = '/.netlify/functions/markTokenUsed';
   const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
-  const MAX_AHEAD_ESTIMATE = 20; // For progress calculation
+  const MAX_AHEAD = 20;
 
   const firebaseConfig = {
     apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
@@ -626,21 +498,21 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // ==================== DOM ELEMENTS ====================
+  // DOM
   const obModal = document.getElementById('onboardingModal');
-  const slides = Array.from(document.querySelectorAll('.slide'));
-  const stepDots = Array.from(document.querySelectorAll('.step-dot'));
+  const slides = document.querySelectorAll('.slide');
+  const stepDots = document.querySelectorAll('.step-dot');
   const obNext = document.getElementById('obNext');
   const obNext2 = document.getElementById('obNext2');
   const obBack1 = document.getElementById('obBack1');
   const obBack2 = document.getElementById('obBack2');
   const obSkip = document.getElementById('obSkip');
   const obFinish = document.getElementById('obFinish');
-  const obFinishText = document.getElementById('obFinishText');
-  const obFinishIcon = document.getElementById('obFinishIcon');
+  const obFinishContent = document.getElementById('obFinishContent');
   const obStatusText = document.getElementById('obStatusText');
-
-  const logoContainer = document.getElementById('logoContainer');
+  const obDone = document.getElementById('obDone');
+  
+  const logoBox = document.getElementById('logoBox');
   const logoText = document.getElementById('logoText');
   const logoImg = document.getElementById('logoImg');
   const yourNumberEl = document.getElementById('yourNumber');
@@ -654,586 +526,423 @@
   const connectMiniBtn = document.getElementById('miniConnect');
   const connectionBannerText = document.getElementById('connectionBannerText');
   const connectionBannerSub = document.getElementById('connectionBannerSub');
+  const stayAlert = document.getElementById('stayAlert');
   const adPanel = document.getElementById('adPanel');
   const adContainer = document.getElementById('adContainer');
   const errorBox = document.getElementById('error');
 
-  // ==================== STATE ====================
-  let slideIndex = 0;
-  let onboardingDismissed = localStorage.getItem('qj_onboarding_dismissed') === 'true';
+  // State
   let currentQueueKey = null;
   let currentQueueData = null;
   let currentCounterId = null;
   let latestConnectLink = null;
   let linkGenerating = false;
+  let isTelegramConnected = false;
   let redirecting = false;
-  let avgServiceTimeMinutes = 3; // Default fallback
-  let qRef = null, allQueueRef = null, adRef = null, counterRef = null, settingsRef = null, analyticsRef = null;
+  let avgServiceTime = 3;
+  let qRef = null, counterRef = null, adRef = null, analyticsRef = null;
 
-  // ==================== UTILITY FUNCTIONS ====================
-  
+  // Utilities
   function showError(msg) {
     if (!errorBox) return;
     errorBox.style.display = 'block';
     errorBox.textContent = msg;
-    setTimeout(() => { 
-      if (errorBox) errorBox.style.display = 'none'; 
-    }, 7000);
+    setTimeout(() => errorBox.style.display = 'none', 6000);
   }
 
-  function extractNumericPart(ticketStr) {
-    if (!ticketStr) return null;
-    const match = String(ticketStr).match(/(\d+)$/);
-    return match ? parseInt(match[1], 10) : null;
-  }
-
-  function zeroPad(num, len) {
-    return String(num).padStart(len, '0');
+  function extractNumber(str) {
+    if (!str) return null;
+    const m = String(str).match(/(\d+)$/);
+    return m ? parseInt(m[1], 10) : null;
   }
 
   function formatMinutes(m) {
     const mm = Math.max(0, Math.round(m));
-    if (mm === 0) return 'Less than a minute';
-    if (mm < 60) return `${mm} min${mm > 1 ? 's' : ''}`;
-    const hrs = Math.floor(mm / 60);
-    const rem = mm % 60;
-    return rem === 0 ? `${hrs} hr${hrs > 1 ? 's' : ''}` : `${hrs}h ${rem}m`;
+    if (mm === 0) return 'Now';
+    if (mm < 60) return `${mm} min`;
+    const h = Math.floor(mm / 60), r = mm % 60;
+    return r === 0 ? `${h}h` : `${h}h ${r}m`;
   }
 
-  // ==================== ONBOARDING FUNCTIONS ====================
-  
-  function showSlide(i) {
+  // Modal functions
+  function showSlide(idx) {
     slides.forEach(s => s.classList.remove('active'));
     stepDots.forEach(d => d.classList.remove('active'));
-    slideIndex = i;
-    const sl = slides[i];
-    if (sl) sl.classList.add('active');
-    const dot = stepDots[i];
-    if (dot) dot.classList.add('active');
-    if (i === 2) triggerGenerateLink();
+    const slide = document.querySelector(`[data-slide="${idx}"]`);
+    if (slide) slide.classList.add('active');
+    if (typeof idx === 'number' && stepDots[idx]) stepDots[idx].classList.add('active');
+    if (idx === 2) generateLink();
   }
 
-  function openOnboarding() {
-    obModal.style.display = 'flex';
-    if (onboardingDismissed) {
-      showSlide(2);
-      triggerGenerateLink();
+  function openModal() {
+    obModal.classList.add('show');
+    if (isTelegramConnected) {
+      showSlide('connected');
     } else {
       showSlide(0);
     }
   }
 
-  function closeOnboarding() {
-    onboardingDismissed = true;
-    localStorage.setItem('qj_onboarding_dismissed', 'true');
-    obModal.style.display = 'none';
+  function closeModal() {
+    obModal.classList.remove('show');
   }
 
-  obNext.addEventListener('click', () => showSlide(1));
-  obNext2.addEventListener('click', () => showSlide(2));
-  obBack1.addEventListener('click', () => showSlide(0));
-  obBack2.addEventListener('click', () => showSlide(1));
-  obSkip.addEventListener('click', closeOnboarding);
-  obModal.addEventListener('click', (e) => {
-    if (e.target === obModal) closeOnboarding();
-  });
+  obNext.onclick = () => showSlide(1);
+  obNext2.onclick = () => showSlide(2);
+  obBack1.onclick = () => showSlide(0);
+  obBack2.onclick = () => showSlide(1);
+  obSkip.onclick = closeModal;
+  obDone.onclick = closeModal;
+  obModal.onclick = (e) => { if (e.target === obModal) closeModal(); };
 
-  // ==================== TELEGRAM CONNECTION ====================
-  
-  async function generateConnectLink() {
-    if (!currentQueueKey) throw new Error('Missing queueId');
-    const res = await fetch(CREATE_LINK_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queueKey: currentQueueKey })
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      throw new Error(`Create link failed: ${res.status} ${txt}`);
-    }
-    const json = await res.json();
-    if (json.link) return json.link;
-    if (json.token) {
-      const url = new URL(TELEGRAM_BOT_URL);
-      url.searchParams.set('start', json.token);
-      return url.toString();
-    }
-    throw new Error('No link returned');
-  }
-
-  async function triggerGenerateLink() {
-    if (linkGenerating) return;
+  // Telegram link generation
+  async function generateLink() {
+    if (linkGenerating || latestConnectLink) return;
     linkGenerating = true;
-    obStatusText.textContent = 'Generating your secure connection link...';
-    obFinishText.textContent = 'Open Telegram';
-    latestConnectLink = null;
+    
+    obFinish.disabled = true;
+    obFinishContent.innerHTML = '<span class="spinner"></span><span>Generating...</span>';
+    obStatusText.textContent = 'Creating secure link...';
 
     try {
-      let link = await generateConnectLink();
+      const res = await fetch(CREATE_LINK_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueKey: currentQueueKey })
+      });
       
-      // Ensure the link has the start parameter for /start command
-      if (link && !link.includes('start=')) {
-        const url = new URL(TELEGRAM_BOT_URL);
-        const token = currentQueueData?.telegramToken || currentQueueData?.tgToken || currentQueueData?.token || null;
-        if (token) url.searchParams.set('start', token);
-        link = url.toString();
+      if (!res.ok) throw new Error('Failed');
+      
+      const json = await res.json();
+      let link = json.link || null;
+      
+      if (!link && json.token) {
+        link = `${TELEGRAM_BOT_URL}?start=${json.token}`;
       }
       
-      latestConnectLink = link || TELEGRAM_BOT_URL;
-      obStatusText.innerHTML = '✅ Ready! Tap below to open Telegram and start the bot.';
+      if (link && !link.includes('start=')) {
+        const token = currentQueueData?.telegramToken || currentQueueData?.token || currentQueueKey;
+        link = `${TELEGRAM_BOT_URL}?start=${token}`;
+      }
+      
+      latestConnectLink = link || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
+      obStatusText.textContent = 'Ready! Tap below to open Telegram.';
+      obFinish.disabled = false;
+      obFinishContent.innerHTML = '🚀 Open Telegram';
+      
     } catch (e) {
       console.error('Link generation failed:', e);
-      latestConnectLink = TELEGRAM_BOT_URL;
-      obStatusText.textContent = 'Using fallback link. Tap below to connect.';
+      latestConnectLink = `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
+      obStatusText.textContent = 'Using fallback link.';
+      obFinish.disabled = false;
+      obFinishContent.innerHTML = '🚀 Open Telegram';
     } finally {
       linkGenerating = false;
     }
   }
 
-  async function openConnectLink() {
-    if (!latestConnectLink && !linkGenerating) {
-      try {
-        linkGenerating = true;
-        latestConnectLink = await generateConnectLink();
-      } catch (e) {
-        console.warn('Failed to generate link:', e);
-        latestConnectLink = TELEGRAM_BOT_URL;
-      } finally {
-        linkGenerating = false;
-      }
-    }
-
-    const finalUrl = latestConnectLink || TELEGRAM_BOT_URL;
-
-    // CRITICAL FIX: Open in NEW window/tab instead of replacing current page
-    const newWindow = window.open(finalUrl, '_blank', 'noopener,noreferrer');
+  async function openTelegram() {
+    if (linkGenerating) return;
     
-    if (!newWindow) {
-      // Fallback if popup blocked
-      showError('Please allow popups to open Telegram. Trying alternative method...');
-      setTimeout(() => {
-        window.location.href = finalUrl;
-      }, 1500);
+    obFinish.disabled = true;
+    obFinishContent.innerHTML = '<span class="spinner"></span><span>Opening...</span>';
+    
+    const url = latestConnectLink || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
+    
+    // CRITICAL: Open in NEW tab, not current page
+    const newTab = window.open(url, '_blank', 'noopener,noreferrer');
+    
+    if (!newTab) {
+      // Popup blocked - try alternative
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
-
-    // Mark token as used
+    
+    // Mark token used
     try {
-      const token = finalUrl.split('start=')[1] || null;
-      if (token && currentQueueKey) {
+      const token = url.split('start=')[1];
+      if (token) {
         await fetch(MARK_TOKEN_USED, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ queueKey: currentQueueKey, token })
         });
       }
-    } catch (e) {
-      console.warn('Failed to mark token used:', e);
-    }
+    } catch (e) {}
+    
+    setTimeout(() => {
+      obFinish.disabled = false;
+      obFinishContent.innerHTML = '✅ Opened!';
+      setTimeout(closeModal, 1500);
+    }, 500);
   }
 
-  obFinish.addEventListener('click', async () => {
-    obFinish.disabled = true;
-    obFinishIcon.innerHTML = '<span class="spinner"></span>';
-    obFinishText.textContent = 'Opening...';
+  obFinish.onclick = openTelegram;
+  connectMainBtn.onclick = openModal;
+  connectMiniBtn.onclick = openModal;
+  document.getElementById('miniGame').onclick = () => window.open('https://queuejoy.netlify.app/game.html', '_blank');
+
+  // UI Updates
+  function setTelegramUI(connected) {
+    isTelegramConnected = connected;
     
-    try {
-      await openConnectLink();
-      obFinishIcon.textContent = '✅';
-      obFinishText.textContent = 'Opened in Telegram';
-      setTimeout(() => {
-        closeOnboarding();
-      }, 1000);
-    } catch (e) {
-      console.error('Failed to open Telegram:', e);
-      obFinishIcon.textContent = '🚀';
-      obFinishText.textContent = 'Open Telegram';
-      showError('Unable to open Telegram. Please try again.');
-    } finally {
-      obFinish.disabled = false;
-    }
-  });
-
-  connectMainBtn.addEventListener('click', openOnboarding);
-  connectMiniBtn.addEventListener('click', openOnboarding);
-  document.getElementById('miniGame').addEventListener('click', () => {
-    window.open('https://queuejoy.netlify.app/game.html', '_blank');
-  });
-
-  // ==================== UI UPDATE FUNCTIONS ====================
-  
-  function setTelegramConnectedUI(connected) {
     if (connected) {
-      connectionBannerText.innerHTML = '✅ Connected — you\'ll get Telegram notifications';
-      connectionBannerSub.textContent = 'You can safely close this page. We\'ll notify you when it\'s your turn.';
-      connectMainBtn.innerHTML = '<span style="font-size:18px;">✅</span> Connected';
+      connectionBannerText.textContent = '✅ Connected to Telegram';
+      connectionBannerSub.textContent = 'We\'ll notify you when it\'s your turn.';
+      connectMainBtn.innerHTML = '✅';
       connectMainBtn.disabled = true;
-      connectMainBtn.style.opacity = '0.8';
+      connectMainBtn.style.opacity = '0.7';
       connectMiniBtn.classList.remove('pulse');
+      stayAlert.style.display = 'none';
     } else {
-      connectionBannerText.textContent = 'Get instant notifications via Telegram';
-      connectionBannerSub.textContent = 'Connect to receive alerts even when this page is closed.';
-      connectMainBtn.innerHTML = '<span style="font-size:18px;">✉️</span> Connect Telegram';
+      connectionBannerText.textContent = 'Get Telegram notifications';
+      connectionBannerSub.textContent = 'Alerts even when page is closed.';
+      connectMainBtn.innerHTML = 'Connect';
       connectMainBtn.disabled = false;
       connectMainBtn.style.opacity = '1';
       connectMiniBtn.classList.add('pulse');
+      stayAlert.style.display = 'block';
     }
   }
 
-  function updateProgress(percent, ahead = null, status = '') {
-    const pct = Math.max(4, Math.min(100, Math.round(percent)));
-    progressFill.style.width = pct + '%';
-    progressLabel.textContent = pct + '%';
-
+  function updateProgress(pct, ahead, status) {
+    const p = Math.max(4, Math.min(100, Math.round(pct)));
+    progressFill.style.width = p + '%';
+    progressLabel.textContent = p + '%';
+    
     const st = String(status || '').toLowerCase();
     if (st === 'called' || st === 'serving' || st === 'your_turn') {
-      progressCaption.textContent = "🎉 It's your turn — go to the counter!";
-      progressCaption.style.color = 'var(--primary-600)';
+      progressCaption.textContent = "🎉 It's your turn!";
+      progressCaption.style.color = 'var(--primary)';
     } else if (ahead === 0) {
-      progressCaption.textContent = "⏰ You're next — stay ready!";
-      progressCaption.style.color = 'var(--primary-600)';
-    } else if (ahead !== null && ahead > 0) {
-      progressCaption.textContent = `${ahead} ${ahead === 1 ? 'person' : 'people'} ahead`;
+      progressCaption.textContent = "⏰ You're next!";
+      progressCaption.style.color = 'var(--primary)';
+    } else if (ahead > 0) {
+      progressCaption.textContent = `${ahead} ahead`;
       progressCaption.style.color = '#6b7280';
     } else {
-      progressCaption.textContent = "Tracking your position...";
+      progressCaption.textContent = 'Loading...';
       progressCaption.style.color = '#6b7280';
     }
   }
 
-  // ==================== ANALYTICS & AVG SERVICE TIME ====================
-  
-  async function calculateAvgServiceTime() {
-    try {
-      const snap = await get(ref(db, 'analytics/serviceEvents'));
-      if (!snap.exists()) return 3;
-
-      const events = snap.val();
-      const serviceTimes = [];
-
-      for (const key in events) {
-        if (events.hasOwnProperty(key)) {
-          const event = events[key];
-          if (event.serviceMs && Number.isFinite(event.serviceMs) && event.serviceMs > 0) {
-            // Convert milliseconds to minutes
-            const minutes = event.serviceMs / 60000;
-            // Filter out unreasonably long times (over 2 hours)
-            if (minutes <= 120) {
-              serviceTimes.push(minutes);
-            }
+  // Compute estimates
+  async function computeEstimates() {
+    if (!currentQueueData) return;
+    
+    const myTicket = currentQueueData.queueId || currentQueueData.ticket;
+    const myNum = extractNumber(myTicket);
+    const myStatus = String(currentQueueData.status || '').toLowerCase();
+    
+    // Get nowServing from counter
+    let servingNum = null;
+    let counterData = null;
+    
+    const counterId = currentQueueData.counterId || currentQueueData.counter;
+    if (counterId) {
+      try {
+        const snap = await get(ref(db, `counters/${counterId}`));
+        if (snap.exists()) {
+          counterData = snap.val();
+          servingNum = extractNumber(counterData.nowServing);
+          
+          // Update nowServing display
+          const prefix = counterData.prefix || '';
+          if (counterData.nowServing !== undefined && counterData.nowServing !== null) {
+            const digits = String(myTicket).match(/(\d+)$/);
+            const len = digits ? digits[1].length : 3;
+            const formatted = prefix + String(counterData.nowServing).padStart(len, '0');
+            nowServingEl.textContent = formatted;
           }
         }
+      } catch (e) {}
+    }
+    
+    // CRITICAL FIX: Handle nowServing = 0 correctly
+    // If nowServing is 0, it means service hasn't started yet
+    let peopleAhead = 0;
+    
+    if (myNum !== null && servingNum !== null) {
+      // Only calculate if nowServing > 0 (service has started)
+      if (servingNum > 0) {
+        peopleAhead = Math.max(0, myNum - servingNum);
+      } else {
+        // Service hasn't started, everyone is waiting
+        // Count position based on ticket number
+        peopleAhead = Math.max(0, myNum - 1);
       }
-
-      if (serviceTimes.length === 0) return 3;
-
-      // Calculate average
-      const sum = serviceTimes.reduce((acc, val) => acc + val, 0);
-      const avg = sum / serviceTimes.length;
-
-      // Round to 1 decimal place and ensure minimum of 1 minute
-      return Math.max(1, Math.round(avg * 10) / 10);
-    } catch (e) {
-      console.warn('Failed to calculate avg service time:', e);
-      return 3;
+    } else {
+      // Fallback: count from queue
+      try {
+        const allSnap = await get(ref(db, 'queue'));
+        if (allSnap.exists()) {
+          const all = allSnap.val();
+          const myTime = currentQueueData.timestamp || 0;
+          for (const k in all) {
+            const t = all[k];
+            if (!t || String(t.status || '').toLowerCase() !== 'waiting') continue;
+            if (counterId && String(t.counterId || t.counter || '') !== String(counterId)) continue;
+            if (Number(t.timestamp) < Number(myTime)) peopleAhead++;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    peopleAheadEl.textContent = peopleAhead;
+    
+    // Estimated wait
+    const estMin = peopleAhead * avgServiceTime;
+    estimatedWaitEl.textContent = formatMinutes(estMin);
+    
+    // Progress: 100 - (peopleAhead / MAX_AHEAD) * 100
+    const progressPct = 100 - (peopleAhead / MAX_AHEAD) * 100;
+    updateProgress(progressPct, peopleAhead, myStatus);
+    
+    // Check if called
+    if (myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn') {
+      redirectToTurn();
     }
   }
 
-  // ==================== LOGO LOADING ====================
-  
+  function redirectToTurn() {
+    if (redirecting) return;
+    redirecting = true;
+    updateProgress(100, 0, 'serving');
+    setTimeout(() => {
+      window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
+    }, 600);
+  }
+
+  // Ads
+  function showAd(url) {
+    if (!url) { adPanel.style.display = 'none'; return; }
+    const u = String(url).trim();
+    if (!u) { adPanel.style.display = 'none'; return; }
+    
+    adPanel.style.display = 'block';
+    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
+    
+    if (isVideo) {
+      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
+    } else {
+      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
+    }
+  }
+
+  // Logo
   async function loadLogo() {
     try {
       const snap = await get(ref(db, 'settings/logoUrl'));
       if (snap.exists() && snap.val()) {
-        const logoUrl = String(snap.val()).trim();
-        if (logoUrl) {
-          logoImg.src = logoUrl;
+        const url = String(snap.val()).trim();
+        if (url) {
+          logoImg.src = url;
           logoImg.onload = () => {
             logoText.style.display = 'none';
             logoImg.style.display = 'block';
           };
-          logoImg.onerror = () => {
-            logoText.style.display = 'flex';
-            logoImg.style.display = 'none';
-          };
         }
       }
-    } catch (e) {
-      console.warn('Failed to load logo:', e);
-    }
+    } catch (e) {}
   }
 
-  // ==================== AD FUNCTIONS ====================
-  
-  function clearAd() {
-    adContainer.innerHTML = '';
-    adPanel.style.display = 'none';
-  }
-
-  function showAdFromUrl(url) {
-    clearAd();
-    if (!url) return;
-    const trimmed = String(url).trim();
-    if (!trimmed) return;
-
-    const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(trimmed) || trimmed.startsWith('data:video/');
-    adPanel.style.display = 'block';
-
-    if (isVideo) {
-      const v = document.createElement('video');
-      v.src = trimmed;
-      v.autoplay = true;
-      v.muted = true;
-      v.loop = true;
-      v.playsInline = true;
-      v.className = 'ad-media';
-      v.setAttribute('playsinline', '');
-      v.setAttribute('muted', '');
-      adContainer.appendChild(v);
-      v.play().catch(() => v.setAttribute('controls', ''));
-    } else {
-      const img = document.createElement('img');
-      img.src = trimmed;
-      img.className = 'ad-media';
-      img.alt = 'Advertisement';
-      img.onerror = () => clearAd();
-      adContainer.appendChild(img);
-    }
-  }
-
-  // ==================== MAIN COMPUTATION ====================
-  
-  async function computePeopleAheadAndEstimate() {
+  // Avg service time from analytics
+  async function loadAvgServiceTime() {
     try {
-      if (!currentQueueData) return;
-
-      const myTicket = currentQueueData.queueId || currentQueueData.ticket;
-      const myStatus = String(currentQueueData.status || '').toLowerCase();
-      const myCounter = currentQueueData.counterId || currentQueueData.counter || null;
-
-      // Get current nowServing from counter
-      let nowServingNumber = null;
-      if (myCounter) {
-        const counterSnap = await get(ref(db, `counters/${myCounter}`));
-        if (counterSnap.exists()) {
-          const counterData = counterSnap.val();
-          nowServingNumber = counterData.nowServing;
-        }
-      }
-
-      // CRITICAL FIX: Calculate people ahead using numeric extraction
-      const myNumber = extractNumericPart(myTicket);
-      const servingNumber = extractNumericPart(nowServingNumber);
-
-      let peopleAhead = 0;
-      if (myNumber !== null && servingNumber !== null) {
-        peopleAhead = Math.max(0, myNumber - servingNumber);
-      } else {
-        // Fallback: count from queue
-        const allSnap = await get(ref(db, 'queue'));
-        if (allSnap.exists()) {
-          const all = allSnap.val();
-          const myTime = Number(currentQueueData.timestamp) || 0;
-          
-          for (const k in all) {
-            if (!all.hasOwnProperty(k)) continue;
-            const t = all[k];
-            if (!t) continue;
-            const status = String(t.status || '').toLowerCase();
-            if (status !== 'waiting') continue;
-            if (myCounter && String(t.counterId || t.counter || '') !== String(myCounter)) continue;
-            if (Number(t.timestamp) < myTime) peopleAhead++;
-          }
-        }
-      }
-
-      peopleAheadEl.textContent = String(peopleAhead);
-
-      // CRITICAL FIX: Calculate estimated wait using analytics average
-      const estMinutes = peopleAhead * avgServiceTimeMinutes;
-      estimatedWaitEl.textContent = peopleAhead === 0 ? 'Now' : formatMinutes(estMinutes);
-
-      // CRITICAL FIX: Calculate progress using linear formula
-      // progressPercent = 100 - (peopleAhead / maxAhead) * 100
-      const maxAhead = MAX_AHEAD_ESTIMATE;
-      let progressPercent = 100 - (peopleAhead / maxAhead) * 100;
-      progressPercent = Math.max(4, Math.min(100, progressPercent));
-
-      updateProgress(progressPercent, peopleAhead, myStatus);
-
-    } catch (e) {
-      console.error('Failed to compute estimates:', e);
-      showError('Failed to update queue status. Retrying...');
-    }
-  }
-
-  function updateNowServingDisplay(counterData) {
-    if (!currentQueueData) return;
-
-    const prefix = counterData?.prefix ? String(counterData.prefix) : '';
-    const nowServingNumber = counterData?.nowServing;
-    
-    if (prefix && nowServingNumber !== undefined && nowServingNumber !== null) {
-      const digits = String(currentQueueData.queueId || '').match(/(\d+)$/) || ['', '001'];
-      nowServingEl.textContent = `${prefix}${zeroPad(nowServingNumber, digits[1].length)}`;
-    } else if (nowServingNumber !== undefined && nowServingNumber !== null) {
-      nowServingEl.textContent = String(nowServingNumber);
-    } else {
-      nowServingEl.textContent = '—';
-    }
-  }
-
-  function detectAndRedirectIfCalled(counterData) {
-    if (!currentQueueData || redirecting) return;
-
-    try {
-      const status = String(currentQueueData.status || '').toLowerCase();
-      if (status === 'serving' || status === 'called' || status === 'your_turn') {
-        redirectToTurnPage();
-        return;
-      }
-
-      // Check if nowServing matches your ticket
-      const prefix = counterData?.prefix ? String(counterData.prefix) : '';
-      const nowServingNum = counterData?.nowServing;
+      const snap = await get(ref(db, 'analytics/serviceEvents'));
+      if (!snap.exists()) return;
       
-      if (prefix && Number.isFinite(nowServingNum)) {
-        const myTicketNum = extractNumericPart(currentQueueData.queueId);
-        if (myTicketNum !== null && myTicketNum === nowServingNum) {
-          redirectToTurnPage();
+      const events = snap.val();
+      const times = [];
+      
+      for (const k in events) {
+        const e = events[k];
+        if (e.serviceMs && e.serviceMs > 0) {
+          const min = e.serviceMs / 60000;
+          if (min <= 120) times.push(min);
         }
       }
-    } catch (e) {
-      console.warn('Redirect detection error:', e);
-    }
+      
+      if (times.length > 0) {
+        const sum = times.reduce((a, b) => a + b, 0);
+        avgServiceTime = Math.max(1, Math.round(sum / times.length));
+      }
+    } catch (e) {}
   }
 
-  function redirectToTurnPage() {
-    if (redirecting) return;
-    redirecting = true;
-    connectionBannerText.innerHTML = '🎉 It\'s your turn — redirecting...';
-    connectionBannerSub.textContent = 'Opening your turn page now.';
-    updateProgress(100, 0, 'serving');
-    
-    setTimeout(() => {
-      window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey || currentQueueData.queueId || '')}`;
-    }, 800);
-  }
-
-  // ==================== INITIALIZATION ====================
-  
+  // Initialize
   document.addEventListener('DOMContentLoaded', async () => {
-    // Get queue ID from URL
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get('queueId');
-
+    
     if (!queueKey) {
-      showError('Queue ID missing. Redirecting to home...');
+      showError('Queue ID missing. Redirecting...');
       setTimeout(() => window.location.href = 'index.html', 1500);
       return;
     }
-
+    
     currentQueueKey = queueKey;
-
-    // Show onboarding if not dismissed
-    if (!onboardingDismissed) {
-      obModal.style.display = 'flex';
-      showSlide(0);
-    }
-
-    // Load logo
-    await loadLogo();
-
-    // Calculate average service time from analytics
-    avgServiceTimeMinutes = await calculateAvgServiceTime();
-    console.log('Average service time:', avgServiceTimeMinutes, 'minutes');
-
-    // Watch settings for logo updates
-    settingsRef = ref(db, 'settings/logoUrl');
-    onValue(settingsRef, (snap) => {
-      if (snap.exists() && snap.val()) {
-        const logoUrl = String(snap.val()).trim();
-        if (logoUrl) {
-          logoImg.src = logoUrl;
-          logoImg.onload = () => {
-            logoText.style.display = 'none';
-            logoImg.style.display = 'block';
-          };
-        }
-      }
-    });
-
-    // Watch ad settings
-    adRef = ref(db, 'settings/adImage');
-    onValue(adRef, (snap) => {
-      if (snap.exists()) showAdFromUrl(snap.val());
-      else clearAd();
-    });
-
-    // Watch analytics for avg service time updates
-    analyticsRef = ref(db, 'analytics/serviceEvents');
-    onValue(analyticsRef, async () => {
-      avgServiceTimeMinutes = await calculateAvgServiceTime();
-      console.log('Updated average service time:', avgServiceTimeMinutes, 'minutes');
-      computePeopleAheadAndEstimate();
-    });
-
-    // Watch your queue entry
+    
+    // Load initial data
+    await Promise.all([loadLogo(), loadAvgServiceTime()]);
+    
+    // Watch queue entry
     qRef = ref(db, `queue/${queueKey}`);
-    onValue(qRef, async (snap) => {
+    onValue(qRef, (snap) => {
       if (!snap.exists()) {
-        showError('Queue entry not found. Redirecting...');
+        showError('Queue not found. Redirecting...');
         setTimeout(() => window.location.href = 'index.html', 1500);
         return;
       }
-
+      
       currentQueueData = snap.val();
       yourNumberEl.textContent = currentQueueData.queueId || currentQueueData.ticket || '—';
-
-      // Update Telegram connection status
-      setTelegramConnectedUI(
-        Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected)
-      );
-
-      // Watch assigned counter
-      const counterId = currentQueueData.counterId || currentQueueData.counter || null;
-      if (counterId && counterId !== currentCounterId) {
-        if (counterRef) off(counterRef);
-        currentCounterId = counterId;
-        counterRef = ref(db, `counters/${counterId}`);
-        onValue(counterRef, (cSnap) => {
-          if (cSnap.exists()) {
-            const cData = cSnap.val();
-            updateNowServingDisplay(cData);
-            detectAndRedirectIfCalled(cData);
-            computePeopleAheadAndEstimate();
-          }
-        });
-      } else if (!counterId) {
-        nowServingEl.textContent = '—';
+      
+      // Check Telegram connection
+      const connected = Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected);
+      setTelegramUI(connected);
+      
+      // Show modal on entry if not connected
+      if (!connected && !obModal.classList.contains('show')) {
+        openModal();
       }
-
-      computePeopleAheadAndEstimate();
+      
+      // Watch counter
+      const cid = currentQueueData.counterId || currentQueueData.counter;
+      if (cid && cid !== currentCounterId) {
+        if (counterRef) off(counterRef);
+        currentCounterId = cid;
+        counterRef = ref(db, `counters/${cid}`);
+        onValue(counterRef, () => computeEstimates());
+      }
+      
+      computeEstimates();
     });
-
-    // Watch entire queue for updates
-    allQueueRef = ref(db, 'queue');
-    onValue(allQueueRef, () => computePeopleAheadAndEstimate());
-
-    // Cleanup on page unload
+    
+    // Watch ads
+    adRef = ref(db, 'settings/adImage');
+    onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
+    
+    // Watch analytics for service time updates
+    analyticsRef = ref(db, 'analytics/serviceEvents');
+    onValue(analyticsRef, async () => {
+      await loadAvgServiceTime();
+      computeEstimates();
+    });
+    
+    // Cleanup
     window.addEventListener('beforeunload', () => {
-      try {
-        if (qRef) off(qRef);
-        if (allQueueRef) off(allQueueRef);
-        if (adRef) off(adRef);
-        if (counterRef) off(counterRef);
-        if (settingsRef) off(settingsRef);
-        if (analyticsRef) off(analyticsRef);
-      } catch (e) {
-        console.warn('Cleanup error:', e);
-      }
+      if (qRef) off(qRef);
+      if (counterRef) off(counterRef);
+      if (adRef) off(adRef);
+      if (analyticsRef) off(analyticsRef);
     });
   });
-
 </script>
 
 </body>
