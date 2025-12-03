@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Counter Management - Queue Joy</title>
 
-  <!-- Tailwind CDN (development; console shows informational warning). For production build Tailwind via CLI/PostCSS. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- UMD QR library (provides QRCode.toCanvas globally). Using a stable UMD build so no dynamic import needed. -->
+  <!-- UMD QR library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
 
   <style>
@@ -25,7 +24,6 @@
     .qr-preview { width: 320px; height: auto; border-radius:12px; overflow:hidden; }
     .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color:white; }
     .btn-success { background: linear-gradient(135deg,#10b981,#14b8a6); color:white; }
-    /* small helper for card border radius when drawing canvas */
     canvas { max-width: 100%; height: auto; display: block; }
   </style>
 </head>
@@ -114,39 +112,8 @@
             </select>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">QR Background</label>
-              <input id="qrBgColor" type="color" value="#ffffff" class="w-full h-12 rounded-xl border-2 p-1" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Text Color</label>
-              <input id="qrTextColor" type="color" value="#111827" class="w-full h-12 rounded-xl border-2 p-1" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Overlay Text</label>
-              <input id="qrOverlayText" placeholder="QueueJoy — Scan to check status" class="w-full px-4 py-3 border-2 rounded-xl" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Font Size</label>
-              <input id="qrFontSize" type="number" min="12" max="36" value="18" class="w-full px-4 py-3 border-2 rounded-xl" />
-            </div>
-
-            <div class="col-span-2">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Optional Logo (client-side only)</label>
-              <input id="qrLogoFile" type="file" accept="image/*" class="w-full" />
-              <p class="text-xs muted mt-1">Logo embedded client-side; no upload to server. Keep file small for performance.</p>
-            </div>
-
-            <div class="col-span-2">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Base URL for QR (optional)</label>
-              <input id="baseUrlInput" placeholder="https://queuejoy.netlify.app" class="w-full px-4 py-3 border-2 rounded-xl" />
-              <p class="text-xs muted mt-1">QR will point to <code>BASE/index.html?queueId=KEY</code>. Leave blank to use current origin.</p>
-            </div>
-          </div>
+          <!-- Note: UI controls remain but the generation logic ignores overlay/logo/background.
+               The QR generated and downloaded will be the plain QR only, as requested. -->
 
           <div class="flex gap-3 pt-4">
             <button id="generateBtn" type="submit" class="flex-1 btn-success text-white font-semibold py-3 rounded-xl">Generate Ticket</button>
@@ -160,7 +127,7 @@
           <div class="text-sm muted">Ticket Preview</div>
           <div id="ticketNumberDisplay" class="text-5xl font-bold text-gray-900">—</div>
           <div id="ticketQRCode" class="qr-preview bg-white rounded-xl p-4 flex items-center justify-center"></div>
-          <div class="text-xs muted text-center">Merged QR + background + overlay text. Downloadable as PNG.</div>
+          <div class="text-xs muted text-center">Only the plain QR code will be downloaded (no background/overlay/logo).</div>
         </div>
       </form>
     </div>
@@ -181,18 +148,15 @@
     </div>
   </div>
 
-  <!-- Firebase and app logic (module so we can import RTDB) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, update, remove, push, get, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // Ensure DOM loaded before hooking elements to avoid null addEventListener errors
     document.addEventListener('DOMContentLoaded', () => {
-      // CONFIG: change SITE_URL to your deployed base if you want QR to go to that host
       const SITE_URL = ''; // default to current origin when empty
       const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
 
-      // Firebase config (your project)
+      // Firebase config - keep yours
       const firebaseConfig = {
         apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
         authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -206,7 +170,7 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // DOM refs (safe now)
+      // DOM refs
       const countersGrid = document.getElementById('countersGrid');
       const emptyState = document.getElementById('emptyState');
 
@@ -230,12 +194,6 @@
       const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
       const openStatusBtn = document.getElementById('openStatusBtn');
       const downloadQRBtn = document.getElementById('downloadQRBtn');
-      const qrBgColor = document.getElementById('qrBgColor');
-      const qrTextColor = document.getElementById('qrTextColor');
-      const qrOverlayText = document.getElementById('qrOverlayText');
-      const qrFontSize = document.getElementById('qrFontSize');
-      const qrLogoFile = document.getElementById('qrLogoFile');
-      const baseUrlInput = document.getElementById('baseUrlInput');
 
       const deleteModal = document.getElementById('deleteModal');
       const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -244,20 +202,6 @@
       let countersData = {};
       let deleteTargetId = null;
       let generatedTicketId = null;
-      let logoImage = null;
-
-      // Load logo (client-only)
-      qrLogoFile.addEventListener('change', (e) => {
-        const f = e.target.files?.[0];
-        if (!f) { logoImage = null; return; }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const img = new Image();
-          img.onload = () => { logoImage = img; };
-          img.src = ev.target.result;
-        };
-        reader.readAsDataURL(f);
-      });
 
       // Listen to counters node
       const countersRef = ref(db, 'counters');
@@ -267,7 +211,6 @@
         updateTicketSelect();
       });
 
-      // Render counters
       function renderCounters() {
         const ids = Object.keys(countersData || {});
         if (!ids.length) {
@@ -336,13 +279,11 @@
         });
       }
 
-      // sanitize output
       function escapeHtml(s) {
         if (s === undefined || s === null) return '';
         return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
       }
 
-      // update select for tickets
       function updateTicketSelect() {
         ticketCounterSelect.innerHTML = '<option value="">Choose a counter...</option>';
         Object.keys(countersData || {}).forEach(id => {
@@ -354,12 +295,11 @@
         });
       }
 
-      // modal & form handlers
+      // modal handlers
       addCounterBtn.addEventListener('click', openAddCounter);
       addCounterBtnEmpty?.addEventListener('click', openAddCounter);
       closeCounterModalBtn.addEventListener('click', () => counterModal.classList.remove('show'));
       closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
-      document.getElementById('closeTicketModalBtn')?.addEventListener('click', () => ticketModal.classList.remove('show'));
       document.getElementById('addCounterBtnEmpty')?.addEventListener('click', openAddCounter);
 
       function openAddCounter() {
@@ -379,7 +319,7 @@
         counterModal.classList.add('show');
       }
 
-      // Save counter; create stable counter IDs using lastAssignedCounter transaction
+      // Save counter
       counterForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = counterNameInput.value.trim();
@@ -424,18 +364,26 @@
       });
       cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
 
-      // reset
+      // ===== UPDATED RESET: clears counters/{id} values AND removes EVERYTHING under /queue =====
       async function resetCounter(counterId) {
-        if (!confirm('Reset this counter to 0?')) return;
+        // WARNING TO USER: clearing the entire /queue will delete all queue entries for ALL counters.
+        const ok = confirm('Reset this counter to 0 AND clear the entire /queue data in Firebase? This will remove all waiting tickets for all counters. Proceed?');
+        if (!ok) return;
         try {
+          // reset counter fields
           await update(ref(db, `counters/${counterId}`), { nowServing: 0, lastIssued: 0, busy: false, lastAdvanceAt: Date.now() });
+
+          // remove everything in the queue node (user requested "remove everything inside /queue")
+          await remove(ref(db, 'queue'));
+
+          alert('Counter reset and /queue cleared.');
         } catch (err) {
           console.error('Reset error', err);
-          alert('Failed to reset');
+          alert('Failed to reset / clear queue (see console).');
         }
       }
 
-      // call next
+      // call next (unchanged)
       async function callNext(counterId) {
         const counter = countersData[counterId];
         if (!counter) return;
@@ -459,7 +407,6 @@
             });
           }
 
-          // call notify endpoint if recipients exist
           if (recipients.length) {
             try {
               const site = SITE_URL || window.location.origin;
@@ -483,21 +430,19 @@
         }
       }
 
-      // Ticket modal open/close handlers
+      // Ticket modal open - clearing preview
       document.getElementById('generateTicketBtn').addEventListener('click', () => {
         ticketForm.reset();
         ticketQRCode.innerHTML = '';
         ticketNumberDisplay.textContent = '—';
         openStatusBtn.classList.add('hidden');
         downloadQRBtn.classList.add('hidden');
-        baseUrlInput.value = '';
         ticketModal.classList.add('show');
       });
 
       closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
-      document.getElementById('closeTicketModalBtn')?.addEventListener('click', () => ticketModal.classList.remove('show'));
 
-      // Generate ticket: uses transaction on counters/{id}/lastIssued for atomic issuing
+      // ===== UPDATED GENERATE: only generate plain QR canvas and download it =====
       ticketForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const counterId = ticketCounterSelect.value;
@@ -514,7 +459,7 @@
           const prefix = (counter.prefix || '').toString();
           const queueId = `${prefix}${String(newLastIssued).padStart(3,'0')}`;
 
-          // create queue entry
+          // create queue entry (still create queue entry)
           const queueRef = push(ref(db, 'queue'));
           await set(queueRef, {
             counterId,
@@ -526,10 +471,10 @@
           generatedTicketId = queueRef.key;
 
           // build status URL for QR
-          const base = (baseUrlInput.value && baseUrlInput.value.trim()) ? baseUrlInput.value.trim().replace(/\/$/, '') : (SITE_URL || window.location.origin);
+          const base = (SITE_URL || window.location.origin);
           const statusUrl = `${base}/index.html?queueId=${encodeURIComponent(generatedTicketId)}`;
 
-          // generate QR to canvas (UMD QRCode.toCanvas)
+          // generate QR to canvas (plain QR only)
           ticketQRCode.innerHTML = '';
           const qrCanvas = document.createElement('canvas');
           await new Promise((resolve, reject) => {
@@ -537,118 +482,35 @@
               QRCode.toCanvas(qrCanvas, statusUrl, {
                 width: 420,
                 margin: 2,
-                color: { dark: qrTextColor.value || '#111827', light: qrBgColor.value || '#ffffff' }
+                color: { dark: '#111827', light: '#ffffff' }
               }, (err) => err ? reject(err) : resolve());
             } catch (ex) {
               reject(ex);
             }
           });
 
-          // merge QR + background + overlay text + optional logo into single canvas
-          const merged = mergeQRCode(qrCanvas, qrBgColor.value || '#fff', qrOverlayText.value || '', parseInt(qrFontSize.value || 18, 10), qrTextColor.value || '#111827', logoImage);
-          ticketQRCode.appendChild(merged);
+          // show preview (plain canvas)
+          ticketQRCode.appendChild(qrCanvas);
           ticketNumberDisplay.textContent = queueId;
 
-          // show open/download UI
+          // automatically download the plain QR canvas as PNG
+          downloadCanvasPNG(qrCanvas, `ticket-${queueId}.png`);
+
+          // show open/download UI (download button remains if they want to re-download)
           openStatusBtn.classList.remove('hidden');
           downloadQRBtn.classList.remove('hidden');
           openStatusBtn.onclick = () => window.open(statusUrl, '_blank');
-          downloadQRBtn.onclick = () => downloadCanvasPNG(merged, `ticket-${queueId}.png`);
+          downloadQRBtn.onclick = () => downloadCanvasPNG(qrCanvas, `ticket-${queueId}.png`);
+
+          // keep ticket modal open so user can open status or close manually
         } catch (err) {
           console.error('Generate ticket failed', err);
           alert('Failed to generate ticket (see console).');
         }
       });
 
-      // Merge QR + bg + text + optional logo into a single canvas
-      function mergeQRCode(qrCanvas, bgColor, overlayText, fontSize, textColor, logoImg) {
-        const qrSize = Math.max(qrCanvas.width, qrCanvas.height);
-        const padding = 28;
-        const logoHeight = logoImg ? Math.min(72, Math.round(qrSize * 0.12)) : 0;
-        const overlayHeight = overlayText ? (fontSize * 1.6 + 8) : 0;
-        const width = qrSize + padding * 2;
-        const height = qrSize + padding * 2 + overlayHeight + logoHeight;
-
-        const c = document.createElement('canvas');
-        c.width = width;
-        c.height = height;
-        c.style.maxWidth = '100%';
-        const ctx = c.getContext('2d');
-
-        // background
-        ctx.fillStyle = bgColor || '#fff';
-        ctx.fillRect(0, 0, width, height);
-
-        // card area (slight inset)
-        const cardX = 8;
-        const cardY = 8;
-        const cardW = width - 16;
-        const cardH = height - 16;
-        roundRect(ctx, cardX, cardY, cardW, cardH, 18);
-        ctx.fillStyle = bgColor || '#ffffff';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.04)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // logo (optional), center above QR
-        let qrTop = cardY + padding / 2;
-        if (logoImg) {
-          const aspect = logoImg.width / logoImg.height;
-          const logoW = Math.round(logoHeight * aspect);
-          const logoX = (width - logoW) / 2;
-          ctx.drawImage(logoImg, logoX, cardY + 12, logoW, logoHeight);
-          qrTop += logoHeight + 8;
-        }
-
-        // draw QR centered
-        const qrX = (width - qrSize) / 2;
-        ctx.drawImage(qrCanvas, qrX, qrTop, qrSize, qrSize);
-
-        // overlay text
-        if (overlayText) {
-          ctx.font = `600 ${fontSize}px Inter, system-ui`;
-          ctx.fillStyle = textColor || '#111827';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          const textY = qrTop + qrSize + 10;
-          wrapText(ctx, overlayText, width / 2, textY, width - 40, fontSize * 1.35);
-        }
-
-        return c;
-      }
-
-      function roundRect(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.arcTo(x + w, y, x + w, y + h, r);
-        ctx.arcTo(x + w, y + h, x, y + h, r);
-        ctx.arcTo(x, y + h, x, y, r);
-        ctx.arcTo(x, y, x + w, y, r);
-        ctx.closePath();
-      }
-
-      function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
-        const lines = [];
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + ' ';
-          const metrics = ctx.measureText(testLine);
-          if (metrics.width > maxWidth && n > 0) {
-            lines.push(line.trim());
-            line = words[n] + ' ';
-          } else {
-            line = testLine;
-          }
-        }
-        lines.push(line.trim());
-        for (let i = 0; i < lines.length; i++) {
-          ctx.fillText(lines[i], x, y + i * lineHeight);
-        }
-      }
-
       function downloadCanvasPNG(canvas, filename = 'ticket.png') {
+        // create a temporary link and click it
         const link = document.createElement('a');
         link.href = canvas.toDataURL('image/png');
         link.download = filename;
