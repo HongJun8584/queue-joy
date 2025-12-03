@@ -1,200 +1,181 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QueueJoy Admin Panel — Analytics Revamp</title>
+  <title>QueueJoy — Admin (Analytics)</title>
 
-  <!-- Fonts + Tailwind (CDN) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Tailwind (dev) + Chart.js -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Chart.js (UMD build) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-      min-height: 100vh; -webkit-font-smoothing:antialiased; color:#111827;
-    }
-    .glass-card { background: rgba(255,255,255,0.95); backdrop-filter: blur(18px); border-radius:14px; border:1px solid rgba(255,255,255,0.35); box-shadow: 0 18px 40px rgba(0,0,0,0.12); padding:18px }
-    .sidebar { position: fixed; left:0; top:0; height:100vh; width:280px; background: linear-gradient(180deg, rgba(102,126,234,0.98), rgba(118,75,162,0.98)); backdrop-filter: blur(10px); z-index:100; box-shadow:4px 0 30px rgba(0,0,0,0.2); }
-    .sidebar-item { display:flex; gap:12px; align-items:center; padding:14px 20px; margin:8px 14px; border-radius:12px; color:white; font-weight:600; cursor:pointer; }
-    .sidebar-item.active { background: rgba(255,255,255,0.12); }
-    .main-content { margin-left:280px; padding:28px; transition:margin-left .28s ease; }
-    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color:white; padding:10px 16px; border-radius:10px; font-weight:700; border:none; cursor:pointer }
-    .muted { color:#6b7280; font-weight:600; font-size:13px }
-    .metric { font-weight:800; font-size:22px }
-    .heatgrid { display:grid; grid-template-columns: repeat(24, minmax(24px,1fr)); gap:4px; }
-    .heatcell { width:100%; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:white }
-    .small { font-size:12px }
-    .chart-container { height:300px; position:relative }
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#111827; min-height:100vh; padding:24px; }
+    .card { background: rgba(255,255,255,0.96); border-radius:12px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.12); }
+    .muted { color:#6b7280; font-weight:600; font-size:13px; }
+    .btn { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:10px 14px; border-radius:10px; font-weight:700; border:none; cursor:pointer; }
+    .badge { display:inline-block;padding:6px 10px;border-radius:8px;font-weight:700;color:white;margin:4px 4px 4px 0 }
+    .heatcell { width:48px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;margin:2px; font-size:12px;color:white }
+    .small { font-size:12px; color:#374151 }
+    pre { white-space:pre-wrap; word-break:break-word }
+    table { width:100%; border-collapse:collapse; font-size:13px }
+    th,td { padding:8px; text-align:left; border-bottom:1px solid #eef2ff }
   </style>
 </head>
 <body>
-  <aside class="sidebar" id="sidebar">
-    <div style="padding:20px 22px; border-bottom: 1px solid rgba(255,255,255,0.12);">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:48px;height:48px;background:rgba(255,255,255,0.14);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:white">🎫</div>
+  <div style="max-width:1300px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:20px">
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px">
         <div>
-          <h1 style="color:white;font-size:20px;font-weight:800;margin-bottom:2px">QueueJoy</h1>
-          <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:2px">Admin Panel</div>
+          <h1 style="color:white;font-size:22px;font-weight:900;margin:0">QueueJoy — Admin</h1>
+          <div style="color:rgba(255,255,255,0.85);font-size:13px">Analytics powered by your Firebase structure</div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button id="exportCsv" class="btn">⬇ Export CSV</button>
+          <button id="refreshBtn" class="btn">⟳ Refresh</button>
         </div>
       </div>
-    </div>
 
-    <nav style="margin-top:18px; padding-bottom:20px;">
-      <div class="sidebar-item" data-view="dashboard">🏠 Dashboard</div>
-      <div class="sidebar-item active" data-view="analytics">📊 Analytics</div>
-      <div class="sidebar-item" data-view="settings">⚙️ Business Settings</div>
-      <div class="sidebar-item" id="howToUseBtn">❓ How to Use</div>
-    </nav>
-  </aside>
+      <!-- Top metrics -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
+        <div class="card">
+          <div class="muted">Total Queues</div><div id="totalQueues" style="font-weight:900;font-size:20px">0</div>
+        </div>
+        <div class="card">
+          <div class="muted">Active Waiting</div><div id="waitingQueues" style="font-weight:900;font-size:20px">0</div>
+        </div>
+        <div class="card">
+          <div class="muted">Completed (served)</div><div id="completedCount" style="font-weight:900;font-size:20px">0</div>
+        </div>
+        <div class="card">
+          <div class="muted">Active Counters</div><div id="activeCounters" style="font-weight:900;font-size:20px">0</div>
+        </div>
+      </div>
 
-  <main class="main-content">
-    <!-- Analytics Full Page -->
-    <section id="analyticsView">
-      <div style="max-width:1400px;margin:0 auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap">
-          <div>
-            <h2 style="color:white;font-size:26px;font-weight:800">📊 Advanced Analytics</h2>
-            <div class="muted">Daily Summaries • Wait Time Analytics • Busiest Hours • Customer Patterns</div>
+      <!-- Daily summaries -->
+      <div class="card" style="margin-bottom:12px" id="dailySummaryCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="font-size:16px;font-weight:900">Daily Summaries (Last 7 days)</h2>
+          <div class="small muted">Based on `queue` timestamps & `analytics/serviceEvents`</div>
+        </div>
+
+        <div id="dailyTableWrap" style="overflow:auto;max-height:220px">
+          <table id="dailyTable">
+            <thead>
+              <tr><th>Date</th><th>Created</th><th>Completed</th><th>Cancelled</th><th>Avg Wait (min)</th><th>Busiest Hour</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Wait analytics + distribution -->
+      <div style="display:grid;grid-template-columns:1fr 360px;gap:12px;margin-bottom:12px">
+        <div class="card">
+          <h3 style="font-weight:900">Wait Time Analytics</h3>
+          <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+            <div>
+              <div class="muted">Average</div><div id="waitAvg" style="font-weight:900;font-size:18px">0 min</div>
+            </div>
+            <div>
+              <div class="muted">Median</div><div id="waitMedian" style="font-weight:900;font-size:18px">0 min</div>
+            </div>
+            <div>
+              <div class="muted">90th percentile</div><div id="waitP90" style="font-weight:900;font-size:18px">0 min</div>
+            </div>
+            <div>
+              <div class="muted">Longest</div><div id="waitMax" style="font-weight:900;font-size:18px">0 min</div>
+            </div>
           </div>
-          <div style="display:flex;gap:10px;align-items:center">
-            <select id="timeRange" class="input-field" style="width:220px">
-              <option value="7">Last 7 days</option>
-              <option value="14">Last 14 days</option>
-              <option value="30" selected>Last 30 days</option>
-            </select>
-            <button id="refreshAnalytics" class="btn-primary">🔄 Refresh</button>
+
+          <div style="margin-top:16px">
+            <canvas id="waitDistChart" style="max-height:260px"></canvas>
           </div>
         </div>
 
-        <!-- Top metrics -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px">
-          <div class="glass-card">
-            <p class="muted">Total Served (period)</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div class="metric" id="metricServed">0</div>
-              <div class="small muted">Avg wait: <span id="metricAvgWait">0</span> min</div>
-            </div>
+        <div class="card">
+          <h3 style="font-weight:900">Customer Patterns</h3>
+          <div style="margin-top:10px">
+            <div class="muted">Unique subscribers (queue or subscriptions)</div>
+            <div id="uniqueCustomers" style="font-weight:900;font-size:18px">0</div>
           </div>
 
-          <div class="glass-card">
-            <p class="muted">Total Queues Created</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div class="metric" id="metricCreated">0</div>
-              <div class="small muted">Unique customers: <span id="metricUniqueCustomers">0</span></div>
-            </div>
-          </div>
-
-          <div class="glass-card">
-            <p class="muted">Repeat Customers</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div class="metric" id="metricRepeat">0</div>
-              <div class="small muted">% of customers: <span id="metricRepeatPct">0</span>%</div>
-            </div>
-          </div>
-
-          <div class="glass-card">
-            <p class="muted">Peak Hour (period)</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div class="metric" id="metricPeakHour">—</div>
-              <div class="small muted">Top hour queue count</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Daily summaries + Charts -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;margin-bottom:16px">
-          <div class="glass-card">
-            <h4 style="font-weight:800;margin-bottom:10px">Daily Summaries</h4>
-            <div class="chart-container"><canvas id="dailySummaryChart"></canvas></div>
-            <div class="muted small" style="margin-top:8px">Shows total queues created per day and completed (served) per day.</div>
-          </div>
-
-          <div class="glass-card">
-            <h4 style="font-weight:800;margin-bottom:10px">Wait Time Distribution</h4>
-            <div class="chart-container"><canvas id="waitHistogramChart"></canvas></div>
-            <div class="muted small" style="margin-top:8px">Distribution of wait times (minutes) for served & currently waiting tickets.</div>
-          </div>
-        </div>
-
-        <!-- Busiest hours & heatmap -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-bottom:16px">
-          <div class="glass-card">
-            <h4 style="font-weight:800;margin-bottom:10px">Busiest Hours (aggregate)</h4>
-            <div class="chart-container"><canvas id="hourlyBarsChart"></canvas></div>
-            <div class="muted small" style="margin-top:8px">Aggregated counts per hour (0-23) across selected period.</div>
-          </div>
-
-          <div class="glass-card" id="heatmapCard">
-            <h4 style="font-weight:800;margin-bottom:10px">Hourly Heatmap by Day</h4>
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-              <div class="muted small">Rows: Days (most recent at top)</div>
-            </div>
-            <div id="heatmapContainer" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow:auto"></div>
-            <div class="muted small" style="margin-top:8px">Cells scaled by activity; darker = busier.</div>
-          </div>
-        </div>
-
-        <!-- Customer patterns -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:22px">
-          <div class="glass-card">
-            <h4 style="font-weight:800;margin-bottom:10px">Customer Patterns</h4>
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-              <div style="flex:1"><canvas id="customerDoughnut" style="max-height:180px"></canvas></div>
-              <div style="width:120px">
-                <div class="muted small">Loyal: 5+ visits</div>
-                <div class="muted small">Repeat: 2-4 visits</div>
-                <div class="muted small">One-time: 1 visit</div>
+          <div style="margin-top:12px">
+            <div class="muted">Repeat vs One-time</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <div style="flex:1">
+                <div class="muted">Repeat</div><div id="repeatCount" style="font-weight:900">0</div>
+              </div>
+              <div style="flex:1">
+                <div class="muted">One-time</div><div id="oneTimeCount" style="font-weight:900">0</div>
               </div>
             </div>
-            <div class="muted small">Uses customer identifiers (customerId / phone) when available. If not available, unique counts fall back to queue keys.</div>
           </div>
 
-          <div class="glass-card">
-            <h4 style="font-weight:800;margin-bottom:10px">Top Counters (served)</h4>
-            <div class="chart-container"><canvas id="topCountersChart"></canvas></div>
-            <div class="muted small" style="margin-top:8px">Which counters served the most customers in the period.</div>
+          <div style="margin-top:12px">
+            <div class="muted">Top subscribers (by served)</div>
+            <div id="topSubscribers" style="margin-top:8px"></div>
           </div>
         </div>
+      </div>
 
-        <!-- Detailed daily table (compact) -->
-        <div class="glass-card" style="padding:14px;margin-bottom:40px">
-          <h4 style="font-weight:800;margin-bottom:10px">Daily Details</h4>
-          <div id="dailyDetailsTable" style="max-height:320px;overflow:auto"></div>
+      <!-- Busiest hours + charts -->
+      <div class="card" style="margin-bottom:12px">
+        <h3 style="font-weight:900">Busiest Hours (Last 7 days)</h3>
+        <div style="display:flex;gap:12px;margin-top:12px;align-items:flex-start">
+          <div style="flex:1">
+            <div id="topHoursBadges" style="margin-bottom:12px"></div>
+            <canvas id="hoursChart" style="height:220px"></canvas>
+          </div>
+
+          <div style="width:260px">
+            <div class="muted">Per-day heat (hours)</div>
+            <div id="heatmap" style="margin-top:8px"></div>
+            <div class="small muted" style="margin-top:8px">Darker = busier</div>
+          </div>
         </div>
       </div>
-    </section>
 
-    <!-- Other views (placeholders to keep sidebar functional) -->
-    <section id="dashboardView" style="display:none"></section>
-    <section id="settingsView" style="display:none"></section>
-  </main>
+      <!-- Counter performance -->
+      <div class="card" style="margin-bottom:12px">
+        <h3 style="font-weight:900">Counter Performance</h3>
+        <div id="counterPerfWrap" style="margin-top:12px"></div>
+      </div>
 
-  <!-- How to Use Modal (kept minimal) -->
-  <div id="howToUseModal" class="modal" aria-hidden="true" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center">
-    <div class="modal-content glass-card" style="max-width:820px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h3 style="font-weight:800">❓ How to Use Analytics</h3>
-        <button id="closeHowToUse" style="background:none;border:none;font-size:22px;cursor:pointer">×</button>
+    </div>
+
+    <!-- Right column: settings preview / debug -->
+    <div>
+      <div class="card" style="margin-bottom:12px">
+        <h3 style="font-weight:900">Realtime Settings Preview</h3>
+        <div style="margin-top:8px">
+          <div class="muted">Main title</div><div id="mainTitle" style="font-weight:800">—</div>
+          <div class="muted" style="margin-top:8px">Intro</div><div id="introText" class="small">—</div>
+        </div>
       </div>
-      <div style="display:grid;gap:8px">
-        <div class="muted">Use the time range selector to adjust the period. Charts automatically aggregate across the period. Customer patterns use fields customerId, phone or chatId when present.</div>
+
+      <div class="card" style="margin-bottom:12px">
+        <h3 style="font-weight:900">Announcement</h3>
+        <div class="muted">Subscribers (count)</div><div id="announceCount" style="font-weight:900">0</div>
+        <div style="margin-top:8px">
+          <div class="muted">Bot token present?</div><div id="botTokenPresent" style="font-weight:900">—</div>
+        </div>
       </div>
-      <div style="margin-top:12px;text-align:right"><button id="closeHowToUseBtn" class="btn-primary">Got it</button></div>
+
+      <div class="card" id="debugCard">
+        <h3 style="font-weight:900">Debug / Raw</h3>
+        <div class="muted">Last refresh</div><div id="lastRefresh" class="small">—</div>
+        <pre id="rawPreview" style="max-height:360px;overflow:auto"></pre>
+      </div>
     </div>
   </div>
 
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-    import { getDatabase, ref, get, onValue } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
+    import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
 
+    // --- YOUR firebase config (kept from your dump) ---
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -208,348 +189,458 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // UI refs
-    const timeRange = document.getElementById('timeRange');
-    const refreshBtn = document.getElementById('refreshAnalytics');
+    // --- UI refs ---
+    const totalQueuesEl = document.getElementById('totalQueues');
+    const waitingQueuesEl = document.getElementById('waitingQueues');
+    const completedCountEl = document.getElementById('completedCount');
+    const activeCountersEl = document.getElementById('activeCounters');
+    const dailyTableBody = document.querySelector('#dailyTable tbody');
+    const waitAvgEl = document.getElementById('waitAvg');
+    const waitMedianEl = document.getElementById('waitMedian');
+    const waitP90El = document.getElementById('waitP90');
+    const waitMaxEl = document.getElementById('waitMax');
+    const uniqueCustomersEl = document.getElementById('uniqueCustomers');
+    const repeatCountEl = document.getElementById('repeatCount');
+    const oneTimeCountEl = document.getElementById('oneTimeCount');
+    const topSubscribersEl = document.getElementById('topSubscribers');
+    const topHoursBadges = document.getElementById('topHoursBadges');
+    const heatmapEl = document.getElementById('heatmap');
+    const counterPerfWrap = document.getElementById('counterPerfWrap');
+    const announceCountEl = document.getElementById('announceCount');
+    const botTokenPresentEl = document.getElementById('botTokenPresent');
+    const mainTitleEl = document.getElementById('mainTitle');
+    const introTextEl = document.getElementById('introText');
+    const rawPreview = document.getElementById('rawPreview');
+    const lastRefreshEl = document.getElementById('lastRefresh');
+    const exportCsvBtn = document.getElementById('exportCsv');
+    const refreshBtn = document.getElementById('refreshBtn');
 
-    const metricServed = document.getElementById('metricServed');
-    const metricCreated = document.getElementById('metricCreated');
-    const metricAvgWait = document.getElementById('metricAvgWait');
-    const metricUniqueCustomers = document.getElementById('metricUniqueCustomers');
-    const metricRepeat = document.getElementById('metricRepeat');
-    const metricRepeatPct = document.getElementById('metricRepeatPct');
-    const metricPeakHour = document.getElementById('metricPeakHour');
+    // --- charts ---
+    let waitDistChart = null;
+    let hoursChart = null;
 
-    const dailyDetailsTable = document.getElementById('dailyDetailsTable');
-    const heatmapContainer = document.getElementById('heatmapContainer');
-
-    // Charts
-    let dailySummaryChart = null;
-    let waitHistogramChart = null;
-    let hourlyBarsChart = null;
-    let customerDoughnutChart = null;
-    let topCountersChart = null;
-
-    function safeParseTS(v) {
-      if (!v && v !== 0) return null;
-      const n = (typeof v === 'number') ? v : Number(v);
-      if (!Number.isFinite(n)) return null;
-      return n;
-    }
-
-    function minutesBetween(a,b){ return Math.round(Math.max(0,(b - a) / 60000)); }
-
-    function buildDaysArray(numDays){
-      const today = new Date(); today.setHours(0,0,0,0);
-      const res = [];
-      for (let i = numDays-1; i>=0; i--) {
-        const d = new Date(today); d.setDate(d.getDate() - i);
-        res.push({ date: d.toISOString().split('T')[0], start: d.getTime(), end: d.getTime() + 24*60*60*1000 });
+    function createChartIfNeeded() {
+      if (!waitDistChart) {
+        const ctx = document.getElementById('waitDistChart').getContext('2d');
+        waitDistChart = new Chart(ctx, {
+          type: 'bar',
+          data: { labels: [], datasets:[{ label:'Tickets', data:[] , backgroundColor: undefined }] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
+        });
       }
-      return res;
+      if (!hoursChart) {
+        const ctx = document.getElementById('hoursChart').getContext('2d');
+        hoursChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: Array.from({length:24}, (_,i) => i+'h'), datasets: [{ label:'Events', data:Array(24).fill(0), tension:0.3, fill:true }] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
+        });
+      }
+    }
+    createChartIfNeeded();
+
+    // ---------- helpers ----------
+    function safeNum(n) {
+      if (n === undefined || n === null) return null;
+      const x = Number(n);
+      if (!Number.isFinite(x)) return null;
+      return x;
     }
 
-    // compute everything from queues + serviceEvents
-    async function computeAnalytics(rawQueuesObj, rawServiceEventsObj, daysBack) {
-      const queues = Array.isArray(rawQueuesObj) ? rawQueuesObj : Object.values(rawQueuesObj || {});
-      const serviceEvents = Array.isArray(rawServiceEventsObj) ? rawServiceEventsObj : Object.values(rawServiceEventsObj || {});
+    // Interpret timestamp values robustly:
+    // Some values in your dump are >1e12 (ms since epoch). Accept numbers > 1e11 as unix-ms, otherwise try URL-style parse.
+    function parseTs(ts) {
+      if (ts === undefined || ts === null) return null;
+      if (typeof ts === 'number') {
+        if (ts > 1e11 && ts < 1e18) return ts;
+        if (ts > 1e9 && ts < 1e11) return ts * 1000; // maybe seconds
+      }
+      const n = Number(ts);
+      if (!Number.isNaN(n)) {
+        if (n > 1e11 && n < 1e18) return n;
+        if (n > 1e9 && n < 1e11) return n * 1000;
+      }
+      const d = Date.parse(ts);
+      return Number.isNaN(d) ? null : d;
+    }
 
-      // normalize queue items
+    function minsBetween(a,b){ return Math.round(Math.abs(b-a)/60000); }
+
+    // statistical helpers
+    function computeStats(arr) {
+      if (!arr || arr.length===0) return { avg:0, median:0, p90:0, max:0, counts:[] };
+      const xs = arr.slice().sort((a,b)=>a-b);
+      const sum = xs.reduce((s,v)=>s+v,0);
+      const avg = Math.round(sum/xs.length);
+      const median = xs.length%2===0 ? Math.round((xs[xs.length/2-1]+xs[xs.length/2])/2) : xs[Math.floor(xs.length/2)];
+      const p90 = xs[Math.min(xs.length-1, Math.floor(xs.length*0.9))];
+      const max = xs[xs.length-1];
+      return { avg, median, p90, max, counts: xs };
+    }
+
+    function formatDateYMD(ms) {
+      const d = new Date(ms);
+      return d.toISOString().split('T')[0];
+    }
+
+    function formatHourLabel(h){
+      if (h===0) return '12AM';
+      if (h<12) return `${h}AM`;
+      if (h===12) return '12PM';
+      return `${h-12}PM`;
+    }
+
+    // ---------- main analytics logic ----------
+    async function computeAndRenderAll(snapshotQueue, snapshotServiceEvents, snapshotCounters, snapshotSettings, snapshotAnnouncement, snapshotQueueSubs) {
+      lastRefreshEl.textContent = new Date().toLocaleString();
+      rawPreview.textContent = `queue: ${Object.keys(snapshotQueue || {}).length || 0}\nserviceEvents: ${Object.keys(snapshotServiceEvents || {}).length || 0}\ncounters: ${Object.keys(snapshotCounters || {}).length || 0}`;
+
+      // Normalize inputs to arrays
+      const queues = Object.values(snapshotQueue || {}).map(q => ({ ...q }));
+      const serviceEvents = Object.values(snapshotServiceEvents || {}).map(e => ({ ...e }));
+
+      // quick counts
+      totalQueuesEl.textContent = queues.length;
+      const waiting = queues.filter(q => (q.status || 'waiting').toString().toLowerCase() === 'waiting').length;
+      waitingQueuesEl.textContent = waiting;
+
+      const activeCounters = Object.values(snapshotCounters || {}).filter(c => c && c.active === true).length;
+      activeCountersEl.textContent = activeCounters;
+      document.getElementById('analystActiveCounters')?.textContent = activeCounters; // optional
+
+      // Completed — prefer serviceEvents length (authoritative)
+      const completed = serviceEvents.length;
+      completedCountEl.textContent = completed;
+
+      // Announcement info
+      const announceIds = snapshotAnnouncement?.chatIds ? Object.keys(snapshotAnnouncement.chatIds) : [];
+      announceCountEl.textContent = announceIds.length;
+      botTokenPresentEl.textContent = snapshotAnnouncement?.botToken ? 'Yes' : 'No';
+
+      // SETTINGS preview
+      mainTitleEl.textContent = snapshotSettings?.mainTitle || '—';
+      introTextEl.textContent = snapshotSettings?.introText || '—';
+
+      // WAIT TIME: combine serviceEvents durations (serviceMs / minutes) and current waiting durations from queue entries
+      const waitsMins = [];
+      // from serviceEvents (use serviceMs if present or servedAt-requestedAt)
+      serviceEvents.forEach(e => {
+        if (e.serviceMs && Number.isFinite(e.serviceMs)) {
+          const m = Math.round(Number(e.serviceMs) / 60000);
+          if (m>=0 && m<30*24*60) waitsMins.push(m);
+        } else {
+          const req = parseTs(e.requestedAt);
+          const served = parseTs(e.servedAt);
+          if (req && served && served >= req) {
+            const m = minsBetween(req, served);
+            if (m>=0 && m<30*24*60) waitsMins.push(m);
+          }
+        }
+      });
+      // from current waiting queue entries: now - timestamp
       const now = Date.now();
-      const normalized = queues.map(q => {
-        try {
-          const ts = safeParseTS(q.timestamp || q.createdAt || q.requestedAt || q.time);
-          return { ...q, timestamp: ts, status: (q.status || 'waiting').toString().toLowerCase() };
-        } catch(e){ return null }
-      }).filter(Boolean).filter(q => q.timestamp && q.timestamp <= now + 24*60*60*1000);
+      queues.filter(q => (q.status||'waiting').toLowerCase()==='waiting').forEach(q => {
+        const ts = parseTs(q.timestamp);
+        if (!ts) return;
+        const m = Math.max(0, Math.round((now - ts)/60000));
+        if (m>=0 && m<30*24*60) waitsMins.push(m);
+      });
 
-      // normalize service events
-      const se = serviceEvents.map(e => {
-        const requested = safeParseTS(e.requestedAt || e.requestTime || e.queueTimestamp || e.timestamp);
-        const served = safeParseTS(e.servedAt || e.completedAt || e.servedTime);
-        return { ...e, requestedAt: requested, servedAt: served };
-      }).filter(Boolean);
+      const waitStats = computeStats(waitsMins);
+      waitAvgEl.textContent = waitStats.avg + ' min';
+      waitMedianEl.textContent = waitStats.median + ' min';
+      waitP90El.textContent = waitStats.p90 + ' min';
+      waitMaxEl.textContent = waitStats.max + ' min';
 
-      // time window
-      const days = buildDaysArray(daysBack);
-      const windowStart = days[0].start;
+      // Distribution histogram (buckets: 0-5,6-10,11-20,21-30,31-60,61-120,120+)
+      const buckets = [
+        {label:'0-5', min:0, max:5},
+        {label:'6-10', min:6, max:10},
+        {label:'11-20', min:11, max:20},
+        {label:'21-30', min:21, max:30},
+        {label:'31-60', min:31, max:60},
+        {label:'61-120', min:61, max:120},
+        {label:'120+', min:121, max:Infinity}
+      ];
+      const bucketCounts = buckets.map(b => waitsMins.filter(m => m>=b.min && m<=b.max).length);
 
-      // filters in window
-      const queuesInWindow = normalized.filter(q => q.timestamp && q.timestamp >= windowStart);
-      const seInWindow = se.filter(e => (e.servedAt && e.servedAt >= windowStart) || (e.requestedAt && e.requestedAt >= windowStart));
+      // update wait chart
+      createChartIfNeeded();
+      waitDistChart.data.labels = buckets.map(b=>b.label);
+      waitDistChart.data.datasets[0].data = bucketCounts;
+      waitDistChart.update();
 
-      // daily summary
-      const perDay = days.map(d => {
-        const dayQs = queuesInWindow.filter(q => q.timestamp >= d.start && q.timestamp < d.end);
-        const completed = seInWindow.filter(e => e.servedAt && e.servedAt >= d.start && e.servedAt < d.end).length;
+      // DAILY SUMMARY (last 7 days)
+      const days = [];
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      for (let i=6;i>=0;i--) {
+        const d = new Date(today); d.setDate(d.getDate() - i);
+        const start = d.getTime();
+        const end = start + 24*60*60*1000;
+        // created that day
+        const dayQueues = queues.filter(q => {
+          const ts = parseTs(q.timestamp);
+          return ts && ts >= start && ts < end;
+        });
+        const total = dayQueues.length;
+        const cancelled = dayQueues.filter(q => (q.status||'waiting').toLowerCase() === 'cancelled').length;
+        // completed via serviceEvents servedAt in that day
+        const completedDay = serviceEvents.filter(e => {
+          const s = parseTs(e.servedAt);
+          return s && s >= start && s < end;
+        }).length;
 
-        // compute avg wait for that day from served events requested->served
-        const waitArr = seInWindow.filter(e => e.requestedAt && e.servedAt && e.requestedAt >= d.start && e.requestedAt < d.end).map(e => minutesBetween(e.requestedAt, e.servedAt));
-        // include currently waiting from that day
-        const waitingFromDay = dayQs.filter(q => q.status === 'waiting').map(q => minutesBetween(q.timestamp, Date.now()));
-        const allWaits = waitArr.concat(waitingFromDay).filter(x => x >= 0 && x <= 30*24*60);
-        const avgWait = allWaits.length ? Math.round(allWaits.reduce((a,b)=>a+b,0)/allWaits.length) : 0;
+        // avg wait for day: use served events requested->served for those requested that day OR waiting tickets from that day
+        const waitTimesForDay = [];
+        serviceEvents.forEach(e => {
+          const req = parseTs(e.requestedAt);
+          const served = parseTs(e.servedAt);
+          if (req && served && req >= start && req < end) {
+            const m = Math.round((served - req)/60000);
+            if (m>=0 && m<30*24*60) waitTimesForDay.push(m);
+          }
+        });
+        dayQueues.forEach(q => {
+          if ((q.status||'waiting').toLowerCase()==='waiting') {
+            const ts = parseTs(q.timestamp);
+            if (ts && ts >= start && ts < end) {
+              const m = Math.round((now - ts)/60000);
+              if (m>=0 && m<30*24*60) waitTimesForDay.push(m);
+            }
+          }
+        });
+        const avgWaitDay = waitTimesForDay.length ? Math.round(waitTimesForDay.reduce((a,b)=>a+b,0)/waitTimesForDay.length) : 0;
 
-        // busiest hour index for the day
+        // busiest hour: count queue.timestamp hours + servedAt hours inside the day
         const hourCounts = new Array(24).fill(0);
-        dayQs.forEach(q => { const h = new Date(q.timestamp).getHours(); hourCounts[h]++; });
-        seInWindow.filter(e => e.servedAt && e.servedAt >= d.start && e.servedAt < d.end).forEach(e => { const h = new Date(e.servedAt).getHours(); hourCounts[h]++; });
-        const max = Math.max(...hourCounts);
-        const busiestHour = max > 0 ? hourCounts.indexOf(max) : null;
+        dayQueues.forEach(q => { const ts = parseTs(q.timestamp); if (ts) hourCounts[new Date(ts).getHours()]++; });
+        serviceEvents.forEach(e => { const s = parseTs(e.servedAt); if (s && s>=start && s<end) hourCounts[new Date(s).getHours()]++; });
+        const maxCount = Math.max(...hourCounts);
+        const busiestHour = maxCount>0 ? hourCounts.indexOf(maxCount) : null;
 
-        return { date: d.date, total: dayQs.length, completed, avgWait, busiestHour };
-      });
+        days.push({ date: formatDateYMD(start), total, completed: completedDay, cancelled, avgWait: avgWaitDay, busiestHour, hourCounts });
+      }
 
-      // Wait times combined (served durations + current waiting)
-      const waits = [];
-      seInWindow.forEach(e => { if (e.requestedAt && e.servedAt) waits.push(minutesBetween(e.requestedAt, e.servedAt)); });
-      queuesInWindow.filter(q => q.status === 'waiting').forEach(q => { waits.push(minutesBetween(q.timestamp, Date.now())); });
-      const waitStats = computeNumericStats(waits);
-
-      // hourly aggregates across full window
-      const hourlyCounts = new Array(24).fill(0);
-      queuesInWindow.forEach(q => { const h = new Date(q.timestamp).getHours(); hourlyCounts[h]++; });
-      seInWindow.forEach(e => { if (e.servedAt) hourlyCounts[new Date(e.servedAt).getHours()]++; });
-      const hourlyArray = hourlyCounts.map((c,h) => ({ hour:h, count:c })).sort((a,b)=>b.count-a.count);
-
-      // heatmap matrix for each day (most recent first)
-      const heatmap = days.slice().reverse().map(day => {
-        const row = new Array(24).fill(0);
-        normalized.forEach(q => { if (q.timestamp >= new Date(day.date).getTime() && q.timestamp < new Date(day.date).getTime() + 24*60*60*1000) { row[new Date(q.timestamp).getHours()]++; } });
-        se.forEach(e => { if (e.servedAt && e.servedAt >= new Date(day.date).getTime() && e.servedAt < new Date(day.date).getTime() + 24*60*60*1000) { row[new Date(e.servedAt).getHours()]++; } });
-        return { date: day.date, hours: row };
-      });
-
-      // customer patterns: try customerId/phone/chatId; fallback: queue key
-      const idMap = new Map();
-      const identify = (q) => q.customerId || q.phone || q.chatId || q.customer || q.userId || q.id || q.key || (q.queueId || q.ticketId) || null;
-      normalized.forEach(q => {
-        const id = identify(q) || JSON.stringify(q).slice(0,30);
-        idMap.set(id, (idMap.get(id) || 0) + 1);
-      });
-      const counts = Array.from(idMap.values());
-      const uniqueCustomers = idMap.size;
-      const loyal = counts.filter(c=>c>=5).length;
-      const repeat = counts.filter(c=>c>=2 && c<=4).length;
-      const oneTime = counts.filter(c=>c===1).length;
-
-      // top counters
-      const counterStats = {};
-      seInWindow.forEach(e => { const k = e.counter || e.counterId || e.counterName || 'unknown'; counterStats[k] = (counterStats[k]||0) + 1; });
-      normalized.forEach(q => { if (q.status === 'done' || q.status === 'served' || q.status === 'completed') { const k = q.counter || q.counterId || q.counterName || 'unknown'; counterStats[k] = (counterStats[k]||0) + 1; } });
-
-      return {
-        perDay, waitStats, hourlyArray, heatmap, uniqueCustomers, loyal, repeat, oneTime, counterStats, servedCount: seInWindow.length, createdCount: queuesInWindow.length
-      };
-    }
-
-    function computeNumericStats(arr) {
-      if (!arr || arr.length === 0) return { average:0, median:0, p90:0, longest:0 };
-      const xs = arr.slice().filter(x=>Number.isFinite(x) && x>=0).sort((a,b)=>a-b);
-      const sum = xs.reduce((a,b)=>a+b,0);
-      const avg = Math.round(sum / xs.length);
-      const median = (xs.length%2===0) ? Math.round((xs[xs.length/2-1]+xs[xs.length/2])/2) : xs[Math.floor(xs.length/2)];
-      const p90 = Math.round(xs[Math.floor(xs.length*0.9)]);
-      const longest = xs[xs.length-1];
-      return { average:avg, median, p90, longest };
-    }
-
-    // rendering utilities
-    function renderHeatmap(heatmap) {
-      heatmapContainer.innerHTML = '';
-      // compute max for normalization
-      let max = 0; heatmap.forEach(r=>{ r.hours.forEach(h=>{ if (h>max) max=h; }); });
-      if (max === 0) { heatmapContainer.innerHTML = '<div class="muted">No heatmap data available for this period</div>'; return; }
-      heatmap.forEach(row => {
-        const rowEl = document.createElement('div');
-        rowEl.style.display = 'grid';
-        rowEl.style.gridTemplateColumns = '120px 1fr';
-        rowEl.style.alignItems = 'center';
-        rowEl.style.gap = '8px';
-
-        const label = document.createElement('div');
-        label.textContent = row.date;
-        label.className = 'muted small';
-        label.style.width = '110px';
-
-        const grid = document.createElement('div');
-        grid.style.display = 'grid';
-        grid.style.gridTemplateColumns = 'repeat(24, minmax(18px, 1fr))';
-        grid.style.gap = '4px';
-
-        row.hours.forEach((h,i)=>{
-          const c = document.createElement('div');
-          c.className = 'heatcell';
-          const intensity = Math.round((h / max) * 255);
-          // color ramp from light gray -> purple
-          const alpha = (h === 0) ? 0.12 : Math.max(0.2, (h / max));
-          c.style.background = `rgba(99,102,241, ${alpha})`;
-          c.title = `Hour ${i}: ${h}`;
-          c.textContent = h > 0 ? h : '';
-          grid.appendChild(c);
-        });
-
-        rowEl.appendChild(label);
-        rowEl.appendChild(grid);
-        heatmapContainer.appendChild(rowEl);
-      });
-    }
-
-    function renderDailyTable(perDay) {
-      dailyDetailsTable.innerHTML = '';
-      const table = document.createElement('table');
-      table.style.width = '100%';
-      table.style.borderSpacing = '0 8px';
-      const thead = document.createElement('thead');
-      thead.innerHTML = `<tr style="text-align:left;color:#374151;font-weight:700"><th style="padding:8px">Date</th><th>Created</th><th>Completed</th><th>Avg Wait (min)</th><th>Busiest Hour</th></tr>`;
-      table.appendChild(thead);
-
-      const tbody = document.createElement('tbody');
-      perDay.slice().reverse().forEach(d => {
+      // render daily table
+      dailyTableBody.innerHTML = '';
+      days.forEach(d => {
         const tr = document.createElement('tr');
-        tr.style.background = 'rgba(0,0,0,0.03)';
-        tr.style.borderRadius = '8px';
-        tr.style.display = 'table-row';
-        tr.style.margin = '6px 0';
-        tr.innerHTML = `<td style="padding:8px">${d.date}</td><td>${d.total}</td><td>${d.completed}</td><td>${d.avgWait}</td><td>${d.busiestHour === null ? '-' : d.busiestHour + ':00'}</td>`;
-        tbody.appendChild(tr);
+        tr.innerHTML = `<td style="font-weight:800">${d.date}</td>
+                        <td>${d.total}</td>
+                        <td>${d.completed}</td>
+                        <td>${d.cancelled}</td>
+                        <td>${d.avgWait} min</td>
+                        <td>${d.busiestHour !== null ? formatHourLabel(d.busiestHour) : '-'}</td>`;
+        dailyTableBody.appendChild(tr);
       });
-      table.appendChild(tbody);
-      dailyDetailsTable.appendChild(table);
-    }
 
-    // chart helpers
-    function ensureCharts() {
-      if (!dailySummaryChart) {
-        const ctx = document.getElementById('dailySummaryChart').getContext('2d');
-        dailySummaryChart = new Chart(ctx, {
-          type: 'bar', data: { labels: [], datasets: [ { label: 'Created', data: [], backgroundColor:'#667eea' }, { label:'Completed', data: [], backgroundColor:'#10b981' } ] },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}} }
+      // BUSIEST HOURS (aggregate last 7 days)
+      const aggHours = new Array(24).fill(0);
+      // queues in last7
+      const last7 = now - 7*24*60*60*1000;
+      queues.forEach(q => {
+        const ts = parseTs(q.timestamp);
+        if (ts && ts >= last7) aggHours[new Date(ts).getHours()]++;
+      });
+      serviceEvents.forEach(e => {
+        const s = parseTs(e.servedAt);
+        if (s && s >= last7) aggHours[new Date(s).getHours()]++;
+      });
+
+      const hoursArr = aggHours.map((c,h)=>({hour:h,count:c})).sort((a,b)=>b.count-a.count);
+      // badges
+      topHoursBadges.innerHTML = '';
+      hoursArr.slice(0,5).forEach((h,i) => {
+        const b = document.createElement('span');
+        b.className = 'badge';
+        const colors = ['#667eea','#8b5cf6','#ec4899','#f59e0b','#10b981'];
+        b.style.background = colors[i % colors.length];
+        b.textContent = `${formatHourLabel(h.hour)}: ${h.count}`;
+        topHoursBadges.appendChild(b);
+      });
+
+      // hours chart
+      hoursChart.data.labels = Array.from({length:24},(_,i)=>formatHourLabel(i));
+      hoursChart.data.datasets[0].data = aggHours;
+      hoursChart.update();
+
+      // heatmap per-day: render rows for each day with 24 small cells colored by count
+      heatmapEl.innerHTML = '';
+      const maxForHeat = Math.max(...days.flatMap(d=>d.hourCounts));
+      days.forEach(d => {
+        const rowWrap = document.createElement('div');
+        rowWrap.style.display = 'flex';
+        rowWrap.style.alignItems = 'center';
+        rowWrap.style.marginBottom = '6px';
+        const label = document.createElement('div');
+        label.style.width = '70px';
+        label.style.fontSize = '12px';
+        label.style.marginRight = '8px';
+        label.textContent = d.date;
+        rowWrap.appendChild(label);
+        d.hourCounts.forEach(c => {
+          const cell = document.createElement('div');
+          const intensity = maxForHeat ? Math.round((c/maxForHeat)*220) : 40;
+          // choose color scale from light to dark purple
+          const bg = `rgba(99,102,241,${0.15 + (intensity/255)})`;
+          cell.className = 'heatcell';
+          cell.style.background = bg;
+          cell.title = c + ' events';
+          cell.textContent = c>0 ? c : '';
+          rowWrap.appendChild(cell);
+        });
+        heatmapEl.appendChild(rowWrap);
+      });
+
+      // Customer patterns: use queue.chatId & queueSubscriptions to identify uniqueness & repeaters
+      const subsMap = snapshotQueueSubs || {};
+      const customerCounts = {}; // key by chatId OR subscription uuid fallback
+      queues.forEach(q => {
+        const chatId = q.chatId || null;
+        const subsUuid = Object.keys(subsMap || {}).find(k => subsMap[k] === q.chatId) || null;
+        const key = chatId ? `c:${chatId}` : (subsUuid ? `s:${subsUuid}` : `q:${q.queueId||Math.random().toString(36).slice(2,7)}`);
+        customerCounts[key] = (customerCounts[key] || 0) + 1;
+      });
+      const uniqueCustomers = Object.keys(customerCounts).length;
+      uniqueCustomersEl.textContent = uniqueCustomers;
+      const repeats = Object.values(customerCounts).filter(v=>v>1).length;
+      const oneTimes = Object.values(customerCounts).filter(v=>v===1).length;
+      repeatCountEl.textContent = repeats;
+      oneTimeCountEl.textContent = oneTimes;
+
+      // Top subscribers by count
+      topSubscribersEl.innerHTML = '';
+      Object.entries(customerCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([k,v])=>{
+        const el = document.createElement('div');
+        el.className = 'small';
+        el.style.marginBottom='6px';
+        el.textContent = `${k.replace(/^c:/,'chat:').replace(/^s:/,'sub:').replace(/^q:/,'queue:')} — ${v} ticket(s)`;
+        topSubscribersEl.appendChild(el);
+      });
+
+      // Counter performance: prefer analytics/serviceEvents.counter or counter field
+      const counterStats = {};
+      serviceEvents.forEach(e => {
+        const key = e.counter || e.counterId || e.counterName || (e.counter && String(e.counter)) || 'unknown';
+        counterStats[key] = (counterStats[key] || 0) + 1;
+      });
+      // fallback approximate from queue counterId values
+      if (Object.keys(counterStats).length === 0) {
+        queues.forEach(q => {
+          if (q.counterId) counterStats[q.counterId] = (counterStats[q.counterId]||0)+1;
         });
       }
-      if (!waitHistogramChart) {
-        const ctx = document.getElementById('waitHistogramChart').getContext('2d');
-        waitHistogramChart = new Chart(ctx, { type:'bar', data:{ labels:[], datasets:[{ label:'Count', data:[] }] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'Wait time (min)'}}, y:{beginAtZero:true}} } });
-      }
-      if (!hourlyBarsChart) {
-        const ctx = document.getElementById('hourlyBarsChart').getContext('2d');
-        hourlyBarsChart = new Chart(ctx, { type:'bar', data:{ labels: Array.from({length:24}, (_,i)=>i+':00'), datasets:[{ label:'Queues', data: Array(24).fill(0), backgroundColor:'#8b5cf6' }] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
-      }
-      if (!customerDoughnutChart) {
-        const ctx = document.getElementById('customerDoughnut').getContext('2d');
-        customerDoughnutChart = new Chart(ctx, { type:'doughnut', data:{ labels:['Loyal','Repeat','One-time'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981','#f59e0b','#667eea'] }] , options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}} });
-      }
-      if (!topCountersChart) {
-        const ctx = document.getElementById('topCountersChart').getContext('2d');
-        topCountersChart = new Chart(ctx, { type:'bar', data:{ labels:[], datasets:[{ label:'Served', data:[], backgroundColor:'#ec4899' }] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
-      }
+      // render counters
+      counterPerfWrap.innerHTML = '';
+      Object.entries(counterStats).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>{
+        const wrap = document.createElement('div');
+        wrap.style.display='flex'; wrap.style.justifyContent='space-between'; wrap.style.padding='6px 0';
+        wrap.innerHTML = `<div style="font-weight:700">${k}</div><div class="small">${v} served</div>`;
+        counterPerfWrap.appendChild(wrap);
+      });
+
+      // Save for CSV export: attach to element
+      exportCsvBtn.dataset.csv = createCsvForExport(queues, serviceEvents);
+
+      // Completed rendering
+    } // end computeAndRenderAll
+
+    function createCsvForExport(queues, serviceEvents) {
+      // produce a simple CSV: ticketId, queueId, counterId, status, timestamp (ISO), chatId, servedAt (ISO), serviceMin
+      const rows = [['ticketKey','queueId','counterId','status','timestamp','chatId','servedAt','serviceMin']];
+      queues.forEach((q) => {
+        const tkey = q.queueId || '';
+        const ts = parseTs(q.timestamp);
+        rows.push([q.queueId || '', q.queueId || '', q.counterId || '', q.status || '', ts ? new Date(ts).toISOString() : '', q.chatId || '', '', '']);
+      });
+      serviceEvents.forEach(e => {
+        const served = parseTs(e.servedAt);
+        const req = parseTs(e.requestedAt);
+        const minutes = (e.serviceMs && Number.isFinite(e.serviceMs)) ? Math.round(e.serviceMs/60000) : (served && req ? minsBetween(req, served) : '');
+        rows.push([e.ticketId || '', '', e.counter || '', 'served', req ? new Date(req).toISOString() : '', '', served? new Date(served).toISOString() : '', minutes]);
+      });
+      return rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     }
 
-    function updateChartsFromData(analysis) {
-      ensureCharts();
-      // daily summary
-      const labels = analysis.perDay.map(d=>d.date);
-      dailySummaryChart.data.labels = labels;
-      dailySummaryChart.data.datasets[0].data = analysis.perDay.map(d=>d.total);
-      dailySummaryChart.data.datasets[1].data = analysis.perDay.map(d=>d.completed);
-      dailySummaryChart.update();
-
-      // wait histogram: bucket waits into ranges
-      const waits = [];
-      // collect from perDay? better to recompute from waitStats? we will reconstruct from waits by using se + waiting
-      // we already have waitStats but not raw waits; we'll approximate by using median/avg/p90 to show bins
-      // For better visuals, let's create synthetic buckets from waitStats
-      const maxWait = Math.max(analysis.waitStats.longest || 0, 60);
-      const bucketSize = Math.max(5, Math.ceil(maxWait / 12));
-      const buckets = new Array(12).fill(0);
-      // reconstructing distribution isn't perfect; use per-day avg spread -> fallback to simple distribution by ranges using median
-      // Instead, approximate by sampling around median & p90 to give a useful chart
-      const median = analysis.waitStats.median || 0; const p90 = analysis.waitStats.p90 || 0; const avg = analysis.waitStats.average || 0;
-      // naive synthetic fill: place mass at median/p90/avg
-      const addToBucket = (mins, w=1)=>{ const idx = Math.min(buckets.length-1, Math.floor(mins / bucketSize)); buckets[idx]+=w };
-      if (median) addToBucket(median, 6);
-      if (avg) addToBucket(avg,4);
-      if (p90) addToBucket(p90,2);
-      // ensure some shape across low buckets
-      buckets[0] += Math.max(0, Math.round((analysis.createdCount - analysis.servedCount)/10));
-
-      waitHistogramChart.data.labels = buckets.map((_,i)=>`${i*bucketSize}-${(i+1)*bucketSize-1}`);
-      waitHistogramChart.data.datasets[0].data = buckets;
-      waitHistogramChart.update();
-
-      // hourly bars
-      const hours = Array.from({length:24}, (_,i)=>0);
-      analysis.hourlyArray.forEach(h => { hours[h.hour] = h.count; });
-      hourlyBarsChart.data.labels = Array.from({length:24}, (_,i)=>`${i}:00`);
-      hourlyBarsChart.data.datasets[0].data = hours;
-      hourlyBarsChart.update();
-
-      // customer doughnut
-      const loyal = analysis.loyal || 0; const repeat = analysis.repeat || 0; const oneTime = analysis.oneTime || 0;
-      customerDoughnutChart.data.datasets[0].data = [loyal, repeat, oneTime];
-      customerDoughnutChart.update();
-
-      // top counters
-      const entries = Object.entries(analysis.counterStats || {}).sort((a,b)=>b[1]-a[1]).slice(0,8);
-      topCountersChart.data.labels = entries.map(e=>e[0]);
-      topCountersChart.data.datasets[0].data = entries.map(e=>e[1]);
-      topCountersChart.update();
-
-      // render heatmap & table
-      renderHeatmap(analysis.heatmap);
-      renderDailyTable(analysis.perDay);
-
-      // top metrics
-      metricServed.textContent = analysis.servedCount || 0;
-      metricCreated.textContent = analysis.createdCount || 0;
-      metricAvgWait.textContent = analysis.waitStats.average || 0;
-      metricUniqueCustomers.textContent = analysis.uniqueCustomers || 0;
-      metricRepeat.textContent = analysis.repeat || 0;
-      metricRepeatPct.textContent = analysis.uniqueCustomers ? Math.round((analysis.repeat / analysis.uniqueCustomers) * 100) : 0;
-      const peak = analysis.hourlyArray.length ? analysis.hourlyArray[0] : null;
-      metricPeakHour.textContent = peak ? (peak.hour + ':00') : '-';
-    }
-
-    async function refreshAnalytics() {
+    // ---------- realtime listeners ----------
+    async function fetchAllOnceAndRender() {
       try {
-        refreshBtn.disabled = true; refreshBtn.textContent = 'Loading...';
-        const daysBack = Number(timeRange.value) || 30;
-        const qSnap = await get(ref(db, 'queue'));
-        const seSnap = await get(ref(db, 'analytics/serviceEvents'));
-        const rawQueues = qSnap.exists() ? qSnap.val() : {};
-        const rawSE = seSnap.exists() ? seSnap.val() : {};
-        const analysis = await computeAnalytics(rawQueues, rawSE, daysBack);
-        updateChartsFromData(analysis);
+        const [qSnap, seSnap, cSnap, sSnap, aSnap, qsSnap] = await Promise.all([
+          get(ref(db, 'queue')),
+          get(ref(db, 'analytics/serviceEvents')),
+          get(ref(db, 'counters')),
+          get(ref(db, 'settings')),
+          get(ref(db, 'announcement')),
+          get(ref(db, 'queueSubscriptions'))
+        ]);
+        const qObj = qSnap.exists() ? qSnap.val() : {};
+        const seObj = seSnap.exists() ? seSnap.val() : {};
+        const cObj = cSnap.exists() ? cSnap.val() : {};
+        const sObj = sSnap.exists() ? sSnap.val() : {};
+        const aObj = aSnap.exists() ? aSnap.val() : {};
+        const qsObj = qsSnap.exists() ? qsSnap.val() : {};
+        computeAndRenderAll(qObj, seObj, cObj, sObj, aObj, qsObj);
       } catch (err) {
-        console.error('refreshAnalytics error', err);
-        alert('Failed to refresh analytics: ' + (err.message || err));
-      } finally {
-        refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh';
+        console.error('fetchAllOnce error', err);
       }
     }
 
-    // initial
-    ensureCharts();
-    refreshAnalytics();
+    // realtime subscription: queue / analytics/serviceEvents / counters / settings / announcement / queueSubscriptions
+    onValue(ref(db, 'queue'), async (snap) => {
+      const qObj = snap.exists() ? snap.val() : {};
+      // also fetch serviceEvents and others on change (so analytics reflect together)
+      try {
+        const [seSnap, cSnap, sSnap, aSnap, qsSnap] = await Promise.all([
+          get(ref(db, 'analytics/serviceEvents')),
+          get(ref(db, 'counters')),
+          get(ref(db, 'settings')),
+          get(ref(db, 'announcement')),
+          get(ref(db, 'queueSubscriptions'))
+        ]);
+        computeAndRenderAll(qObj, seSnap.exists()?seSnap.val():{}, cSnap.exists()?cSnap.val():{}, sSnap.exists()?sSnap.val():{}, aSnap.exists()?aSnap.val():{}, qsSnap.exists()?qsSnap.val():{});
+      } catch (e) { console.warn('onValue combined read failed', e); }
+    });
 
-    // listeners
-    refreshBtn.addEventListener('click', refreshAnalytics);
+    onValue(ref(db, 'analytics/serviceEvents'), (snap) => {
+      // serviceEvents changed -> refetch queue to combine view
+      get(ref(db, 'queue')).then(qSnap => {
+        computeAndRenderAll(qSnap.exists()?qSnap.val():{}, snap.exists()?snap.val():{}, {}, {}, {}, {});
+      }).catch(()=>{ computeAndRenderAll({}, snap.exists()?snap.val():{}, {}, {}, {}, {}); });
+    });
 
-    // sidebar navigation minimal logic
-    document.querySelectorAll('.sidebar-item').forEach(i=>i.addEventListener('click', ()=>{
-      document.querySelectorAll('.sidebar-item').forEach(x=>x.classList.remove('active'));
-      i.classList.add('active');
-      const view = i.dataset.view;
-      document.getElementById('analyticsView').style.display = view === 'analytics' ? 'block' : 'none';
-      document.getElementById('dashboardView').style.display = view === 'dashboard' ? 'block' : 'none';
-      document.getElementById('settingsView').style.display = view === 'settings' ? 'block' : 'none';
-    }));
+    // counters/settings/announcement/queueSubscriptions listeners for UI previews
+    onValue(ref(db, 'counters'), (snap) => {
+      const obj = snap.exists()?snap.val():{};
+      const active = Object.values(obj).filter(c => c && c.active===true).length;
+      activeCountersEl.textContent = active;
+    });
+    onValue(ref(db, 'settings'), (snap) => {
+      if (!snap.exists()) return;
+      const s = snap.val();
+      mainTitleEl.textContent = s.mainTitle || '—';
+      introTextEl.textContent = s.introText || '—';
+    });
+    onValue(ref(db, 'announcement'), (snap) => {
+      const a = snap.exists()?snap.val():{};
+      announceCountEl.textContent = a?.chatIds ? Object.keys(a.chatIds).length : 0;
+      botTokenPresentEl.textContent = a?.botToken ? 'Yes' : 'No';
+    });
 
-    // How to use modal handlers
-    document.getElementById('howToUseBtn').addEventListener('click', ()=>{ document.getElementById('howToUseModal').style.display='flex' });
-    document.getElementById('closeHowToUse').addEventListener('click', ()=>{ document.getElementById('howToUseModal').style.display='none' });
-    document.getElementById('closeHowToUseBtn').addEventListener('click', ()=>{ document.getElementById('howToUseModal').style.display='none' });
+    // ---------- UI actions ----------
+    refreshBtn.addEventListener('click', () => fetchAllOnceAndRender());
+    exportCsvBtn.addEventListener('click', () => {
+      const csv = exportCsvBtn.dataset.csv || '';
+      if (!csv) return alert('No CSV generated yet — refresh first.');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `queuejoy_export_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
 
+    // initial load
+    fetchAllOnceAndRender();
   </script>
 </body>
 </html>
