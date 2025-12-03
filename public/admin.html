@@ -1,181 +1,365 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QueueJoy — Admin (Analytics)</title>
+  <title>QueueJoy Admin Panel</title>
 
-  <!-- Tailwind (dev) + Chart.js -->
+  <!-- Fonts + Tailwind (CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js (UMD build) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
   <style>
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#111827; min-height:100vh; padding:24px; }
-    .card { background: rgba(255,255,255,0.96); border-radius:12px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.12); }
+    /* Core styles (kept your visual design but cleaned up class names) */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      color: #111827;
+    }
+    .glass-card {
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(18px);
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.35);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    }
+    .sidebar {
+      position: fixed; left: 0; top: 0; height: 100vh; width: 280px;
+      background: linear-gradient(180deg, rgba(102,126,234,0.98), rgba(118,75,162,0.98));
+      backdrop-filter: blur(10px); z-index: 100;
+      box-shadow: 4px 0 30px rgba(0,0,0,0.2);
+      transition: transform .28s ease;
+    }
+    .sidebar-item { display:flex; gap:12px; align-items:center; padding:14px 20px; margin:8px 14px; border-radius:12px; color:white; font-weight:600; cursor:pointer; transition:all .18s ease; }
+    .sidebar-item:hover { transform: translateX(4px); background: rgba(255,255,255,0.06); }
+    .sidebar-item.active { background: rgba(255,255,255,0.12); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+
+    .main-content { margin-left: 280px; padding: 32px; transition:margin-left .28s ease; }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { margin-left: 0; padding: 20px; }
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      color: white; padding: 12px 20px; border-radius: 12px; font-weight:700; border: none; cursor:pointer;
+      box-shadow: 0 8px 30px rgba(102,126,234,0.25);
+    }
+    .btn-primary:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+
+    .input-field { width:100%; padding:10px 14px; border-radius:10px; border:2px solid #e5e7eb; font-size:14px; }
+    .input-field:focus { outline:none; border-color:#667eea; box-shadow:0 0 0 6px rgba(102,126,234,0.06); }
+
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:999; align-items:center; justify-content:center; padding:20px; }
+    .modal.active { display:flex; }
+    .modal-content { background:white; border-radius:16px; padding:24px; max-width:760px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 30px 80px rgba(0,0,0,0.25); }
+
+    .toast { position: fixed; top: 20px; right: 20px; padding: 12px 18px; border-radius: 10px; font-weight:700; z-index:99999; box-shadow:0 14px 40px rgba(0,0,0,0.14); animation: slideIn .28s ease; }
+    .toast.success { background:#10b981; color:white; } .toast.error { background:#ef4444; color:white; }
+    @keyframes slideIn { from { transform: translateX(200px); opacity:0 } to { transform: translateX(0); opacity:1 } }
+
+    .spinner { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,0.3); border-top-color:white; animation:spin .6s linear infinite; display:inline-block; vertical-align:middle; margin-right:8px; }
+    @keyframes spin { to { transform: rotate(360deg) } }
+
+    .preview-image, .preview-video { max-width:140px; max-height:120px; object-fit:cover; border-radius:10px; border:2px solid #e5e7eb; margin-top:8px; }
+    .file-input-label { padding:8px 14px; background:#f3f4f6; color:#667eea; border-radius:8px; cursor:pointer; font-weight:700; display:inline-block; }
+
+    .metric-badge { display:inline-block; padding:8px 12px; border-radius:10px; font-weight:700; color:white; margin:6px; }
+    .chart-container { height:320px; position:relative; }
+
+    /* small helpers */
     .muted { color:#6b7280; font-weight:600; font-size:13px; }
-    .btn { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:10px 14px; border-radius:10px; font-weight:700; border:none; cursor:pointer; }
-    .badge { display:inline-block;padding:6px 10px;border-radius:8px;font-weight:700;color:white;margin:4px 4px 4px 0 }
-    .heatcell { width:48px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;margin:2px; font-size:12px;color:white }
-    .small { font-size:12px; color:#374151 }
-    pre { white-space:pre-wrap; word-break:break-word }
-    table { width:100%; border-collapse:collapse; font-size:13px }
-    th,td { padding:8px; text-align:left; border-bottom:1px solid #eef2ff }
   </style>
 </head>
 <body>
-  <div style="max-width:1300px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:20px">
-    <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div style="padding:20px 28px; border-bottom: 1px solid rgba(255,255,255,0.12);">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:48px;height:48px;background:rgba(255,255,255,0.14);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:white">🎫</div>
         <div>
-          <h1 style="color:white;font-size:22px;font-weight:900;margin:0">QueueJoy — Admin</h1>
-          <div style="color:rgba(255,255,255,0.85);font-size:13px">Analytics powered by your Firebase structure</div>
-        </div>
-
-        <div style="display:flex;gap:8px">
-          <button id="exportCsv" class="btn">⬇ Export CSV</button>
-          <button id="refreshBtn" class="btn">⟳ Refresh</button>
+          <h1 style="color:white;font-size:20px;font-weight:800;margin-bottom:2px">QueueJoy</h1>
+          <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:2px">Admin Panel</div>
         </div>
       </div>
+    </div>
 
-      <!-- Top metrics -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
-        <div class="card">
-          <div class="muted">Total Queues</div><div id="totalQueues" style="font-weight:900;font-size:20px">0</div>
+    <nav style="margin-top:18px; padding-bottom:20px;">
+      <div class="sidebar-item active" data-view="dashboard">🏠 Dashboard</div>
+      <div class="sidebar-item" data-view="analytics">📊 Analytics</div>
+      <div class="sidebar-item" data-view="settings">⚙️ Business Settings</div>
+      <div class="sidebar-item" id="howToUseBtn">❓ How to Use</div>
+    </nav>
+  </aside>
+
+  <!-- Mobile menu button -->
+  <button id="mobileMenuBtn" style="display:none;position:fixed;top:18px;left:18px;z-index:200;padding:10px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;box-shadow:0 8px 30px rgba(0,0,0,0.12);">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <!-- Dashboard -->
+    <section id="dashboardView">
+      <div style="max-width:1400px;margin:0 auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+          <h2 style="color:white;font-size:28px;font-weight:800">Dashboard</h2>
+          <button class="btn-primary" id="saveAllBtn">💾 Save All Changes</button>
         </div>
-        <div class="card">
-          <div class="muted">Active Waiting</div><div id="waitingQueues" style="font-weight:900;font-size:20px">0</div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:22px">
+          <div class="glass-card" style="padding:18px">
+            <p class="muted">Total Queues</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h3 id="totalQueues" style="font-size:28px;font-weight:800;color:#667eea">0</h3>
+              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:white">📊</div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="padding:18px">
+            <p class="muted">Active Queues</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h3 id="activeQueues" style="font-size:28px;font-weight:800;color:#8b5cf6">0</h3>
+              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:flex;align-items:center;justify-content:center;color:white">🎫</div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="padding:18px">
+            <p class="muted">Today's Queues</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h3 id="todayQueues" style="font-size:28px;font-weight:800;color:#10b981">0</h3>
+              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:white">📈</div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="padding:18px">
+            <p class="muted">Active Counters</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h3 id="activeCounters" style="font-size:28px;font-weight:800;color:#f59e0b">0</h3>
+              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;color:white">🏪</div>
+            </div>
+          </div>
         </div>
-        <div class="card">
-          <div class="muted">Completed (served)</div><div id="completedCount" style="font-weight:900;font-size:20px">0</div>
-        </div>
-        <div class="card">
-          <div class="muted">Active Counters</div><div id="activeCounters" style="font-weight:900;font-size:20px">0</div>
+
+        <!-- Announcement -->
+        <div class="glass-card" style="padding:20px;margin-bottom:20px">
+          <h3 style="font-weight:800;margin-bottom:12px">📢 Send Announcement</h3>
+          <label class="muted" style="display:block;margin-bottom:6px">Message</label>
+          <textarea id="announcementMessage" class="input-field" rows="4" placeholder="Enter your announcement here..."></textarea>
+
+          <div style="margin-top:12px">
+            <label class="muted" style="display:block;margin-bottom:6px">Attach Media (Optional)</label>
+            <label class="file-input-label">📎 Choose File
+              <input type="file" id="announcementMedia" accept="image/*,video/*,audio/*" style="position:absolute;left:-9999px">
+            </label>
+            <p class="muted" style="margin-top:8px;font-size:12px">Supports images, videos, GIFs, audio. Max 50MB (you control server-side limits).</p>
+            <div id="announcementPreview"></div>
+          </div>
+
+          <div style="margin-top:12px">
+            <button class="btn-primary" id="sendAnnouncementBtn" style="width:100%">
+              <span id="sendBtnText">📱 Send to All Subscribers</span>
+              <span id="sendBtnSpinner" style="display:none"><span class="spinner"></span>Sending...</span>
+            </button>
+            <div id="announcementResult" style="display:none;margin-top:12px;padding:12px;border-radius:8px"></div>
+          </div>
         </div>
       </div>
+    </section>
 
-      <!-- Daily summaries -->
-      <div class="card" style="margin-bottom:12px" id="dailySummaryCard">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="font-size:16px;font-weight:900">Daily Summaries (Last 7 days)</h2>
-          <div class="small muted">Based on `queue` timestamps & `analytics/serviceEvents`</div>
+    <!-- Analytics -->
+    <section id="analyticsView" style="display:none">
+      <div style="max-width:1400px;margin:0 auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <h2 style="color:white;font-size:26px;font-weight:800">📊 Analytics Dashboard</h2>
         </div>
 
-        <div id="dailyTableWrap" style="overflow:auto;max-height:220px">
-          <table id="dailyTable">
-            <thead>
-              <tr><th>Date</th><th>Created</th><th>Completed</th><th>Cancelled</th><th>Avg Wait (min)</th><th>Busiest Hour</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px">
+          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(139,92,246,0.95),rgba(139,92,246,0.8));color:white;">
+            <p class="muted" style="color:rgba(255,255,255,0.85)">Total Served</p>
+            <h3 id="analystTotalServed" style="font-size:26px;font-weight:800;color:white">0</h3>
+          </div>
+
+          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(102,126,234,0.95),rgba(102,126,234,0.8));color:white;">
+            <p class="muted" style="color:rgba(255,255,255,0.85)">Avg Wait Time</p>
+            <h3 style="font-size:26px;font-weight:800;color:white"><span id="analystAvgWait">0</span> min</h3>
+          </div>
+
+          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(236,72,153,0.95),rgba(236,72,153,0.8));color:white;">
+            <p class="muted" style="color:rgba(255,255,255,0.85)">Active Counters</p>
+            <h3 id="analystActiveCounters" style="font-size:26px;font-weight:800;color:white">0</h3>
+          </div>
+
+          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(16,185,129,0.95),rgba(16,185,129,0.8));color:white;">
+            <p class="muted" style="color:rgba(255,255,255,0.85)">Median Wait</p>
+            <h3 style="font-size:26px;font-weight:800;color:white"><span id="analystMedianWait">0</span> min</h3>
+          </div>
+        </div>
+
+        <!-- Breakdown -->
+        <div class="glass-card" style="padding:20px;margin-bottom:16px">
+          <h4 style="font-weight:800;margin-bottom:12px">Queue Status Breakdown</h4>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+            <div style="text-align:center">
+              <h3 id="analystCompleted" style="font-size:28px;font-weight:800;color:#10b981">0</h3>
+              <p class="muted">Completed</p>
+            </div>
+            <div style="text-align:center">
+              <h3 id="analystWaiting" style="font-size:28px;font-weight:800;color:#3b82f6">0</h3>
+              <p class="muted">Waiting</p>
+            </div>
+            <div style="text-align:center">
+              <h3 id="analystServing" style="font-size:28px;font-weight:800;color:#8b5cf6">0</h3>
+              <p class="muted">Serving</p>
+            </div>
+            <div style="text-align:center">
+              <h3 id="analystCancelled" style="font-size:28px;font-weight:800;color:#6b7280">0</h3>
+              <p class="muted">Cancelled</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wait analytics + busiest hours -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:16px">
+          <div class="glass-card" style="padding:18px">
+            <h4 style="font-weight:800;margin-bottom:12px">⏱️ Wait Time Analytics</h4>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div>
+                <p class="muted">Average</p>
+                <h3 id="waitAverage" style="font-weight:800;font-size:20px;color:#667eea">0 min</h3>
+              </div>
+              <div>
+                <p class="muted">Median</p>
+                <h3 id="waitMedian" style="font-weight:800;font-size:20px;color:#8b5cf6">0 min</h3>
+              </div>
+              <div>
+                <p class="muted">90th Percentile</p>
+                <h3 id="wait90th" style="font-weight:800;font-size:20px;color:#ec4899">0 min</h3>
+              </div>
+              <div>
+                <p class="muted">Longest Wait</p>
+                <h3 id="waitLongest" style="font-weight:800;font-size:20px;color:#f59e0b">0 min</h3>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card" style="padding:18px">
+            <h4 style="font-weight:800;margin-bottom:12px">🕐 Busiest Hours (Last 7 Days)</h4>
+            <div id="busiestHoursContainer" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px">
+          <div class="glass-card" style="padding:18px">
+            <h4 style="font-weight:800;margin-bottom:12px">Queue Trend (Last 7 Days)</h4>
+            <div class="chart-container"><canvas id="queueTrendChart"></canvas></div>
+          </div>
+
+          <div class="glass-card" style="padding:18px">
+            <h4 style="font-weight:800;margin-bottom:12px">Counter Performance (Served)</h4>
+            <div class="chart-container"><canvas id="counterPerfChart"></canvas></div>
+          </div>
         </div>
       </div>
+    </section>
 
-      <!-- Wait analytics + distribution -->
-      <div style="display:grid;grid-template-columns:1fr 360px;gap:12px;margin-bottom:12px">
-        <div class="card">
-          <h3 style="font-weight:900">Wait Time Analytics</h3>
-          <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
-            <div>
-              <div class="muted">Average</div><div id="waitAvg" style="font-weight:900;font-size:18px">0 min</div>
-            </div>
-            <div>
-              <div class="muted">Median</div><div id="waitMedian" style="font-weight:900;font-size:18px">0 min</div>
-            </div>
-            <div>
-              <div class="muted">90th percentile</div><div id="waitP90" style="font-weight:900;font-size:18px">0 min</div>
-            </div>
-            <div>
-              <div class="muted">Longest</div><div id="waitMax" style="font-weight:900;font-size:18px">0 min</div>
-            </div>
+    <!-- Settings -->
+    <section id="settingsView" style="display:none">
+      <div style="max-width:900px;margin:0 auto">
+        <h2 style="color:white;font-weight:800;margin-bottom:12px">⚙️ Business Settings</h2>
+
+        <div class="glass-card" style="padding:18px">
+          <label class="muted">Main Title</label>
+          <input id="mainTitle" class="input-field" placeholder="e.g., ICE CREAM" style="margin-top:8px" />
+
+          <label class="muted" style="margin-top:12px;display:block">Welcome Message</label>
+          <textarea id="introText" class="input-field" rows="2" style="margin-top:8px"></textarea>
+
+          <label class="muted" style="margin-top:12px;display:block">Small Text on Top</label>
+          <input id="smallTextOnTop" class="input-field" style="margin-top:8px" />
+
+          <label class="muted" style="margin-top:12px;display:block">Title in Middle</label>
+          <input id="titleinmiddle" class="input-field" style="margin-top:8px" />
+
+          <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <div id="logoPreviewContainer"></div>
+            <label class="file-input-label">🖼️ Upload Logo<input id="logoFile" type="file" accept="image/*,video/*" style="position:absolute;left:-9999px" /></label>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <div id="logoUrlPreviewContainer"></div>
+            <label class="file-input-label">🖼️ Upload Logo URL<input id="logoUrlFile" type="file" accept="image/*,video/*" style="position:absolute;left:-9999px" /></label>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <div id="adImagePreviewContainer"></div>
+            <label class="file-input-label">🖼️ Upload Ad Banner<input id="adImageFile" type="file" accept="image/*,video/*" style="position:absolute;left:-9999px" /></label>
           </div>
 
           <div style="margin-top:16px">
-            <canvas id="waitDistChart" style="max-height:260px"></canvas>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3 style="font-weight:900">Customer Patterns</h3>
-          <div style="margin-top:10px">
-            <div class="muted">Unique subscribers (queue or subscriptions)</div>
-            <div id="uniqueCustomers" style="font-weight:900;font-size:18px">0</div>
-          </div>
-
-          <div style="margin-top:12px">
-            <div class="muted">Repeat vs One-time</div>
-            <div style="display:flex;gap:8px;margin-top:8px">
-              <div style="flex:1">
-                <div class="muted">Repeat</div><div id="repeatCount" style="font-weight:900">0</div>
-              </div>
-              <div style="flex:1">
-                <div class="muted">One-time</div><div id="oneTimeCount" style="font-weight:900">0</div>
-              </div>
-            </div>
-          </div>
-
-          <div style="margin-top:12px">
-            <div class="muted">Top subscribers (by served)</div>
-            <div id="topSubscribers" style="margin-top:8px"></div>
+            <button id="updateSettingsBtn" class="btn-primary" style="width:100%"><span id="updateBtnText">✨ Update Business Settings</span><span id="updateBtnSpinner" style="display:none"><span class="spinner"></span>Updating...</span></button>
           </div>
         </div>
       </div>
+    </section>
+  </main>
 
-      <!-- Busiest hours + charts -->
-      <div class="card" style="margin-bottom:12px">
-        <h3 style="font-weight:900">Busiest Hours (Last 7 days)</h3>
-        <div style="display:flex;gap:12px;margin-top:12px;align-items:flex-start">
-          <div style="flex:1">
-            <div id="topHoursBadges" style="margin-bottom:12px"></div>
-            <canvas id="hoursChart" style="height:220px"></canvas>
-          </div>
-
-          <div style="width:260px">
-            <div class="muted">Per-day heat (hours)</div>
-            <div id="heatmap" style="margin-top:8px"></div>
-            <div class="small muted" style="margin-top:8px">Darker = busier</div>
-          </div>
+  <!-- How to Use Modal -->
+  <div id="howToUseModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="font-weight:800">❓ How to Use QueueJoy Admin</h3>
+        <button id="closeHowToUse" style="background:none;border:none;font-size:22px;cursor:pointer">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="padding:12px;background:#f3f4f6;border-radius:10px">
+          <h4 style="font-weight:800;margin-bottom:8px">🏠 Dashboard</h4>
+          <ul style="margin-left:18px;color:#374151">
+            <li>Send announcements to Telegram subscribers</li>
+            <li>View real-time queue counts</li>
+          </ul>
+        </div>
+        <div style="padding:12px;background:#eef2ff;border-radius:10px">
+          <h4 style="font-weight:800;margin-bottom:8px">📊 Analytics</h4>
+          <ul style="margin-left:18px;color:#374151">
+            <li>7-day trends, busiest hours, wait time stats</li>
+            <li>Counter performance breakdown</li>
+          </ul>
+        </div>
+        <div style="padding:12px;background:#ecfdf5;border-radius:10px">
+          <h4 style="font-weight:800;margin-bottom:8px">⚙️ Settings</h4>
+          <ul style="margin-left:18px;color:#374151">
+            <li>Change titles, upload logos and banners (images/GIFs/videos)</li>
+            <li>All settings save to Firebase in real-time</li>
+          </ul>
         </div>
       </div>
 
-      <!-- Counter performance -->
-      <div class="card" style="margin-bottom:12px">
-        <h3 style="font-weight:900">Counter Performance</h3>
-        <div id="counterPerfWrap" style="margin-top:12px"></div>
-      </div>
-
-    </div>
-
-    <!-- Right column: settings preview / debug -->
-    <div>
-      <div class="card" style="margin-bottom:12px">
-        <h3 style="font-weight:900">Realtime Settings Preview</h3>
-        <div style="margin-top:8px">
-          <div class="muted">Main title</div><div id="mainTitle" style="font-weight:800">—</div>
-          <div class="muted" style="margin-top:8px">Intro</div><div id="introText" class="small">—</div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:12px">
-        <h3 style="font-weight:900">Announcement</h3>
-        <div class="muted">Subscribers (count)</div><div id="announceCount" style="font-weight:900">0</div>
-        <div style="margin-top:8px">
-          <div class="muted">Bot token present?</div><div id="botTokenPresent" style="font-weight:900">—</div>
-        </div>
-      </div>
-
-      <div class="card" id="debugCard">
-        <h3 style="font-weight:900">Debug / Raw</h3>
-        <div class="muted">Last refresh</div><div id="lastRefresh" class="small">—</div>
-        <pre id="rawPreview" style="max-height:360px;overflow:auto"></pre>
-      </div>
+      <button id="closeHowToUseBtn" class="btn-primary" style="width:100%;margin-top:12px">Got it!</button>
     </div>
   </div>
 
-  <!-- Firebase -->
   <script type="module">
+    // --------------------------
+    // Firebase imports (modular)
+    // --------------------------
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-    import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
+    import { getDatabase, ref, set, onValue, get, push } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js';
 
-    // --- YOUR firebase config (kept from your dump) ---
+    // --------------------------
+    // Init Firebase (your config)
+    // --------------------------
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -188,459 +372,648 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const storage = getStorage(app);
 
-    // --- UI refs ---
-    const totalQueuesEl = document.getElementById('totalQueues');
-    const waitingQueuesEl = document.getElementById('waitingQueues');
-    const completedCountEl = document.getElementById('completedCount');
-    const activeCountersEl = document.getElementById('activeCounters');
-    const dailyTableBody = document.querySelector('#dailyTable tbody');
-    const waitAvgEl = document.getElementById('waitAvg');
-    const waitMedianEl = document.getElementById('waitMedian');
-    const waitP90El = document.getElementById('waitP90');
-    const waitMaxEl = document.getElementById('waitMax');
-    const uniqueCustomersEl = document.getElementById('uniqueCustomers');
-    const repeatCountEl = document.getElementById('repeatCount');
-    const oneTimeCountEl = document.getElementById('oneTimeCount');
-    const topSubscribersEl = document.getElementById('topSubscribers');
-    const topHoursBadges = document.getElementById('topHoursBadges');
-    const heatmapEl = document.getElementById('heatmap');
-    const counterPerfWrap = document.getElementById('counterPerfWrap');
-    const announceCountEl = document.getElementById('announceCount');
-    const botTokenPresentEl = document.getElementById('botTokenPresent');
-    const mainTitleEl = document.getElementById('mainTitle');
-    const introTextEl = document.getElementById('introText');
-    const rawPreview = document.getElementById('rawPreview');
-    const lastRefreshEl = document.getElementById('lastRefresh');
-    const exportCsvBtn = document.getElementById('exportCsv');
-    const refreshBtn = document.getElementById('refreshBtn');
-
-    // --- charts ---
-    let waitDistChart = null;
-    let hoursChart = null;
-
-    function createChartIfNeeded() {
-      if (!waitDistChart) {
-        const ctx = document.getElementById('waitDistChart').getContext('2d');
-        waitDistChart = new Chart(ctx, {
-          type: 'bar',
-          data: { labels: [], datasets:[{ label:'Tickets', data:[] , backgroundColor: undefined }] },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
-        });
-      }
-      if (!hoursChart) {
-        const ctx = document.getElementById('hoursChart').getContext('2d');
-        hoursChart = new Chart(ctx, {
-          type: 'line',
-          data: { labels: Array.from({length:24}, (_,i) => i+'h'), datasets: [{ label:'Events', data:Array(24).fill(0), tension:0.3, fill:true }] },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
-        });
-      }
-    }
-    createChartIfNeeded();
-
-    // ---------- helpers ----------
-    function safeNum(n) {
-      if (n === undefined || n === null) return null;
-      const x = Number(n);
-      if (!Number.isFinite(x)) return null;
-      return x;
+    // --------------------------
+    // Small UI helpers
+    // --------------------------
+    function showToast(message, type = 'success', ms = 3000) {
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = message;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), ms);
     }
 
-    // Interpret timestamp values robustly:
-    // Some values in your dump are >1e12 (ms since epoch). Accept numbers > 1e11 as unix-ms, otherwise try URL-style parse.
-    function parseTs(ts) {
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // --------------------------
+    // DOM refs & responsive menu
+    // --------------------------
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const sidebarItems = document.querySelectorAll('.sidebar-item[data-view]');
+    const howToUseBtn = document.getElementById('howToUseBtn');
+    const howToUseModal = document.getElementById('howToUseModal');
+    const closeHowToUse = document.getElementById('closeHowToUse');
+    const closeHowToUseBtn = document.getElementById('closeHowToUseBtn');
+
+    function updateMobileButtonVisibility(){
+      if (window.innerWidth <= 1024) mobileMenuBtn.style.display = 'block';
+      else { mobileMenuBtn.style.display = 'none'; sidebar.classList.remove('open'); }
+    }
+    updateMobileButtonVisibility();
+    window.addEventListener('resize', updateMobileButtonVisibility);
+    mobileMenuBtn.addEventListener('click', ()=> sidebar.classList.toggle('open'));
+
+    sidebarItems.forEach(item => item.addEventListener('click', () => {
+      sidebarItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+
+      // toggle views
+      const view = item.dataset.view;
+      document.getElementById('dashboardView').style.display = view === 'dashboard' ? 'block' : 'none';
+      document.getElementById('analyticsView').style.display = view === 'analytics' ? 'block' : 'none';
+      document.getElementById('settingsView').style.display = view === 'settings' ? 'block' : 'none';
+
+      if (view === 'analytics') initializeCharts();
+      if (window.innerWidth <= 1024) sidebar.classList.remove('open');
+    }));
+
+    howToUseBtn.addEventListener('click', () => howToUseModal.classList.add('active'));
+    closeHowToUse.addEventListener('click', () => howToUseModal.classList.remove('active'));
+    closeHowToUseBtn.addEventListener('click', () => howToUseModal.classList.remove('active'));
+    document.getElementById('closeHowToUseBtn').addEventListener('click', () => howToUseModal.classList.remove('active'));
+
+    // --------------------------
+    // Timestamp parsing & validation (robust)
+    // --------------------------
+    function parseTimestamp(ts) {
       if (ts === undefined || ts === null) return null;
-      if (typeof ts === 'number') {
-        if (ts > 1e11 && ts < 1e18) return ts;
-        if (ts > 1e9 && ts < 1e11) return ts * 1000; // maybe seconds
+      // accept numbers or numeric strings; guard against silly values
+      let n = (typeof ts === 'number') ? ts : Number(ts);
+      if (Number.isNaN(n)) {
+        const d = Date.parse(ts);
+        if (Number.isNaN(d)) return null;
+        n = d;
       }
-      const n = Number(ts);
-      if (!Number.isNaN(n)) {
-        if (n > 1e11 && n < 1e18) return n;
-        if (n > 1e9 && n < 1e11) return n * 1000;
-      }
-      const d = Date.parse(ts);
-      return Number.isNaN(d) ? null : d;
-    }
-
-    function minsBetween(a,b){ return Math.round(Math.abs(b-a)/60000); }
-
-    // statistical helpers
-    function computeStats(arr) {
-      if (!arr || arr.length===0) return { avg:0, median:0, p90:0, max:0, counts:[] };
-      const xs = arr.slice().sort((a,b)=>a-b);
-      const sum = xs.reduce((s,v)=>s+v,0);
-      const avg = Math.round(sum/xs.length);
-      const median = xs.length%2===0 ? Math.round((xs[xs.length/2-1]+xs[xs.length/2])/2) : xs[Math.floor(xs.length/2)];
-      const p90 = xs[Math.min(xs.length-1, Math.floor(xs.length*0.9))];
-      const max = xs[xs.length-1];
-      return { avg, median, p90, max, counts: xs };
-    }
-
-    function formatDateYMD(ms) {
-      const d = new Date(ms);
-      return d.toISOString().split('T')[0];
-    }
-
-    function formatHourLabel(h){
-      if (h===0) return '12AM';
-      if (h<12) return `${h}AM`;
-      if (h===12) return '12PM';
-      return `${h-12}PM`;
-    }
-
-    // ---------- main analytics logic ----------
-    async function computeAndRenderAll(snapshotQueue, snapshotServiceEvents, snapshotCounters, snapshotSettings, snapshotAnnouncement, snapshotQueueSubs) {
-      lastRefreshEl.textContent = new Date().toLocaleString();
-      rawPreview.textContent = `queue: ${Object.keys(snapshotQueue || {}).length || 0}\nserviceEvents: ${Object.keys(snapshotServiceEvents || {}).length || 0}\ncounters: ${Object.keys(snapshotCounters || {}).length || 0}`;
-
-      // Normalize inputs to arrays
-      const queues = Object.values(snapshotQueue || {}).map(q => ({ ...q }));
-      const serviceEvents = Object.values(snapshotServiceEvents || {}).map(e => ({ ...e }));
-
-      // quick counts
-      totalQueuesEl.textContent = queues.length;
-      const waiting = queues.filter(q => (q.status || 'waiting').toString().toLowerCase() === 'waiting').length;
-      waitingQueuesEl.textContent = waiting;
-
-      const activeCounters = Object.values(snapshotCounters || {}).filter(c => c && c.active === true).length;
-      activeCountersEl.textContent = activeCounters;
-      document.getElementById('analystActiveCounters')?.textContent = activeCounters; // optional
-
-      // Completed — prefer serviceEvents length (authoritative)
-      const completed = serviceEvents.length;
-      completedCountEl.textContent = completed;
-
-      // Announcement info
-      const announceIds = snapshotAnnouncement?.chatIds ? Object.keys(snapshotAnnouncement.chatIds) : [];
-      announceCountEl.textContent = announceIds.length;
-      botTokenPresentEl.textContent = snapshotAnnouncement?.botToken ? 'Yes' : 'No';
-
-      // SETTINGS preview
-      mainTitleEl.textContent = snapshotSettings?.mainTitle || '—';
-      introTextEl.textContent = snapshotSettings?.introText || '—';
-
-      // WAIT TIME: combine serviceEvents durations (serviceMs / minutes) and current waiting durations from queue entries
-      const waitsMins = [];
-      // from serviceEvents (use serviceMs if present or servedAt-requestedAt)
-      serviceEvents.forEach(e => {
-        if (e.serviceMs && Number.isFinite(e.serviceMs)) {
-          const m = Math.round(Number(e.serviceMs) / 60000);
-          if (m>=0 && m<30*24*60) waitsMins.push(m);
-        } else {
-          const req = parseTs(e.requestedAt);
-          const served = parseTs(e.servedAt);
-          if (req && served && served >= req) {
-            const m = minsBetween(req, served);
-            if (m>=0 && m<30*24*60) waitsMins.push(m);
-          }
-        }
-      });
-      // from current waiting queue entries: now - timestamp
+      // sanity: require plausible unix ms (>= 2009-01-01) and <= 1 year in future
       const now = Date.now();
-      queues.filter(q => (q.status||'waiting').toLowerCase()==='waiting').forEach(q => {
-        const ts = parseTs(q.timestamp);
-        if (!ts) return;
-        const m = Math.max(0, Math.round((now - ts)/60000));
-        if (m>=0 && m<30*24*60) waitsMins.push(m);
-      });
+      const min = 1230768000000; // 2009-01-01
+      const oneYearFuture = now + (365*24*60*60*1000);
+      if (n < min || n > oneYearFuture) return null;
+      return n;
+    }
 
-      const waitStats = computeStats(waitsMins);
-      waitAvgEl.textContent = waitStats.avg + ' min';
-      waitMedianEl.textContent = waitStats.median + ' min';
-      waitP90El.textContent = waitStats.p90 + ' min';
-      waitMaxEl.textContent = waitStats.max + ' min';
+    function isToday(ts) {
+      const p = parseTimestamp(ts);
+      if (!p) return false;
+      const d = new Date(p);
+      const today = new Date();
+      return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+    }
 
-      // Distribution histogram (buckets: 0-5,6-10,11-20,21-30,31-60,61-120,120+)
-      const buckets = [
-        {label:'0-5', min:0, max:5},
-        {label:'6-10', min:6, max:10},
-        {label:'11-20', min:11, max:20},
-        {label:'21-30', min:21, max:30},
-        {label:'31-60', min:31, max:60},
-        {label:'61-120', min:61, max:120},
-        {label:'120+', min:121, max:Infinity}
-      ];
-      const bucketCounts = buckets.map(b => waitsMins.filter(m => m>=b.min && m<=b.max).length);
+    // --------------------------
+    // Analytics helpers (fixed & robust)
+    // --------------------------
 
-      // update wait chart
-      createChartIfNeeded();
-      waitDistChart.data.labels = buckets.map(b=>b.label);
-      waitDistChart.data.datasets[0].data = bucketCounts;
-      waitDistChart.update();
+    // simple numeric stats helper
+    function computeStats(arr) {
+      if (!arr || arr.length === 0) return { average:0, median:0, p90:0, longest:0 };
+      const xs = arr.slice().sort((a,b)=>a-b);
+      const sum = xs.reduce((a,b)=>a+b,0);
+      const avg = Math.round(sum / xs.length);
+      const median = (xs.length % 2 === 0) ? Math.round((xs[xs.length/2 -1] + xs[xs.length/2]) / 2) : xs[Math.floor(xs.length/2)];
+      const p90 = Math.round(xs[Math.floor(xs.length * 0.9)]);
+      const longest = xs[xs.length-1];
+      return { average: avg, median, p90, longest };
+    }
 
-      // DAILY SUMMARY (last 7 days)
+    // Wait times: combine historical served events (servedAt - requestedAt) and current waiting items (now - timestamp)
+    function calculateWaitTimesCombined(queues, serviceEvents) {
+      const now = Date.now();
+      const waits = [];
+
+      // 1) served events -> requestedAt to servedAt (if available)
+      if (serviceEvents && Array.isArray(serviceEvents)) {
+        for (const e of serviceEvents) {
+          const req = parseTimestamp(e.requestedAt ?? e.requestedAt);
+          const served = parseTimestamp(e.servedAt ?? e.servedAt);
+          if (!req || !served) continue;
+          const mins = Math.round((served - req) / 60000);
+          // filter implausible values: negative or > 30 days
+          if (mins >= 0 && mins <= 30*24*60) waits.push(mins);
+        }
+      }
+
+      // 2) current waiting queues -> now - queue.timestamp
+      const waitingQs = queues.filter(q => q.status === 'waiting');
+      for (const q of waitingQs) {
+        const ts = parseTimestamp(q.timestamp);
+        if (!ts) continue;
+        const mins = Math.max(0, Math.round((now - ts) / 60000));
+        if (mins >= 0 && mins <= 30*24*60) waits.push(mins);
+      }
+
+      return computeStats(waits);
+    }
+
+    // Seven-day summary: returns days with totals (queues created) and completed (served events by servedAt)
+    function calculateSevenDaySummary(queues, serviceEvents) {
       const days = [];
       const today = new Date();
       today.setHours(0,0,0,0);
       for (let i=6;i>=0;i--) {
-        const d = new Date(today); d.setDate(d.getDate() - i);
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
         const start = d.getTime();
         const end = start + 24*60*60*1000;
-        // created that day
-        const dayQueues = queues.filter(q => {
-          const ts = parseTs(q.timestamp);
+
+        // total: queues created that day (by queue.timestamp)
+        const dayQs = queues.filter(q => {
+          const ts = parseTimestamp(q.timestamp);
           return ts && ts >= start && ts < end;
         });
-        const total = dayQueues.length;
-        const cancelled = dayQueues.filter(q => (q.status||'waiting').toLowerCase() === 'cancelled').length;
-        // completed via serviceEvents servedAt in that day
-        const completedDay = serviceEvents.filter(e => {
-          const s = parseTs(e.servedAt);
-          return s && s >= start && s < end;
-        }).length;
+        const total = dayQs.length;
 
-        // avg wait for day: use served events requested->served for those requested that day OR waiting tickets from that day
-        const waitTimesForDay = [];
-        serviceEvents.forEach(e => {
-          const req = parseTs(e.requestedAt);
-          const served = parseTs(e.servedAt);
-          if (req && served && req >= start && req < end) {
-            const m = Math.round((served - req)/60000);
-            if (m>=0 && m<30*24*60) waitTimesForDay.push(m);
-          }
-        });
-        dayQueues.forEach(q => {
-          if ((q.status||'waiting').toLowerCase()==='waiting') {
-            const ts = parseTs(q.timestamp);
-            if (ts && ts >= start && ts < end) {
-              const m = Math.round((now - ts)/60000);
-              if (m>=0 && m<30*24*60) waitTimesForDay.push(m);
+        // completed: served events with servedAt in that day
+        let completed = 0;
+        if (serviceEvents && Array.isArray(serviceEvents)) {
+          completed = serviceEvents.filter(e => {
+            const s = parseTimestamp(e.servedAt);
+            return s && s >= start && s < end;
+          }).length;
+        }
+
+        const cancelled = dayQs.filter(q => q.status === 'cancelled').length;
+
+        // average wait for that day (approx: served events' durations & any waiting tickets from that day)
+        const waitTimes = [];
+
+        if (serviceEvents && Array.isArray(serviceEvents)) {
+          for (const e of serviceEvents) {
+            const req = parseTimestamp(e.requestedAt);
+            const served = parseTimestamp(e.servedAt);
+            if (!req || !served) continue;
+            if (req >= start && req < end) {
+              const mins = Math.round((served - req) / 60000);
+              if (mins >= 0 && mins <= 30*24*60) waitTimes.push(mins);
             }
           }
-        });
-        const avgWaitDay = waitTimesForDay.length ? Math.round(waitTimesForDay.reduce((a,b)=>a+b,0)/waitTimesForDay.length) : 0;
+        }
 
-        // busiest hour: count queue.timestamp hours + servedAt hours inside the day
+        // include waiting queues that were requested that day
+        for (const q of dayQs) {
+          if (q.status === 'waiting') {
+            const ts = parseTimestamp(q.timestamp);
+            if (!ts) continue;
+            const mins = Math.round((Date.now() - ts) / 60000);
+            if (mins >= 0 && mins <= 30*24*60) waitTimes.push(mins);
+          }
+        }
+
+        const avgWait = waitTimes.length ? Math.round(waitTimes.reduce((a,b)=>a+b,0) / waitTimes.length) : 0;
+
+        // busiest hour for that day (consider both queue timestamps and servedAt)
         const hourCounts = new Array(24).fill(0);
-        dayQueues.forEach(q => { const ts = parseTs(q.timestamp); if (ts) hourCounts[new Date(ts).getHours()]++; });
-        serviceEvents.forEach(e => { const s = parseTs(e.servedAt); if (s && s>=start && s<end) hourCounts[new Date(s).getHours()]++; });
+        for (const q of dayQs) {
+          const ts = parseTimestamp(q.timestamp);
+          if (ts) hourCounts[new Date(ts).getHours()]++;
+        }
+        if (serviceEvents && Array.isArray(serviceEvents)) {
+          for (const e of serviceEvents) {
+            const s = parseTimestamp(e.servedAt);
+            if (s && s >= start && s < end) hourCounts[new Date(s).getHours()]++;
+          }
+        }
         const maxCount = Math.max(...hourCounts);
-        const busiestHour = maxCount>0 ? hourCounts.indexOf(maxCount) : null;
+        const busiestHour = maxCount > 0 ? hourCounts.indexOf(maxCount) : null;
 
-        days.push({ date: formatDateYMD(start), total, completed: completedDay, cancelled, avgWait: avgWaitDay, busiestHour, hourCounts });
+        days.push({ date: d.toISOString().split('T')[0], total, completed, cancelled, avgWait, busiestHour });
       }
+      return { days };
+    }
 
-      // render daily table
-      dailyTableBody.innerHTML = '';
-      days.forEach(d => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td style="font-weight:800">${d.date}</td>
-                        <td>${d.total}</td>
-                        <td>${d.completed}</td>
-                        <td>${d.cancelled}</td>
-                        <td>${d.avgWait} min</td>
-                        <td>${d.busiestHour !== null ? formatHourLabel(d.busiestHour) : '-'}</td>`;
-        dailyTableBody.appendChild(tr);
-      });
-
-      // BUSIEST HOURS (aggregate last 7 days)
-      const aggHours = new Array(24).fill(0);
-      // queues in last7
+    function calculateBusiestHoursCombined(queues, serviceEvents) {
+      const now = Date.now();
       const last7 = now - 7*24*60*60*1000;
-      queues.forEach(q => {
-        const ts = parseTs(q.timestamp);
-        if (ts && ts >= last7) aggHours[new Date(ts).getHours()]++;
-      });
-      serviceEvents.forEach(e => {
-        const s = parseTs(e.servedAt);
-        if (s && s >= last7) aggHours[new Date(s).getHours()]++;
-      });
+      const hourCounts = new Array(24).fill(0);
 
-      const hoursArr = aggHours.map((c,h)=>({hour:h,count:c})).sort((a,b)=>b.count-a.count);
-      // badges
-      topHoursBadges.innerHTML = '';
-      hoursArr.slice(0,5).forEach((h,i) => {
-        const b = document.createElement('span');
-        b.className = 'badge';
+      // queues timestamps
+      for (const q of queues) {
+        const ts = parseTimestamp(q.timestamp);
+        if (!ts) continue;
+        if (ts >= last7) hourCounts[new Date(ts).getHours()]++;
+      }
+
+      // served events (use servedAt)
+      if (serviceEvents && Array.isArray(serviceEvents)) {
+        for (const e of serviceEvents) {
+          const s = parseTimestamp(e.servedAt);
+          if (!s) continue;
+          if (s >= last7) hourCounts[new Date(s).getHours()]++;
+        }
+      }
+
+      const arr = hourCounts.map((count,h) => ({ hour:h, count })).filter(x => x.count>0).sort((a,b)=>b.count-a.count);
+      return arr.slice(0,5);
+    }
+
+    // --------------------------
+    // UI update logic (updated to accept serviceEvents)
+    // --------------------------
+    function updateUIFromQueues(queues, serviceEvents) {
+      const total = queues.length;
+      const waiting = queues.filter(q => q.status === 'waiting').length;
+      const serving = queues.filter(q => q.status === 'serving').length;
+      const cancelled = queues.filter(q => q.status === 'cancelled').length;
+
+      document.getElementById('totalQueues').textContent = total;
+      document.getElementById('activeQueues').textContent = waiting;
+      document.getElementById('todayQueues').textContent = queues.filter(q => isToday(q.timestamp)).length;
+
+      document.getElementById('analystWaiting').textContent = waiting;
+      document.getElementById('analystServing').textContent = serving;
+      document.getElementById('analystCancelled').textContent = cancelled;
+
+      // Completed & Total Served: prefer serviceEvents length
+      let servedCount = null;
+      if (serviceEvents && Array.isArray(serviceEvents)) {
+        servedCount = serviceEvents.length;
+      }
+      // fallback: analytics/servedCount or queue 'done' status count will be handled where listeners call this function
+      if (servedCount !== null && !Number.isNaN(servedCount)) {
+        document.getElementById('analystTotalServed').textContent = servedCount;
+        document.getElementById('analystCompleted').textContent = servedCount;
+      }
+
+      // Wait time stats (combined)
+      const waitStats = calculateWaitTimesCombined(queues, serviceEvents);
+      document.getElementById('analystAvgWait').textContent = waitStats.average;
+      document.getElementById('analystMedianWait').textContent = waitStats.median;
+      document.getElementById('waitAverage').textContent = waitStats.average + ' min';
+      document.getElementById('waitMedian').textContent = waitStats.median + ' min';
+      document.getElementById('wait90th').textContent = waitStats.p90 + ' min';
+      document.getElementById('waitLongest').textContent = waitStats.longest + ' min';
+
+      // busiest hours badges (combined)
+      const busiest = calculateBusiestHoursCombined(queues, serviceEvents);
+      const container = document.getElementById('busiestHoursContainer');
+      container.innerHTML = '';
+      if (busiest.length === 0) {
+        container.innerHTML = '<div class="muted">No data available</div>';
+      } else {
         const colors = ['#667eea','#8b5cf6','#ec4899','#f59e0b','#10b981'];
-        b.style.background = colors[i % colors.length];
-        b.textContent = `${formatHourLabel(h.hour)}: ${h.count}`;
-        topHoursBadges.appendChild(b);
-      });
-
-      // hours chart
-      hoursChart.data.labels = Array.from({length:24},(_,i)=>formatHourLabel(i));
-      hoursChart.data.datasets[0].data = aggHours;
-      hoursChart.update();
-
-      // heatmap per-day: render rows for each day with 24 small cells colored by count
-      heatmapEl.innerHTML = '';
-      const maxForHeat = Math.max(...days.flatMap(d=>d.hourCounts));
-      days.forEach(d => {
-        const rowWrap = document.createElement('div');
-        rowWrap.style.display = 'flex';
-        rowWrap.style.alignItems = 'center';
-        rowWrap.style.marginBottom = '6px';
-        const label = document.createElement('div');
-        label.style.width = '70px';
-        label.style.fontSize = '12px';
-        label.style.marginRight = '8px';
-        label.textContent = d.date;
-        rowWrap.appendChild(label);
-        d.hourCounts.forEach(c => {
-          const cell = document.createElement('div');
-          const intensity = maxForHeat ? Math.round((c/maxForHeat)*220) : 40;
-          // choose color scale from light to dark purple
-          const bg = `rgba(99,102,241,${0.15 + (intensity/255)})`;
-          cell.className = 'heatcell';
-          cell.style.background = bg;
-          cell.title = c + ' events';
-          cell.textContent = c>0 ? c : '';
-          rowWrap.appendChild(cell);
-        });
-        heatmapEl.appendChild(rowWrap);
-      });
-
-      // Customer patterns: use queue.chatId & queueSubscriptions to identify uniqueness & repeaters
-      const subsMap = snapshotQueueSubs || {};
-      const customerCounts = {}; // key by chatId OR subscription uuid fallback
-      queues.forEach(q => {
-        const chatId = q.chatId || null;
-        const subsUuid = Object.keys(subsMap || {}).find(k => subsMap[k] === q.chatId) || null;
-        const key = chatId ? `c:${chatId}` : (subsUuid ? `s:${subsUuid}` : `q:${q.queueId||Math.random().toString(36).slice(2,7)}`);
-        customerCounts[key] = (customerCounts[key] || 0) + 1;
-      });
-      const uniqueCustomers = Object.keys(customerCounts).length;
-      uniqueCustomersEl.textContent = uniqueCustomers;
-      const repeats = Object.values(customerCounts).filter(v=>v>1).length;
-      const oneTimes = Object.values(customerCounts).filter(v=>v===1).length;
-      repeatCountEl.textContent = repeats;
-      oneTimeCountEl.textContent = oneTimes;
-
-      // Top subscribers by count
-      topSubscribersEl.innerHTML = '';
-      Object.entries(customerCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([k,v])=>{
-        const el = document.createElement('div');
-        el.className = 'small';
-        el.style.marginBottom='6px';
-        el.textContent = `${k.replace(/^c:/,'chat:').replace(/^s:/,'sub:').replace(/^q:/,'queue:')} — ${v} ticket(s)`;
-        topSubscribersEl.appendChild(el);
-      });
-
-      // Counter performance: prefer analytics/serviceEvents.counter or counter field
-      const counterStats = {};
-      serviceEvents.forEach(e => {
-        const key = e.counter || e.counterId || e.counterName || (e.counter && String(e.counter)) || 'unknown';
-        counterStats[key] = (counterStats[key] || 0) + 1;
-      });
-      // fallback approximate from queue counterId values
-      if (Object.keys(counterStats).length === 0) {
-        queues.forEach(q => {
-          if (q.counterId) counterStats[q.counterId] = (counterStats[q.counterId]||0)+1;
+        busiest.forEach((h,i) => {
+          const badge = document.createElement('div');
+          badge.className = 'metric-badge';
+          badge.style.background = colors[i % colors.length];
+          badge.textContent = `${formatHourLabel(h.hour)}: ${h.count} queues`;
+          container.appendChild(badge);
         });
       }
-      // render counters
-      counterPerfWrap.innerHTML = '';
-      Object.entries(counterStats).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>{
-        const wrap = document.createElement('div');
-        wrap.style.display='flex'; wrap.style.justifyContent='space-between'; wrap.style.padding='6px 0';
-        wrap.innerHTML = `<div style="font-weight:700">${k}</div><div class="small">${v} served</div>`;
-        counterPerfWrap.appendChild(wrap);
-      });
 
-      // Save for CSV export: attach to element
-      exportCsvBtn.dataset.csv = createCsvForExport(queues, serviceEvents);
-
-      // Completed rendering
-    } // end computeAndRenderAll
-
-    function createCsvForExport(queues, serviceEvents) {
-      // produce a simple CSV: ticketId, queueId, counterId, status, timestamp (ISO), chatId, servedAt (ISO), serviceMin
-      const rows = [['ticketKey','queueId','counterId','status','timestamp','chatId','servedAt','serviceMin']];
-      queues.forEach((q) => {
-        const tkey = q.queueId || '';
-        const ts = parseTs(q.timestamp);
-        rows.push([q.queueId || '', q.queueId || '', q.counterId || '', q.status || '', ts ? new Date(ts).toISOString() : '', q.chatId || '', '', '']);
-      });
-      serviceEvents.forEach(e => {
-        const served = parseTs(e.servedAt);
-        const req = parseTs(e.requestedAt);
-        const minutes = (e.serviceMs && Number.isFinite(e.serviceMs)) ? Math.round(e.serviceMs/60000) : (served && req ? minsBetween(req, served) : '');
-        rows.push([e.ticketId || '', '', e.counter || '', 'served', req ? new Date(req).toISOString() : '', '', served? new Date(served).toISOString() : '', minutes]);
-      });
-      return rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      // charts
+      updateCharts(queues, serviceEvents);
     }
 
-    // ---------- realtime listeners ----------
-    async function fetchAllOnceAndRender() {
+    function formatHourLabel(hour) {
+      if (hour === null || hour === undefined) return '-';
+      if (hour === 0) return '12 AM';
+      if (hour < 12) return `${hour} AM`;
+      if (hour === 12) return '12 PM';
+      return `${hour-12} PM`;
+    }
+
+    // --------------------------
+    // Firebase listeners: QUEUES (with corrected analytics handling)
+    // --------------------------
+    onValue(ref(db, 'queue'), async (snapshot) => {
+      if (!snapshot.exists()) {
+        // clear UI
+        ['totalQueues','activeQueues','todayQueues','analystTotalServed','analystCompleted','analystWaiting','analystServing','analystCancelled','analystAvgWait','analystMedianWait','waitAverage','waitMedian','wait90th','waitLongest'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '0';
+        });
+        updateCharts([], []);
+        return;
+      }
+
+      // raw values -> array
+      const raw = Object.values(snapshot.val() || {});
+      const now = Date.now();
+
+      // sanitize & normalize queues array
+      const queues = raw.map(q => {
+        try {
+          const ts = parseTimestamp(q.timestamp);
+          if (!ts) return null;
+          // reject obviously unrealistic future timestamp beyond 1 day (likely bad data)
+          if (ts > now + 24*60*60*1000) return null;
+          return { ...q, timestamp: ts, status: (q.status||'waiting').toString().toLowerCase() };
+        } catch (e) {
+          return null;
+        }
+      }).filter(Boolean);
+
+      // set some UI quick counts
+      const waiting = queues.filter(q => q.status === 'waiting').length;
+      const serving = queues.filter(q => q.status === 'serving').length;
+      const cancelled = queues.filter(q => q.status === 'cancelled').length;
+
+      document.getElementById('totalQueues').textContent = queues.length;
+      document.getElementById('activeQueues').textContent = waiting;
+      document.getElementById('analystWaiting').textContent = waiting;
+      document.getElementById('analystServing').textContent = serving;
+      document.getElementById('analystCancelled').textContent = cancelled;
+
+      // Attempt to read analytics/serviceEvents (authoritative for served/completed)
+      let serviceEventsArr = [];
       try {
-        const [qSnap, seSnap, cSnap, sSnap, aSnap, qsSnap] = await Promise.all([
-          get(ref(db, 'queue')),
-          get(ref(db, 'analytics/serviceEvents')),
-          get(ref(db, 'counters')),
-          get(ref(db, 'settings')),
-          get(ref(db, 'announcement')),
-          get(ref(db, 'queueSubscriptions'))
-        ]);
-        const qObj = qSnap.exists() ? qSnap.val() : {};
-        const seObj = seSnap.exists() ? seSnap.val() : {};
-        const cObj = cSnap.exists() ? cSnap.val() : {};
-        const sObj = sSnap.exists() ? sSnap.val() : {};
-        const aObj = aSnap.exists() ? aSnap.val() : {};
-        const qsObj = qsSnap.exists() ? qsSnap.val() : {};
-        computeAndRenderAll(qObj, seObj, cObj, sObj, aObj, qsObj);
+        const seSnap = await get(ref(db, 'analytics/serviceEvents'));
+        if (seSnap.exists()) {
+          const seObj = seSnap.val();
+          serviceEventsArr = Object.values(seObj || {}).map(x => x);
+        } else {
+          // fallback: try analytics/servedCount (will be used if serviceEvents missing)
+          const servedSnap = await get(ref(db, 'analytics/servedCount'));
+          const served = servedSnap.exists() ? Number(servedSnap.val()) : null;
+          if (served !== null && !Number.isNaN(served)) {
+            // when only servedCount exists, we cannot derive per-ticket times; we'll still show the served count
+            document.getElementById('analystTotalServed').textContent = served;
+            document.getElementById('analystCompleted').textContent = served;
+          }
+        }
+      } catch (e) {
+        console.warn('analytics/serviceEvents read error', e);
+      }
+
+      // If we do have serviceEvents, use it as source of truth for served/completed
+      if (serviceEventsArr.length > 0) {
+        document.getElementById('analystTotalServed').textContent = serviceEventsArr.length;
+        document.getElementById('analystCompleted').textContent = serviceEventsArr.length;
+      } else {
+        // fallback: count completed from queue entries (status done/served)
+        const completedFromQueue = queues.filter(q => q.status === 'done' || q.status === 'served').length;
+        document.getElementById('analystCompleted').textContent = completedFromQueue;
+        // do not overwrite analystTotalServed if we previously set it from analytics/servedCount
+        if (!document.getElementById('analystTotalServed').textContent || document.getElementById('analystTotalServed').textContent === '0') {
+          document.getElementById('analystTotalServed').textContent = completedFromQueue;
+        }
+      }
+
+      // Wait time analytics: use combined served events + waiting items, not only today's waiting
+      const waitStats = calculateWaitTimesCombined(queues, serviceEventsArr);
+      document.getElementById('analystAvgWait').textContent = waitStats.average;
+      document.getElementById('analystMedianWait').textContent = waitStats.median;
+      document.getElementById('wait90th').textContent = waitStats.p90 + ' min';
+      document.getElementById('waitLongest').textContent = waitStats.longest + ' min';
+
+      // busiest hours display (last 7 days) - render via updateUIFromQueues which uses combined logic
+      updateUIFromQueues(queues, serviceEventsArr);
+    }, (err) => {
+      console.error('queue listener error', err);
+    });
+
+    // --------------------------
+    // counters listener
+    // --------------------------
+    onValue(ref(db, 'counters'), (snapshot) => {
+      if (!snapshot.exists()) {
+        document.getElementById('activeCounters').textContent = '0';
+        document.getElementById('analystActiveCounters').textContent = '0';
+        return;
+      }
+      const counters = Object.values(snapshot.val() || {});
+      const active = counters.filter(c => c && c.active === true).length;
+      document.getElementById('activeCounters').textContent = active;
+      document.getElementById('analystActiveCounters').textContent = active;
+    });
+
+    // --------------------------
+    // settings listeners (preview)
+    // --------------------------
+    onValue(ref(db, 'settings/mainTitle'), snap => { if (snap.exists()) document.getElementById('mainTitle').value = snap.val(); });
+    onValue(ref(db, 'settings/introText'), snap => { if (snap.exists()) document.getElementById('introText').value = snap.val(); });
+    onValue(ref(db, 'settings/smallTextOnTop'), snap => { if (snap.exists()) document.getElementById('smallTextOnTop').value = snap.val(); });
+    onValue(ref(db, 'settings/titleinmiddle'), snap => { if (snap.exists()) document.getElementById('titleinmiddle').value = snap.val(); });
+
+    function createMediaPreview(src, container, type='image') {
+      container.innerHTML = '';
+      if (!src) return;
+      if (type === 'video' || (typeof src === 'string' && src.startsWith('data:video'))) {
+        const v = document.createElement('video'); v.src = src; v.autoplay = true; v.loop = true; v.muted = true; v.className = 'preview-video';
+        container.appendChild(v);
+      } else {
+        const img = document.createElement('img'); img.src = src; img.className = 'preview-image';
+        container.appendChild(img);
+      }
+    }
+
+    onValue(ref(db, 'settings/logo'), snap => { if (snap.exists()) createMediaPreview(snap.val(), document.getElementById('logoPreviewContainer')); });
+    onValue(ref(db, 'settings/logoUrl'), snap => { if (snap.exists()) createMediaPreview(snap.val(), document.getElementById('logoUrlPreviewContainer')); });
+    onValue(ref(db, 'settings/adImage'), snap => { if (snap.exists()) createMediaPreview(snap.val(), document.getElementById('adImagePreviewContainer')); });
+
+    // --------------------------
+    // Upload previews & update settings
+    // --------------------------
+    let uploadedMedia = { logo: null, logoUrl: null, adImage: null };
+
+    document.getElementById('logoFile').addEventListener('change', async (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      const b = await fileToBase64(f);
+      uploadedMedia.logo = b;
+      createMediaPreview(b, document.getElementById('logoPreviewContainer'), f.type.startsWith('video') ? 'video' : 'image');
+      showToast('Logo uploaded (not saved)', 'success', 1800);
+    });
+    document.getElementById('logoUrlFile').addEventListener('change', async (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      const b = await fileToBase64(f);
+      uploadedMedia.logoUrl = b;
+      createMediaPreview(b, document.getElementById('logoUrlPreviewContainer'), f.type.startsWith('video') ? 'video' : 'image');
+      showToast('Logo URL uploaded (not saved)', 'success', 1800);
+    });
+    document.getElementById('adImageFile').addEventListener('change', async (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      const b = await fileToBase64(f);
+      uploadedMedia.adImage = b;
+      createMediaPreview(b, document.getElementById('adImagePreviewContainer'), f.type.startsWith('video') ? 'video' : 'image');
+      showToast('Ad banner uploaded (not saved)', 'success', 1800);
+    });
+
+    async function updateSettings() {
+      const btn = document.getElementById('updateSettingsBtn');
+      const text = document.getElementById('updateBtnText');
+      const spinner = document.getElementById('updateBtnSpinner');
+      btn.disabled = true; text.style.display='none'; spinner.style.display='inline';
+      try {
+        const currentSnap = await get(ref(db, 'settings'));
+        const current = currentSnap.exists() ? currentSnap.val() : {};
+        const updates = {
+          ...current,
+          mainTitle: document.getElementById('mainTitle').value || current.mainTitle || '',
+          introText: document.getElementById('introText').value || current.introText || '',
+          smallTextOnTop: document.getElementById('smallTextOnTop').value || current.smallTextOnTop || '',
+          titleinmiddle: document.getElementById('titleinmiddle').value || current.titleinmiddle || ''
+        };
+        if (uploadedMedia.logo) updates.logo = uploadedMedia.logo;
+        if (uploadedMedia.logoUrl) updates.logoUrl = uploadedMedia.logoUrl;
+        if (uploadedMedia.adImage) updates.adImage = uploadedMedia.adImage;
+        await set(ref(db, 'settings'), updates);
+        uploadedMedia = { logo:null, logoUrl:null, adImage:null };
+        showToast('Settings updated!', 'success');
       } catch (err) {
-        console.error('fetchAllOnce error', err);
+        console.error('updateSettings', err);
+        showToast('Failed to update settings', 'error');
+      } finally {
+        btn.disabled = false; text.style.display='inline'; spinner.style.display='none';
       }
     }
 
-    // realtime subscription: queue / analytics/serviceEvents / counters / settings / announcement / queueSubscriptions
-    onValue(ref(db, 'queue'), async (snap) => {
-      const qObj = snap.exists() ? snap.val() : {};
-      // also fetch serviceEvents and others on change (so analytics reflect together)
+    document.getElementById('updateSettingsBtn').addEventListener('click', updateSettings);
+    document.getElementById('saveAllBtn').addEventListener('click', updateSettings);
+
+    // --------------------------
+    // Announcement: preview + send
+    // --------------------------
+    let selectedMediaFile = null;
+    const announcementMedia = document.getElementById('announcementMedia');
+    const announcementPreview = document.getElementById('announcementPreview');
+
+    announcementMedia.addEventListener('change', (e) => {
+      const f = e.target.files?.[0] || null;
+      selectedMediaFile = f;
+      announcementPreview.innerHTML = '';
+      if (!f) return;
+      if (f.size > 50 * 1024 * 1024) {
+        showToast('File too large! Max 50MB', 'error'); selectedMediaFile = null; announcementMedia.value=''; return;
+      }
+      const url = URL.createObjectURL(f);
+      if (f.type.startsWith('video/')) {
+        const v = document.createElement('video'); v.src = url; v.controls = true; v.style = 'width:100%;max-width:380px;border-radius:10px;margin-top:8px'; announcementPreview.appendChild(v);
+      } else if (f.type.startsWith('audio/')) {
+        const a = document.createElement('audio'); a.src = url; a.controls = true; a.style='width:100%;margin-top:8px'; announcementPreview.appendChild(a);
+      } else {
+        const img = document.createElement('img'); img.src = url; img.style='max-width:380px;width:100%;border-radius:10px;margin-top:8px'; announcementPreview.appendChild(img);
+      }
+    });
+
+    document.getElementById('sendAnnouncementBtn').addEventListener('click', async () => {
+      const message = document.getElementById('announcementMessage').value.trim();
+      if (!message && !selectedMediaFile) { showToast('Please enter a message or attach media', 'error'); return; }
+
+      const sendBtn = document.getElementById('sendAnnouncementBtn');
+      const sendBtnText = document.getElementById('sendBtnText');
+      const sendBtnSpinner = document.getElementById('sendBtnSpinner');
+      const announcementResult = document.getElementById('announcementResult');
+
+      sendBtn.disabled = true; sendBtnText.style.display='none'; sendBtnSpinner.style.display='inline';
       try {
-        const [seSnap, cSnap, sSnap, aSnap, qsSnap] = await Promise.all([
-          get(ref(db, 'analytics/serviceEvents')),
-          get(ref(db, 'counters')),
-          get(ref(db, 'settings')),
-          get(ref(db, 'announcement')),
-          get(ref(db, 'queueSubscriptions'))
-        ]);
-        computeAndRenderAll(qObj, seSnap.exists()?seSnap.val():{}, cSnap.exists()?cSnap.val():{}, sSnap.exists()?sSnap.val():{}, aSnap.exists()?aSnap.val():{}, qsSnap.exists()?qsSnap.val():{});
-      } catch (e) { console.warn('onValue combined read failed', e); }
+        // fetch chatIds + bot token from firebase (your Netlify function will use them)
+        const chatIdsSnap = await get(ref(db, 'announcement/chatIds'));
+        const botTokenSnap = await get(ref(db, 'announcement/botToken'));
+        if (!chatIdsSnap.exists() || !botTokenSnap.exists()) throw new Error('Missing chatIds or botToken in Firebase');
+
+        const chatIdsObj = chatIdsSnap.val();
+        const chatIds = Array.isArray(chatIdsObj) ? chatIdsObj : Object.keys(chatIdsObj || {});
+        const telegramBotToken = botTokenSnap.val();
+
+        let mediaBase64 = '';
+        let mediaType = '';
+        if (selectedMediaFile) {
+          mediaBase64 = await fileToBase64(selectedMediaFile);
+          mediaType = selectedMediaFile.type;
+        }
+
+        // send to serverless endpoint which does the Telegram sending
+        const payload = { message, media: mediaBase64, mediaType, chatIds, telegramBotToken };
+        const response = await fetch('/.netlify/functions/announce', {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw result;
+
+        // display result summary
+        announcementResult.style.display='block';
+        announcementResult.style.borderRadius='10px';
+        announcementResult.style.padding='10px';
+        if (result.success && result.success > 0) {
+          announcementResult.style.background = '#dcfce7'; announcementResult.style.color = '#064e3b';
+          announcementResult.innerHTML = `✅ Sent to ${result.success} recipient(s)`;
+          if (result.failed && result.failed > 0) announcementResult.innerHTML += `<br>⚠️ Failed: ${result.failed}`;
+          // clear inputs
+          document.getElementById('announcementMessage').value = '';
+          announcementMedia.value = ''; announcementPreview.innerHTML = ''; selectedMediaFile = null;
+          showToast('Announcement sent successfully!', 'success');
+        } else {
+          announcementResult.style.background = '#fee2e2'; announcementResult.style.color = '#7f1d1d';
+          announcementResult.innerHTML = '⚠️ Failed to send announcement';
+          showToast('Failed to send announcement', 'error');
+        }
+        setTimeout(()=>announcementResult.style.display='none', 4500);
+      } catch (err) {
+        console.error('Announcement error', err);
+        announcementResult.style.display='block';
+        announcementResult.style.background = '#fee2e2'; announcementResult.style.color = '#7f1d1d';
+        announcementResult.innerHTML = `⚠️ ${err.message || 'Unknown error'}`;
+        showToast(err.message || 'Announcement failed', 'error');
+        setTimeout(()=>announcementResult.style.display='none', 4500);
+      } finally {
+        sendBtn.disabled = false; sendBtnText.style.display='inline'; sendBtnSpinner.style.display='none';
+      }
     });
 
-    onValue(ref(db, 'analytics/serviceEvents'), (snap) => {
-      // serviceEvents changed -> refetch queue to combine view
-      get(ref(db, 'queue')).then(qSnap => {
-        computeAndRenderAll(qSnap.exists()?qSnap.val():{}, snap.exists()?snap.val():{}, {}, {}, {}, {});
-      }).catch(()=>{ computeAndRenderAll({}, snap.exists()?snap.val():{}, {}, {}, {}, {}); });
+    // --------------------------
+    // Charts: initialize & update (now using serviceEvents too)
+    // --------------------------
+    let queueTrendChart = null;
+    let counterPerfChart = null;
+
+    function initializeCharts() {
+      if (!document.getElementById('queueTrendChart')) return;
+      if (!queueTrendChart) {
+        const ctx = document.getElementById('queueTrendChart').getContext('2d');
+        queueTrendChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label:'Queues', data:[0,0,0,0,0,0,0], fill:true, tension:0.35, borderColor:'#667eea', backgroundColor:'rgba(102,126,234,0.08)' }] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
+        });
+      }
+      if (!counterPerfChart) {
+        const ctx = document.getElementById('counterPerfChart').getContext('2d');
+        counterPerfChart = new Chart(ctx, {
+          type: 'bar',
+          data: { labels:[], datasets:[{ label:'Served', data:[], backgroundColor: ['#667eea','#8b5cf6','#ec4899','#f59e0b'] }] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+        });
+      }
+    }
+
+    function updateCharts(queues, serviceEvents) {
+      if (!queueTrendChart || !counterPerfChart) return;
+      const summary = calculateSevenDaySummary(queues, serviceEvents);
+      const labels = summary.days.map(d => new Date(d.date).toLocaleDateString('en-US',{weekday:'short'}));
+      const data = summary.days.map(d => d.total);
+      queueTrendChart.data.labels = labels;
+      queueTrendChart.data.datasets[0].data = data;
+      queueTrendChart.update();
+
+      // counter performance: use serviceEvents if present (served per counter), else approximate via queues counterId counts
+      const counterStats = {};
+      if (serviceEvents && Array.isArray(serviceEvents) && serviceEvents.length > 0) {
+        serviceEvents.forEach(e => {
+          const key = e.counter || e.counterId || 'unknown';
+          if (key) counterStats[key] = (counterStats[key] || 0) + 1;
+        });
+      } else {
+        queues.forEach(q => {
+          if (q.counterId) counterStats[q.counterId] = (counterStats[q.counterId] || 0) + 1;
+        });
+      }
+
+      counterPerfChart.data.labels = Object.keys(counterStats);
+      counterPerfChart.data.datasets[0].data = Object.values(counterStats);
+      counterPerfChart.update();
+    }
+
+    // init charts eagerly (safe)
+    initializeCharts();
+
+    // --------------------------
+    // Small accessibility & keyboard UX
+    // --------------------------
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') howToUseModal.classList.remove('active');
     });
 
-    // counters/settings/announcement/queueSubscriptions listeners for UI previews
-    onValue(ref(db, 'counters'), (snap) => {
-      const obj = snap.exists()?snap.val():{};
-      const active = Object.values(obj).filter(c => c && c.active===true).length;
-      activeCountersEl.textContent = active;
-    });
-    onValue(ref(db, 'settings'), (snap) => {
-      if (!snap.exists()) return;
-      const s = snap.val();
-      mainTitleEl.textContent = s.mainTitle || '—';
-      introTextEl.textContent = s.introText || '—';
-    });
-    onValue(ref(db, 'announcement'), (snap) => {
-      const a = snap.exists()?snap.val():{};
-      announceCountEl.textContent = a?.chatIds ? Object.keys(a.chatIds).length : 0;
-      botTokenPresentEl.textContent = a?.botToken ? 'Yes' : 'No';
-    });
-
-    // ---------- UI actions ----------
-    refreshBtn.addEventListener('click', () => fetchAllOnceAndRender());
-    exportCsvBtn.addEventListener('click', () => {
-      const csv = exportCsvBtn.dataset.csv || '';
-      if (!csv) return alert('No CSV generated yet — refresh first.');
-      const blob = new Blob([csv], {type:'text/csv'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `queuejoy_export_${new Date().toISOString().slice(0,10)}.csv`;
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    });
-
-    // initial load
-    fetchAllOnceAndRender();
+    // Prevent accidental large Firebase writes — confirm before big uploads
+    // (You can later add finer-grained validation on the server-side)
   </script>
 </body>
 </html>
