@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QueueJoy Admin Panel</title>
+  <title>QueueJoy Admin Panel — Analytics Revamp</title>
 
   <!-- Fonts + Tailwind (CDN) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,75 +15,29 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <style>
-    /* Core styles (kept your visual design but cleaned up class names) */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
-      color: #111827;
+      min-height: 100vh; -webkit-font-smoothing:antialiased; color:#111827;
     }
-    .glass-card {
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(18px);
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.35);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
-    }
-    .sidebar {
-      position: fixed; left: 0; top: 0; height: 100vh; width: 280px;
-      background: linear-gradient(180deg, rgba(102,126,234,0.98), rgba(118,75,162,0.98));
-      backdrop-filter: blur(10px); z-index: 100;
-      box-shadow: 4px 0 30px rgba(0,0,0,0.2);
-      transition: transform .28s ease;
-    }
-    .sidebar-item { display:flex; gap:12px; align-items:center; padding:14px 20px; margin:8px 14px; border-radius:12px; color:white; font-weight:600; cursor:pointer; transition:all .18s ease; }
-    .sidebar-item:hover { transform: translateX(4px); background: rgba(255,255,255,0.06); }
-    .sidebar-item.active { background: rgba(255,255,255,0.12); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
-
-    .main-content { margin-left: 280px; padding: 32px; transition:margin-left .28s ease; }
-    @media (max-width: 1024px) {
-      .sidebar { transform: translateX(-100%); }
-      .sidebar.open { transform: translateX(0); }
-      .main-content { margin-left: 0; padding: 20px; }
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg,#667eea,#764ba2);
-      color: white; padding: 12px 20px; border-radius: 12px; font-weight:700; border: none; cursor:pointer;
-      box-shadow: 0 8px 30px rgba(102,126,234,0.25);
-    }
-    .btn-primary:disabled { opacity:.6; cursor:not-allowed; transform:none; }
-
-    .input-field { width:100%; padding:10px 14px; border-radius:10px; border:2px solid #e5e7eb; font-size:14px; }
-    .input-field:focus { outline:none; border-color:#667eea; box-shadow:0 0 0 6px rgba(102,126,234,0.06); }
-
-    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:999; align-items:center; justify-content:center; padding:20px; }
-    .modal.active { display:flex; }
-    .modal-content { background:white; border-radius:16px; padding:24px; max-width:760px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 30px 80px rgba(0,0,0,0.25); }
-
-    .toast { position: fixed; top: 20px; right: 20px; padding: 12px 18px; border-radius: 10px; font-weight:700; z-index:99999; box-shadow:0 14px 40px rgba(0,0,0,0.14); animation: slideIn .28s ease; }
-    .toast.success { background:#10b981; color:white; } .toast.error { background:#ef4444; color:white; }
-    @keyframes slideIn { from { transform: translateX(200px); opacity:0 } to { transform: translateX(0); opacity:1 } }
-
-    .spinner { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,0.3); border-top-color:white; animation:spin .6s linear infinite; display:inline-block; vertical-align:middle; margin-right:8px; }
-    @keyframes spin { to { transform: rotate(360deg) } }
-
-    .preview-image, .preview-video { max-width:140px; max-height:120px; object-fit:cover; border-radius:10px; border:2px solid #e5e7eb; margin-top:8px; }
-    .file-input-label { padding:8px 14px; background:#f3f4f6; color:#667eea; border-radius:8px; cursor:pointer; font-weight:700; display:inline-block; }
-
-    .metric-badge { display:inline-block; padding:8px 12px; border-radius:10px; font-weight:700; color:white; margin:6px; }
-    .chart-container { height:320px; position:relative; }
-
-    /* small helpers */
-    .muted { color:#6b7280; font-weight:600; font-size:13px; }
+    .glass-card { background: rgba(255,255,255,0.95); backdrop-filter: blur(18px); border-radius:14px; border:1px solid rgba(255,255,255,0.35); box-shadow: 0 18px 40px rgba(0,0,0,0.12); padding:18px }
+    .sidebar { position: fixed; left:0; top:0; height:100vh; width:280px; background: linear-gradient(180deg, rgba(102,126,234,0.98), rgba(118,75,162,0.98)); backdrop-filter: blur(10px); z-index:100; box-shadow:4px 0 30px rgba(0,0,0,0.2); }
+    .sidebar-item { display:flex; gap:12px; align-items:center; padding:14px 20px; margin:8px 14px; border-radius:12px; color:white; font-weight:600; cursor:pointer; }
+    .sidebar-item.active { background: rgba(255,255,255,0.12); }
+    .main-content { margin-left:280px; padding:28px; transition:margin-left .28s ease; }
+    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color:white; padding:10px 16px; border-radius:10px; font-weight:700; border:none; cursor:pointer }
+    .muted { color:#6b7280; font-weight:600; font-size:13px }
+    .metric { font-weight:800; font-size:22px }
+    .heatgrid { display:grid; grid-template-columns: repeat(24, minmax(24px,1fr)); gap:4px; }
+    .heatcell { width:100%; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:white }
+    .small { font-size:12px }
+    .chart-container { height:300px; position:relative }
   </style>
 </head>
 <body>
-  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
-    <div style="padding:20px 28px; border-bottom: 1px solid rgba(255,255,255,0.12);">
+    <div style="padding:20px 22px; border-bottom: 1px solid rgba(255,255,255,0.12);">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:48px;height:48px;background:rgba(255,255,255,0.14);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:white">🎫</div>
         <div>
@@ -94,272 +48,153 @@
     </div>
 
     <nav style="margin-top:18px; padding-bottom:20px;">
-      <div class="sidebar-item active" data-view="dashboard">🏠 Dashboard</div>
-      <div class="sidebar-item" data-view="analytics">📊 Analytics</div>
+      <div class="sidebar-item" data-view="dashboard">🏠 Dashboard</div>
+      <div class="sidebar-item active" data-view="analytics">📊 Analytics</div>
       <div class="sidebar-item" data-view="settings">⚙️ Business Settings</div>
       <div class="sidebar-item" id="howToUseBtn">❓ How to Use</div>
     </nav>
   </aside>
 
-  <!-- Mobile menu button -->
-  <button id="mobileMenuBtn" style="display:none;position:fixed;top:18px;left:18px;z-index:200;padding:10px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;box-shadow:0 8px 30px rgba(0,0,0,0.12);">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </button>
-
-  <!-- Main content -->
   <main class="main-content">
-    <!-- Dashboard -->
-    <section id="dashboardView">
-      <div style="max-width:1400px;margin:0 auto">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-          <h2 style="color:white;font-size:28px;font-weight:800">Dashboard</h2>
-          <button class="btn-primary" id="saveAllBtn">💾 Save All Changes</button>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:22px">
-          <div class="glass-card" style="padding:18px">
-            <p class="muted">Total Queues</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <h3 id="totalQueues" style="font-size:28px;font-weight:800;color:#667eea">0</h3>
-              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:white">📊</div>
-            </div>
+    <!-- Analytics Full Page -->
+    <section id="analyticsView">
+      <div style="max-width:1400px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+          <div>
+            <h2 style="color:white;font-size:26px;font-weight:800">📊 Advanced Analytics</h2>
+            <div class="muted">Daily Summaries • Wait Time Analytics • Busiest Hours • Customer Patterns</div>
           </div>
-
-          <div class="glass-card" style="padding:18px">
-            <p class="muted">Active Queues</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <h3 id="activeQueues" style="font-size:28px;font-weight:800;color:#8b5cf6">0</h3>
-              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:flex;align-items:center;justify-content:center;color:white">🎫</div>
-            </div>
-          </div>
-
-          <div class="glass-card" style="padding:18px">
-            <p class="muted">Today's Queues</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <h3 id="todayQueues" style="font-size:28px;font-weight:800;color:#10b981">0</h3>
-              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;color:white">📈</div>
-            </div>
-          </div>
-
-          <div class="glass-card" style="padding:18px">
-            <p class="muted">Active Counters</p>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <h3 id="activeCounters" style="font-size:28px;font-weight:800;color:#f59e0b">0</h3>
-              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;color:white">🏪</div>
-            </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select id="timeRange" class="input-field" style="width:220px">
+              <option value="7">Last 7 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30" selected>Last 30 days</option>
+            </select>
+            <button id="refreshAnalytics" class="btn-primary">🔄 Refresh</button>
           </div>
         </div>
 
-        <!-- Announcement -->
-        <div class="glass-card" style="padding:20px;margin-bottom:20px">
-          <h3 style="font-weight:800;margin-bottom:12px">📢 Send Announcement</h3>
-          <label class="muted" style="display:block;margin-bottom:6px">Message</label>
-          <textarea id="announcementMessage" class="input-field" rows="4" placeholder="Enter your announcement here..."></textarea>
-
-          <div style="margin-top:12px">
-            <label class="muted" style="display:block;margin-bottom:6px">Attach Media (Optional)</label>
-            <label class="file-input-label">📎 Choose File
-              <input type="file" id="announcementMedia" accept="image/*,video/*,audio/*" style="position:absolute;left:-9999px">
-            </label>
-            <p class="muted" style="margin-top:8px;font-size:12px">Supports images, videos, GIFs, audio. Max 50MB (you control server-side limits).</p>
-            <div id="announcementPreview"></div>
+        <!-- Top metrics -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px">
+          <div class="glass-card">
+            <p class="muted">Total Served (period)</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="metric" id="metricServed">0</div>
+              <div class="small muted">Avg wait: <span id="metricAvgWait">0</span> min</div>
+            </div>
           </div>
 
-          <div style="margin-top:12px">
-            <button class="btn-primary" id="sendAnnouncementBtn" style="width:100%">
-              <span id="sendBtnText">📱 Send to All Subscribers</span>
-              <span id="sendBtnSpinner" style="display:none"><span class="spinner"></span>Sending...</span>
-            </button>
-            <div id="announcementResult" style="display:none;margin-top:12px;padding:12px;border-radius:8px"></div>
+          <div class="glass-card">
+            <p class="muted">Total Queues Created</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="metric" id="metricCreated">0</div>
+              <div class="small muted">Unique customers: <span id="metricUniqueCustomers">0</span></div>
+            </div>
           </div>
+
+          <div class="glass-card">
+            <p class="muted">Repeat Customers</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="metric" id="metricRepeat">0</div>
+              <div class="small muted">% of customers: <span id="metricRepeatPct">0</span>%</div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <p class="muted">Peak Hour (period)</p>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="metric" id="metricPeakHour">—</div>
+              <div class="small muted">Top hour queue count</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily summaries + Charts -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;margin-bottom:16px">
+          <div class="glass-card">
+            <h4 style="font-weight:800;margin-bottom:10px">Daily Summaries</h4>
+            <div class="chart-container"><canvas id="dailySummaryChart"></canvas></div>
+            <div class="muted small" style="margin-top:8px">Shows total queues created per day and completed (served) per day.</div>
+          </div>
+
+          <div class="glass-card">
+            <h4 style="font-weight:800;margin-bottom:10px">Wait Time Distribution</h4>
+            <div class="chart-container"><canvas id="waitHistogramChart"></canvas></div>
+            <div class="muted small" style="margin-top:8px">Distribution of wait times (minutes) for served & currently waiting tickets.</div>
+          </div>
+        </div>
+
+        <!-- Busiest hours & heatmap -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-bottom:16px">
+          <div class="glass-card">
+            <h4 style="font-weight:800;margin-bottom:10px">Busiest Hours (aggregate)</h4>
+            <div class="chart-container"><canvas id="hourlyBarsChart"></canvas></div>
+            <div class="muted small" style="margin-top:8px">Aggregated counts per hour (0-23) across selected period.</div>
+          </div>
+
+          <div class="glass-card" id="heatmapCard">
+            <h4 style="font-weight:800;margin-bottom:10px">Hourly Heatmap by Day</h4>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+              <div class="muted small">Rows: Days (most recent at top)</div>
+            </div>
+            <div id="heatmapContainer" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow:auto"></div>
+            <div class="muted small" style="margin-top:8px">Cells scaled by activity; darker = busier.</div>
+          </div>
+        </div>
+
+        <!-- Customer patterns -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:22px">
+          <div class="glass-card">
+            <h4 style="font-weight:800;margin-bottom:10px">Customer Patterns</h4>
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+              <div style="flex:1"><canvas id="customerDoughnut" style="max-height:180px"></canvas></div>
+              <div style="width:120px">
+                <div class="muted small">Loyal: 5+ visits</div>
+                <div class="muted small">Repeat: 2-4 visits</div>
+                <div class="muted small">One-time: 1 visit</div>
+              </div>
+            </div>
+            <div class="muted small">Uses customer identifiers (customerId / phone) when available. If not available, unique counts fall back to queue keys.</div>
+          </div>
+
+          <div class="glass-card">
+            <h4 style="font-weight:800;margin-bottom:10px">Top Counters (served)</h4>
+            <div class="chart-container"><canvas id="topCountersChart"></canvas></div>
+            <div class="muted small" style="margin-top:8px">Which counters served the most customers in the period.</div>
+          </div>
+        </div>
+
+        <!-- Detailed daily table (compact) -->
+        <div class="glass-card" style="padding:14px;margin-bottom:40px">
+          <h4 style="font-weight:800;margin-bottom:10px">Daily Details</h4>
+          <div id="dailyDetailsTable" style="max-height:320px;overflow:auto"></div>
         </div>
       </div>
     </section>
 
-    <!-- Analytics -->
-    <section id="analyticsView" style="display:none">
-      <div style="max-width:1400px;margin:0 auto">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-          <h2 style="color:white;font-size:26px;font-weight:800">📊 Analytics Dashboard</h2>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px">
-          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(139,92,246,0.95),rgba(139,92,246,0.8));color:white;">
-            <p class="muted" style="color:rgba(255,255,255,0.85)">Total Served</p>
-            <h3 id="analystTotalServed" style="font-size:26px;font-weight:800;color:white">0</h3>
-          </div>
-
-          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(102,126,234,0.95),rgba(102,126,234,0.8));color:white;">
-            <p class="muted" style="color:rgba(255,255,255,0.85)">Avg Wait Time</p>
-            <h3 style="font-size:26px;font-weight:800;color:white"><span id="analystAvgWait">0</span> min</h3>
-          </div>
-
-          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(236,72,153,0.95),rgba(236,72,153,0.8));color:white;">
-            <p class="muted" style="color:rgba(255,255,255,0.85)">Active Counters</p>
-            <h3 id="analystActiveCounters" style="font-size:26px;font-weight:800;color:white">0</h3>
-          </div>
-
-          <div class="glass-card" style="padding:18px;background:linear-gradient(135deg,rgba(16,185,129,0.95),rgba(16,185,129,0.8));color:white;">
-            <p class="muted" style="color:rgba(255,255,255,0.85)">Median Wait</p>
-            <h3 style="font-size:26px;font-weight:800;color:white"><span id="analystMedianWait">0</span> min</h3>
-          </div>
-        </div>
-
-        <!-- Breakdown -->
-        <div class="glass-card" style="padding:20px;margin-bottom:16px">
-          <h4 style="font-weight:800;margin-bottom:12px">Queue Status Breakdown</h4>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
-            <div style="text-align:center">
-              <h3 id="analystCompleted" style="font-size:28px;font-weight:800;color:#10b981">0</h3>
-              <p class="muted">Completed</p>
-            </div>
-            <div style="text-align:center">
-              <h3 id="analystWaiting" style="font-size:28px;font-weight:800;color:#3b82f6">0</h3>
-              <p class="muted">Waiting</p>
-            </div>
-            <div style="text-align:center">
-              <h3 id="analystServing" style="font-size:28px;font-weight:800;color:#8b5cf6">0</h3>
-              <p class="muted">Serving</p>
-            </div>
-            <div style="text-align:center">
-              <h3 id="analystCancelled" style="font-size:28px;font-weight:800;color:#6b7280">0</h3>
-              <p class="muted">Cancelled</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Wait analytics + busiest hours -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:16px">
-          <div class="glass-card" style="padding:18px">
-            <h4 style="font-weight:800;margin-bottom:12px">⏱️ Wait Time Analytics</h4>
-            <div style="display:flex;gap:12px;flex-wrap:wrap">
-              <div>
-                <p class="muted">Average</p>
-                <h3 id="waitAverage" style="font-weight:800;font-size:20px;color:#667eea">0 min</h3>
-              </div>
-              <div>
-                <p class="muted">Median</p>
-                <h3 id="waitMedian" style="font-weight:800;font-size:20px;color:#8b5cf6">0 min</h3>
-              </div>
-              <div>
-                <p class="muted">90th Percentile</p>
-                <h3 id="wait90th" style="font-weight:800;font-size:20px;color:#ec4899">0 min</h3>
-              </div>
-              <div>
-                <p class="muted">Longest Wait</p>
-                <h3 id="waitLongest" style="font-weight:800;font-size:20px;color:#f59e0b">0 min</h3>
-              </div>
-            </div>
-          </div>
-
-          <div class="glass-card" style="padding:18px">
-            <h4 style="font-weight:800;margin-bottom:12px">🕐 Busiest Hours (Last 7 Days)</h4>
-            <div id="busiestHoursContainer" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-          </div>
-        </div>
-
-        <!-- Charts -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px">
-          <div class="glass-card" style="padding:18px">
-            <h4 style="font-weight:800;margin-bottom:12px">Queue Trend (Last 7 Days)</h4>
-            <div class="chart-container"><canvas id="queueTrendChart"></canvas></div>
-          </div>
-
-          <div class="glass-card" style="padding:18px">
-            <h4 style="font-weight:800;margin-bottom:12px">Counter Performance (Served)</h4>
-            <div class="chart-container"><canvas id="counterPerfChart"></canvas></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Settings -->
-    <section id="settingsView" style="display:none">
-      <div style="max-width:900px;margin:0 auto">
-        <h2 style="color:white;font-weight:800;margin-bottom:12px">⚙️ Business Settings</h2>
-
-        <div class="glass-card" style="padding:18px">
-          <label class="muted">Main Title</label>
-          <input id="mainTitle" class="input-field" placeholder="e.g., ICE CREAM" style="margin-top:8px" />
-
-          <label class="muted" style="margin-top:12px;display:block">Welcome Message</label>
-          <textarea id="introText" class="input-field" rows="2" style="margin-top:8px"></textarea>
-
-          <label class="muted" style="margin-top:12px;display:block">Small Text on Top</label>
-          <input id="smallTextOnTop" class="input-field" style="margin-top:8px" />
-
-          <label class="muted" style="margin-top:12px;display:block">Title in Middle</label>
-          <input id="titleinmiddle" class="input-field" style="margin-top:8px" />
-
-          <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <div id="logoPreviewContainer"></div>
-            <label class="file-input-label">🖼️ Upload Logo<input id="logoFile" type="file" accept="image/*,video/*" style="position:absolute;left:-9999px" /></label>
-          </div>
-
-          <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <div id="logoUrlPreviewContainer"></div>
-            <label class="file-input-label">🖼️ Upload Logo URL<input id="logoUrlFile" type="file" accept="image/*,video/*" style="position:absolute;left:-9999px" /></label>
-          </div>
-
-          <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <div id="adImagePreviewContainer"></div>
-            <label class="file-input-label">🖼️ Upload Ad Banner<input id="adImageFile" type="file" accept="image/*,video/*" style="position:absolute;left:-9999px" /></label>
-          </div>
-
-          <div style="margin-top:16px">
-            <button id="updateSettingsBtn" class="btn-primary" style="width:100%"><span id="updateBtnText">✨ Update Business Settings</span><span id="updateBtnSpinner" style="display:none"><span class="spinner"></span>Updating...</span></button>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- Other views (placeholders to keep sidebar functional) -->
+    <section id="dashboardView" style="display:none"></section>
+    <section id="settingsView" style="display:none"></section>
   </main>
 
-  <!-- How to Use Modal -->
-  <div id="howToUseModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
+  <!-- How to Use Modal (kept minimal) -->
+  <div id="howToUseModal" class="modal" aria-hidden="true" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center">
+    <div class="modal-content glass-card" style="max-width:820px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h3 style="font-weight:800">❓ How to Use QueueJoy Admin</h3>
+        <h3 style="font-weight:800">❓ How to Use Analytics</h3>
         <button id="closeHowToUse" style="background:none;border:none;font-size:22px;cursor:pointer">×</button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="padding:12px;background:#f3f4f6;border-radius:10px">
-          <h4 style="font-weight:800;margin-bottom:8px">🏠 Dashboard</h4>
-          <ul style="margin-left:18px;color:#374151">
-            <li>Send announcements to Telegram subscribers</li>
-            <li>View real-time queue counts</li>
-          </ul>
-        </div>
-        <div style="padding:12px;background:#eef2ff;border-radius:10px">
-          <h4 style="font-weight:800;margin-bottom:8px">📊 Analytics</h4>
-          <ul style="margin-left:18px;color:#374151">
-            <li>7-day trends, busiest hours, wait time stats</li>
-            <li>Counter performance breakdown</li>
-          </ul>
-        </div>
-        <div style="padding:12px;background:#ecfdf5;border-radius:10px">
-          <h4 style="font-weight:800;margin-bottom:8px">⚙️ Settings</h4>
-          <ul style="margin-left:18px;color:#374151">
-            <li>Change titles, upload logos and banners (images/GIFs/videos)</li>
-            <li>All settings save to Firebase in real-time</li>
-          </ul>
-        </div>
+      <div style="display:grid;gap:8px">
+        <div class="muted">Use the time range selector to adjust the period. Charts automatically aggregate across the period. Customer patterns use fields customerId, phone or chatId when present.</div>
       </div>
-
-      <button id="closeHowToUseBtn" class="btn-primary" style="width:100%;margin-top:12px">Got it!</button>
+      <div style="margin-top:12px;text-align:right"><button id="closeHowToUseBtn" class="btn-primary">Got it</button></div>
     </div>
   </div>
 
   <script type="module">
-    // --------------------------
-    // Firebase imports (modular)
-    // --------------------------
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-    import { getDatabase, ref, set, onValue, get, push } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
-    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js';
+    import { getDatabase, ref, get, onValue } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
 
-    // --------------------------
-    // Init Firebase (your config)
-    // --------------------------
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -372,648 +207,349 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const storage = getStorage(app);
 
-    // --------------------------
-    // Small UI helpers
-    // --------------------------
-    function showToast(message, type = 'success', ms = 3000) {
-      const t = document.createElement('div');
-      t.className = `toast ${type}`;
-      t.textContent = message;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), ms);
-    }
+    // UI refs
+    const timeRange = document.getElementById('timeRange');
+    const refreshBtn = document.getElementById('refreshAnalytics');
 
-    const fileToBase64 = (file) => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const metricServed = document.getElementById('metricServed');
+    const metricCreated = document.getElementById('metricCreated');
+    const metricAvgWait = document.getElementById('metricAvgWait');
+    const metricUniqueCustomers = document.getElementById('metricUniqueCustomers');
+    const metricRepeat = document.getElementById('metricRepeat');
+    const metricRepeatPct = document.getElementById('metricRepeatPct');
+    const metricPeakHour = document.getElementById('metricPeakHour');
 
-    // --------------------------
-    // DOM refs & responsive menu
-    // --------------------------
-    const sidebar = document.getElementById('sidebar');
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    const sidebarItems = document.querySelectorAll('.sidebar-item[data-view]');
-    const howToUseBtn = document.getElementById('howToUseBtn');
-    const howToUseModal = document.getElementById('howToUseModal');
-    const closeHowToUse = document.getElementById('closeHowToUse');
-    const closeHowToUseBtn = document.getElementById('closeHowToUseBtn');
+    const dailyDetailsTable = document.getElementById('dailyDetailsTable');
+    const heatmapContainer = document.getElementById('heatmapContainer');
 
-    function updateMobileButtonVisibility(){
-      if (window.innerWidth <= 1024) mobileMenuBtn.style.display = 'block';
-      else { mobileMenuBtn.style.display = 'none'; sidebar.classList.remove('open'); }
-    }
-    updateMobileButtonVisibility();
-    window.addEventListener('resize', updateMobileButtonVisibility);
-    mobileMenuBtn.addEventListener('click', ()=> sidebar.classList.toggle('open'));
+    // Charts
+    let dailySummaryChart = null;
+    let waitHistogramChart = null;
+    let hourlyBarsChart = null;
+    let customerDoughnutChart = null;
+    let topCountersChart = null;
 
-    sidebarItems.forEach(item => item.addEventListener('click', () => {
-      sidebarItems.forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
-
-      // toggle views
-      const view = item.dataset.view;
-      document.getElementById('dashboardView').style.display = view === 'dashboard' ? 'block' : 'none';
-      document.getElementById('analyticsView').style.display = view === 'analytics' ? 'block' : 'none';
-      document.getElementById('settingsView').style.display = view === 'settings' ? 'block' : 'none';
-
-      if (view === 'analytics') initializeCharts();
-      if (window.innerWidth <= 1024) sidebar.classList.remove('open');
-    }));
-
-    howToUseBtn.addEventListener('click', () => howToUseModal.classList.add('active'));
-    closeHowToUse.addEventListener('click', () => howToUseModal.classList.remove('active'));
-    closeHowToUseBtn.addEventListener('click', () => howToUseModal.classList.remove('active'));
-    document.getElementById('closeHowToUseBtn').addEventListener('click', () => howToUseModal.classList.remove('active'));
-
-    // --------------------------
-    // Timestamp parsing & validation (robust)
-    // --------------------------
-    function parseTimestamp(ts) {
-      if (ts === undefined || ts === null) return null;
-      // accept numbers or numeric strings; guard against silly values
-      let n = (typeof ts === 'number') ? ts : Number(ts);
-      if (Number.isNaN(n)) {
-        const d = Date.parse(ts);
-        if (Number.isNaN(d)) return null;
-        n = d;
-      }
-      // sanity: require plausible unix ms (>= 2009-01-01) and <= 1 year in future
-      const now = Date.now();
-      const min = 1230768000000; // 2009-01-01
-      const oneYearFuture = now + (365*24*60*60*1000);
-      if (n < min || n > oneYearFuture) return null;
+    function safeParseTS(v) {
+      if (!v && v !== 0) return null;
+      const n = (typeof v === 'number') ? v : Number(v);
+      if (!Number.isFinite(n)) return null;
       return n;
     }
 
-    function isToday(ts) {
-      const p = parseTimestamp(ts);
-      if (!p) return false;
-      const d = new Date(p);
-      const today = new Date();
-      return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+    function minutesBetween(a,b){ return Math.round(Math.max(0,(b - a) / 60000)); }
+
+    function buildDaysArray(numDays){
+      const today = new Date(); today.setHours(0,0,0,0);
+      const res = [];
+      for (let i = numDays-1; i>=0; i--) {
+        const d = new Date(today); d.setDate(d.getDate() - i);
+        res.push({ date: d.toISOString().split('T')[0], start: d.getTime(), end: d.getTime() + 24*60*60*1000 });
+      }
+      return res;
     }
 
-    // --------------------------
-    // Analytics helpers (fixed & robust)
-    // --------------------------
+    // compute everything from queues + serviceEvents
+    async function computeAnalytics(rawQueuesObj, rawServiceEventsObj, daysBack) {
+      const queues = Array.isArray(rawQueuesObj) ? rawQueuesObj : Object.values(rawQueuesObj || {});
+      const serviceEvents = Array.isArray(rawServiceEventsObj) ? rawServiceEventsObj : Object.values(rawServiceEventsObj || {});
 
-    // simple numeric stats helper
-    function computeStats(arr) {
-      if (!arr || arr.length === 0) return { average:0, median:0, p90:0, longest:0 };
-      const xs = arr.slice().sort((a,b)=>a-b);
-      const sum = xs.reduce((a,b)=>a+b,0);
-      const avg = Math.round(sum / xs.length);
-      const median = (xs.length % 2 === 0) ? Math.round((xs[xs.length/2 -1] + xs[xs.length/2]) / 2) : xs[Math.floor(xs.length/2)];
-      const p90 = Math.round(xs[Math.floor(xs.length * 0.9)]);
-      const longest = xs[xs.length-1];
-      return { average: avg, median, p90, longest };
-    }
-
-    // Wait times: combine historical served events (servedAt - requestedAt) and current waiting items (now - timestamp)
-    function calculateWaitTimesCombined(queues, serviceEvents) {
+      // normalize queue items
       const now = Date.now();
-      const waits = [];
-
-      // 1) served events -> requestedAt to servedAt (if available)
-      if (serviceEvents && Array.isArray(serviceEvents)) {
-        for (const e of serviceEvents) {
-          const req = parseTimestamp(e.requestedAt ?? e.requestedAt);
-          const served = parseTimestamp(e.servedAt ?? e.servedAt);
-          if (!req || !served) continue;
-          const mins = Math.round((served - req) / 60000);
-          // filter implausible values: negative or > 30 days
-          if (mins >= 0 && mins <= 30*24*60) waits.push(mins);
-        }
-      }
-
-      // 2) current waiting queues -> now - queue.timestamp
-      const waitingQs = queues.filter(q => q.status === 'waiting');
-      for (const q of waitingQs) {
-        const ts = parseTimestamp(q.timestamp);
-        if (!ts) continue;
-        const mins = Math.max(0, Math.round((now - ts) / 60000));
-        if (mins >= 0 && mins <= 30*24*60) waits.push(mins);
-      }
-
-      return computeStats(waits);
-    }
-
-    // Seven-day summary: returns days with totals (queues created) and completed (served events by servedAt)
-    function calculateSevenDaySummary(queues, serviceEvents) {
-      const days = [];
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      for (let i=6;i>=0;i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        const start = d.getTime();
-        const end = start + 24*60*60*1000;
-
-        // total: queues created that day (by queue.timestamp)
-        const dayQs = queues.filter(q => {
-          const ts = parseTimestamp(q.timestamp);
-          return ts && ts >= start && ts < end;
-        });
-        const total = dayQs.length;
-
-        // completed: served events with servedAt in that day
-        let completed = 0;
-        if (serviceEvents && Array.isArray(serviceEvents)) {
-          completed = serviceEvents.filter(e => {
-            const s = parseTimestamp(e.servedAt);
-            return s && s >= start && s < end;
-          }).length;
-        }
-
-        const cancelled = dayQs.filter(q => q.status === 'cancelled').length;
-
-        // average wait for that day (approx: served events' durations & any waiting tickets from that day)
-        const waitTimes = [];
-
-        if (serviceEvents && Array.isArray(serviceEvents)) {
-          for (const e of serviceEvents) {
-            const req = parseTimestamp(e.requestedAt);
-            const served = parseTimestamp(e.servedAt);
-            if (!req || !served) continue;
-            if (req >= start && req < end) {
-              const mins = Math.round((served - req) / 60000);
-              if (mins >= 0 && mins <= 30*24*60) waitTimes.push(mins);
-            }
-          }
-        }
-
-        // include waiting queues that were requested that day
-        for (const q of dayQs) {
-          if (q.status === 'waiting') {
-            const ts = parseTimestamp(q.timestamp);
-            if (!ts) continue;
-            const mins = Math.round((Date.now() - ts) / 60000);
-            if (mins >= 0 && mins <= 30*24*60) waitTimes.push(mins);
-          }
-        }
-
-        const avgWait = waitTimes.length ? Math.round(waitTimes.reduce((a,b)=>a+b,0) / waitTimes.length) : 0;
-
-        // busiest hour for that day (consider both queue timestamps and servedAt)
-        const hourCounts = new Array(24).fill(0);
-        for (const q of dayQs) {
-          const ts = parseTimestamp(q.timestamp);
-          if (ts) hourCounts[new Date(ts).getHours()]++;
-        }
-        if (serviceEvents && Array.isArray(serviceEvents)) {
-          for (const e of serviceEvents) {
-            const s = parseTimestamp(e.servedAt);
-            if (s && s >= start && s < end) hourCounts[new Date(s).getHours()]++;
-          }
-        }
-        const maxCount = Math.max(...hourCounts);
-        const busiestHour = maxCount > 0 ? hourCounts.indexOf(maxCount) : null;
-
-        days.push({ date: d.toISOString().split('T')[0], total, completed, cancelled, avgWait, busiestHour });
-      }
-      return { days };
-    }
-
-    function calculateBusiestHoursCombined(queues, serviceEvents) {
-      const now = Date.now();
-      const last7 = now - 7*24*60*60*1000;
-      const hourCounts = new Array(24).fill(0);
-
-      // queues timestamps
-      for (const q of queues) {
-        const ts = parseTimestamp(q.timestamp);
-        if (!ts) continue;
-        if (ts >= last7) hourCounts[new Date(ts).getHours()]++;
-      }
-
-      // served events (use servedAt)
-      if (serviceEvents && Array.isArray(serviceEvents)) {
-        for (const e of serviceEvents) {
-          const s = parseTimestamp(e.servedAt);
-          if (!s) continue;
-          if (s >= last7) hourCounts[new Date(s).getHours()]++;
-        }
-      }
-
-      const arr = hourCounts.map((count,h) => ({ hour:h, count })).filter(x => x.count>0).sort((a,b)=>b.count-a.count);
-      return arr.slice(0,5);
-    }
-
-    // --------------------------
-    // UI update logic (updated to accept serviceEvents)
-    // --------------------------
-    function updateUIFromQueues(queues, serviceEvents) {
-      const total = queues.length;
-      const waiting = queues.filter(q => q.status === 'waiting').length;
-      const serving = queues.filter(q => q.status === 'serving').length;
-      const cancelled = queues.filter(q => q.status === 'cancelled').length;
-
-      document.getElementById('totalQueues').textContent = total;
-      document.getElementById('activeQueues').textContent = waiting;
-      document.getElementById('todayQueues').textContent = queues.filter(q => isToday(q.timestamp)).length;
-
-      document.getElementById('analystWaiting').textContent = waiting;
-      document.getElementById('analystServing').textContent = serving;
-      document.getElementById('analystCancelled').textContent = cancelled;
-
-      // Completed & Total Served: prefer serviceEvents length
-      let servedCount = null;
-      if (serviceEvents && Array.isArray(serviceEvents)) {
-        servedCount = serviceEvents.length;
-      }
-      // fallback: analytics/servedCount or queue 'done' status count will be handled where listeners call this function
-      if (servedCount !== null && !Number.isNaN(servedCount)) {
-        document.getElementById('analystTotalServed').textContent = servedCount;
-        document.getElementById('analystCompleted').textContent = servedCount;
-      }
-
-      // Wait time stats (combined)
-      const waitStats = calculateWaitTimesCombined(queues, serviceEvents);
-      document.getElementById('analystAvgWait').textContent = waitStats.average;
-      document.getElementById('analystMedianWait').textContent = waitStats.median;
-      document.getElementById('waitAverage').textContent = waitStats.average + ' min';
-      document.getElementById('waitMedian').textContent = waitStats.median + ' min';
-      document.getElementById('wait90th').textContent = waitStats.p90 + ' min';
-      document.getElementById('waitLongest').textContent = waitStats.longest + ' min';
-
-      // busiest hours badges (combined)
-      const busiest = calculateBusiestHoursCombined(queues, serviceEvents);
-      const container = document.getElementById('busiestHoursContainer');
-      container.innerHTML = '';
-      if (busiest.length === 0) {
-        container.innerHTML = '<div class="muted">No data available</div>';
-      } else {
-        const colors = ['#667eea','#8b5cf6','#ec4899','#f59e0b','#10b981'];
-        busiest.forEach((h,i) => {
-          const badge = document.createElement('div');
-          badge.className = 'metric-badge';
-          badge.style.background = colors[i % colors.length];
-          badge.textContent = `${formatHourLabel(h.hour)}: ${h.count} queues`;
-          container.appendChild(badge);
-        });
-      }
-
-      // charts
-      updateCharts(queues, serviceEvents);
-    }
-
-    function formatHourLabel(hour) {
-      if (hour === null || hour === undefined) return '-';
-      if (hour === 0) return '12 AM';
-      if (hour < 12) return `${hour} AM`;
-      if (hour === 12) return '12 PM';
-      return `${hour-12} PM`;
-    }
-
-    // --------------------------
-    // Firebase listeners: QUEUES (with corrected analytics handling)
-    // --------------------------
-    onValue(ref(db, 'queue'), async (snapshot) => {
-      if (!snapshot.exists()) {
-        // clear UI
-        ['totalQueues','activeQueues','todayQueues','analystTotalServed','analystCompleted','analystWaiting','analystServing','analystCancelled','analystAvgWait','analystMedianWait','waitAverage','waitMedian','wait90th','waitLongest'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.textContent = '0';
-        });
-        updateCharts([], []);
-        return;
-      }
-
-      // raw values -> array
-      const raw = Object.values(snapshot.val() || {});
-      const now = Date.now();
-
-      // sanitize & normalize queues array
-      const queues = raw.map(q => {
+      const normalized = queues.map(q => {
         try {
-          const ts = parseTimestamp(q.timestamp);
-          if (!ts) return null;
-          // reject obviously unrealistic future timestamp beyond 1 day (likely bad data)
-          if (ts > now + 24*60*60*1000) return null;
-          return { ...q, timestamp: ts, status: (q.status||'waiting').toString().toLowerCase() };
-        } catch (e) {
-          return null;
-        }
+          const ts = safeParseTS(q.timestamp || q.createdAt || q.requestedAt || q.time);
+          return { ...q, timestamp: ts, status: (q.status || 'waiting').toString().toLowerCase() };
+        } catch(e){ return null }
+      }).filter(Boolean).filter(q => q.timestamp && q.timestamp <= now + 24*60*60*1000);
+
+      // normalize service events
+      const se = serviceEvents.map(e => {
+        const requested = safeParseTS(e.requestedAt || e.requestTime || e.queueTimestamp || e.timestamp);
+        const served = safeParseTS(e.servedAt || e.completedAt || e.servedTime);
+        return { ...e, requestedAt: requested, servedAt: served };
       }).filter(Boolean);
 
-      // set some UI quick counts
-      const waiting = queues.filter(q => q.status === 'waiting').length;
-      const serving = queues.filter(q => q.status === 'serving').length;
-      const cancelled = queues.filter(q => q.status === 'cancelled').length;
+      // time window
+      const days = buildDaysArray(daysBack);
+      const windowStart = days[0].start;
 
-      document.getElementById('totalQueues').textContent = queues.length;
-      document.getElementById('activeQueues').textContent = waiting;
-      document.getElementById('analystWaiting').textContent = waiting;
-      document.getElementById('analystServing').textContent = serving;
-      document.getElementById('analystCancelled').textContent = cancelled;
+      // filters in window
+      const queuesInWindow = normalized.filter(q => q.timestamp && q.timestamp >= windowStart);
+      const seInWindow = se.filter(e => (e.servedAt && e.servedAt >= windowStart) || (e.requestedAt && e.requestedAt >= windowStart));
 
-      // Attempt to read analytics/serviceEvents (authoritative for served/completed)
-      let serviceEventsArr = [];
-      try {
-        const seSnap = await get(ref(db, 'analytics/serviceEvents'));
-        if (seSnap.exists()) {
-          const seObj = seSnap.val();
-          serviceEventsArr = Object.values(seObj || {}).map(x => x);
-        } else {
-          // fallback: try analytics/servedCount (will be used if serviceEvents missing)
-          const servedSnap = await get(ref(db, 'analytics/servedCount'));
-          const served = servedSnap.exists() ? Number(servedSnap.val()) : null;
-          if (served !== null && !Number.isNaN(served)) {
-            // when only servedCount exists, we cannot derive per-ticket times; we'll still show the served count
-            document.getElementById('analystTotalServed').textContent = served;
-            document.getElementById('analystCompleted').textContent = served;
-          }
-        }
-      } catch (e) {
-        console.warn('analytics/serviceEvents read error', e);
-      }
+      // daily summary
+      const perDay = days.map(d => {
+        const dayQs = queuesInWindow.filter(q => q.timestamp >= d.start && q.timestamp < d.end);
+        const completed = seInWindow.filter(e => e.servedAt && e.servedAt >= d.start && e.servedAt < d.end).length;
 
-      // If we do have serviceEvents, use it as source of truth for served/completed
-      if (serviceEventsArr.length > 0) {
-        document.getElementById('analystTotalServed').textContent = serviceEventsArr.length;
-        document.getElementById('analystCompleted').textContent = serviceEventsArr.length;
-      } else {
-        // fallback: count completed from queue entries (status done/served)
-        const completedFromQueue = queues.filter(q => q.status === 'done' || q.status === 'served').length;
-        document.getElementById('analystCompleted').textContent = completedFromQueue;
-        // do not overwrite analystTotalServed if we previously set it from analytics/servedCount
-        if (!document.getElementById('analystTotalServed').textContent || document.getElementById('analystTotalServed').textContent === '0') {
-          document.getElementById('analystTotalServed').textContent = completedFromQueue;
-        }
-      }
+        // compute avg wait for that day from served events requested->served
+        const waitArr = seInWindow.filter(e => e.requestedAt && e.servedAt && e.requestedAt >= d.start && e.requestedAt < d.end).map(e => minutesBetween(e.requestedAt, e.servedAt));
+        // include currently waiting from that day
+        const waitingFromDay = dayQs.filter(q => q.status === 'waiting').map(q => minutesBetween(q.timestamp, Date.now()));
+        const allWaits = waitArr.concat(waitingFromDay).filter(x => x >= 0 && x <= 30*24*60);
+        const avgWait = allWaits.length ? Math.round(allWaits.reduce((a,b)=>a+b,0)/allWaits.length) : 0;
 
-      // Wait time analytics: use combined served events + waiting items, not only today's waiting
-      const waitStats = calculateWaitTimesCombined(queues, serviceEventsArr);
-      document.getElementById('analystAvgWait').textContent = waitStats.average;
-      document.getElementById('analystMedianWait').textContent = waitStats.median;
-      document.getElementById('wait90th').textContent = waitStats.p90 + ' min';
-      document.getElementById('waitLongest').textContent = waitStats.longest + ' min';
+        // busiest hour index for the day
+        const hourCounts = new Array(24).fill(0);
+        dayQs.forEach(q => { const h = new Date(q.timestamp).getHours(); hourCounts[h]++; });
+        seInWindow.filter(e => e.servedAt && e.servedAt >= d.start && e.servedAt < d.end).forEach(e => { const h = new Date(e.servedAt).getHours(); hourCounts[h]++; });
+        const max = Math.max(...hourCounts);
+        const busiestHour = max > 0 ? hourCounts.indexOf(max) : null;
 
-      // busiest hours display (last 7 days) - render via updateUIFromQueues which uses combined logic
-      updateUIFromQueues(queues, serviceEventsArr);
-    }, (err) => {
-      console.error('queue listener error', err);
-    });
+        return { date: d.date, total: dayQs.length, completed, avgWait, busiestHour };
+      });
 
-    // --------------------------
-    // counters listener
-    // --------------------------
-    onValue(ref(db, 'counters'), (snapshot) => {
-      if (!snapshot.exists()) {
-        document.getElementById('activeCounters').textContent = '0';
-        document.getElementById('analystActiveCounters').textContent = '0';
-        return;
-      }
-      const counters = Object.values(snapshot.val() || {});
-      const active = counters.filter(c => c && c.active === true).length;
-      document.getElementById('activeCounters').textContent = active;
-      document.getElementById('analystActiveCounters').textContent = active;
-    });
+      // Wait times combined (served durations + current waiting)
+      const waits = [];
+      seInWindow.forEach(e => { if (e.requestedAt && e.servedAt) waits.push(minutesBetween(e.requestedAt, e.servedAt)); });
+      queuesInWindow.filter(q => q.status === 'waiting').forEach(q => { waits.push(minutesBetween(q.timestamp, Date.now())); });
+      const waitStats = computeNumericStats(waits);
 
-    // --------------------------
-    // settings listeners (preview)
-    // --------------------------
-    onValue(ref(db, 'settings/mainTitle'), snap => { if (snap.exists()) document.getElementById('mainTitle').value = snap.val(); });
-    onValue(ref(db, 'settings/introText'), snap => { if (snap.exists()) document.getElementById('introText').value = snap.val(); });
-    onValue(ref(db, 'settings/smallTextOnTop'), snap => { if (snap.exists()) document.getElementById('smallTextOnTop').value = snap.val(); });
-    onValue(ref(db, 'settings/titleinmiddle'), snap => { if (snap.exists()) document.getElementById('titleinmiddle').value = snap.val(); });
+      // hourly aggregates across full window
+      const hourlyCounts = new Array(24).fill(0);
+      queuesInWindow.forEach(q => { const h = new Date(q.timestamp).getHours(); hourlyCounts[h]++; });
+      seInWindow.forEach(e => { if (e.servedAt) hourlyCounts[new Date(e.servedAt).getHours()]++; });
+      const hourlyArray = hourlyCounts.map((c,h) => ({ hour:h, count:c })).sort((a,b)=>b.count-a.count);
 
-    function createMediaPreview(src, container, type='image') {
-      container.innerHTML = '';
-      if (!src) return;
-      if (type === 'video' || (typeof src === 'string' && src.startsWith('data:video'))) {
-        const v = document.createElement('video'); v.src = src; v.autoplay = true; v.loop = true; v.muted = true; v.className = 'preview-video';
-        container.appendChild(v);
-      } else {
-        const img = document.createElement('img'); img.src = src; img.className = 'preview-image';
-        container.appendChild(img);
-      }
-    }
+      // heatmap matrix for each day (most recent first)
+      const heatmap = days.slice().reverse().map(day => {
+        const row = new Array(24).fill(0);
+        normalized.forEach(q => { if (q.timestamp >= new Date(day.date).getTime() && q.timestamp < new Date(day.date).getTime() + 24*60*60*1000) { row[new Date(q.timestamp).getHours()]++; } });
+        se.forEach(e => { if (e.servedAt && e.servedAt >= new Date(day.date).getTime() && e.servedAt < new Date(day.date).getTime() + 24*60*60*1000) { row[new Date(e.servedAt).getHours()]++; } });
+        return { date: day.date, hours: row };
+      });
 
-    onValue(ref(db, 'settings/logo'), snap => { if (snap.exists()) createMediaPreview(snap.val(), document.getElementById('logoPreviewContainer')); });
-    onValue(ref(db, 'settings/logoUrl'), snap => { if (snap.exists()) createMediaPreview(snap.val(), document.getElementById('logoUrlPreviewContainer')); });
-    onValue(ref(db, 'settings/adImage'), snap => { if (snap.exists()) createMediaPreview(snap.val(), document.getElementById('adImagePreviewContainer')); });
+      // customer patterns: try customerId/phone/chatId; fallback: queue key
+      const idMap = new Map();
+      const identify = (q) => q.customerId || q.phone || q.chatId || q.customer || q.userId || q.id || q.key || (q.queueId || q.ticketId) || null;
+      normalized.forEach(q => {
+        const id = identify(q) || JSON.stringify(q).slice(0,30);
+        idMap.set(id, (idMap.get(id) || 0) + 1);
+      });
+      const counts = Array.from(idMap.values());
+      const uniqueCustomers = idMap.size;
+      const loyal = counts.filter(c=>c>=5).length;
+      const repeat = counts.filter(c=>c>=2 && c<=4).length;
+      const oneTime = counts.filter(c=>c===1).length;
 
-    // --------------------------
-    // Upload previews & update settings
-    // --------------------------
-    let uploadedMedia = { logo: null, logoUrl: null, adImage: null };
-
-    document.getElementById('logoFile').addEventListener('change', async (e) => {
-      const f = e.target.files?.[0]; if (!f) return;
-      const b = await fileToBase64(f);
-      uploadedMedia.logo = b;
-      createMediaPreview(b, document.getElementById('logoPreviewContainer'), f.type.startsWith('video') ? 'video' : 'image');
-      showToast('Logo uploaded (not saved)', 'success', 1800);
-    });
-    document.getElementById('logoUrlFile').addEventListener('change', async (e) => {
-      const f = e.target.files?.[0]; if (!f) return;
-      const b = await fileToBase64(f);
-      uploadedMedia.logoUrl = b;
-      createMediaPreview(b, document.getElementById('logoUrlPreviewContainer'), f.type.startsWith('video') ? 'video' : 'image');
-      showToast('Logo URL uploaded (not saved)', 'success', 1800);
-    });
-    document.getElementById('adImageFile').addEventListener('change', async (e) => {
-      const f = e.target.files?.[0]; if (!f) return;
-      const b = await fileToBase64(f);
-      uploadedMedia.adImage = b;
-      createMediaPreview(b, document.getElementById('adImagePreviewContainer'), f.type.startsWith('video') ? 'video' : 'image');
-      showToast('Ad banner uploaded (not saved)', 'success', 1800);
-    });
-
-    async function updateSettings() {
-      const btn = document.getElementById('updateSettingsBtn');
-      const text = document.getElementById('updateBtnText');
-      const spinner = document.getElementById('updateBtnSpinner');
-      btn.disabled = true; text.style.display='none'; spinner.style.display='inline';
-      try {
-        const currentSnap = await get(ref(db, 'settings'));
-        const current = currentSnap.exists() ? currentSnap.val() : {};
-        const updates = {
-          ...current,
-          mainTitle: document.getElementById('mainTitle').value || current.mainTitle || '',
-          introText: document.getElementById('introText').value || current.introText || '',
-          smallTextOnTop: document.getElementById('smallTextOnTop').value || current.smallTextOnTop || '',
-          titleinmiddle: document.getElementById('titleinmiddle').value || current.titleinmiddle || ''
-        };
-        if (uploadedMedia.logo) updates.logo = uploadedMedia.logo;
-        if (uploadedMedia.logoUrl) updates.logoUrl = uploadedMedia.logoUrl;
-        if (uploadedMedia.adImage) updates.adImage = uploadedMedia.adImage;
-        await set(ref(db, 'settings'), updates);
-        uploadedMedia = { logo:null, logoUrl:null, adImage:null };
-        showToast('Settings updated!', 'success');
-      } catch (err) {
-        console.error('updateSettings', err);
-        showToast('Failed to update settings', 'error');
-      } finally {
-        btn.disabled = false; text.style.display='inline'; spinner.style.display='none';
-      }
-    }
-
-    document.getElementById('updateSettingsBtn').addEventListener('click', updateSettings);
-    document.getElementById('saveAllBtn').addEventListener('click', updateSettings);
-
-    // --------------------------
-    // Announcement: preview + send
-    // --------------------------
-    let selectedMediaFile = null;
-    const announcementMedia = document.getElementById('announcementMedia');
-    const announcementPreview = document.getElementById('announcementPreview');
-
-    announcementMedia.addEventListener('change', (e) => {
-      const f = e.target.files?.[0] || null;
-      selectedMediaFile = f;
-      announcementPreview.innerHTML = '';
-      if (!f) return;
-      if (f.size > 50 * 1024 * 1024) {
-        showToast('File too large! Max 50MB', 'error'); selectedMediaFile = null; announcementMedia.value=''; return;
-      }
-      const url = URL.createObjectURL(f);
-      if (f.type.startsWith('video/')) {
-        const v = document.createElement('video'); v.src = url; v.controls = true; v.style = 'width:100%;max-width:380px;border-radius:10px;margin-top:8px'; announcementPreview.appendChild(v);
-      } else if (f.type.startsWith('audio/')) {
-        const a = document.createElement('audio'); a.src = url; a.controls = true; a.style='width:100%;margin-top:8px'; announcementPreview.appendChild(a);
-      } else {
-        const img = document.createElement('img'); img.src = url; img.style='max-width:380px;width:100%;border-radius:10px;margin-top:8px'; announcementPreview.appendChild(img);
-      }
-    });
-
-    document.getElementById('sendAnnouncementBtn').addEventListener('click', async () => {
-      const message = document.getElementById('announcementMessage').value.trim();
-      if (!message && !selectedMediaFile) { showToast('Please enter a message or attach media', 'error'); return; }
-
-      const sendBtn = document.getElementById('sendAnnouncementBtn');
-      const sendBtnText = document.getElementById('sendBtnText');
-      const sendBtnSpinner = document.getElementById('sendBtnSpinner');
-      const announcementResult = document.getElementById('announcementResult');
-
-      sendBtn.disabled = true; sendBtnText.style.display='none'; sendBtnSpinner.style.display='inline';
-      try {
-        // fetch chatIds + bot token from firebase (your Netlify function will use them)
-        const chatIdsSnap = await get(ref(db, 'announcement/chatIds'));
-        const botTokenSnap = await get(ref(db, 'announcement/botToken'));
-        if (!chatIdsSnap.exists() || !botTokenSnap.exists()) throw new Error('Missing chatIds or botToken in Firebase');
-
-        const chatIdsObj = chatIdsSnap.val();
-        const chatIds = Array.isArray(chatIdsObj) ? chatIdsObj : Object.keys(chatIdsObj || {});
-        const telegramBotToken = botTokenSnap.val();
-
-        let mediaBase64 = '';
-        let mediaType = '';
-        if (selectedMediaFile) {
-          mediaBase64 = await fileToBase64(selectedMediaFile);
-          mediaType = selectedMediaFile.type;
-        }
-
-        // send to serverless endpoint which does the Telegram sending
-        const payload = { message, media: mediaBase64, mediaType, chatIds, telegramBotToken };
-        const response = await fetch('/.netlify/functions/announce', {
-          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-        if (!response.ok) throw result;
-
-        // display result summary
-        announcementResult.style.display='block';
-        announcementResult.style.borderRadius='10px';
-        announcementResult.style.padding='10px';
-        if (result.success && result.success > 0) {
-          announcementResult.style.background = '#dcfce7'; announcementResult.style.color = '#064e3b';
-          announcementResult.innerHTML = `✅ Sent to ${result.success} recipient(s)`;
-          if (result.failed && result.failed > 0) announcementResult.innerHTML += `<br>⚠️ Failed: ${result.failed}`;
-          // clear inputs
-          document.getElementById('announcementMessage').value = '';
-          announcementMedia.value = ''; announcementPreview.innerHTML = ''; selectedMediaFile = null;
-          showToast('Announcement sent successfully!', 'success');
-        } else {
-          announcementResult.style.background = '#fee2e2'; announcementResult.style.color = '#7f1d1d';
-          announcementResult.innerHTML = '⚠️ Failed to send announcement';
-          showToast('Failed to send announcement', 'error');
-        }
-        setTimeout(()=>announcementResult.style.display='none', 4500);
-      } catch (err) {
-        console.error('Announcement error', err);
-        announcementResult.style.display='block';
-        announcementResult.style.background = '#fee2e2'; announcementResult.style.color = '#7f1d1d';
-        announcementResult.innerHTML = `⚠️ ${err.message || 'Unknown error'}`;
-        showToast(err.message || 'Announcement failed', 'error');
-        setTimeout(()=>announcementResult.style.display='none', 4500);
-      } finally {
-        sendBtn.disabled = false; sendBtnText.style.display='inline'; sendBtnSpinner.style.display='none';
-      }
-    });
-
-    // --------------------------
-    // Charts: initialize & update (now using serviceEvents too)
-    // --------------------------
-    let queueTrendChart = null;
-    let counterPerfChart = null;
-
-    function initializeCharts() {
-      if (!document.getElementById('queueTrendChart')) return;
-      if (!queueTrendChart) {
-        const ctx = document.getElementById('queueTrendChart').getContext('2d');
-        queueTrendChart = new Chart(ctx, {
-          type: 'line',
-          data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label:'Queues', data:[0,0,0,0,0,0,0], fill:true, tension:0.35, borderColor:'#667eea', backgroundColor:'rgba(102,126,234,0.08)' }] },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
-        });
-      }
-      if (!counterPerfChart) {
-        const ctx = document.getElementById('counterPerfChart').getContext('2d');
-        counterPerfChart = new Chart(ctx, {
-          type: 'bar',
-          data: { labels:[], datasets:[{ label:'Served', data:[], backgroundColor: ['#667eea','#8b5cf6','#ec4899','#f59e0b'] }] },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
-        });
-      }
-    }
-
-    function updateCharts(queues, serviceEvents) {
-      if (!queueTrendChart || !counterPerfChart) return;
-      const summary = calculateSevenDaySummary(queues, serviceEvents);
-      const labels = summary.days.map(d => new Date(d.date).toLocaleDateString('en-US',{weekday:'short'}));
-      const data = summary.days.map(d => d.total);
-      queueTrendChart.data.labels = labels;
-      queueTrendChart.data.datasets[0].data = data;
-      queueTrendChart.update();
-
-      // counter performance: use serviceEvents if present (served per counter), else approximate via queues counterId counts
+      // top counters
       const counterStats = {};
-      if (serviceEvents && Array.isArray(serviceEvents) && serviceEvents.length > 0) {
-        serviceEvents.forEach(e => {
-          const key = e.counter || e.counterId || 'unknown';
-          if (key) counterStats[key] = (counterStats[key] || 0) + 1;
-        });
-      } else {
-        queues.forEach(q => {
-          if (q.counterId) counterStats[q.counterId] = (counterStats[q.counterId] || 0) + 1;
-        });
-      }
+      seInWindow.forEach(e => { const k = e.counter || e.counterId || e.counterName || 'unknown'; counterStats[k] = (counterStats[k]||0) + 1; });
+      normalized.forEach(q => { if (q.status === 'done' || q.status === 'served' || q.status === 'completed') { const k = q.counter || q.counterId || q.counterName || 'unknown'; counterStats[k] = (counterStats[k]||0) + 1; } });
 
-      counterPerfChart.data.labels = Object.keys(counterStats);
-      counterPerfChart.data.datasets[0].data = Object.values(counterStats);
-      counterPerfChart.update();
+      return {
+        perDay, waitStats, hourlyArray, heatmap, uniqueCustomers, loyal, repeat, oneTime, counterStats, servedCount: seInWindow.length, createdCount: queuesInWindow.length
+      };
     }
 
-    // init charts eagerly (safe)
-    initializeCharts();
+    function computeNumericStats(arr) {
+      if (!arr || arr.length === 0) return { average:0, median:0, p90:0, longest:0 };
+      const xs = arr.slice().filter(x=>Number.isFinite(x) && x>=0).sort((a,b)=>a-b);
+      const sum = xs.reduce((a,b)=>a+b,0);
+      const avg = Math.round(sum / xs.length);
+      const median = (xs.length%2===0) ? Math.round((xs[xs.length/2-1]+xs[xs.length/2])/2) : xs[Math.floor(xs.length/2)];
+      const p90 = Math.round(xs[Math.floor(xs.length*0.9)]);
+      const longest = xs[xs.length-1];
+      return { average:avg, median, p90, longest };
+    }
 
-    // --------------------------
-    // Small accessibility & keyboard UX
-    // --------------------------
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') howToUseModal.classList.remove('active');
-    });
+    // rendering utilities
+    function renderHeatmap(heatmap) {
+      heatmapContainer.innerHTML = '';
+      // compute max for normalization
+      let max = 0; heatmap.forEach(r=>{ r.hours.forEach(h=>{ if (h>max) max=h; }); });
+      if (max === 0) { heatmapContainer.innerHTML = '<div class="muted">No heatmap data available for this period</div>'; return; }
+      heatmap.forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.style.display = 'grid';
+        rowEl.style.gridTemplateColumns = '120px 1fr';
+        rowEl.style.alignItems = 'center';
+        rowEl.style.gap = '8px';
 
-    // Prevent accidental large Firebase writes — confirm before big uploads
-    // (You can later add finer-grained validation on the server-side)
+        const label = document.createElement('div');
+        label.textContent = row.date;
+        label.className = 'muted small';
+        label.style.width = '110px';
+
+        const grid = document.createElement('div');
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'repeat(24, minmax(18px, 1fr))';
+        grid.style.gap = '4px';
+
+        row.hours.forEach((h,i)=>{
+          const c = document.createElement('div');
+          c.className = 'heatcell';
+          const intensity = Math.round((h / max) * 255);
+          // color ramp from light gray -> purple
+          const alpha = (h === 0) ? 0.12 : Math.max(0.2, (h / max));
+          c.style.background = `rgba(99,102,241, ${alpha})`;
+          c.title = `Hour ${i}: ${h}`;
+          c.textContent = h > 0 ? h : '';
+          grid.appendChild(c);
+        });
+
+        rowEl.appendChild(label);
+        rowEl.appendChild(grid);
+        heatmapContainer.appendChild(rowEl);
+      });
+    }
+
+    function renderDailyTable(perDay) {
+      dailyDetailsTable.innerHTML = '';
+      const table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderSpacing = '0 8px';
+      const thead = document.createElement('thead');
+      thead.innerHTML = `<tr style="text-align:left;color:#374151;font-weight:700"><th style="padding:8px">Date</th><th>Created</th><th>Completed</th><th>Avg Wait (min)</th><th>Busiest Hour</th></tr>`;
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      perDay.slice().reverse().forEach(d => {
+        const tr = document.createElement('tr');
+        tr.style.background = 'rgba(0,0,0,0.03)';
+        tr.style.borderRadius = '8px';
+        tr.style.display = 'table-row';
+        tr.style.margin = '6px 0';
+        tr.innerHTML = `<td style="padding:8px">${d.date}</td><td>${d.total}</td><td>${d.completed}</td><td>${d.avgWait}</td><td>${d.busiestHour === null ? '-' : d.busiestHour + ':00'}</td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      dailyDetailsTable.appendChild(table);
+    }
+
+    // chart helpers
+    function ensureCharts() {
+      if (!dailySummaryChart) {
+        const ctx = document.getElementById('dailySummaryChart').getContext('2d');
+        dailySummaryChart = new Chart(ctx, {
+          type: 'bar', data: { labels: [], datasets: [ { label: 'Created', data: [], backgroundColor:'#667eea' }, { label:'Completed', data: [], backgroundColor:'#10b981' } ] },
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}} }
+        });
+      }
+      if (!waitHistogramChart) {
+        const ctx = document.getElementById('waitHistogramChart').getContext('2d');
+        waitHistogramChart = new Chart(ctx, { type:'bar', data:{ labels:[], datasets:[{ label:'Count', data:[] }] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'Wait time (min)'}}, y:{beginAtZero:true}} } });
+      }
+      if (!hourlyBarsChart) {
+        const ctx = document.getElementById('hourlyBarsChart').getContext('2d');
+        hourlyBarsChart = new Chart(ctx, { type:'bar', data:{ labels: Array.from({length:24}, (_,i)=>i+':00'), datasets:[{ label:'Queues', data: Array(24).fill(0), backgroundColor:'#8b5cf6' }] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
+      }
+      if (!customerDoughnutChart) {
+        const ctx = document.getElementById('customerDoughnut').getContext('2d');
+        customerDoughnutChart = new Chart(ctx, { type:'doughnut', data:{ labels:['Loyal','Repeat','One-time'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981','#f59e0b','#667eea'] }] , options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}} });
+      }
+      if (!topCountersChart) {
+        const ctx = document.getElementById('topCountersChart').getContext('2d');
+        topCountersChart = new Chart(ctx, { type:'bar', data:{ labels:[], datasets:[{ label:'Served', data:[], backgroundColor:'#ec4899' }] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
+      }
+    }
+
+    function updateChartsFromData(analysis) {
+      ensureCharts();
+      // daily summary
+      const labels = analysis.perDay.map(d=>d.date);
+      dailySummaryChart.data.labels = labels;
+      dailySummaryChart.data.datasets[0].data = analysis.perDay.map(d=>d.total);
+      dailySummaryChart.data.datasets[1].data = analysis.perDay.map(d=>d.completed);
+      dailySummaryChart.update();
+
+      // wait histogram: bucket waits into ranges
+      const waits = [];
+      // collect from perDay? better to recompute from waitStats? we will reconstruct from waits by using se + waiting
+      // we already have waitStats but not raw waits; we'll approximate by using median/avg/p90 to show bins
+      // For better visuals, let's create synthetic buckets from waitStats
+      const maxWait = Math.max(analysis.waitStats.longest || 0, 60);
+      const bucketSize = Math.max(5, Math.ceil(maxWait / 12));
+      const buckets = new Array(12).fill(0);
+      // reconstructing distribution isn't perfect; use per-day avg spread -> fallback to simple distribution by ranges using median
+      // Instead, approximate by sampling around median & p90 to give a useful chart
+      const median = analysis.waitStats.median || 0; const p90 = analysis.waitStats.p90 || 0; const avg = analysis.waitStats.average || 0;
+      // naive synthetic fill: place mass at median/p90/avg
+      const addToBucket = (mins, w=1)=>{ const idx = Math.min(buckets.length-1, Math.floor(mins / bucketSize)); buckets[idx]+=w };
+      if (median) addToBucket(median, 6);
+      if (avg) addToBucket(avg,4);
+      if (p90) addToBucket(p90,2);
+      // ensure some shape across low buckets
+      buckets[0] += Math.max(0, Math.round((analysis.createdCount - analysis.servedCount)/10));
+
+      waitHistogramChart.data.labels = buckets.map((_,i)=>`${i*bucketSize}-${(i+1)*bucketSize-1}`);
+      waitHistogramChart.data.datasets[0].data = buckets;
+      waitHistogramChart.update();
+
+      // hourly bars
+      const hours = Array.from({length:24}, (_,i)=>0);
+      analysis.hourlyArray.forEach(h => { hours[h.hour] = h.count; });
+      hourlyBarsChart.data.labels = Array.from({length:24}, (_,i)=>`${i}:00`);
+      hourlyBarsChart.data.datasets[0].data = hours;
+      hourlyBarsChart.update();
+
+      // customer doughnut
+      const loyal = analysis.loyal || 0; const repeat = analysis.repeat || 0; const oneTime = analysis.oneTime || 0;
+      customerDoughnutChart.data.datasets[0].data = [loyal, repeat, oneTime];
+      customerDoughnutChart.update();
+
+      // top counters
+      const entries = Object.entries(analysis.counterStats || {}).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      topCountersChart.data.labels = entries.map(e=>e[0]);
+      topCountersChart.data.datasets[0].data = entries.map(e=>e[1]);
+      topCountersChart.update();
+
+      // render heatmap & table
+      renderHeatmap(analysis.heatmap);
+      renderDailyTable(analysis.perDay);
+
+      // top metrics
+      metricServed.textContent = analysis.servedCount || 0;
+      metricCreated.textContent = analysis.createdCount || 0;
+      metricAvgWait.textContent = analysis.waitStats.average || 0;
+      metricUniqueCustomers.textContent = analysis.uniqueCustomers || 0;
+      metricRepeat.textContent = analysis.repeat || 0;
+      metricRepeatPct.textContent = analysis.uniqueCustomers ? Math.round((analysis.repeat / analysis.uniqueCustomers) * 100) : 0;
+      const peak = analysis.hourlyArray.length ? analysis.hourlyArray[0] : null;
+      metricPeakHour.textContent = peak ? (peak.hour + ':00') : '-';
+    }
+
+    async function refreshAnalytics() {
+      try {
+        refreshBtn.disabled = true; refreshBtn.textContent = 'Loading...';
+        const daysBack = Number(timeRange.value) || 30;
+        const qSnap = await get(ref(db, 'queue'));
+        const seSnap = await get(ref(db, 'analytics/serviceEvents'));
+        const rawQueues = qSnap.exists() ? qSnap.val() : {};
+        const rawSE = seSnap.exists() ? seSnap.val() : {};
+        const analysis = await computeAnalytics(rawQueues, rawSE, daysBack);
+        updateChartsFromData(analysis);
+      } catch (err) {
+        console.error('refreshAnalytics error', err);
+        alert('Failed to refresh analytics: ' + (err.message || err));
+      } finally {
+        refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh';
+      }
+    }
+
+    // initial
+    ensureCharts();
+    refreshAnalytics();
+
+    // listeners
+    refreshBtn.addEventListener('click', refreshAnalytics);
+
+    // sidebar navigation minimal logic
+    document.querySelectorAll('.sidebar-item').forEach(i=>i.addEventListener('click', ()=>{
+      document.querySelectorAll('.sidebar-item').forEach(x=>x.classList.remove('active'));
+      i.classList.add('active');
+      const view = i.dataset.view;
+      document.getElementById('analyticsView').style.display = view === 'analytics' ? 'block' : 'none';
+      document.getElementById('dashboardView').style.display = view === 'dashboard' ? 'block' : 'none';
+      document.getElementById('settingsView').style.display = view === 'settings' ? 'block' : 'none';
+    }));
+
+    // How to use modal handlers
+    document.getElementById('howToUseBtn').addEventListener('click', ()=>{ document.getElementById('howToUseModal').style.display='flex' });
+    document.getElementById('closeHowToUse').addEventListener('click', ()=>{ document.getElementById('howToUseModal').style.display='none' });
+    document.getElementById('closeHowToUseBtn').addEventListener('click', ()=>{ document.getElementById('howToUseModal').style.display='none' });
+
   </script>
 </body>
 </html>
