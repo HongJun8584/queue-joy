@@ -148,7 +148,11 @@
       // Leave empty to use current origin.
       const SITE_URL = ''; // e.g. 'https://queuejoy.netlify.app'
 
-      // Firebase config (kept because other parts use it)
+      // SERVER NOTIFICATION ENDPOINT (Netlify function or your server)
+      // Keep the leading slash so it resolves against current origin when SITE_URL is empty.
+      const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
+
+      // Firebase config (kept because admin features use it)
       const firebaseConfig = {
         apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
         authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -184,7 +188,6 @@
       const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
       const openStatusBtn = document.getElementById('openStatusBtn');
       const downloadQRBtn = document.getElementById('downloadQRBtn');
-      const ticketNote = document.getElementById('ticketNote');
 
       const deleteModal = document.getElementById('deleteModal');
       const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -193,7 +196,7 @@
       let countersData = {};
       let deleteTargetId = null;
 
-      // Listen to counters node (left intact for admin features)
+      // Listen to counters node (admin UI)
       const countersRef = ref(db, 'counters');
       onValue(countersRef, snapshot => {
         countersData = snapshot.val() || {};
@@ -258,6 +261,7 @@
             </div>
           `;
 
+          // Attach events
           card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(counterId));
           card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(counterId));
           card.querySelector('.callBtn').addEventListener('click', () => callNext(counterId));
@@ -272,7 +276,7 @@
         return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
       }
 
-      // modal handlers (unchanged)
+      // modal handlers
       addCounterBtn.addEventListener('click', openAddCounter);
       addCounterBtnEmpty?.addEventListener('click', openAddCounter);
       closeCounterModalBtn.addEventListener('click', () => counterModal.classList.remove('show'));
@@ -296,7 +300,7 @@
         counterModal.classList.add('show');
       }
 
-      // Save counter (unchanged)
+      // Save counter
       counterForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = counterNameInput.value.trim();
@@ -323,7 +327,7 @@
         }
       });
 
-      // delete flow (unchanged)
+      // delete flow
       function openDeleteCounter(counterId) {
         deleteTargetId = counterId;
         deleteModal.classList.add('show');
@@ -341,7 +345,7 @@
       });
       cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
 
-      // reset: clears counter fields and FULL /queue (kept as you previously requested)
+      // reset: clears counter fields and FULL /queue (kept as requested)
       async function resetCounter(counterId) {
         const ok = confirm('Reset this counter to 0 AND clear the entire /queue data in Firebase? This will remove all waiting tickets for all counters. Proceed?');
         if (!ok) return;
@@ -355,41 +359,74 @@
         }
       }
 
-      // callNext (unchanged)
+      // Call Next:
+      // - advances nowServing on the counter (keeps existing behavior)
+      // - finds recipients from /queue and sends them to your notify function
+      // - DOES NOT modify queue entries here (notify function handles messages only)
       async function callNext(counterId) {
         const counter = countersData[counterId];
         if (!counter) return;
         try {
+          // increment nowServing locally in the DB (existing expected behavior)
           const nowServing = (counter.nowServing || 0) + 1;
           const prefix = counter.prefix || '';
           const calledFull = `${prefix}${String(nowServing).padStart(3, '0')}`;
 
+          // update counter state to show busy + nowServing
           await update(ref(db, `counters/${counterId}`), { nowServing, busy: true, lastAdvanceAt: Date.now() });
 
-          // collect recipients
+          // collect recipients from /queue who are waiting for this counter and have chatId
           const qSnap = await get(ref(db, 'queue'));
           const recipients = [];
           if (qSnap.exists()) {
             const allQ = qSnap.val();
             Object.keys(allQ).forEach(k => {
               const e = allQ[k];
-              if (e.counterId === counterId && e.chatId) {
+              // match by counterId and chatId presence
+              if (e && e.counterId === counterId && e.chatId) {
                 recipients.push({ chatId: e.chatId, theirNumber: e.queueId, ticketId: k });
               }
             });
           }
 
+          // notify via your server function if recipients exist
           if (recipients.length) {
             try {
-              // notify endpoint logic retained if you use notifications
+              // resolve site base (SITE_URL if set, otherwise current origin)
+              let site = (SITE_URL && SITE_URL.trim()) ? SITE_URL.trim() : window.location.origin;
+              site = site.replace(/\/$/, '');
+
+              // POST payload matches the shape expected by notifyCounter.js
+              const payload = {
+                calledFull,
+                counterName: counter.name || counterId,
+                recipients
+              };
+
+              await fetch(`${site}${NOTIFY_ENDPOINT}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                // keep a short timeout pattern via abort if needed (optional)
+              }).then(async (res) => {
+                if (!res.ok) {
+                  const text = await res.text().catch(() => '');
+                  console.warn('notifyCounter responded with non-OK:', res.status, text);
+                }
+              }).catch((err) => {
+                console.error('Failed to reach notify endpoint', err);
+              });
+
             } catch (notifyErr) {
               console.error('Notify error', notifyErr);
             }
           }
 
+          // release busy after short interval (keeps previous UX)
           setTimeout(async () => {
             try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e) {}
           }, 3000);
+
         } catch (err) {
           console.error('Call next failed', err);
           alert('Failed to call next');
@@ -405,10 +442,9 @@
         downloadQRBtn.classList.add('hidden');
         ticketModal.classList.add('show');
       });
-
       closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
 
-      // ===== NEW: Generate QR ONLY (no DB writes, no lastIssued update, no /queue entry) =====
+      // Generate QR ONLY (no DB writes, no lastIssued update, no /queue entry)
       ticketForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
