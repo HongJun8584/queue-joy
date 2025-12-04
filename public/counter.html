@@ -15,8 +15,8 @@
     body { font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background: linear-gradient(180deg,#eef2ff 0%, #fff0f6 100%); }
     .fade-in { animation: fadeIn .35s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
-    .pulse-ring { animation: pulseRing 1.5s cubic-bezier(.4,0,.6,1) infinite; }
-    @keyframes pulseRing { 0%,100%{ transform:scale(1); opacity:1 } 50%{ transform:scale(1.06); opacity:0.6 } }
+    .pulse-ring { animation: pulseRing 1.2s cubic-bezier(.4,0,.6,1) infinite; }
+    @keyframes pulseRing { 0%,100%{ transform:scale(1); opacity:1 } 50%{ transform:scale(1.04); opacity:0.65 } }
     .modal { display:none; position:fixed; inset:0; z-index:60; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); }
     .modal.show { display:flex; }
     .card { background: white; border-radius:14px; box-shadow: 0 20px 60px rgba(2,6,23,0.08); }
@@ -25,6 +25,11 @@
     .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color:white; }
     .btn-success { background: linear-gradient(135deg,#10b981,#14b8a6); color:white; }
     canvas { max-width: 100%; height: auto; display: block; }
+    .called-flash { animation: calledFlash .9s ease; }
+    @keyframes calledFlash {
+      0% { box-shadow: 0 10px 30px rgba(16,185,129,0.12); transform: translateY(-2px) }
+      100% { box-shadow: none; transform: translateY(0) }
+    }
   </style>
 </head>
 <body>
@@ -144,15 +149,9 @@
     import { getDatabase, ref, onValue, set, update, remove, push, get, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     document.addEventListener('DOMContentLoaded', () => {
-      // If you want to hardcode the system base URL, set SITE_URL to it (no trailing slash).
-      // Leave empty to use current origin.
-      const SITE_URL = ''; // e.g. 'https://queuejoy.netlify.app'
-
-      // SERVER NOTIFICATION ENDPOINT (Netlify function or your server)
-      // Keep the leading slash so it resolves against current origin when SITE_URL is empty.
+      const SITE_URL = ''; // set to your production URL if you want a fixed host
       const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
 
-      // Firebase config (kept because admin features use it)
       const firebaseConfig = {
         apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
         authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -196,7 +195,31 @@
       let countersData = {};
       let deleteTargetId = null;
 
-      // Listen to counters node (admin UI)
+      // --- WebAudio beep (small short tone) ---
+      function playBeep() {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.value = 880; // beep pitch
+          g.gain.value = 0.12;
+          o.connect(g);
+          g.connect(ctx.destination);
+          o.start();
+          // short tone
+          setTimeout(() => {
+            o.stop();
+            // close context for mobile Safari
+            try { ctx.close(); } catch(_) {}
+          }, 160);
+        } catch (e) {
+          // fallback: small DOM audio beep (optional)
+          console.warn('beep failed', e);
+        }
+      }
+
+      // Listen to counters node
       const countersRef = ref(db, 'counters');
       onValue(countersRef, snapshot => {
         countersData = snapshot.val() || {};
@@ -218,12 +241,13 @@
           const c = countersData[counterId] || {};
           const card = document.createElement('div');
           card.className = 'card p-6 fade-in';
+          card.dataset.counterId = counterId;
 
           const nowServing = c.nowServing || 0;
           const lastIssued = c.lastIssued || 0;
           const prefix = c.prefix || '';
           const isActive = c.active !== false;
-          const isBusy = c.busy === true;
+          // NOTE: busy no longer controls UI; we removed cooldown
           const nowServingFormatted = `${prefix}${String(nowServing).padStart(3, '0')}`;
           const nextNumFormatted = `${prefix}${String((lastIssued || 0) + 1).padStart(3,'0')}`;
 
@@ -241,7 +265,7 @@
 
             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4">
               <p class="text-sm muted mb-1">Now Serving</p>
-              <p class="text-4xl font-bold text-indigo-900 ${isBusy ? 'pulse-ring' : ''}">${escapeHtml(nowServingFormatted)}</p>
+              <p class="text-4xl font-bold text-indigo-900">${escapeHtml(nowServingFormatted)}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-3 mb-4">
@@ -256,15 +280,22 @@
             </div>
 
             <div class="flex gap-2">
-              <button class="callBtn flex-1 py-3 rounded-xl font-semibold text-white ${isActive && !isBusy ? '' : 'opacity-50 cursor-not-allowed'}" ${isActive && !isBusy ? '' : 'disabled'} style="background: linear-gradient(90deg,#10b981,#14b8a6);">Call Next</button>
+              <!-- always enabled; removed cooldown/busy blocking -->
+              <button class="callBtn flex-1 py-3 rounded-xl font-semibold text-white ${isActive ? '' : 'opacity-50 cursor-not-allowed'}" ${isActive ? '' : 'disabled'} style="background: linear-gradient(90deg,#10b981,#14b8a6);">Call Next</button>
               <button class="resetBtn px-4 py-3 bg-orange-500 text-white font-semibold rounded-xl">Reset</button>
             </div>
           `;
 
-          // Attach events
+          // attach events
           card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(counterId));
           card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(counterId));
-          card.querySelector('.callBtn').addEventListener('click', () => callNext(counterId));
+          card.querySelector('.callBtn').addEventListener('click', (ev) => {
+            // small visual feedback
+            card.classList.add('called-flash');
+            setTimeout(() => card.classList.remove('called-flash'), 900);
+
+            callNext(counterId); // no cooldown — transactions handle atomicity
+          });
           card.querySelector('.resetBtn').addEventListener('click', () => resetCounter(counterId));
 
           countersGrid.appendChild(card);
@@ -345,6 +376,7 @@
       });
       cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
 
+
       // reset: clears counter fields and FULL /queue (kept as requested)
       async function resetCounter(counterId) {
         const ok = confirm('Reset this counter to 0 AND clear the entire /queue data in Firebase? This will remove all waiting tickets for all counters. Proceed?');
@@ -359,78 +391,88 @@
         }
       }
 
-      // Call Next:
-      // - advances nowServing on the counter (keeps existing behavior)
-      // - finds recipients from /queue and sends them to your notify function
-      // - DOES NOT modify queue entries here (notify function handles messages only)
+      /**
+       * CALL NEXT:
+       * - Uses runTransaction on counters/{id} to atomically advance nowServing.
+       * - If lastIssued < nowServing, it is bumped to match so calling next is possible
+       *   even if there were no issued tickets previously.
+       * - After transaction completes, collects recipients from /queue for this counter
+       *   and posts the payload to NOTIFY_ENDPOINT.
+       * - Plays a short beep when a new number is served.
+       */
       async function callNext(counterId) {
-        const counter = countersData[counterId];
-        if (!counter) return;
         try {
-          // increment nowServing locally in the DB (existing expected behavior)
-          const nowServing = (counter.nowServing || 0) + 1;
-          const prefix = counter.prefix || '';
+          const counterNodeRef = ref(db, `counters/${counterId}`);
+
+          // Atomic transaction on the whole counter object
+          const tx = await runTransaction(counterNodeRef, (curr) => {
+            if (!curr) {
+              // shouldn't happen, but initialize
+              return { nowServing: 1, lastIssued: 1, lastAdvanceAt: Date.now(), name: counterId, prefix: '' };
+            }
+            const prevNow = curr.nowServing || 0;
+            const prevLast = curr.lastIssued || 0;
+            const nextNow = prevNow + 1;
+
+            const nextLast = Math.max(prevLast, nextNow); // ensure lastIssued >= nowServing
+            return Object.assign({}, curr, { nowServing: nextNow, lastIssued: nextLast, lastAdvanceAt: Date.now() });
+          });
+
+          if (!tx || !tx.snapshot) {
+            console.warn('Transaction did not return snapshot for', counterId);
+            return;
+          }
+
+          const updated = tx.snapshot.val();
+          const nowServing = updated.nowServing || 0;
+          const prefix = updated.prefix || '';
           const calledFull = `${prefix}${String(nowServing).padStart(3, '0')}`;
 
-          // update counter state to show busy + nowServing
-          await update(ref(db, `counters/${counterId}`), { nowServing, busy: true, lastAdvanceAt: Date.now() });
+          // Play beep for admin
+          playBeep();
 
-          // collect recipients from /queue who are waiting for this counter and have chatId
+          // Collect recipients from /queue who are waiting for this counter and have chatId
           const qSnap = await get(ref(db, 'queue'));
           const recipients = [];
           if (qSnap.exists()) {
             const allQ = qSnap.val();
             Object.keys(allQ).forEach(k => {
               const e = allQ[k];
-              // match by counterId and chatId presence
               if (e && e.counterId === counterId && e.chatId) {
                 recipients.push({ chatId: e.chatId, theirNumber: e.queueId, ticketId: k });
               }
             });
           }
 
-          // notify via your server function if recipients exist
+          // Notify to server function if recipients exist
           if (recipients.length) {
             try {
-              // resolve site base (SITE_URL if set, otherwise current origin)
               let site = (SITE_URL && SITE_URL.trim()) ? SITE_URL.trim() : window.location.origin;
               site = site.replace(/\/$/, '');
-
-              // POST payload matches the shape expected by notifyCounter.js
               const payload = {
                 calledFull,
-                counterName: counter.name || counterId,
+                counterName: updated.name || counterId,
                 recipients
               };
 
-              await fetch(`${site}${NOTIFY_ENDPOINT}`, {
+              const res = await fetch(`${site}${NOTIFY_ENDPOINT}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                // keep a short timeout pattern via abort if needed (optional)
-              }).then(async (res) => {
-                if (!res.ok) {
-                  const text = await res.text().catch(() => '');
-                  console.warn('notifyCounter responded with non-OK:', res.status, text);
-                }
-              }).catch((err) => {
-                console.error('Failed to reach notify endpoint', err);
+                body: JSON.stringify(payload)
               });
 
+              if (!res.ok) {
+                const t = await res.text().catch(() => '');
+                console.warn('notifyCounter non-ok', res.status, t);
+              }
             } catch (notifyErr) {
               console.error('Notify error', notifyErr);
             }
           }
 
-          // release busy after short interval (keeps previous UX)
-          setTimeout(async () => {
-            try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e) {}
-          }, 3000);
-
         } catch (err) {
-          console.error('Call next failed', err);
-          alert('Failed to call next');
-          try { await update(ref(db, `counters/${counterId}`), { busy: false }); } catch(e) {}
+          console.error('callNext error', err);
+          alert('Failed to call next (see console).');
         }
       }
 
@@ -449,14 +491,10 @@
         e.preventDefault();
 
         try {
-          // Build base URL (SITE_URL if set, else current origin), ensure no trailing slash
           let base = (SITE_URL && SITE_URL.trim()) ? SITE_URL.trim() : window.location.origin;
           base = base.replace(/\/$/, '');
-
-          // QR must redirect to index.html of the system (per your request)
           const statusUrl = `${base}/index.html`;
 
-          // create plain QR canvas
           ticketQRCode.innerHTML = '';
           const qrCanvas = document.createElement('canvas');
           await new Promise((resolve, reject) => {
@@ -471,14 +509,10 @@
             }
           });
 
-          // show preview (plain canvas)
           ticketQRCode.appendChild(qrCanvas);
-
-          // auto-download plain QR ONLY (filename includes timestamp)
           const ts = Date.now();
           downloadCanvasPNG(qrCanvas, `ticket-${ts}.png`);
 
-          // reveal buttons so admin can re-download or open index if they want
           openStatusBtn.classList.remove('hidden');
           downloadQRBtn.classList.remove('hidden');
           openStatusBtn.onclick = () => window.open(statusUrl, '_blank');
