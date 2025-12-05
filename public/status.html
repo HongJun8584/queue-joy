@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,294 +7,537 @@
   <meta name="description" content="Track your queue position in real-time" />
   <meta name="theme-color" content="#8b5cf6" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
   <style>
     :root {
-      --primary:#8b5cf6;
-      --primary-dark:#7c3aed;
-      --primary-light:#a78bfa;
-      --bg-start:#f6f5ff;
-      --bg-end:#ede9fe;
+      --primary: #8b5cf6;
+      --primary-dark: #7c3aed;
+      --primary-light: #a78bfa;
+      --bg-start: #f6f5ff;
+      --bg-end: #ede9fe;
+      --success: #10b981;
+      --warning-bg: #fef3c7;
+      --warning-border: #fcd34d;
+      --warning-text: #92400e;
     }
     
-    * { box-sizing:border-box; margin:0; padding:0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     
     html, body {
-      font-family:Inter,system-ui,-apple-system,sans-serif;
-      background:linear-gradient(135deg,var(--bg-start),var(--bg-end));
-      min-height:100vh;
-      color:#1f2937;
-      -webkit-font-smoothing:antialiased;
-      overflow-x:hidden;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: #1f2937;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
     
     body {
-      display:flex;
-      align-items:flex-start;
-      justify-content:center;
-      padding:12px;
-      padding-bottom:180px;
-    }
-    
-    @media (min-width:640px) {
-      body { padding:20px; padding-bottom:200px; }
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      padding-bottom: 160px;
     }
     
     .page-wrapper {
-      width:100%;
-      max-width:600px;
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
     
     .card {
-      background:rgba(255,255,255,0.97);
-      border-radius:20px;
-      padding:20px 16px;
-      box-shadow:0 20px 60px rgba(139,92,246,0.15);
-      position:relative;
-      will-change:transform;
-    }
-    
-    @media (min-width:640px) {
-      .card { padding:28px 24px; border-radius:24px; }
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+      position: relative;
     }
 
     .logo-box {
-      width:64px;height:64px;
-      border-radius:16px;
-      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
-      display:flex;align-items:center;justify-content:center;
-      color:#fff;font-weight:900;font-size:22px;
-      box-shadow:0 12px 30px rgba(139,92,246,0.3);
-      overflow:hidden;flex-shrink:0;
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 900;
+      font-size: 28px;
+      box-shadow: 0 12px 30px rgba(139, 92, 246, 0.3);
+      overflow: hidden;
+      flex-shrink: 0;
     }
     
-    .logo-box img { width:100%;height:100%;object-fit:cover; }
-    
-    @media (min-width:640px) {
-      .logo-box { width:72px;height:72px;font-size:26px; }
+    .logo-box img { width: 100%; height: 100%; object-fit: cover; }
+
+    .header {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-right: 80px;
     }
 
-    .progress-track {
-      height:22px;
-      border-radius:999px;
-      background:#f3f4f6;
-      position:relative;
-      overflow:hidden;
-      box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .progress-fill {
-      height:100%;
-      background:linear-gradient(90deg,var(--primary-dark),var(--primary));
-      display:flex;align-items:center;justify-content:flex-end;
-      padding-right:10px;
-      color:#fff;font-weight:800;font-size:11px;
-      transition:width 0.6s cubic-bezier(0.22,0.9,0.22,1);
-      box-shadow:0 4px 16px rgba(139,92,246,0.4);
-      min-width:44px;
+    .header-text h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1.2;
     }
 
-    .glass-card {
-      background:linear-gradient(135deg,rgba(255,255,255,0.95),rgba(250,248,255,0.9));
-      border-radius:14px;
-      padding:14px;
-      border:1px solid rgba(139,92,246,0.08);
-      box-shadow:0 4px 12px rgba(0,0,0,0.03);
+    .header-text p {
+      color: #6b7280;
+      margin-top: 6px;
+      font-size: 14px;
+      line-height: 1.4;
     }
-    
-    @media (min-width:640px) {
-      .glass-card { padding:16px; border-radius:16px; }
-    }
-    
-    .stat-label {
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:0.08em;
-      color:#6b7280;
-      font-weight:600;
-    }
-    
-    .stat-value {
-      font-weight:900;
-      font-size:28px;
-      margin-top:4px;
-      line-height:1.1;
-      word-break:break-word;
-    }
-    
-    .stat-value-sm {
-      font-weight:800;
-      font-size:20px;
-      margin-top:4px;
-      line-height:1.2;
-    }
-    
-    @media (min-width:640px) {
-      .stat-value { font-size:32px; }
-      .stat-value-sm { font-size:22px; }
+
+    .top-buttons {
+      position: absolute;
+      right: 16px;
+      top: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
     }
 
     .circle-btn {
-      width:40px;height:40px;
-      border-radius:50%;
-      background:#fff;
-      border:none;
-      display:flex;align-items:center;justify-content:center;
-      font-size:18px;
-      box-shadow:0 4px 12px rgba(0,0,0,0.08);
-      cursor:pointer;
-      transition:transform 0.15s,box-shadow 0.15s;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #fff;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
     }
     
-    .circle-btn:active { transform:scale(0.95); }
+    .circle-btn:active { transform: scale(0.95); }
+
+    /* Progress Section */
+    .progress-section {
+      margin-bottom: 20px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .progress-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .progress-status {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .progress-track {
+      height: 28px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-dark), var(--primary));
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 12px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      transition: width 0.6s cubic-bezier(0.22, 0.9, 0.22, 1);
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+      min-width: 50px;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .glass-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 248, 255, 0.9));
+      border-radius: 16px;
+      padding: 18px 16px;
+      border: 1px solid rgba(139, 92, 246, 0.08);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+      font-weight: 600;
+    }
+    
+    .stat-value {
+      font-weight: 900;
+      font-size: 32px;
+      margin-top: 8px;
+      line-height: 1;
+      word-break: break-word;
+      color: var(--primary);
+    }
+
+    .stat-value.dark {
+      color: #111827;
+    }
+    
+    .stat-value-sm {
+      font-weight: 800;
+      font-size: 26px;
+      margin-top: 8px;
+      line-height: 1;
+      color: #374151;
+    }
+
+    .stat-value-sm.highlight {
+      color: var(--primary);
+    }
+
+    /* Connection Banner */
+    .connection-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 248, 255, 0.9));
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid rgba(139, 92, 246, 0.08);
+    }
+
+    .connection-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .connection-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .connection-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #111827;
+      line-height: 1.3;
+    }
+
+    .connection-sub {
+      color: #6b7280;
+      font-size: 12px;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
 
     .btn-primary {
-      background:linear-gradient(135deg,var(--primary-dark),var(--primary));
-      color:#fff;
-      padding:14px 20px;
-      border-radius:12px;
-      font-weight:700;
-      border:none;
-      box-shadow:0 8px 20px rgba(139,92,246,0.3);
-      cursor:pointer;
-      display:flex;align-items:center;justify-content:center;gap:8px;
-      font-size:14px;
-      transition:transform 0.15s,box-shadow 0.15s,opacity 0.15s;
-      width:100%;
-      min-height:48px;
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      border: none;
+      box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      min-height: 48px;
+      white-space: nowrap;
     }
     
-    .btn-primary:active { transform:scale(0.98); }
-    .btn-primary:disabled { opacity:0.6;cursor:not-allowed;transform:none; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-    .btn-outline {
-      border:2px solid rgba(139,92,246,0.2);
-      padding:12px 16px;
-      border-radius:12px;
-      background:#fff;
-      font-weight:600;
-      cursor:pointer;
-      font-size:14px;
-      color:#374151;
-      display:flex;align-items:center;justify-content:center;gap:6px;
-      transition:background 0.15s;
-      width:100%;
+    .btn-connected {
+      background: linear-gradient(135deg, #059669, var(--success));
     }
-    
-    .btn-outline:active { background:#f9fafb; }
+
+    /* Alert Banner */
+    .alert-banner {
+      background: linear-gradient(135deg, var(--warning-bg), #fde68a);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .alert-banner strong {
+      font-weight: 800;
+    }
+
+    /* Your Turn Banner */
+    .your-turn-banner {
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border: 2px solid var(--success);
+      color: #065f46;
+      padding: 20px;
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .your-turn-banner h3 {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .your-turn-banner p {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Error */
+    .error-banner {
+      padding: 14px;
+      border-radius: 12px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      font-weight: 600;
+      font-size: 13px;
+      text-align: center;
+      display: none;
+    }
 
     /* Modal */
     .modal-overlay {
-      position:fixed;inset:0;
-      background:rgba(15,23,42,0.6);
-      display:flex;align-items:center;justify-content:center;
-      z-index:999;
-      padding:16px;
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      opacity:0;
-      visibility:hidden;
-      transition:opacity 0.25s,visibility 0.25s;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s, visibility 0.25s;
     }
     
-    .modal-overlay.show { opacity:1;visibility:visible; }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
     
     .modal-card {
-      width:100%;max-width:400px;
-      background:#fff;
-      border-radius:20px;
-      padding:24px 20px;
-      box-shadow:0 24px 60px rgba(15,23,42,0.4);
-      transform:translateY(20px) scale(0.96);
-      transition:transform 0.3s cubic-bezier(0.22,0.9,0.22,1);
+      width: 100%;
+      max-width: 380px;
+      background: #fff;
+      border-radius: 24px;
+      padding: 28px 24px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.4);
+      transform: translateY(20px) scale(0.96);
+      transition: transform 0.3s cubic-bezier(0.22, 0.9, 0.22, 1);
     }
     
     .modal-overlay.show .modal-card {
-      transform:translateY(0) scale(1);
-    }
-    
-    @media (min-width:480px) {
-      .modal-card { padding:28px 24px; }
+      transform: translateY(0) scale(1);
     }
 
-    .slide { display:none; }
-    .slide.active { display:block; }
+    .modal-icon {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto;
+      border-radius: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 44px;
+      color: #fff;
+      box-shadow: 0 16px 40px rgba(139, 92, 246, 0.3);
+    }
+
+    .modal-icon.success {
+      background: linear-gradient(135deg, var(--success), #059669);
+      box-shadow: 0 16px 40px rgba(16, 185, 129, 0.3);
+    }
+
+    .modal-title {
+      margin-top: 24px;
+      font-size: 22px;
+      font-weight: 800;
+      color: #111827;
+      text-align: center;
+    }
+
+    .modal-desc {
+      color: #6b7280;
+      margin-top: 12px;
+      font-size: 15px;
+      line-height: 1.6;
+      text-align: center;
+    }
 
     .step-dots {
-      display:flex;gap:8px;justify-content:center;
-      margin:16px 0;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 20px 0;
     }
     
     .step-dot {
-      width:8px;height:8px;border-radius:999px;
-      background:#e5e7eb;
-      transition:all 0.25s;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      transition: all 0.25s;
     }
     
     .step-dot.active {
-      width:28px;
-      background:linear-gradient(90deg,var(--primary-dark),var(--primary));
-      box-shadow:0 4px 10px rgba(139,92,246,0.35);
+      width: 28px;
+      background: linear-gradient(90deg, var(--primary-dark), var(--primary));
+      box-shadow: 0 4px 10px rgba(139, 92, 246, 0.35);
     }
 
-    .spinner {
-      width:16px;height:16px;
-      border:3px solid rgba(255,255,255,0.25);
-      border-top-color:#fff;
-      border-radius:50%;
-      animation:spin 0.7s linear infinite;
+    .btn-outline {
+      border: 2px solid rgba(139, 92, 246, 0.2);
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s;
+      width: 100%;
     }
     
-    @keyframes spin { to { transform:rotate(360deg); } }
+    .btn-outline:active { background: #f9fafb; }
 
-    .pulse { animation:pulse 2s ease-in-out infinite; }
+    .btn-full {
+      width: 100%;
+    }
+
+    .slide { display: none; }
+    .slide.active { display: block; }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pulse { animation: pulse 2s ease-in-out infinite; }
     @keyframes pulse {
-      0%,100% { transform:scale(1); }
-      50% { transform:scale(1.08); }
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
     }
 
     /* Ad panel */
     .ad-panel {
-      position:fixed;
-      left:50%;transform:translateX(-50%);
-      bottom:12px;
-      width:calc(100% - 24px);max-width:400px;
-      background:#fff;
-      border-radius:14px;
-      box-shadow:0 16px 40px rgba(15,23,42,0.2);
-      padding:10px;
-      z-index:100;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 12px;
+      width: calc(100% - 32px);
+      max-width: 400px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+      padding: 12px;
+      z-index: 100;
+      display: none;
+    }
+
+    .ad-label {
+      font-size: 9px;
+      color: #9ca3af;
+      text-align: center;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     
     .ad-media {
-      width:100%;height:100px;
-      object-fit:cover;border-radius:10px;
+      width: 100%;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 12px;
     }
 
-    .error-banner {
-      margin-top:12px;
-      padding:12px;
-      border-radius:10px;
-      background:#fef2f2;
-      border:1px solid #fecaca;
-      color:#b91c1c;
-      font-weight:600;
-      font-size:13px;
-      text-align:center;
+    /* Responsive */
+    @media (min-height: 750px) {
+      body {
+        padding-bottom: 180px;
+      }
+      
+      .card {
+        padding: 28px 24px;
+      }
+
+      .stat-value {
+        font-size: 36px;
+      }
+
+      .stat-value-sm {
+        font-size: 28px;
+      }
     }
-    
-    .banner-alert {
-      background:linear-gradient(135deg,#fef3c7,#fde68a);
-      border:1px solid #fcd34d;
-      color:#92400e;
-      padding:10px 12px;
-      border-radius:10px;
-      font-size:12px;
-      font-weight:600;
-      text-align:center;
-      margin-top:12px;
+
+    @media (max-height: 700px) {
+      body {
+        justify-content: flex-start;
+        padding-top: 20px;
+      }
     }
   </style>
 </head>
@@ -303,114 +545,32 @@
 
 <div class="page-wrapper">
 
-  <!-- Onboarding Modal -->
-  <div id="onboardingModal" class="modal-overlay" aria-hidden="true">
-    <div class="modal-card" role="dialog" aria-modal="true">
-      
-      <!-- Slide 1 -->
-      <div class="slide active" data-slide="0">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">✉️</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Get Telegram Notifications</h3>
-          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            Receive instant alerts on your phone when it's your turn.
-          </p>
-        </div>
-        <div class="step-dots">
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-        </div>
-        <button id="obNext" class="btn-primary">Continue →</button>
-        <button id="obSkip" class="btn-outline" style="margin-top:10px">Skip for now</button>
-      </div>
-
-      <!-- Slide 2 -->
-      <div class="slide" data-slide="1">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">▶️</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Tap "Start" in Telegram</h3>
-          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            We'll open our bot. Tap <strong>Start</strong> to activate notifications.
-          </p>
-        </div>
-        <div class="step-dots">
-          <div class="step-dot"></div>
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
-        </div>
-        <button id="obNext2" class="btn-primary">Next →</button>
-        <button id="obBack1" class="btn-outline" style="margin-top:10px">← Back</button>
-      </div>
-
-      <!-- Slide 3 -->
-      <div class="slide" data-slide="2">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">✅</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Ready to Connect</h3>
-          <p id="obStatusText" style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            Generating your secure link...
-          </p>
-        </div>
-        <div class="step-dots">
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot active"></div>
-        </div>
-        <button id="obFinish" class="btn-primary" disabled>
-          <span id="obFinishContent">
-            <span class="spinner"></span>
-            <span>Generating...</span>
-          </span>
-        </button>
-        <button id="obBack2" class="btn-outline" style="margin-top:10px">← Back</button>
-      </div>
-
-      <!-- Connected Slide -->
-      <div class="slide" data-slide="connected">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(16,185,129,0.3)">✅</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">You're Connected!</h3>
-          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            You'll get a Telegram notification when it's your turn.
-          </p>
-        </div>
-        <button id="obDone" class="btn-primary" style="margin-top:20px">Got it!</button>
-      </div>
-      
-    </div>
-  </div>
-
   <!-- Main Card -->
   <main class="card">
     
     <!-- Top buttons -->
-    <div style="position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:10">
+    <div class="top-buttons">
       <button id="miniGame" class="circle-btn" title="Play game">🎮</button>
       <button id="miniConnect" class="circle-btn pulse" title="Connect Telegram">✉️</button>
     </div>
 
     <!-- Header -->
-    <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;padding-right:90px">
+    <div class="header">
       <div class="logo-box" id="logoBox">
         <span id="logoText">QJ</span>
         <img id="logoImg" style="display:none" alt="Logo" />
       </div>
-      <div style="flex:1;min-width:0">
-        <h1 style="font-size:18px;font-weight:800;color:#111827;line-height:1.3;margin:0">
-          You're in the queue
-        </h1>
-        <p style="color:#6b7280;margin-top:4px;font-size:13px;line-height:1.4">
-          We're tracking your spot in real-time.
-        </p>
+      <div class="header-text">
+        <h1>You're in the queue</h1>
+        <p>We're tracking your spot in real-time.</p>
       </div>
     </div>
 
     <!-- Progress -->
-    <section style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:12px;font-weight:600;color:#6b7280">Queue Progress</span>
-        <span id="progressCaption" style="font-size:12px;font-weight:700;color:#6b7280">Loading...</span>
+    <section class="progress-section">
+      <div class="progress-header">
+        <span class="progress-label">Queue Progress</span>
+        <span id="progressStatus" class="progress-status">Loading...</span>
       </div>
       <div class="progress-track">
         <div id="progressFill" class="progress-fill" style="width:8%">
@@ -420,59 +580,131 @@
     </section>
 
     <!-- Stats Grid -->
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div class="stats-grid">
       <div class="glass-card">
         <div class="stat-label">Your Ticket</div>
-        <div id="yourNumber" class="stat-value" style="color:var(--primary)">—</div>
+        <div id="yourNumber" class="stat-value">—</div>
       </div>
       <div class="glass-card">
         <div class="stat-label">Now Serving</div>
-        <div id="nowServing" class="stat-value" style="color:#111827">—</div>
+        <div id="nowServing" class="stat-value dark">—</div>
       </div>
-    </section>
+    </div>
 
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+    <div class="stats-grid">
       <div class="glass-card">
         <div class="stat-label">People Ahead</div>
-        <div id="peopleAhead" class="stat-value-sm" style="color:#374151">—</div>
+        <div id="peopleAhead" class="stat-value-sm">—</div>
       </div>
       <div class="glass-card">
         <div class="stat-label">Estimated Wait</div>
-        <div id="estimatedWait" class="stat-value-sm" style="color:var(--primary)">—</div>
+        <div id="estimatedWait" class="stat-value-sm highlight">—</div>
       </div>
-    </section>
+    </div>
+
+    <!-- Your Turn Banner (hidden by default) -->
+    <div id="yourTurnBanner" class="your-turn-banner" style="display:none; margin-bottom:16px">
+      <h3>🎉 It's Your Turn!</h3>
+      <p>Please proceed to the counter now. Don't miss your spot!</p>
+    </div>
 
     <!-- Connection Banner -->
-    <section id="connectionBanner" class="glass-card" style="display:flex;align-items:center;gap:12px">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0">🔔</div>
-      <div style="flex:1;min-width:0">
-        <div id="connectionBannerText" style="font-weight:700;font-size:13px;color:#111827;line-height:1.3">
-          Checking status...
-        </div>
-        <div id="connectionBannerSub" style="color:#6b7280;font-size:12px;margin-top:2px;line-height:1.3">
-          Connect for alerts when page is closed.
-        </div>
+    <section id="connectionBanner" class="connection-banner" style="margin-bottom:16px">
+      <div class="connection-icon">🔔</div>
+      <div class="connection-text">
+        <div id="connectionTitle" class="connection-title">Get Telegram notifications</div>
+        <div id="connectionSub" class="connection-sub">Alerts even when page is closed.</div>
       </div>
-      <button id="connectMain" class="btn-primary" style="width:auto;padding:10px 14px;font-size:12px;min-height:40px">
+      <button id="connectMain" class="btn-primary" style="padding:12px 18px; font-size:13px; min-height:44px">
         Connect
       </button>
     </section>
 
     <!-- Stay Alert (shown when NOT connected) -->
-    <div id="stayAlert" class="banner-alert" style="display:none">
-      ⚠️ <strong>Stay on this page & keep screen awake</strong> to not miss your turn.
+    <div id="stayAlert" class="alert-banner">
+      ⚠️ <strong>Stay on this page & keep screen awake</strong> to not miss your turn. Only Telegram can notify you when the app is closed.
     </div>
 
     <!-- Error -->
-    <div id="error" class="error-banner" style="display:none"></div>
+    <div id="error" class="error-banner"></div>
     
   </main>
 
 </div>
 
+<!-- Onboarding Modal -->
+<div id="onboardingModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true">
+    
+    <!-- Slide 1 -->
+    <div class="slide active" data-slide="0">
+      <div class="modal-icon">✉️</div>
+      <h3 class="modal-title">Get Telegram Notifications</h3>
+      <p class="modal-desc">
+        Receive instant alerts on your phone when it's your turn — even if this page is closed.
+      </p>
+      <div class="step-dots">
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+      </div>
+      <button id="obNext" class="btn-primary btn-full">Continue →</button>
+      <button id="obSkip" class="btn-outline" style="margin-top:12px">Skip for now</button>
+    </div>
+
+    <!-- Slide 2 -->
+    <div class="slide" data-slide="1">
+      <div class="modal-icon">▶️</div>
+      <h3 class="modal-title">Tap "Start" in Telegram</h3>
+      <p class="modal-desc">
+        We'll open our bot. Tap <strong>Start</strong> to activate notifications. It takes just 2 seconds!
+      </p>
+      <div class="step-dots">
+        <div class="step-dot"></div>
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+      </div>
+      <button id="obNext2" class="btn-primary btn-full">Next →</button>
+      <button id="obBack1" class="btn-outline" style="margin-top:12px">← Back</button>
+    </div>
+
+    <!-- Slide 3 -->
+    <div class="slide" data-slide="2">
+      <div class="modal-icon">✅</div>
+      <h3 class="modal-title">Ready to Connect</h3>
+      <p id="obStatusText" class="modal-desc">
+        Generating your secure link...
+      </p>
+      <div class="step-dots">
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot active"></div>
+      </div>
+      <button id="obFinish" class="btn-primary btn-full" disabled>
+        <span id="obFinishContent">
+          <span class="spinner"></span>
+          <span>Generating...</span>
+        </span>
+      </button>
+      <button id="obBack2" class="btn-outline" style="margin-top:12px">← Back</button>
+    </div>
+
+    <!-- Connected Slide -->
+    <div class="slide" data-slide="connected">
+      <div class="modal-icon success">✅</div>
+      <h3 class="modal-title">You're Connected!</h3>
+      <p class="modal-desc">
+        You'll get a Telegram notification when it's your turn. You can now safely close this page.
+      </p>
+      <button id="obDone" class="btn-primary btn-full btn-connected" style="margin-top:24px">Got it!</button>
+    </div>
+    
+  </div>
+</div>
+
 <!-- Ad Panel -->
-<div id="adPanel" class="ad-panel" style="display:none">
-  <div style="font-size:9px;color:#9ca3af;text-align:center;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Advertisement</div>
+<div id="adPanel" class="ad-panel">
+  <div class="ad-label">Advertisement</div>
   <div id="adContainer"></div>
 </div>
 
@@ -499,7 +731,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // DOM
+  // DOM Elements
   const obModal = document.getElementById('onboardingModal');
   const slides = document.querySelectorAll('.slide');
   const stepDots = document.querySelectorAll('.step-dot');
@@ -522,12 +754,13 @@
   const estimatedWaitEl = document.getElementById('estimatedWait');
   const progressFill = document.getElementById('progressFill');
   const progressLabel = document.getElementById('progressLabel');
-  const progressCaption = document.getElementById('progressCaption');
+  const progressStatus = document.getElementById('progressStatus');
   const connectMainBtn = document.getElementById('connectMain');
   const connectMiniBtn = document.getElementById('miniConnect');
-  const connectionBannerText = document.getElementById('connectionBannerText');
-  const connectionBannerSub = document.getElementById('connectionBannerSub');
+  const connectionTitle = document.getElementById('connectionTitle');
+  const connectionSub = document.getElementById('connectionSub');
   const stayAlert = document.getElementById('stayAlert');
+  const yourTurnBanner = document.getElementById('yourTurnBanner');
   const adPanel = document.getElementById('adPanel');
   const adContainer = document.getElementById('adContainer');
   const errorBox = document.getElementById('error');
@@ -539,7 +772,6 @@
   let latestConnectLink = null;
   let linkGenerating = false;
   let isTelegramConnected = false;
-  let redirecting = false;
   let avgServiceTime = 3;
   let qRef = null, counterRef = null, adRef = null, analyticsRef = null;
 
@@ -650,11 +882,10 @@
     
     const url = latestConnectLink || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
     
-    // CRITICAL: Open in NEW tab, not current page
+    // Open in NEW tab
     const newTab = window.open(url, '_blank', 'noopener,noreferrer');
     
     if (!newTab) {
-      // Popup blocked - try alternative
       const a = document.createElement('a');
       a.href = url;
       a.target = '_blank';
@@ -693,16 +924,16 @@
     isTelegramConnected = connected;
     
     if (connected) {
-      connectionBannerText.textContent = '✅ Connected to Telegram';
-      connectionBannerSub.textContent = 'We\'ll notify you when it\'s your turn.';
+      connectionTitle.textContent = '✅ Connected to Telegram';
+      connectionSub.textContent = "We'll notify you when it's your turn.";
       connectMainBtn.innerHTML = '✅';
       connectMainBtn.disabled = true;
       connectMainBtn.style.opacity = '0.7';
       connectMiniBtn.classList.remove('pulse');
       stayAlert.style.display = 'none';
     } else {
-      connectionBannerText.textContent = 'Get Telegram notifications';
-      connectionBannerSub.textContent = 'Alerts even when page is closed.';
+      connectionTitle.textContent = 'Get Telegram notifications';
+      connectionSub.textContent = 'Alerts even when page is closed.';
       connectMainBtn.innerHTML = 'Connect';
       connectMainBtn.disabled = false;
       connectMainBtn.style.opacity = '1';
@@ -718,21 +949,25 @@
     
     const st = String(status || '').toLowerCase();
     if (st === 'called' || st === 'serving' || st === 'your_turn') {
-      progressCaption.textContent = "🎉 It's your turn!";
-      progressCaption.style.color = 'var(--primary)';
+      progressStatus.innerHTML = "🎉 It's your turn!";
+      progressStatus.style.color = '#10b981';
+      yourTurnBanner.style.display = 'block';
     } else if (ahead === 0) {
-      progressCaption.textContent = "⏰ You're next!";
-      progressCaption.style.color = 'var(--primary)';
+      progressStatus.innerHTML = "⏰ You're next!";
+      progressStatus.style.color = 'var(--primary)';
+      yourTurnBanner.style.display = 'none';
     } else if (ahead > 0) {
-      progressCaption.textContent = `${ahead} ahead`;
-      progressCaption.style.color = '#6b7280';
+      progressStatus.textContent = `${ahead} ahead`;
+      progressStatus.style.color = '#6b7280';
+      yourTurnBanner.style.display = 'none';
     } else {
-      progressCaption.textContent = 'Loading...';
-      progressCaption.style.color = '#6b7280';
+      progressStatus.textContent = 'Loading...';
+      progressStatus.style.color = '#6b7280';
+      yourTurnBanner.style.display = 'none';
     }
   }
 
-  // Compute estimates
+  // Compute estimates (NO REDIRECT - just show banner)
   async function computeEstimates() {
     if (!currentQueueData) return;
     
@@ -764,21 +999,16 @@
       } catch (e) {}
     }
     
-    // CRITICAL FIX: Handle nowServing = 0 correctly
-    // If nowServing is 0, it means service hasn't started yet
+    // Calculate people ahead
     let peopleAhead = 0;
     
     if (myNum !== null && servingNum !== null) {
-      // Only calculate if nowServing > 0 (service has started)
       if (servingNum > 0) {
         peopleAhead = Math.max(0, myNum - servingNum);
       } else {
-        // Service hasn't started, everyone is waiting
-        // Count position based on ticket number
         peopleAhead = Math.max(0, myNum - 1);
       }
     } else {
-      // Fallback: count from queue
       try {
         const allSnap = await get(ref(db, 'queue'));
         if (allSnap.exists()) {
@@ -800,23 +1030,9 @@
     const estMin = peopleAhead * avgServiceTime;
     estimatedWaitEl.textContent = formatMinutes(estMin);
     
-    // Progress: 100 - (peopleAhead / MAX_AHEAD) * 100
+    // Progress
     const progressPct = 100 - (peopleAhead / MAX_AHEAD) * 100;
     updateProgress(progressPct, peopleAhead, myStatus);
-    
-    // Check if called
-    if (myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn') {
-      redirectToTurn();
-    }
-  }
-
-  function redirectToTurn() {
-    if (redirecting) return;
-    redirecting = true;
-    updateProgress(100, 0, 'serving');
-    setTimeout(() => {
-      window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
-    }, 600);
   }
 
   // Ads
