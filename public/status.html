@@ -6,944 +6,657 @@
   <title>QueueJoy — Your Status</title>
   <meta name="description" content="Track your queue position in real-time" />
   <meta name="theme-color" content="#8b5cf6" />
-
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
   <style>
-    :root {
+    :root{
       --primary:#8b5cf6;
       --primary-dark:#7c3aed;
-      --primary-light:#a78bfa;
       --bg-start:#f6f5ff;
       --bg-end:#ede9fe;
+      --muted:#6b7280;
     }
-    
-    * { box-sizing:border-box; margin:0; padding:0; }
-    
-    html, body {
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
       font-family:Inter,system-ui,-apple-system,sans-serif;
       background:linear-gradient(135deg,var(--bg-start),var(--bg-end));
-      min-height:100vh;
-      color:#1f2937;
       -webkit-font-smoothing:antialiased;
-      overflow-x:hidden;
-    }
-    
-    body {
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:center;
-      padding:12px;
-      padding-bottom:180px;
+      min-height:100vh;
+      padding:18px;
+      color:#1f2937;
     }
-    
-    @media (min-width:640px) {
-      body { padding:20px; padding-bottom:200px; }
-    }
-    
-    .page-wrapper {
+
+    /* Container centered both axes - made compact for big phones (iPhone 14 Pro Max) */
+    .page-wrapper{
       width:100%;
-      max-width:600px;
+      max-width:460px; /* narrower for phones, uses space better */
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:calc(100vh - 36px);
     }
-    
-    .card {
-      background:rgba(255,255,255,0.97);
-      border-radius:20px;
-      padding:20px 16px;
-      box-shadow:0 20px 60px rgba(139,92,246,0.15);
+
+    .card{
+      width:100%;
+      background:rgba(255,255,255,0.98);
+      border-radius:18px;
+      padding:18px;
+      box-shadow:0 20px 60px rgba(139,92,246,0.12);
       position:relative;
-      will-change:transform;
-    }
-    
-    @media (min-width:640px) {
-      .card { padding:28px 24px; border-radius:24px; }
+      transform:translateZ(0);
     }
 
-    .logo-box {
-      width:64px;height:64px;
-      border-radius:16px;
-      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
-      display:flex;align-items:center;justify-content:center;
-      color:#fff;font-weight:900;font-size:22px;
-      box-shadow:0 12px 30px rgba(139,92,246,0.3);
-      overflow:hidden;flex-shrink:0;
+    /* header */
+    .header {
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:14px;
     }
-    
-    .logo-box img { width:100%;height:100%;object-fit:cover; }
-    
-    @media (min-width:640px) {
-      .logo-box { width:72px;height:72px;font-size:26px; }
-    }
-
-    .progress-track {
-      height:22px;
-      border-radius:999px;
-      background:#f3f4f6;
-      position:relative;
-      overflow:hidden;
-      box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .progress-fill {
-      height:100%;
-      background:linear-gradient(90deg,var(--primary-dark),var(--primary));
-      display:flex;align-items:center;justify-content:flex-end;
-      padding-right:10px;
-      color:#fff;font-weight:800;font-size:11px;
-      transition:width 0.6s cubic-bezier(0.22,0.9,0.22,1);
-      box-shadow:0 4px 16px rgba(139,92,246,0.4);
-      min-width:44px;
-    }
-
-    .glass-card {
-      background:linear-gradient(135deg,rgba(255,255,255,0.95),rgba(250,248,255,0.9));
-      border-radius:14px;
-      padding:14px;
-      border:1px solid rgba(139,92,246,0.08);
-      box-shadow:0 4px 12px rgba(0,0,0,0.03);
-    }
-    
-    @media (min-width:640px) {
-      .glass-card { padding:16px; border-radius:16px; }
-    }
-    
-    .stat-label {
-      font-size:10px;
-      text-transform:uppercase;
-      letter-spacing:0.08em;
-      color:#6b7280;
-      font-weight:600;
-    }
-    
-    .stat-value {
-      font-weight:900;
-      font-size:28px;
-      margin-top:4px;
-      line-height:1.1;
-      word-break:break-word;
-    }
-    
-    .stat-value-sm {
-      font-weight:800;
-      font-size:20px;
-      margin-top:4px;
-      line-height:1.2;
-    }
-    
-    @media (min-width:640px) {
-      .stat-value { font-size:32px; }
-      .stat-value-sm { font-size:22px; }
-    }
-
-    .circle-btn {
-      width:40px;height:40px;
-      border-radius:50%;
-      background:#fff;
-      border:none;
-      display:flex;align-items:center;justify-content:center;
-      font-size:18px;
-      box-shadow:0 4px 12px rgba(0,0,0,0.08);
-      cursor:pointer;
-      transition:transform 0.15s,box-shadow 0.15s;
-    }
-    
-    .circle-btn:active { transform:scale(0.95); }
-
-    .btn-primary {
+    .logo-box{
+      width:60px;height:60px;border-radius:14px;
       background:linear-gradient(135deg,var(--primary-dark),var(--primary));
-      color:#fff;
-      padding:14px 20px;
-      border-radius:12px;
-      font-weight:700;
-      border:none;
-      box-shadow:0 8px 20px rgba(139,92,246,0.3);
-      cursor:pointer;
-      display:flex;align-items:center;justify-content:center;gap:8px;
-      font-size:14px;
-      transition:transform 0.15s,box-shadow 0.15s,opacity 0.15s;
-      width:100%;
-      min-height:48px;
-    }
-    
-    .btn-primary:active { transform:scale(0.98); }
-    .btn-primary:disabled { opacity:0.6;cursor:not-allowed;transform:none; }
-
-    .btn-outline {
-      border:2px solid rgba(139,92,246,0.2);
-      padding:12px 16px;
-      border-radius:12px;
-      background:#fff;
-      font-weight:600;
-      cursor:pointer;
-      font-size:14px;
-      color:#374151;
-      display:flex;align-items:center;justify-content:center;gap:6px;
-      transition:background 0.15s;
-      width:100%;
-    }
-    
-    .btn-outline:active { background:#f9fafb; }
-
-    /* Modal */
-    .modal-overlay {
-      position:fixed;inset:0;
-      background:rgba(15,23,42,0.6);
-      display:flex;align-items:center;justify-content:center;
-      z-index:999;
-      padding:16px;
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      opacity:0;
-      visibility:hidden;
-      transition:opacity 0.25s,visibility 0.25s;
-    }
-    
-    .modal-overlay.show { opacity:1;visibility:visible; }
-    
-    .modal-card {
-      width:100%;max-width:400px;
-      background:#fff;
-      border-radius:20px;
-      padding:24px 20px;
-      box-shadow:0 24px 60px rgba(15,23,42,0.4);
-      transform:translateY(20px) scale(0.96);
-      transition:transform 0.3s cubic-bezier(0.22,0.9,0.22,1);
-    }
-    
-    .modal-overlay.show .modal-card {
-      transform:translateY(0) scale(1);
-    }
-    
-    @media (min-width:480px) {
-      .modal-card { padding:28px 24px; }
+      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:20px;
+      box-shadow:0 12px 30px rgba(139,92,246,0.2);flex-shrink:0;
     }
 
-    .slide { display:none; }
-    .slide.active { display:block; }
-
-    .step-dots {
-      display:flex;gap:8px;justify-content:center;
-      margin:16px 0;
+    /* progress */
+    .progress-area{margin-bottom:12px}
+    .progress-track{
+      height:18px;border-radius:999px;background:#f3f4f6;overflow:hidden;box-shadow:inset 0 2px 4px rgba(0,0,0,0.03)
     }
-    
-    .step-dot {
-      width:8px;height:8px;border-radius:999px;
-      background:#e5e7eb;
-      transition:all 0.25s;
-    }
-    
-    .step-dot.active {
-      width:28px;
-      background:linear-gradient(90deg,var(--primary-dark),var(--primary));
-      box-shadow:0 4px 10px rgba(139,92,246,0.35);
+    .progress-fill{
+      height:100%;background:linear-gradient(90deg,var(--primary-dark),var(--primary));transition:width .45s cubic-bezier(.22,.9,.22,1);
+      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;padding-right:8px;min-width:40px;
+      box-shadow:0 6px 18px rgba(124,58,237,0.18);
     }
 
-    .spinner {
-      width:16px;height:16px;
-      border:3px solid rgba(255,255,255,0.25);
-      border-top-color:#fff;
-      border-radius:50%;
-      animation:spin 0.7s linear infinite;
+    /* grid */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .glass{
+      background:linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,248,255,0.95));
+      border-radius:12px;padding:12px;border:1px solid rgba(139,92,246,0.06);box-shadow:0 6px 18px rgba(15,23,42,0.04)
     }
-    
-    @keyframes spin { to { transform:rotate(360deg); } }
+    .label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+    .value{font-weight:900;font-size:28px;margin-top:6px;line-height:1.05}
+    .value-sm{font-weight:800;font-size:18px;margin-top:6px}
 
-    .pulse { animation:pulse 2s ease-in-out infinite; }
-    @keyframes pulse {
-      0%,100% { transform:scale(1); }
-      50% { transform:scale(1.08); }
+    /* connection banner */
+    .conn-banner{display:flex;align-items:center;gap:12px;margin-top:6px}
+    .conn-btn{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;border:none;cursor:pointer;min-width:96px}
+    .conn-sub{font-size:13px;color:var(--muted)}
+
+    .banner-alert{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;color:#92400e;padding:10px;border-radius:10px;font-weight:700;margin-top:12px;text-align:center;font-size:13px}
+
+    .error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px;border-radius:10px;margin-top:10px;text-align:center;font-weight:700;display:none}
+
+    /* small helpers */
+    .tiny{font-size:12px;color:var(--muted)}
+    .top-right-actions{position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:10}
+    .circle-btn{width:40px;height:40px;border-radius:10px;background:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(2,6,23,0.06);cursor:pointer}
+    .pulse{animation:pulse 1.8s ease-in-out infinite}
+    @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.55);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:999;padding:18px;visibility:hidden;opacity:0;transition:opacity .2s,visibility .2s}
+    .modal-backdrop.show{visibility:visible;opacity:1}
+    .modal-card{width:100%;max-width:420px;background:#fff;border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(2,6,23,0.4)}
+
+    /* ad panel */
+    .ad-panel{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;width:calc(100% - 36px);max-width:420px;background:#fff;border-radius:12px;padding:8px;box-shadow:0 16px 40px rgba(2,6,23,0.12);display:none;z-index:150}
+    .ad-media{width:100%;height:88px;object-fit:cover;border-radius:10px}
+
+    /* responsive tweaks for larger phones */
+    @media (min-width:420px){
+      .page-wrapper{max-width:520px}
+      .value{font-size:32px}
     }
 
-    /* Ad panel */
-    .ad-panel {
-      position:fixed;
-      left:50%;transform:translateX(-50%);
-      bottom:12px;
-      width:calc(100% - 24px);max-width:400px;
-      background:#fff;
-      border-radius:14px;
-      box-shadow:0 16px 40px rgba(15,23,42,0.2);
-      padding:10px;
-      z-index:100;
-    }
-    
-    .ad-media {
-      width:100%;height:100px;
-      object-fit:cover;border-radius:10px;
-    }
-
-    .error-banner {
-      margin-top:12px;
-      padding:12px;
-      border-radius:10px;
-      background:#fef2f2;
-      border:1px solid #fecaca;
-      color:#b91c1c;
-      font-weight:600;
-      font-size:13px;
-      text-align:center;
-    }
-    
-    .banner-alert {
-      background:linear-gradient(135deg,#fef3c7,#fde68a);
-      border:1px solid #fcd34d;
-      color:#92400e;
-      padding:10px 12px;
-      border-radius:10px;
-      font-size:12px;
-      font-weight:600;
-      text-align:center;
-      margin-top:12px;
-    }
+    /* reduce overscroll bounce on mobile */
+    html,body{overscroll-behavior-y:contain}
   </style>
 </head>
 <body>
 
-<div class="page-wrapper">
+  <div class="page-wrapper">
+    <main class="card" role="main" aria-live="polite">
 
-  <!-- Onboarding Modal -->
-  <div id="onboardingModal" class="modal-overlay" aria-hidden="true">
+      <!-- top small actions -->
+      <div class="top-right-actions">
+        <button id="miniGame" class="circle-btn" title="Game">🎮</button>
+        <button id="miniConnect" class="circle-btn pulse" title="Connect">✉️</button>
+      </div>
+
+      <!-- header -->
+      <div class="header">
+        <div class="logo-box" id="logoBox"><span id="logoText">QJ</span><img id="logoImg" alt="logo" style="width:100%;height:100%;display:none;border-radius:14px;object-fit:cover" /></div>
+        <div style="min-width:0">
+          <h1 style="font-size:18px;font-weight:900;margin-bottom:4px">You're in the queue</h1>
+          <div class="tiny">We track your spot in real-time — connect Telegram for background alerts.</div>
+        </div>
+      </div>
+
+      <!-- progress -->
+      <section class="progress-area">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="tiny" style="font-weight:800">Queue Progress</div>
+          <div id="progressCaption" class="tiny">Loading...</div>
+        </div>
+        <div class="progress-track" aria-hidden="false">
+          <div id="progressFill" class="progress-fill" style="width:6%"> <span id="progressLabel">6%</span></div>
+        </div>
+      </section>
+
+      <!-- stats -->
+      <section class="grid-2" aria-hidden="false">
+        <div class="glass">
+          <div class="label">Your Ticket</div>
+          <div id="yourNumber" class="value" style="color:var(--primary)">—</div>
+        </div>
+        <div class="glass">
+          <div class="label">Now Serving</div>
+          <div id="nowServing" class="value" style="color:#111827">—</div>
+        </div>
+      </section>
+
+      <section class="grid-2" aria-hidden="false">
+        <div class="glass">
+          <div class="label">People Ahead</div>
+          <div id="peopleAhead" class="value-sm">—</div>
+        </div>
+        <div class="glass">
+          <div class="label">Estimated Wait</div>
+          <div id="estimatedWait" class="value-sm" style="color:var(--primary)">—</div>
+        </div>
+      </section>
+
+      <!-- connection -->
+      <section style="margin-top:6px">
+        <div class="conn-banner glass" style="padding:10px">
+          <div style="width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px">🔔</div>
+          <div style="flex:1;min-width:0">
+            <div id="connectionBannerText" style="font-weight:800">Checking status...</div>
+            <div id="connectionBannerSub" class="conn-sub">Connect for alerts when page is closed.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+            <button id="connectMain" class="conn-btn">Connect</button>
+            <button id="openNow" class="tiny" style="background:transparent;border:none;color:var(--muted);cursor:pointer;text-decoration:underline;padding:0">Open your_turn now</button>
+          </div>
+        </div>
+
+        <!-- clear instruction about Telegram -->
+        <div id="telegramNotice" class="banner-alert" title="Important note about background notifications" style="margin-top:12px">
+          Important: only the Telegram *app* can deliver reliable background notifications when your phone screen is off or the browser is closed. If you close this tab, the browser may not wake to redirect you — connect the Telegram bot for guaranteed alerts.
+        </div>
+
+        <div id="stayAlert" style="display:none" class="banner-alert">⚠️ Stay on this page and keep the screen awake if you don't connect Telegram — some browsers suspend background network activity.</div>
+
+        <div id="errorBox" class="error" role="alert"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ad -->
+  <div id="adPanel" class="ad-panel" aria-hidden="true">
+    <div style="font-size:10px;color:#9ca3af;text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">Advertisement</div>
+    <div id="adContainer"></div>
+  </div>
+
+  <!-- onboarding modal (single file) -->
+  <div id="onboardingModal" class="modal-backdrop" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true">
-      
-      <!-- Slide 1 -->
-      <div class="slide active" data-slide="0">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">✉️</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Get Telegram Notifications</h3>
-          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            Receive instant alerts on your phone when it's your turn.
-          </p>
+      <div id="obSlides">
+        <div data-slide="0" class="ob-slide">
+          <div style="text-align:center">
+            <div style="width:88px;height:88px;margin:0 auto;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;margin-bottom:12px">✉️</div>
+            <h3 style="font-size:18px;font-weight:900;margin-bottom:6px">Get Telegram Notifications</h3>
+            <p style="color:var(--muted);line-height:1.4">Open Telegram and tap <strong>Start</strong> on our bot to enable background push notifications — this is the only reliable way to get alerted when you're not on the page.</p>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button id="obNext" class="conn-btn" style="flex:1">Continue</button>
+            <button id="obSkip" class="tiny" style="background:transparent;border:none;cursor:pointer">Skip</button>
+          </div>
         </div>
-        <div class="step-dots">
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-        </div>
-        <button id="obNext" class="btn-primary">Continue →</button>
-        <button id="obSkip" class="btn-outline" style="margin-top:10px">Skip for now</button>
-      </div>
 
-      <!-- Slide 2 -->
-      <div class="slide" data-slide="1">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">▶️</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Tap "Start" in Telegram</h3>
-          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            We'll open our bot. Tap <strong>Start</strong> to activate notifications.
-          </p>
+        <div data-slide="1" class="ob-slide" style="display:none">
+          <div style="text-align:center">
+            <div style="width:88px;height:88px;margin:0 auto;border-radius:16px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;margin-bottom:12px">▶️</div>
+            <h3 style="font-size:18px;font-weight:900;margin-bottom:6px">Tap Start in Telegram</h3>
+            <p style="color:var(--muted);line-height:1.4">We'll open the bot for you. Tap <strong>Start</strong> then come back — we'll mark your account as connected.</p>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button id="obOpenTelegram" class="conn-btn" style="flex:1">Open Telegram</button>
+            <button id="obBack" class="tiny" style="background:transparent;border:none;cursor:pointer">Back</button>
+          </div>
         </div>
-        <div class="step-dots">
-          <div class="step-dot"></div>
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
-        </div>
-        <button id="obNext2" class="btn-primary">Next →</button>
-        <button id="obBack1" class="btn-outline" style="margin-top:10px">← Back</button>
-      </div>
 
-      <!-- Slide 3 -->
-      <div class="slide" data-slide="2">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(139,92,246,0.3)">✅</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">Ready to Connect</h3>
-          <p id="obStatusText" style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            Generating your secure link...
-          </p>
+        <div data-slide="connected" class="ob-slide" style="display:none">
+          <div style="text-align:center">
+            <div style="width:88px;height:88px;margin:0 auto;border-radius:16px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;margin-bottom:12px">✅</div>
+            <h3 style="font-size:18px;font-weight:900;margin-bottom:6px">You're Connected</h3>
+            <p style="color:var(--muted);line-height:1.4">Nice — we'll notify you when it's your turn. You can close this modal.</p>
+          </div>
+          <div style="margin-top:14px">
+            <button id="obDone" class="conn-btn" style="width:100%">Got it</button>
+          </div>
         </div>
-        <div class="step-dots">
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot active"></div>
-        </div>
-        <button id="obFinish" class="btn-primary" disabled>
-          <span id="obFinishContent">
-            <span class="spinner"></span>
-            <span>Generating...</span>
-          </span>
-        </button>
-        <button id="obBack2" class="btn-outline" style="margin-top:10px">← Back</button>
       </div>
-
-      <!-- Connected Slide -->
-      <div class="slide" data-slide="connected">
-        <div style="text-align:center">
-          <div style="width:100px;height:100px;margin:0 auto;border-radius:22px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;box-shadow:0 16px 40px rgba(16,185,129,0.3)">✅</div>
-          <h3 style="margin-top:20px;font-size:20px;font-weight:800;color:#111827">You're Connected!</h3>
-          <p style="color:#6b7280;margin-top:10px;font-size:14px;line-height:1.5">
-            You'll get a Telegram notification when it's your turn.
-          </p>
-        </div>
-        <button id="obDone" class="btn-primary" style="margin-top:20px">Got it!</button>
-      </div>
-      
     </div>
   </div>
 
-  <!-- Main Card -->
-  <main class="card">
-    
-    <!-- Top buttons -->
-    <div style="position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:10">
-      <button id="miniGame" class="circle-btn" title="Play game">🎮</button>
-      <button id="miniConnect" class="circle-btn pulse" title="Connect Telegram">✉️</button>
-    </div>
+  <!-- Firebase + app logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    <!-- Header -->
-    <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;padding-right:90px">
-      <div class="logo-box" id="logoBox">
-        <span id="logoText">QJ</span>
-        <img id="logoImg" style="display:none" alt="Logo" />
-      </div>
-      <div style="flex:1;min-width:0">
-        <h1 style="font-size:18px;font-weight:800;color:#111827;line-height:1.3;margin:0">
-          You're in the queue
-        </h1>
-        <p style="color:#6b7280;margin-top:4px;font-size:13px;line-height:1.4">
-          We're tracking your spot in real-time.
-        </p>
-      </div>
-    </div>
+    /* -------- CONFIG - keep as-is, single file -------- */
+    const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
+    const MARK_TOKEN_USED = '/.netlify/functions/markTokenUsed';
+    const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
+    const MAX_AHEAD = 20;
 
-    <!-- Progress -->
-    <section style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:12px;font-weight:600;color:#6b7280">Queue Progress</span>
-        <span id="progressCaption" style="font-size:12px;font-weight:700;color:#6b7280">Loading...</span>
-      </div>
-      <div class="progress-track">
-        <div id="progressFill" class="progress-fill" style="width:8%">
-          <span id="progressLabel">8%</span>
-        </div>
-      </div>
-    </section>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b-firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
 
-    <!-- Stats Grid -->
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="glass-card">
-        <div class="stat-label">Your Ticket</div>
-        <div id="yourNumber" class="stat-value" style="color:var(--primary)">—</div>
-      </div>
-      <div class="glass-card">
-        <div class="stat-label">Now Serving</div>
-        <div id="nowServing" class="stat-value" style="color:#111827">—</div>
-      </div>
-    </section>
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    <section style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-      <div class="glass-card">
-        <div class="stat-label">People Ahead</div>
-        <div id="peopleAhead" class="stat-value-sm" style="color:#374151">—</div>
-      </div>
-      <div class="glass-card">
-        <div class="stat-label">Estimated Wait</div>
-        <div id="estimatedWait" class="stat-value-sm" style="color:var(--primary)">—</div>
-      </div>
-    </section>
+    /* -------- DOM -------- */
+    const obModal = document.getElementById('onboardingModal');
+    const obSlides = document.querySelectorAll('.ob-slide');
+    const obNext = document.getElementById('obNext');
+    const obSkip = document.getElementById('obSkip');
+    const obOpenTelegram = document.getElementById('obOpenTelegram');
+    const obBack = document.getElementById('obBack');
+    const obDone = document.getElementById('obDone');
+    const connectMainBtn = document.getElementById('connectMain');
+    const miniConnect = document.getElementById('miniConnect');
+    const openNowBtn = document.getElementById('openNow');
+    const miniGameBtn = document.getElementById('miniGame');
 
-    <!-- Connection Banner -->
-    <section id="connectionBanner" class="glass-card" style="display:flex;align-items:center;gap:12px">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0">🔔</div>
-      <div style="flex:1;min-width:0">
-        <div id="connectionBannerText" style="font-weight:700;font-size:13px;color:#111827;line-height:1.3">
-          Checking status...
-        </div>
-        <div id="connectionBannerSub" style="color:#6b7280;font-size:12px;margin-top:2px;line-height:1.3">
-          Connect for alerts when page is closed.
-        </div>
-      </div>
-      <button id="connectMain" class="btn-primary" style="width:auto;padding:10px 14px;font-size:12px;min-height:40px">
-        Connect
-      </button>
-    </section>
+    const yourNumberEl = document.getElementById('yourNumber');
+    const nowServingEl = document.getElementById('nowServing');
+    const peopleAheadEl = document.getElementById('peopleAhead');
+    const estimatedWaitEl = document.getElementById('estimatedWait');
+    const progressFill = document.getElementById('progressFill');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressCaption = document.getElementById('progressCaption');
+    const connectionBannerText = document.getElementById('connectionBannerText');
+    const connectionBannerSub = document.getElementById('connectionBannerSub');
+    const stayAlert = document.getElementById('stayAlert');
+    const errorBox = document.getElementById('errorBox');
+    const adPanel = document.getElementById('adPanel');
+    const adContainer = document.getElementById('adContainer');
+    const logoImg = document.getElementById('logoImg');
+    const logoText = document.getElementById('logoText');
 
-    <!-- Stay Alert (shown when NOT connected) -->
-    <div id="stayAlert" class="banner-alert" style="display:none">
-      ⚠️ <strong>Stay on this page & keep screen awake</strong> to not miss your turn.
-    </div>
+    /* -------- STATE -------- */
+    let currentQueueKey = null;
+    let currentQueueData = null;
+    let currentCounterId = null;
+    let latestConnectLink = null;
+    let linkGenerating = false;
+    let isTelegramConnected = false;
+    let redirecting = false;
+    let avgServiceTime = 3;
+    let qRef = null, counterRef = null, adRef = null, analyticsRef = null;
 
-    <!-- Error -->
-    <div id="error" class="error-banner" style="display:none"></div>
-    
-  </main>
-
-</div>
-
-<!-- Ad Panel -->
-<div id="adPanel" class="ad-panel" style="display:none">
-  <div style="font-size:9px;color:#9ca3af;text-align:center;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Advertisement</div>
-  <div id="adContainer"></div>
-</div>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  // Config
-  const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
-  const MARK_TOKEN_USED = '/.netlify/functions/markTokenUsed';
-  const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
-  const MAX_AHEAD = 20;
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-    authDomain: "queue-joy-aa21b.firebaseapp.com",
-    databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "queue-joy-aa21b",
-    storageBucket: "queue-joy-aa21b.firebasestorage.app",
-    messagingSenderId: "950240394209",
-    appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // DOM
-  const obModal = document.getElementById('onboardingModal');
-  const slides = document.querySelectorAll('.slide');
-  const stepDots = document.querySelectorAll('.step-dot');
-  const obNext = document.getElementById('obNext');
-  const obNext2 = document.getElementById('obNext2');
-  const obBack1 = document.getElementById('obBack1');
-  const obBack2 = document.getElementById('obBack2');
-  const obSkip = document.getElementById('obSkip');
-  const obFinish = document.getElementById('obFinish');
-  const obFinishContent = document.getElementById('obFinishContent');
-  const obStatusText = document.getElementById('obStatusText');
-  const obDone = document.getElementById('obDone');
-  
-  const logoBox = document.getElementById('logoBox');
-  const logoText = document.getElementById('logoText');
-  const logoImg = document.getElementById('logoImg');
-  const yourNumberEl = document.getElementById('yourNumber');
-  const nowServingEl = document.getElementById('nowServing');
-  const peopleAheadEl = document.getElementById('peopleAhead');
-  const estimatedWaitEl = document.getElementById('estimatedWait');
-  const progressFill = document.getElementById('progressFill');
-  const progressLabel = document.getElementById('progressLabel');
-  const progressCaption = document.getElementById('progressCaption');
-  const connectMainBtn = document.getElementById('connectMain');
-  const connectMiniBtn = document.getElementById('miniConnect');
-  const connectionBannerText = document.getElementById('connectionBannerText');
-  const connectionBannerSub = document.getElementById('connectionBannerSub');
-  const stayAlert = document.getElementById('stayAlert');
-  const adPanel = document.getElementById('adPanel');
-  const adContainer = document.getElementById('adContainer');
-  const errorBox = document.getElementById('error');
-
-  // State
-  let currentQueueKey = null;
-  let currentQueueData = null;
-  let currentCounterId = null;
-  let latestConnectLink = null;
-  let linkGenerating = false;
-  let isTelegramConnected = false;
-  let redirecting = false;
-  let avgServiceTime = 3;
-  let qRef = null, counterRef = null, adRef = null, analyticsRef = null;
-
-  // Utilities
-  function showError(msg) {
-    if (!errorBox) return;
-    errorBox.style.display = 'block';
-    errorBox.textContent = msg;
-    setTimeout(() => errorBox.style.display = 'none', 6000);
-  }
-
-  function extractNumber(str) {
-    if (!str) return null;
-    const m = String(str).match(/(\d+)$/);
-    return m ? parseInt(m[1], 10) : null;
-  }
-
-  function formatMinutes(m) {
-    const mm = Math.max(0, Math.round(m));
-    if (mm === 0) return 'Now';
-    if (mm < 60) return `${mm} min`;
-    const h = Math.floor(mm / 60), r = mm % 60;
-    return r === 0 ? `${h}h` : `${h}h ${r}m`;
-  }
-
-  // Modal functions
-  function showSlide(idx) {
-    slides.forEach(s => s.classList.remove('active'));
-    stepDots.forEach(d => d.classList.remove('active'));
-    const slide = document.querySelector(`[data-slide="${idx}"]`);
-    if (slide) slide.classList.add('active');
-    if (typeof idx === 'number' && stepDots[idx]) stepDots[idx].classList.add('active');
-    if (idx === 2) generateLink();
-  }
-
-  function openModal() {
-    obModal.classList.add('show');
-    if (isTelegramConnected) {
-      showSlide('connected');
-    } else {
-      showSlide(0);
+    /* -------- helpers -------- */
+    function showError(msg) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = msg;
+      setTimeout(()=> errorBox.style.display = 'none', 7000);
     }
-  }
-
-  function closeModal() {
-    obModal.classList.remove('show');
-  }
-
-  obNext.onclick = () => showSlide(1);
-  obNext2.onclick = () => showSlide(2);
-  obBack1.onclick = () => showSlide(0);
-  obBack2.onclick = () => showSlide(1);
-  obSkip.onclick = closeModal;
-  obDone.onclick = closeModal;
-  obModal.onclick = (e) => { if (e.target === obModal) closeModal(); };
-
-  // Telegram link generation
-  async function generateLink() {
-    if (linkGenerating || latestConnectLink) return;
-    linkGenerating = true;
-    
-    obFinish.disabled = true;
-    obFinishContent.innerHTML = '<span class="spinner"></span><span>Generating...</span>';
-    obStatusText.textContent = 'Creating secure link...';
-
-    try {
-      const res = await fetch(CREATE_LINK_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queueKey: currentQueueKey })
-      });
-      
-      if (!res.ok) throw new Error('Failed');
-      
-      const json = await res.json();
-      let link = json.link || null;
-      
-      if (!link && json.token) {
-        link = `${TELEGRAM_BOT_URL}?start=${json.token}`;
-      }
-      
-      if (link && !link.includes('start=')) {
-        const token = currentQueueData?.telegramToken || currentQueueData?.token || currentQueueKey;
-        link = `${TELEGRAM_BOT_URL}?start=${token}`;
-      }
-      
-      latestConnectLink = link || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
-      obStatusText.textContent = 'Ready! Tap below to open Telegram.';
-      obFinish.disabled = false;
-      obFinishContent.innerHTML = '🚀 Open Telegram';
-      
-    } catch (e) {
-      console.error('Link generation failed:', e);
-      latestConnectLink = `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
-      obStatusText.textContent = 'Using fallback link.';
-      obFinish.disabled = false;
-      obFinishContent.innerHTML = '🚀 Open Telegram';
-    } finally {
-      linkGenerating = false;
+    function extractNumber(str){
+      if(!str) return null;
+      const m = String(str).match(/(\d+)$/);
+      return m ? parseInt(m[1],10) : null;
     }
-  }
-
-  async function openTelegram() {
-    if (linkGenerating) return;
-    
-    obFinish.disabled = true;
-    obFinishContent.innerHTML = '<span class="spinner"></span><span>Opening...</span>';
-    
-    const url = latestConnectLink || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
-    
-    // CRITICAL: Open in NEW tab, not current page
-    const newTab = window.open(url, '_blank', 'noopener,noreferrer');
-    
-    if (!newTab) {
-      // Popup blocked - try alternative
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    function formatMinutes(m){
+      const mm = Math.max(0, Math.round(m));
+      if(mm===0) return 'Now';
+      if(mm<60) return `${mm} min`;
+      const h=Math.floor(mm/60), r=mm%60;
+      return r===0?`${h}h`:`${h}h ${r}m`;
     }
-    
-    // Mark token used
-    try {
-      const token = url.split('start=')[1];
-      if (token) {
-        await fetch(MARK_TOKEN_USED, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueKey: currentQueueKey, token })
+
+    /* -------- modal logic -------- */
+    function showModalSlide(idx){
+      obSlides.forEach(s=>s.style.display='none');
+      const slide = document.querySelector(`[data-slide="${idx}"]`);
+      if(slide) slide.style.display='block';
+      obModal.classList.add('show');
+    }
+    function closeModal(){ obModal.classList.remove('show'); }
+
+    obNext.addEventListener('click', ()=> showModalSlide(1));
+    obSkip.addEventListener('click', closeModal);
+    obBack.addEventListener('click', ()=> showModalSlide(0));
+    obDone.addEventListener('click', closeModal);
+
+    /* generate link (same idea, robust fallback) */
+    async function generateLink(queueKey){
+      if(linkGenerating || latestConnectLink) return latestConnectLink;
+      linkGenerating = true;
+      try{
+        const res = await fetch(CREATE_LINK_ENDPOINT, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ queueKey })
         });
-      }
-    } catch (e) {}
-    
-    setTimeout(() => {
-      obFinish.disabled = false;
-      obFinishContent.innerHTML = '✅ Opened!';
-      setTimeout(closeModal, 1500);
-    }, 500);
-  }
-
-  obFinish.onclick = openTelegram;
-  connectMainBtn.onclick = openModal;
-  connectMiniBtn.onclick = openModal;
-  document.getElementById('miniGame').onclick = () => window.open('https://queuejoy.netlify.app/game.html', '_blank');
-
-  // UI Updates
-  function setTelegramUI(connected) {
-    isTelegramConnected = connected;
-    
-    if (connected) {
-      connectionBannerText.textContent = '✅ Connected to Telegram';
-      connectionBannerSub.textContent = 'We\'ll notify you when it\'s your turn.';
-      connectMainBtn.innerHTML = '✅';
-      connectMainBtn.disabled = true;
-      connectMainBtn.style.opacity = '0.7';
-      connectMiniBtn.classList.remove('pulse');
-      stayAlert.style.display = 'none';
-    } else {
-      connectionBannerText.textContent = 'Get Telegram notifications';
-      connectionBannerSub.textContent = 'Alerts even when page is closed.';
-      connectMainBtn.innerHTML = 'Connect';
-      connectMainBtn.disabled = false;
-      connectMainBtn.style.opacity = '1';
-      connectMiniBtn.classList.add('pulse');
-      stayAlert.style.display = 'block';
-    }
-  }
-
-  function updateProgress(pct, ahead, status) {
-    const p = Math.max(4, Math.min(100, Math.round(pct)));
-    progressFill.style.width = p + '%';
-    progressLabel.textContent = p + '%';
-    
-    const st = String(status || '').toLowerCase();
-    if (st === 'called' || st === 'serving' || st === 'your_turn') {
-      progressCaption.textContent = "🎉 It's your turn!";
-      progressCaption.style.color = 'var(--primary)';
-    } else if (ahead === 0) {
-      progressCaption.textContent = "⏰ You're next!";
-      progressCaption.style.color = 'var(--primary)';
-    } else if (ahead > 0) {
-      progressCaption.textContent = `${ahead} ahead`;
-      progressCaption.style.color = '#6b7280';
-    } else {
-      progressCaption.textContent = 'Loading...';
-      progressCaption.style.color = '#6b7280';
-    }
-  }
-
-  // Compute estimates
-  async function computeEstimates() {
-    if (!currentQueueData) return;
-    
-    const myTicket = currentQueueData.queueId || currentQueueData.ticket;
-    const myNum = extractNumber(myTicket);
-    const myStatus = String(currentQueueData.status || '').toLowerCase();
-    
-    // Get nowServing from counter
-    let servingNum = null;
-    let counterData = null;
-    
-    const counterId = currentQueueData.counterId || currentQueueData.counter;
-    if (counterId) {
-      try {
-        const snap = await get(ref(db, `counters/${counterId}`));
-        if (snap.exists()) {
-          counterData = snap.val();
-          servingNum = extractNumber(counterData.nowServing);
-          
-          // Update nowServing display
-          const prefix = counterData.prefix || '';
-          if (counterData.nowServing !== undefined && counterData.nowServing !== null) {
-            const digits = String(myTicket).match(/(\d+)$/);
-            const len = digits ? digits[1].length : 3;
-            const formatted = prefix + String(counterData.nowServing).padStart(len, '0');
-            nowServingEl.textContent = formatted;
-          }
+        if(!res.ok) throw new Error('Bad');
+        const json = await res.json();
+        let link = json.link || null;
+        if(!link && json.token) link = `${TELEGRAM_BOT_URL}?start=${json.token}`;
+        if(link && !link.includes('start=')){
+          const token = currentQueueData?.telegramToken || currentQueueData?.token || currentQueueKey;
+          link = `${TELEGRAM_BOT_URL}?start=${token}`;
         }
-      } catch (e) {}
+        latestConnectLink = link || `${TELEGRAM_BOT_URL}?start=${queueKey}`;
+        return latestConnectLink;
+      }catch(e){
+        latestConnectLink = `${TELEGRAM_BOT_URL}?start=${queueKey}`;
+        return latestConnectLink;
+      }finally{ linkGenerating=false; }
     }
-    
-    // CRITICAL FIX: Handle nowServing = 0 correctly
-    // If nowServing is 0, it means service hasn't started yet
-    let peopleAhead = 0;
-    
-    if (myNum !== null && servingNum !== null) {
-      // Only calculate if nowServing > 0 (service has started)
-      if (servingNum > 0) {
-        peopleAhead = Math.max(0, myNum - servingNum);
+
+    async function openTelegram(){
+      if(!currentQueueKey) return;
+      const url = await generateLink(currentQueueKey);
+      // Always open in new tab/window to preserve this page (important)
+      const w = window.open(url,'_blank','noopener,noreferrer');
+      if(!w){
+        // popup blocked fallback
+        const a = document.createElement('a');
+        a.href = url; a.target='_blank'; a.rel='noopener noreferrer';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+      // mark used token (best-effort)
+      try{
+        const token = url.split('start=')[1];
+        if(token){
+          await fetch(MARK_TOKEN_USED, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({queueKey:currentQueueKey, token}) });
+        }
+      }catch(e){}
+      // close modal after slight delay
+      setTimeout(()=> closeModal(), 700);
+    }
+    obOpenTelegram.addEventListener('click', openTelegram);
+    connectMainBtn.addEventListener('click', ()=> {
+      if(isTelegramConnected) { showModalSlide('connected'); } else { showModalSlide(0); }
+    });
+    miniConnect.addEventListener('click', ()=> connectMainBtn.click());
+    miniGameBtn.addEventListener('click', ()=> window.open('https://queuejoy.netlify.app/game.html','_blank'));
+
+    /* button to open your_turn manually */
+    openNowBtn.addEventListener('click', ()=> {
+      if(!currentQueueKey) return;
+      // open in same tab
+      window.location.replace(`your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`);
+    });
+
+    /* UI setters */
+    function setTelegramUI(connected){
+      isTelegramConnected = Boolean(connected);
+      if(connected){
+        connectionBannerText.textContent = '✅ Connected to Telegram';
+        connectionBannerSub.textContent = "We'll notify you when it's your turn.";
+        connectMainBtn.textContent = '✅ Connected';
+        connectMainBtn.disabled = true;
+        connectMainBtn.style.opacity = '0.8';
+        stayAlert.style.display = 'none';
+        if(obModal.classList.contains('show')) showModalSlide('connected');
       } else {
-        // Service hasn't started, everyone is waiting
-        // Count position based on ticket number
-        peopleAhead = Math.max(0, myNum - 1);
+        connectionBannerText.textContent = 'Get Telegram notifications';
+        connectionBannerSub.textContent = 'Alerts even when page is closed.';
+        connectMainBtn.textContent = 'Connect';
+        connectMainBtn.disabled = false;
+        connectMainBtn.style.opacity = '1';
+        stayAlert.style.display = 'block';
       }
-    } else {
-      // Fallback: count from queue
+    }
+
+    function updateProgress(pct, ahead, status){
+      const p = Math.max(4, Math.min(100, Math.round(pct)));
+      progressFill.style.width = p + '%';
+      progressLabel.textContent = p + '%';
+      const st = String(status||'').toLowerCase();
+      if(st === 'called' || st === 'serving' || st === 'your_turn'){
+        progressCaption.textContent = "🎉 It's your turn!";
+        progressCaption.style.color = 'var(--primary)';
+      } else if(ahead === 0){
+        progressCaption.textContent = "⏰ You're next!";
+        progressCaption.style.color = 'var(--primary)';
+      } else if(ahead > 0){
+        progressCaption.textContent = `${ahead} ahead`;
+        progressCaption.style.color = '#6b7280';
+      } else {
+        progressCaption.textContent = 'Loading...';
+        progressCaption.style.color = '#6b7280';
+      }
+    }
+
+    async function computeEstimates(){
+      if(!currentQueueData) return;
+      const myTicket = currentQueueData.queueId || currentQueueData.ticket;
+      const myNum = extractNumber(myTicket);
+      const myStatus = String(currentQueueData.status || '').toLowerCase();
+
+      // get serving number from counter
+      let servingNum = null;
+      let counterData = null;
+      const counterId = currentQueueData.counterId || currentQueueData.counter;
+      if(counterId){
+        try{
+          const snap = await get(ref(db, `counters/${counterId}`));
+          if(snap.exists()){
+            counterData = snap.val();
+            servingNum = extractNumber(counterData.nowServing);
+            if(counterData.nowServing !== undefined && counterData.nowServing !== null){
+              const prefix = counterData.prefix || '';
+              const digits = String(myTicket||'').match(/(\d+)$/);
+              const len = digits ? digits[1].length : 3;
+              const formatted = prefix + String(counterData.nowServing).padStart(len,'0');
+              nowServingEl.textContent = formatted;
+            }
+          }
+        }catch(e){}
+      }
+
+      let peopleAhead = 0;
+      if(myNum !== null && servingNum !== null){
+        if(servingNum > 0){
+          peopleAhead = Math.max(0, myNum - servingNum);
+        } else {
+          peopleAhead = Math.max(0, myNum - 1);
+        }
+      } else {
+        // fallback: count waiting entries in same queue
+        try{
+          const allSnap = await get(ref(db, 'queue'));
+          if(allSnap.exists()){
+            const all = allSnap.val();
+            const myTime = currentQueueData.timestamp || 0;
+            for(const k in all){
+              const t = all[k];
+              if(!t || String(t.status||'').toLowerCase() !== 'waiting') continue;
+              if(counterId && String(t.counterId||t.counter||'') !== String(counterId)) continue;
+              if(Number(t.timestamp) < Number(myTime)) peopleAhead++;
+            }
+          }
+        }catch(e){}
+      }
+
+      peopleAheadEl.textContent = peopleAhead;
+      const estMin = peopleAhead * avgServiceTime;
+      estimatedWaitEl.textContent = formatMinutes(estMin);
+
+      const progressPct = 100 - (peopleAhead / MAX_AHEAD) * 100;
+      updateProgress(progressPct, peopleAhead, myStatus);
+
+      // immediate redirect if called — do NOT rely on timers or setTimeout for critical navigation
+      if(myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn'){
+        redirectToTurn();
+      }
+    }
+
+    function redirectToTurn(){
+      if(redirecting) return;
+      redirecting = true;
+      updateProgress(100, 0, 'serving');
+
+      // Try to navigate immediately using replace (no history entry)
       try {
-        const allSnap = await get(ref(db, 'queue'));
-        if (allSnap.exists()) {
-          const all = allSnap.val();
-          const myTime = currentQueueData.timestamp || 0;
-          for (const k in all) {
-            const t = all[k];
-            if (!t || String(t.status || '').toLowerCase() !== 'waiting') continue;
-            if (counterId && String(t.counterId || t.counter || '') !== String(counterId)) continue;
-            if (Number(t.timestamp) < Number(myTime)) peopleAhead++;
+        // show a very brief visual confirmation if visible, then navigate
+        if (!document.hidden) {
+          // short visual flash (non-blocking)
+          progressCaption.textContent = "Opening turn screen…";
+        }
+        // Immediately replace location (no delay) — more robust than setTimeout in throttled tabs
+        window.location.replace(`your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`);
+      } catch (e) {
+        // Fallback: assign
+        window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
+      }
+    }
+
+    /* show ad helper */
+    function showAd(url){
+      if(!url){ adPanel.style.display='none'; return; }
+      adPanel.style.display='block';
+      const isVideo = /\.(mp4|webm)(\?|$)/i.test(url);
+      if(isVideo){
+        adContainer.innerHTML = `<video src="${url}" class="ad-media" autoplay muted loop playsinline></video>`;
+      } else {
+        adContainer.innerHTML = `<img src="${url}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
+      }
+    }
+
+    /* load logo */
+    async function loadLogo(){
+      try{
+        const snap = await get(ref(db,'settings/logoUrl'));
+        if(snap.exists() && snap.val()){
+          const url = String(snap.val()).trim();
+          if(url){
+            logoImg.src = url;
+            logoImg.onload = ()=> { logoText.style.display='none'; logoImg.style.display='block'; }
           }
         }
-      } catch (e) {}
+      }catch(e){}
     }
-    
-    peopleAheadEl.textContent = peopleAhead;
-    
-    // Estimated wait
-    const estMin = peopleAhead * avgServiceTime;
-    estimatedWaitEl.textContent = formatMinutes(estMin);
-    
-    // Progress: 100 - (peopleAhead / MAX_AHEAD) * 100
-    const progressPct = 100 - (peopleAhead / MAX_AHEAD) * 100;
-    updateProgress(progressPct, peopleAhead, myStatus);
-    
-    // Check if called
-    if (myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn') {
-      redirectToTurn();
-    }
-  }
 
-  function redirectToTurn() {
-    if (redirecting) return;
-    redirecting = true;
-    updateProgress(100, 0, 'serving');
-    setTimeout(() => {
-      window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
-    }, 600);
-  }
-
-  // Ads
-  function showAd(url) {
-    if (!url) { adPanel.style.display = 'none'; return; }
-    const u = String(url).trim();
-    if (!u) { adPanel.style.display = 'none'; return; }
-    
-    adPanel.style.display = 'block';
-    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
-    
-    if (isVideo) {
-      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
-    } else {
-      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
-    }
-  }
-
-  // Logo
-  async function loadLogo() {
-    try {
-      const snap = await get(ref(db, 'settings/logoUrl'));
-      if (snap.exists() && snap.val()) {
-        const url = String(snap.val()).trim();
-        if (url) {
-          logoImg.src = url;
-          logoImg.onload = () => {
-            logoText.style.display = 'none';
-            logoImg.style.display = 'block';
-          };
+    /* avg service time */
+    async function loadAvgServiceTime(){
+      try{
+        const snap = await get(ref(db,'analytics/serviceEvents'));
+        if(!snap.exists()) return;
+        const events = snap.val();
+        const times = [];
+        for(const k in events){
+          const e = events[k];
+          if(e.serviceMs && e.serviceMs > 0){
+            const min = e.serviceMs / 60000;
+            if(min <= 120) times.push(min);
+          }
         }
-      }
-    } catch (e) {}
-  }
-
-  // Avg service time from analytics
-  async function loadAvgServiceTime() {
-    try {
-      const snap = await get(ref(db, 'analytics/serviceEvents'));
-      if (!snap.exists()) return;
-      
-      const events = snap.val();
-      const times = [];
-      
-      for (const k in events) {
-        const e = events[k];
-        if (e.serviceMs && e.serviceMs > 0) {
-          const min = e.serviceMs / 60000;
-          if (min <= 120) times.push(min);
+        if(times.length>0){
+          const sum = times.reduce((a,b)=>a+b,0);
+          avgServiceTime = Math.max(1, Math.round(sum / times.length));
         }
-      }
-      
-      if (times.length > 0) {
-        const sum = times.reduce((a, b) => a + b, 0);
-        avgServiceTime = Math.max(1, Math.round(sum / times.length));
-      }
-    } catch (e) {}
-  }
-
-  // Initialize
-  document.addEventListener('DOMContentLoaded', async () => {
-    const params = new URLSearchParams(window.location.search);
-    const queueKey = params.get('queueId');
-    
-    if (!queueKey) {
-      showError('Queue ID missing. Redirecting...');
-      setTimeout(() => window.location.href = 'index.html', 1500);
-      return;
+      }catch(e){}
     }
-    
-    currentQueueKey = queueKey;
-    
-    // Load initial data
-    await Promise.all([loadLogo(), loadAvgServiceTime()]);
-    
-    // Watch queue entry
-    qRef = ref(db, `queue/${queueKey}`);
-    onValue(qRef, (snap) => {
-      if (!snap.exists()) {
-        showError('Queue not found. Redirecting...');
-        setTimeout(() => window.location.href = 'index.html', 1500);
+
+    /* init */
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      const params = new URLSearchParams(window.location.search);
+      const queueKey = params.get('queueId');
+      if(!queueKey){
+        showError('Queue ID missing — redirecting to home.');
+        setTimeout(()=> window.location.href = 'index.html', 1200);
         return;
       }
-      
-      currentQueueData = snap.val();
-      yourNumberEl.textContent = currentQueueData.queueId || currentQueueData.ticket || '—';
-      
-      // Check Telegram connection
-      const connected = Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected);
-      setTelegramUI(connected);
-      
-      // Show modal on entry if not connected
-      if (!connected && !obModal.classList.contains('show')) {
-        openModal();
-      }
-      
-      // Watch counter
-      const cid = currentQueueData.counterId || currentQueueData.counter;
-      if (cid && cid !== currentCounterId) {
-        if (counterRef) off(counterRef);
-        currentCounterId = cid;
-        counterRef = ref(db, `counters/${cid}`);
-        onValue(counterRef, () => computeEstimates());
-      }
-      
-      computeEstimates();
-    });
-    
-    // Watch ads
-    adRef = ref(db, 'settings/adImage');
-    onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
-    
-    // Watch analytics for service time updates
-    analyticsRef = ref(db, 'analytics/serviceEvents');
-    onValue(analyticsRef, async () => {
-      await loadAvgServiceTime();
-      computeEstimates();
-    });
-    
-    // Cleanup
-    window.addEventListener('beforeunload', () => {
-      if (qRef) off(qRef);
-      if (counterRef) off(counterRef);
-      if (adRef) off(adRef);
-      if (analyticsRef) off(analyticsRef);
-    });
-  });
-</script>
+      currentQueueKey = queueKey;
+      await Promise.all([loadLogo(), loadAvgServiceTime()]);
 
+      // watch queue entry — robust listener
+      qRef = ref(db, `queue/${queueKey}`);
+      onValue(qRef, (snap)=>{
+        if(!snap.exists()){
+          showError('Queue not found — redirecting.');
+          setTimeout(()=> window.location.href = 'index.html', 1200);
+          return;
+        }
+        currentQueueData = snap.val();
+        yourNumberEl.textContent = currentQueueData.queueId || currentQueueData.ticket || '—';
+
+        // Telegram connected?
+        const connected = Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected);
+        setTelegramUI(connected);
+
+        // show modal on first visit if not connected
+        if(!connected && !obModal.classList.contains('show')){
+          showModalSlide(0);
+        }
+
+        // handle counter subscription
+        const cid = currentQueueData.counterId || currentQueueData.counter;
+        if(cid && cid !== currentCounterId){
+          if(counterRef) off(counterRef);
+          currentCounterId = cid;
+          counterRef = ref(db, `counters/${cid}`);
+          onValue(counterRef, ()=> computeEstimates());
+        }
+
+        computeEstimates();
+      }, (err)=> {
+        console.error('Queue listener error', err);
+        showError('Realtime connection issue — make sure network is available.');
+      });
+
+      // watch ad
+      adRef = ref(db, 'settings/adImage');
+      onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
+
+      // watch analytics for service time updates
+      analyticsRef = ref(db, 'analytics/serviceEvents');
+      onValue(analyticsRef, async ()=> { await loadAvgServiceTime(); computeEstimates(); });
+
+      // cleanup on unload
+      window.addEventListener('beforeunload', ()=>{
+        if(qRef) off(qRef);
+        if(counterRef) off(counterRef);
+        if(adRef) off(adRef);
+        if(analyticsRef) off(analyticsRef);
+      });
+    });
+
+    /* visibility handling: when user returns to tab, re-fetch to ensure up-to-date */
+    document.addEventListener('visibilitychange', async ()=>{
+      if(!document.hidden){
+        try{
+          if(currentQueueKey){
+            const snap = await get(ref(db, `queue/${currentQueueKey}`));
+            if(snap.exists()){
+              currentQueueData = snap.val();
+              computeEstimates();
+            }
+          }
+        }catch(e){}
+      }
+    });
+  </script>
 </body>
 </html>
