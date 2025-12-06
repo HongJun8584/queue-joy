@@ -21,6 +21,9 @@
       --warning-bg: #fef3c7;
       --warning-border: #fcd34d;
       --warning-text: #92400e;
+      --success-bg: #d1fae5;
+      --success-border: #6ee7b7;
+      --success-text: #065f46;
     }
     
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,6 +53,29 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    /* Alert Banners - Now at top */
+    .alert-banner {
+      background: linear-gradient(135deg, var(--warning-bg), #fde68a);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .alert-banner strong {
+      font-weight: 800;
+    }
+
+    .alert-banner.success {
+      background: linear-gradient(135deg, var(--success-bg), #a7f3d0);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
     }
     
     .card {
@@ -295,23 +321,6 @@
       background: linear-gradient(135deg, #059669, var(--success));
     }
 
-    /* Alert Banner */
-    .alert-banner {
-      background: linear-gradient(135deg, var(--warning-bg), #fde68a);
-      border: 1px solid var(--warning-border);
-      color: var(--warning-text);
-      padding: 16px;
-      border-radius: 14px;
-      font-size: 13px;
-      font-weight: 600;
-      text-align: center;
-      line-height: 1.5;
-    }
-
-    .alert-banner strong {
-      font-weight: 800;
-    }
-
     /* Error */
     .error-banner {
       padding: 14px;
@@ -495,6 +504,16 @@
 
 <div class="page-wrapper">
 
+  <!-- Alert Banner - Now at TOP -->
+  <div id="stayAlert" class="alert-banner" style="display: none">
+    ⚠️ <strong>Stay on this page</strong> — Only Telegram can notify you when the app is closed.
+  </div>
+
+  <!-- Connected Banner - Shows when Telegram is connected -->
+  <div id="connectedAlert" class="alert-banner success" style="display: none">
+    ✅ <strong>You're all set!</strong> You can close this browser now. Sit back and relax — we'll notify you on Telegram when it's your turn.
+  </div>
+
   <!-- Onboarding Modal -->
   <div id="onboardingModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true">
@@ -634,11 +653,6 @@
       </button>
     </section>
 
-    <!-- Stay Alert (shown when NOT connected) -->
-    <div id="stayAlert" class="alert-banner" style="margin-top: 16px; display: none">
-      ⚠️ <strong>Stay on this page</strong> — Only Telegram can notify you when the app is closed.
-    </div>
-
     <!-- Error -->
     <div id="error" class="error-banner"></div>
     
@@ -704,6 +718,7 @@
   const connectionTitle = document.getElementById('connectionTitle');
   const connectionSub = document.getElementById('connectionSub');
   const stayAlert = document.getElementById('stayAlert');
+  const connectedAlert = document.getElementById('connectedAlert');
   const adPanel = document.getElementById('adPanel');
   const adContainer = document.getElementById('adContainer');
   const errorBox = document.getElementById('error');
@@ -727,10 +742,20 @@
     setTimeout(() => errorBox.style.display = 'none', 6000);
   }
 
+  // Extract ONLY the numeric part from ticket strings like "COFFEE 001" -> 1
   function extractNumber(str) {
-    if (!str) return null;
-    const m = String(str).match(/(\d+)$/);
-    return m ? parseInt(m[1], 10) : null;
+    if (str === null || str === undefined) return null;
+    const s = String(str).trim();
+    // Match digits at the end of the string
+    const m = s.match(/(\d+)$/);
+    if (m) {
+      return parseInt(m[1], 10);
+    }
+    // If the whole string is a number
+    if (/^\d+$/.test(s)) {
+      return parseInt(s, 10);
+    }
+    return null;
   }
 
   function formatMinutes(m) {
@@ -877,7 +902,9 @@
       connectMainBtn.disabled = true;
       connectMainBtn.classList.add('btn-connected');
       connectMiniBtn.classList.remove('pulse');
+      // Hide warning, show success
       stayAlert.style.display = 'none';
+      connectedAlert.style.display = 'block';
     } else {
       connectionTitle.textContent = 'Get Telegram notifications';
       connectionSub.textContent = 'Only Telegram can notify you when the app is closed.';
@@ -885,7 +912,9 @@
       connectMainBtn.disabled = false;
       connectMainBtn.classList.remove('btn-connected');
       connectMiniBtn.classList.add('pulse');
+      // Show warning, hide success
       stayAlert.style.display = 'block';
+      connectedAlert.style.display = 'none';
     }
   }
 
@@ -897,13 +926,19 @@
     const st = String(status || '').toLowerCase();
     if (st === 'called' || st === 'serving' || st === 'your_turn') {
       progressCaption.textContent = "🎉 It's your turn!";
+      progressCaption.style.color = 'var(--success)';
     } else if (ahead === 0) {
-      progressCaption.textContent = "⏰ You're next!";
-    } else if (ahead > 0) {
-      progressCaption.textContent = `${ahead} ahead`;
+      progressCaption.textContent = "🎯 You're next!";
+      progressCaption.style.color = 'var(--primary)';
+    } else if (ahead === 1) {
+      progressCaption.textContent = "1 person ahead";
+      progressCaption.style.color = 'var(--primary)';
+    } else if (ahead > 1) {
+      progressCaption.textContent = `${ahead} people ahead`;
       progressCaption.style.color = '#6b7280';
     } else {
       progressCaption.textContent = 'Loading...';
+      progressCaption.style.color = '#6b7280';
     }
   }
 
@@ -922,6 +957,7 @@
   async function computeEstimates() {
     if (!currentQueueData || redirecting) return;
     
+    // Get user's ticket info
     const myTicket = currentQueueData.queueId || currentQueueData.ticketNumber || currentQueueData.ticket || currentQueueData.number;
     const myNum = extractNumber(myTicket);
     const myStatus = String(currentQueueData.status || '').toLowerCase();
@@ -956,20 +992,21 @@
           
           console.log('[STATUS] Counter data:', { counterId, nowServing: counterData.nowServing, servingNum, myNum });
           
-          // Update nowServing display
+          // Update nowServing display with proper formatting
           const prefix = counterData.prefix || '';
           if (counterData.nowServing !== undefined && counterData.nowServing !== null) {
+            // Match the format of the user's ticket
             const digits = String(myTicket).match(/(\d+)$/);
             const len = digits ? digits[1].length : 3;
-            const formatted = prefix + String(counterData.nowServing).padStart(len, '0');
-            nowServingEl.textContent = formatted;
+            const rawServingNum = extractNumber(counterData.nowServing);
             
-            // Check if nowServing >= myNum (it's our turn!)
-            if (myNum !== null && servingNum !== null && servingNum >= myNum) {
-              console.log('[STATUS] nowServing >= myNum, redirecting!', { servingNum, myNum });
-              redirectToTurn();
-              return;
-            }
+            // Check if myTicket has a prefix (like "COFFEE")
+            const ticketPrefix = String(myTicket).replace(/\d+$/, '').trim();
+            const formattedServing = ticketPrefix 
+              ? `${ticketPrefix} ${String(rawServingNum).padStart(len, '0')}`
+              : prefix + String(rawServingNum).padStart(len, '0');
+            
+            nowServingEl.textContent = formattedServing;
           }
         }
       } catch (e) {
@@ -977,17 +1014,46 @@
       }
     }
     
-    // Calculate people ahead
+    // *** FIXED LOGIC ***
+    // Calculate people ahead CORRECTLY
+    // peopleAhead = myNum - servingNum
+    // Example: If nowServing = 0 (or "000") and myTicket = 1 (or "001"), there's 1 person ahead (me!)
+    // When servingNum === myNum, it's MY turn (0 people ahead)
+    
     let peopleAhead = 0;
     
     if (myNum !== null && servingNum !== null) {
-      if (servingNum > 0) {
-        peopleAhead = Math.max(0, myNum - servingNum);
-      } else {
-        peopleAhead = Math.max(0, myNum - 1);
+      // CORRECT CALCULATION:
+      // If nowServing is 0 and I'm 1, then peopleAhead = 1 - 0 = 1 (I'm waiting, not being served yet)
+      // If nowServing is 1 and I'm 1, then peopleAhead = 1 - 1 = 0 (It's my turn!)
+      // If nowServing is 2 and I'm 1, then I missed my turn (servingNum > myNum)
+      
+      peopleAhead = myNum - servingNum;
+      
+      // Ensure non-negative (in case user missed their turn)
+      peopleAhead = Math.max(0, peopleAhead);
+      
+      console.log('[STATUS] People ahead calculation:', { myNum, servingNum, peopleAhead });
+      
+      // Check if it's EXACTLY my turn (nowServing === myNum)
+      if (servingNum === myNum) {
+        console.log('[STATUS] nowServing === myNum, it is my turn! Redirecting...');
+        redirectToTurn();
+        return;
       }
+      
+      // Check if I missed my turn (nowServing > myNum)
+      if (servingNum > myNum) {
+        console.log('[STATUS] Missed turn! servingNum > myNum');
+        peopleAhead = 0;
+        // Optionally show "missed" state here
+      }
+    } else if (myNum === null) {
+      console.log('[STATUS] Could not extract myNum from ticket:', myTicket);
+      peopleAhead = 0;
     } else {
-      // Fallback: count from queue
+      // Fallback: count from queue if we can't get counter data
+      console.log('[STATUS] No servingNum, using fallback count');
       try {
         const allSnap = await get(ref(db, 'queue'));
         if (allSnap.exists()) {
@@ -1000,17 +1066,29 @@
             if (Number(t.timestamp) < Number(myTime)) peopleAhead++;
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[STATUS] Fallback count error:', e);
+      }
     }
     
+    // Update UI
     peopleAheadEl.textContent = peopleAhead;
     
     // Estimated wait
     const estMin = peopleAhead * avgServiceTime;
     estimatedWaitEl.textContent = formatMinutes(estMin);
     
-    // Progress
-    const progressPct = 100 - (peopleAhead / MAX_AHEAD) * 100;
+    // Progress bar
+    // When peopleAhead is high, progress is low. When peopleAhead is 0, progress is 100%
+    let progressPct;
+    if (peopleAhead <= 0) {
+      progressPct = 100;
+    } else if (peopleAhead >= MAX_AHEAD) {
+      progressPct = 5;
+    } else {
+      progressPct = Math.round(100 - (peopleAhead / MAX_AHEAD) * 95);
+    }
+    
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
