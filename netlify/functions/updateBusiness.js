@@ -1,51 +1,82 @@
 // netlify/functions/updateBusiness.js
 // POST { slug, data }
-// Protected by MASTER_API_KEY in header x-master-key (or authorization Bearer).
-// Updates businesses/<slug>/settings/*
-// Accepts fields like name, introText, adText, adImage, logo, chatId
+// Protected by MASTER_API_KEY
+// Updates businesses/<slug>/settings/* safely (only allowlisted keys)
 
 const { db } = require('./utils/firebase-admin');
 
-function requireMasterKey(headers) {
+function getMasterKeyFromHeaders(headers = {}) {
   const master = process.env.MASTER_API_KEY || '';
-  const got = headers['x-master-key'] || headers['x-api-key'] || headers['authorization'] || '';
   if (!master) throw new Error('MASTER_API_KEY not configured on server.');
-  if (!got) return false;
-  const token = got.startsWith('Bearer ') ? got.slice(7) : got;
-  return token === master;
+  const got = headers['x-master-key'] || headers['x-api-key'] || headers['authorization'] || '';
+  if (!got) return null;
+  return got.startsWith('Bearer ') ? got.slice(7) : got;
+}
+
+function normalizeSlug(raw = '') {
+  return (raw || '').toString().trim().toLowerCase().replace(/[^a-z0-9\-]/g, '-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+}
+
+function jsonResponse(status, body) {
+  return {
+    statusCode: status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type,x-master-key,authorization',
+      'Access-Control-Allow-Methods': 'POST,OPTIONS'
+    },
+    body: JSON.stringify(body)
+  };
 }
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ error: 'Only POST allowed' }) };
-
-    if (!requireMasterKey(event.headers)) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Unauthorized' }) };
+    if (event.httpMethod === 'OPTIONS') {
+      return { statusCode: 204, headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,x-master-key,authorization',
+        'Access-Control-Allow-Methods': 'POST,OPTIONS'
+      } };
     }
 
-    const body = JSON.parse(event.body || '{}');
-    const slug = (body.slug || '').trim();
-    const data = body.data || null;
+    if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Only POST allowed' });
 
-    if (!slug) return { statusCode: 400, body: JSON.stringify({ error: 'slug required' }) };
-    if (!data || typeof data !== 'object') return { statusCode: 400, body: JSON.stringify({ error: 'data object required' }) };
+    const token = getMasterKeyFromHeaders(event.headers || {});
+    if (!token || token !== process.env.MASTER_API_KEY) {
+      return jsonResponse(403, { error: 'Unauthorized' });
+    }
 
-    // sanitize allowed keys
-    const allowed = ['name', 'introText', 'adText', 'adImage', 'logo', 'chatId'];
+    const body = event.body ? JSON.parse(event.body) : {};
+    const slug = normalizeSlug(body.slug || '');
+    const data = body.data && typeof body.data === 'object' ? body.data : null;
+
+    if (!slug) return jsonResponse(400, { error: 'slug required' });
+    if (!data) return jsonResponse(400, { error: 'data object required' });
+
+    const allowed = new Set(['name', 'introText', 'adText', 'adImage', 'logo', 'chatId']);
     const update = {};
-    for (const k of allowed) {
-      if (Object.prototype.hasOwnProperty.call(data, k)) update[k] = data[k];
+    for (const k of Object.keys(data)) {
+      if (allowed.has(k)) update[k] = data[k];
     }
 
     if (Object.keys(update).length === 0) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'no valid keys to update' }) };
+      return jsonResponse(400, { error: 'no valid keys to update', allowed: Array.from(allowed) });
     }
 
-    await db.ref(`businesses/${slug}/settings`).update(update);
+    const settingsRef = db.ref(`businesses/${slug}/settings`);
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, updated: update }) };
+    // ensure business exists before updating
+    const snap = await settingsRef.once('value');
+    if (!snap.exists()) {
+      return jsonResponse(404, { error: 'Business not found' });
+    }
+
+    await settingsRef.update(update);
+
+    return jsonResponse(200, { ok: true, slug, updated: update });
   } catch (err) {
-    console.error('updateBusiness error', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || String(err) }) };
+    console.error('updateBusiness error', err && (err.stack || err.message || err));
+    return jsonResponse(500, { error: err.message || String(err) });
   }
 };
