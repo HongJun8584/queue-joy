@@ -13,7 +13,6 @@
     .fade-in { animation: fadeIn 0.5s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
     canvas { border-radius: 8px; display:block; touch-action: none; }
-    /* when locked, prevent scroll on mobile & desktop */
     .no-scroll { overflow: hidden !important; height: 100% !important; touch-action: none !important; }
   </style>
 </head>
@@ -261,19 +260,35 @@
       } catch (e) { console.warn('cleanup error', e); }
     }
 
-    // helper to perform same-tab redirect reliably after cleanup
-    function performRedirectToYourTurn(dbKey) {
+    // same-tab top-level redirect helper
+    function performSameTabRedirect(dbKey) {
       try {
-        // ensure everything stopped
+        // stop animations & listeners first
         if (loopId) cancelAnimationFrame(loopId);
         cleanupListeners();
       } catch (e) { console.warn('redirect cleanup error', e); }
 
-      // small timeout to ensure animation frame cancelled and UI updated
-      setTimeout(() => {
-        // do not open a new tab — use same-tab navigation
-        window.location.assign(`/your_turn.html?queueId=${encodeURIComponent(dbKey)}`);
-      }, 150);
+      const url = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+
+      // Attempt to force navigation in the top frame (works when page is in iframe)
+      try {
+        if (window.top && window.top !== window) {
+          // use href (same tab) on the top window
+          window.top.location.href = url;
+          return;
+        }
+      } catch (e) {
+        // cross-origin frames may throw; fall back below
+        console.warn('top.location access failed', e);
+      }
+
+      // fallback: replace current location in same tab (does not open new tab)
+      try {
+        window.location.replace(url);
+      } catch (e) {
+        // last resort
+        window.location.href = url;
+      }
     }
 
     // attach queue + counter listeners and redirect when called
@@ -311,7 +326,7 @@
         const status = (val.status || '').toString().toLowerCase();
         if ((status === 'called' || status === 'serving' || status === 'called_by_staff') && !hasNavigated) {
           hasNavigated = true;
-          performRedirectToYourTurn(dbKey);
+          performSameTabRedirect(dbKey);
           return;
         }
 
@@ -335,7 +350,7 @@
             // compare raw equality
             if (!hasNavigated && identifiers.some(id => id === nowRaw)) {
               hasNavigated = true;
-              performRedirectToYourTurn(dbKey);
+              performSameTabRedirect(dbKey);
               return;
             }
 
@@ -345,7 +360,7 @@
               for (const idNum of numericIds) {
                 if (Number.isFinite(idNum) && idNum === nowNum) {
                   hasNavigated = true;
-                  performRedirectToYourTurn(dbKey);
+                  performSameTabRedirect(dbKey);
                   return;
                 }
               }
@@ -354,7 +369,7 @@
             // compare nowRaw to queue key as fallback
             if (!hasNavigated && nowRaw === String(dbKey)) {
               hasNavigated = true;
-              performRedirectToYourTurn(dbKey);
+              performSameTabRedirect(dbKey);
               return;
             }
           });
@@ -378,11 +393,9 @@
         cleanupListeners();
         // unlock scroll on navigate back
         unlockScroll();
-        if (currentQueueKey) {
-          window.location.assign(`status.html?queueId=${encodeURIComponent(currentQueueKey)}`);
-        } else {
-          window.location.assign('index.html');
-        }
+        const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
+        // same-tab back navigation
+        window.location.replace(`status.html${q}`);
       });
 
       newGameBtn.addEventListener('click', () => {
