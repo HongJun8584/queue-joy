@@ -889,7 +889,12 @@
   obFinish.onclick = openTelegram;
   connectMainBtn.onclick = openModal;
   connectMiniBtn.onclick = openModal;
-  document.getElementById('miniGame').onclick = () => window.open('https://queuejoy.netlify.app/game.html', '_blank');
+  document.getElementById('miniGame').onclick = () => {
+  const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
+  // use assign so it navigates in the same tab (keeps history)
+  window.location.assign(`game.html${q}`);
+};
+
 
   // UI Updates
   function setTelegramUI(connected) {
