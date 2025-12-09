@@ -13,6 +13,8 @@
     .fade-in { animation: fadeIn 0.5s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
     canvas { border-radius: 8px; display:block; touch-action: none; }
+    /* when locked, prevent scroll on mobile & desktop */
+    .no-scroll { overflow: hidden !important; height: 100% !important; touch-action: none !important; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col items-center justify-center p-4 pb-32">
@@ -113,6 +115,22 @@
     let currentQueueKey = null;
     let currentQueueData = null;
 
+    // scroll-lock helpers
+    let _preventTouchMove = (e) => { e.preventDefault(); };
+    function lockScroll() {
+      document.documentElement.classList.add('no-scroll');
+      document.body.classList.add('no-scroll');
+      window.addEventListener('wheel', preventWheel, { passive: false });
+      window.addEventListener('touchmove', _preventTouchMove, { passive: false });
+    }
+    function unlockScroll() {
+      document.documentElement.classList.remove('no-scroll');
+      document.body.classList.remove('no-scroll');
+      window.removeEventListener('wheel', preventWheel, { passive: false });
+      window.removeEventListener('touchmove', _preventTouchMove, { passive: false });
+    }
+    function preventWheel(e){ e.preventDefault(); }
+
     function showError(msg) {
       inlineError.textContent = msg;
       inlineError.classList.remove('hidden');
@@ -132,6 +150,9 @@
     window.addEventListener('resize', resizeCanvasToContainer);
 
     function resetGameState() {
+      // unlock scroll on restart
+      unlockScroll();
+
       resizeCanvasToContainer();
       const mid = Math.floor(canvas.width / 2 / grid) * grid;
       snake = { x: mid, y: mid, dx: grid, dy: 0, cells: [], maxCells: 4 };
@@ -149,6 +170,9 @@
       loopId = null;
       finalStatsEl.innerText = `Final Score: ${score}`;
       gameOverEl.classList.remove('hidden');
+
+      // lock scrolling while Game Over is visible
+      lockScroll();
     }
 
     function gameLoop() {
@@ -237,6 +261,21 @@
       } catch (e) { console.warn('cleanup error', e); }
     }
 
+    // helper to perform same-tab redirect reliably after cleanup
+    function performRedirectToYourTurn(dbKey) {
+      try {
+        // ensure everything stopped
+        if (loopId) cancelAnimationFrame(loopId);
+        cleanupListeners();
+      } catch (e) { console.warn('redirect cleanup error', e); }
+
+      // small timeout to ensure animation frame cancelled and UI updated
+      setTimeout(() => {
+        // do not open a new tab — use same-tab navigation
+        window.location.assign(`/your_turn.html?queueId=${encodeURIComponent(dbKey)}`);
+      }, 150);
+    }
+
     // attach queue + counter listeners and redirect when called
     function initQueueAndCounterListeners(dbKey) {
       if (!dbKey) return;
@@ -272,16 +311,12 @@
         const status = (val.status || '').toString().toLowerCase();
         if ((status === 'called' || status === 'serving' || status === 'called_by_staff') && !hasNavigated) {
           hasNavigated = true;
-          // cancel game and cleanup
-          if (loopId) cancelAnimationFrame(loopId);
-          cleanupListeners();
-          window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+          performRedirectToYourTurn(dbKey);
           return;
         }
 
         // attach counter nowServing listener if counterId exists
         const counterId = val.counterId || val.counter || val.counter_id;
-        // If queue has no numeric identifier, still try to match string nowServing -> queueId
         if (counterId) {
           // attach counterRef if not already attached
           if (counterRef) off(counterRef);
@@ -292,7 +327,6 @@
             // tolerate nowServing being number, string, or object with value
             let nowRaw = nowSnap.val();
             if (typeof nowRaw === 'object' && nowRaw !== null) {
-              // common wrapper: { value: 'A12' } or {nowServing:'A12'}
               nowRaw = nowRaw.value || nowRaw.nowServing || nowRaw.current || nowRaw;
             }
             nowRaw = String(nowRaw || '').trim();
@@ -301,9 +335,7 @@
             // compare raw equality
             if (!hasNavigated && identifiers.some(id => id === nowRaw)) {
               hasNavigated = true;
-              if (loopId) cancelAnimationFrame(loopId);
-              cleanupListeners();
-              window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+              performRedirectToYourTurn(dbKey);
               return;
             }
 
@@ -313,24 +345,17 @@
               for (const idNum of numericIds) {
                 if (Number.isFinite(idNum) && idNum === nowNum) {
                   hasNavigated = true;
-                  if (loopId) cancelAnimationFrame(loopId);
-                  cleanupListeners();
-                  window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
+                  performRedirectToYourTurn(dbKey);
                   return;
                 }
               }
             }
 
-            // some setups put the ticket number directly as number; also handle nowRaw equal to queue key
-            if (!hasNavigated) {
-              // compare nowRaw to queue key or to common fields
-              if (nowRaw === String(dbKey)) {
-                hasNavigated = true;
-                if (loopId) cancelAnimationFrame(loopId);
-                cleanupListeners();
-                window.location.href = `/your_turn.html?queueId=${encodeURIComponent(dbKey)}`;
-                return;
-              }
+            // compare nowRaw to queue key as fallback
+            if (!hasNavigated && nowRaw === String(dbKey)) {
+              hasNavigated = true;
+              performRedirectToYourTurn(dbKey);
+              return;
             }
           });
         }
@@ -351,10 +376,12 @@
       backBtn.addEventListener('click', () => {
         try { if (loopId) cancelAnimationFrame(loopId); } catch(e){}
         cleanupListeners();
+        // unlock scroll on navigate back
+        unlockScroll();
         if (currentQueueKey) {
-          window.location.href = `status.html?queueId=${encodeURIComponent(currentQueueKey)}`;
+          window.location.assign(`status.html?queueId=${encodeURIComponent(currentQueueKey)}`);
         } else {
-          window.location.href = 'index.html';
+          window.location.assign('index.html');
         }
       });
 
@@ -371,6 +398,7 @@
       try {
         if (loopId) cancelAnimationFrame(loopId);
         cleanupListeners();
+        unlockScroll();
       } catch (e) {}
     });
 
