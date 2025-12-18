@@ -889,12 +889,7 @@
   obFinish.onclick = openTelegram;
   connectMainBtn.onclick = openModal;
   connectMiniBtn.onclick = openModal;
-  document.getElementById('miniGame').onclick = () => {
-  const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
-  // use assign so it navigates in the same tab (keeps history)
-  window.location.assign(`game.html${q}`);
-};
-
+  document.getElementById('miniGame').onclick = () => window.open('https://queuejoy.netlify.app/game.html', '_blank');
 
   // UI Updates
   function setTelegramUI(connected) {
@@ -1098,72 +1093,20 @@
   }
 
   // Ads
-function showAd(url) {
-  // Hide if no url
-  if (!url) { adPanel.style.display = 'none'; return; }
-  const u = String(url).trim();
-  if (!u) { adPanel.style.display = 'none'; return; }
-
-  // Make panel visible up front
-  adPanel.style.display = 'block';
-  adContainer.innerHTML = ''; // clear previous
-
-  // Detect YouTube / youtu.be and embed with iframe
-  const yt = u.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/)([A-Za-z0-9_-]{6,})/i);
-  if (yt) {
-    const id = yt[1];
-    adContainer.innerHTML = `<iframe class="ad-media" 
-      src="https://www.youtube.com/embed/${id}?rel=0&playsinline=1" 
-      frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-      allowfullscreen></iframe>`;
-    return;
+  function showAd(url) {
+    if (!url) { adPanel.style.display = 'none'; return; }
+    const u = String(url).trim();
+    if (!u) { adPanel.style.display = 'none'; return; }
+    
+    adPanel.style.display = 'block';
+    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
+    
+    if (isVideo) {
+      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
+    } else {
+      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
+    }
   }
-
-  // Detect Vimeo (embed) links
-  const vimeo = u.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
-  if (vimeo) {
-    const id = vimeo[1];
-    adContainer.innerHTML = `<iframe class="ad-media" 
-      src="https://player.vimeo.com/video/${id}" 
-      frameborder="0" allow="autoplay; fullscreen; picture-in-picture" 
-      allowfullscreen></iframe>`;
-    return;
-  }
-
-  // Robust video extension test (allows query/fragment)
-  const videoExt = /\.(mp4|webm|mov|m4v|ogg|ogv)(?:[?#].*)?$/i;
-  if (videoExt.test(u)) {
-    const vid = document.createElement('video');
-    vid.className = 'ad-media';
-    vid.src = u;
-    vid.autoplay = true;
-    vid.muted = true;      // required for autoplay in most browsers
-    vid.loop = true;
-    vid.playsInline = true;
-    vid.controls = false;
-    vid.setAttribute('playsinline', ''); // iOS
-    vid.onerror = () => {
-      console.warn('Ad video failed to load:', u);
-      adPanel.style.display = 'none';
-    };
-    // Optional: hide panel until first frame loads if you want
-    vid.onloadeddata = () => { /* video loaded */ };
-    adContainer.appendChild(vid);
-    return;
-  }
-
-  // Fallback: treat as image
-  const img = document.createElement('img');
-  img.className = 'ad-media';
-  img.src = u;
-  img.alt = 'Ad';
-  img.onerror = () => {
-    console.warn('Ad image failed to load:', u);
-    adPanel.style.display = 'none';
-  };
-  adContainer.appendChild(img);
-}
-
 
   // Logo
   async function loadLogo() {
