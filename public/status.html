@@ -497,6 +497,36 @@
       height: 100px;
       object-fit: cover;
       border-radius: 12px;
+      cursor: pointer;
+    }
+    
+    .ad-video-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    
+    .ad-replay-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.7);
+      border: none;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.2s;
+    }
+    
+    .ad-replay-btn:hover {
+      background: rgba(0, 0, 0, 0.85);
+      transform: translate(-50%, -50%) scale(1.1);
     }
   </style>
 </head>
@@ -889,12 +919,7 @@
   obFinish.onclick = openTelegram;
   connectMainBtn.onclick = openModal;
   connectMiniBtn.onclick = openModal;
-  document.getElementById('miniGame').onclick = () => {
-  const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
-  // use assign so it navigates in the same tab (keeps history)
-  window.location.assign(`game.html${q}`);
-};
-
+  document.getElementById('miniGame').onclick = () => window.open('https://queuejoy.netlify.app/game.html', '_blank');
 
   // UI Updates
   function setTelegramUI(connected) {
@@ -1097,194 +1122,65 @@
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
-// Ads — robust showAd supporting mp4/webm, HLS (.m3u8), YouTube/Vimeo, and image fallback.
-// Depends on global `adPanel` and `adContainer` elements already present.
-async function showAd(url) {
-  console.log('[AD] showAd called with:', url);
-
-  // quick validation
-  if (!url) {
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-    return;
-  }
-  const u = String(url).trim();
-  if (!u) {
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-    return;
-  }
-
-  // cleanup any previous Hls instance attached to container
-  if (adContainer._hls instanceof Object && typeof adContainer._hls.destroy === 'function') {
-    try { adContainer._hls.destroy(); } catch (e) { /* ignore */ }
-    adContainer._hls = null;
-  }
-
-  adPanel.style.display = 'block';
-  adContainer.innerHTML = '';
-
-  // regexes
-  const ytMatch = u.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/)([A-Za-z0-9_-]{6,})/i);
-  const vimeoMatch = u.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
-  const hlsRegex = /\.m3u8(?:[?#].*)?$/i;
-  const videoExtRegex = /\.(mp4|webm|mov|m4v|ogg|ogv)(?:[?#].*)?$/i;
-
-  // Helper: load hls.js dynamically (only once)
-  function loadHlsScript() {
-    return new Promise((resolve, reject) => {
-      if (window.Hls) return resolve(window.Hls);
-      const src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js';
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = true;
-      s.onload = () => { if (window.Hls) resolve(window.Hls); else reject(new Error('Hls not available')); };
-      s.onerror = (e) => reject(e);
-      document.head.appendChild(s);
-    });
-  }
-
-  // Helper: common error handler with fallback to image once
-  function handleMediaError(originalUrl, triedImageFallback = false) {
-    console.warn('[AD] Media failed to load:', originalUrl);
-    if (!triedImageFallback) {
-      // Try image fallback (some servers serve video with wrong MIME or link actually points to an image)
-      const img = document.createElement('img');
-      img.className = 'ad-media';
-      img.src = originalUrl;
-      img.alt = 'Ad';
-      img.onerror = () => {
-        console.warn('[AD] Image fallback also failed:', originalUrl);
-        adPanel.style.display = 'none';
-        adContainer.innerHTML = '';
-      };
-      adContainer.innerHTML = '';
-      adContainer.appendChild(img);
-      return;
-    }
-    // already tried fallback -> hide panel
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-  }
-
-  // 1) YouTube embed
-  if (ytMatch) {
-    const id = ytMatch[1];
-    const iframe = document.createElement('iframe');
-    iframe.className = 'ad-media';
-    iframe.width = '100%';
-    iframe.height = '100%';
-    iframe.src = `https://www.youtube.com/embed/${id}?rel=0&playsinline=1`;
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    iframe.allowFullscreen = true;
-    iframe.onload = () => console.log('[AD] YouTube iframe loaded:', id);
-    iframe.onerror = () => handleMediaError(u, true); // iframe error -> no realistic fallback
-    adContainer.appendChild(iframe);
-    return;
-  }
-
-  // 2) Vimeo embed
-  if (vimeoMatch) {
-    const id = vimeoMatch[1];
-    const iframe = document.createElement('iframe');
-    iframe.className = 'ad-media';
-    iframe.width = '100%';
-    iframe.height = '100%';
-    iframe.src = `https://player.vimeo.com/video/${id}`;
-    iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-    iframe.allowFullscreen = true;
-    iframe.onload = () => console.log('[AD] Vimeo iframe loaded:', id);
-    iframe.onerror = () => handleMediaError(u, true);
-    adContainer.appendChild(iframe);
-    return;
-  }
-
-  // 3) HLS (.m3u8)
-  if (hlsRegex.test(u)) {
-    // create video element
-    const video = document.createElement('video');
-    video.className = 'ad-media';
-    video.muted = true;           // required for autoplay in many browsers
-    video.loop = true;
-    video.playsInline = true;
-    video.controls = false;
-    video.autoplay = true;
-    video.setAttribute('playsinline', '');
-
-    // if browser supports HLS natively (Safari), just set src
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = u;
-      video.onloadeddata = () => console.log('[AD] HLS (native) loaded:', u);
-      video.onerror = () => handleMediaError(u, false);
-      adContainer.appendChild(video);
-      return;
-    }
-
-    // else use hls.js
-    try {
-      const HlsLib = window.Hls ? window.Hls : await loadHlsScript();
-      const hls = new HlsLib();
-      adContainer._hls = hls;
-      hls.attachMedia(video);
-      hls.on(HlsLib.Events.MEDIA_ATTACHED, () => {
-        hls.loadSource(u);
-        console.log('[AD] hls.js attached, loading source:', u);
+  // Ads
+  function showAd(url) {
+    if (!url) { adPanel.style.display = 'none'; return; }
+    const u = String(url).trim();
+    if (!u) { adPanel.style.display = 'none'; return; }
+    
+    adPanel.style.display = 'block';
+    const isVideo = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(u);
+    
+    if (isVideo) {
+      adContainer.innerHTML = `
+        <div class="ad-video-wrapper">
+          <video id="adVideo" src="${u}" class="ad-media" autoplay muted loop playsinline></video>
+          <button id="adReplayBtn" class="ad-replay-btn" style="display: none;">
+            <span>↻</span>
+          </button>
+        </div>
+      `;
+      
+      const video = document.getElementById('adVideo');
+      const replayBtn = document.getElementById('adReplayBtn');
+      
+      // Show replay button when video ends (if loop is disabled or paused)
+      video.addEventListener('ended', () => {
+        replayBtn.style.display = 'flex';
       });
-      hls.on(HlsLib.Events.ERROR, (event, data) => {
-        console.warn('[AD] hls.js error', event, data);
-        // If fatal, try fallback to image
-        if (data && data.fatal) {
-          try { hls.destroy(); } catch (e) {}
-          adContainer._hls = null;
-          handleMediaError(u, false);
+      
+      // Show replay button when paused
+      video.addEventListener('pause', () => {
+        if (video.currentTime > 0 && !video.ended) {
+          replayBtn.style.display = 'flex';
         }
       });
-      video.onerror = () => handleMediaError(u, false);
-      adContainer.appendChild(video);
-      return;
-    } catch (e) {
-      console.error('[AD] Failed to load hls.js:', e);
-      // fallback: try to load as simple video and then image fallback
-      const fallbackVideo = document.createElement('video');
-      fallbackVideo.className = 'ad-media';
-      fallbackVideo.muted = true;
-      fallbackVideo.loop = true;
-      fallbackVideo.playsInline = true;
-      fallbackVideo.autoplay = true;
-      fallbackVideo.src = u;
-      fallbackVideo.onerror = () => handleMediaError(u, false);
-      adContainer.appendChild(fallbackVideo);
-      return;
+      
+      // Hide replay button when playing
+      video.addEventListener('play', () => {
+        replayBtn.style.display = 'none';
+      });
+      
+      // Replay on button click
+      replayBtn.addEventListener('click', () => {
+        video.currentTime = 0;
+        video.play();
+        replayBtn.style.display = 'none';
+      });
+      
+      // Also replay on video click
+      video.addEventListener('click', () => {
+        if (video.paused) {
+          video.play();
+        } else {
+          video.pause();
+        }
+      });
+      
+    } else {
+      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
     }
   }
-
-  // 4) Direct video file (.mp4, .webm, etc.)
-  if (videoExtRegex.test(u)) {
-    const v = document.createElement('video');
-    v.className = 'ad-media';
-    v.src = u;
-    v.autoplay = true;
-    v.muted = true;        // required for autoplay on many browsers
-    v.loop = true;
-    v.playsInline = true;
-    v.controls = false;
-    v.setAttribute('playsinline', '');
-    v.onloadeddata = () => console.log('[AD] Video loaded:', u);
-    v.onerror = () => handleMediaError(u, false);
-    adContainer.appendChild(v);
-    return;
-  }
-
-  // 5) Fallback: treat as image
-  const img = document.createElement('img');
-  img.className = 'ad-media';
-  img.src = u;
-  img.alt = 'Ad';
-  img.onload = () => console.log('[AD] Image loaded:', u);
-  img.onerror = () => handleMediaError(u, true);
-  adContainer.appendChild(img);
-}
-
 
   // Logo
   async function loadLogo() {
