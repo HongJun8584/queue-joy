@@ -25,9 +25,9 @@
       --success-border: #6ee7b7;
       --success-text: #065f46;
     }
-    
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+
     html, body {
       font-family: Inter, system-ui, -apple-system, sans-serif;
       background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
@@ -37,7 +37,7 @@
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
-    
+
     body {
       display: flex;
       flex-direction: column;
@@ -46,7 +46,7 @@
       padding: 16px;
       padding-bottom: 160px;
     }
-    
+
     .page-wrapper {
       width: 100%;
       max-width: 420px;
@@ -77,7 +77,7 @@
       border: 1px solid var(--success-border);
       color: var(--success-text);
     }
-    
+
     .card {
       background: rgba(255, 255, 255, 0.97);
       border-radius: 24px;
@@ -101,7 +101,7 @@
       overflow: hidden;
       flex-shrink: 0;
     }
-    
+
     .logo-box img { width: 100%; height: 100%; object-fit: cover; }
 
     .header {
@@ -149,7 +149,7 @@
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
     }
-    
+
     .circle-btn:active { transform: scale(0.95); }
 
     /* Progress Section */
@@ -187,7 +187,7 @@
       overflow: hidden;
       box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
     }
-    
+
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--primary-dark), var(--primary));
@@ -218,7 +218,7 @@
       border: 1px solid rgba(139, 92, 246, 0.08);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
-    
+
     .stat-label {
       font-size: 11px;
       text-transform: uppercase;
@@ -226,7 +226,7 @@
       color: #6b7280;
       font-weight: 600;
     }
-    
+
     .stat-value {
       font-weight: 900;
       font-size: 32px;
@@ -239,7 +239,7 @@
     .stat-value.dark {
       color: #111827;
     }
-    
+
     .stat-value-sm {
       font-weight: 800;
       font-size: 26px;
@@ -313,7 +313,7 @@
       min-height: 48px;
       white-space: nowrap;
     }
-    
+
     .btn-primary:active { transform: scale(0.98); }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
@@ -350,9 +350,9 @@
       visibility: hidden;
       transition: opacity 0.25s, visibility 0.25s;
     }
-    
+
     .modal-overlay.show { opacity: 1; visibility: visible; }
-    
+
     .modal-card {
       width: 100%;
       max-width: 380px;
@@ -363,7 +363,7 @@
       transform: translateY(20px) scale(0.96);
       transition: transform 0.3s cubic-bezier(0.22, 0.9, 0.22, 1);
     }
-    
+
     .modal-overlay.show .modal-card {
       transform: translateY(0) scale(1);
     }
@@ -409,7 +409,7 @@
       justify-content: center;
       margin: 20px 0;
     }
-    
+
     .step-dot {
       width: 8px;
       height: 8px;
@@ -417,7 +417,7 @@
       background: #e5e7eb;
       transition: all 0.25s;
     }
-    
+
     .step-dot.active {
       width: 28px;
       background: linear-gradient(90deg, var(--primary-dark), var(--primary));
@@ -440,12 +440,10 @@
       transition: background 0.15s;
       width: 100%;
     }
-    
+
     .btn-outline:active { background: #f9fafb; }
 
-    .btn-full {
-      width: 100%;
-    }
+    .btn-full { width: 100%; }
 
     .slide { display: none; }
     .slide.active { display: block; }
@@ -458,7 +456,7 @@
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
-    
+
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .pulse { animation: pulse 2s ease-in-out infinite; }
@@ -482,7 +480,7 @@
       z-index: 100;
       display: none;
     }
-    
+
     .ad-label {
       font-size: 9px;
       color: #9ca3af;
@@ -491,13 +489,38 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    
+
     .ad-media {
       width: 100%;
       height: 100px;
       object-fit: cover;
       border-radius: 12px;
     }
+
+    /* Video wrapper + play overlay */
+    .ad-wrap { position: relative; border-radius: 12px; overflow: hidden; }
+    .ad-play-btn {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%,-50%);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 22px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .ad-play-btn.show { display: flex; }
+
+    .ad-close { position: absolute; right: 8px; top: 8px; background: rgba(255,255,255,0.9); border-radius: 8px; padding: 6px; font-size: 12px; border: none; cursor: pointer; }
+
+    @media (max-width:420px){ .ad-media{height:96px} }
   </style>
 </head>
 <body>
@@ -517,7 +540,7 @@
   <!-- Onboarding Modal -->
   <div id="onboardingModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true">
-      
+
       <!-- Slide 1 -->
       <div class="slide active" data-slide="0">
         <div class="modal-icon">✉️</div>
@@ -580,13 +603,13 @@
         </p>
         <button id="obDone" class="btn-primary btn-full" style="margin-top: 24px">Got it!</button>
       </div>
-      
+
     </div>
   </div>
 
   <!-- Main Card -->
   <main class="card">
-    
+
     <!-- Top buttons -->
     <div class="top-buttons">
       <button id="miniGame" class="circle-btn" title="Play game">🎮</button>
@@ -655,7 +678,7 @@
 
     <!-- Error -->
     <div id="error" class="error-banner"></div>
-    
+
   </main>
 
 </div>
@@ -702,7 +725,7 @@
   const obFinishContent = document.getElementById('obFinishContent');
   const obStatusText = document.getElementById('obStatusText');
   const obDone = document.getElementById('obDone');
-  
+
   const logoBox = document.getElementById('logoBox');
   const logoText = document.getElementById('logoText');
   const logoImg = document.getElementById('logoImg');
@@ -804,7 +827,7 @@
   async function generateLink() {
     if (linkGenerating || latestConnectLink) return;
     linkGenerating = true;
-    
+
     obFinish.disabled = true;
     obFinishContent.innerHTML = '<span class="spinner"></span><span>Generating...</span>';
     obStatusText.textContent = 'Creating secure link...';
@@ -815,26 +838,26 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ queueKey: currentQueueKey })
       });
-      
+
       if (!res.ok) throw new Error('Failed');
-      
+
       const json = await res.json();
       let link = json.link || null;
-      
+
       if (!link && json.token) {
         link = `${TELEGRAM_BOT_URL}?start=${json.token}`;
       }
-      
+
       if (link && !link.includes('start=')) {
         const token = currentQueueData?.telegramToken || currentQueueData?.token || currentQueueKey;
         link = `${TELEGRAM_BOT_URL}?start=${token}`;
       }
-      
+
       latestConnectLink = link || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
       obStatusText.textContent = 'Ready! Tap below to open Telegram.';
       obFinish.disabled = false;
       obFinishContent.innerHTML = '🚀 Open Telegram';
-      
+
     } catch (e) {
       console.error('Link generation failed:', e);
       latestConnectLink = `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
@@ -848,15 +871,15 @@
 
   async function openTelegram() {
     if (linkGenerating) return;
-    
+
     obFinish.disabled = true;
     obFinishContent.innerHTML = '<span class="spinner"></span><span>Opening...</span>';
-    
+
     const url = latestConnectLink || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
-    
+
     // Open in NEW tab
     const newTab = window.open(url, '_blank', 'noopener,noreferrer');
-    
+
     if (!newTab) {
       const a = document.createElement('a');
       a.href = url;
@@ -866,7 +889,7 @@
       a.click();
       document.body.removeChild(a);
     }
-    
+
     // Mark token used
     try {
       const token = url.split('start=')[1];
@@ -878,7 +901,7 @@
         });
       }
     } catch (e) {}
-    
+
     setTimeout(() => {
       obFinish.disabled = false;
       obFinishContent.innerHTML = '✅ Opened!';
@@ -894,7 +917,7 @@
   // UI Updates
   function setTelegramUI(connected) {
     isTelegramConnected = connected;
-    
+
     if (connected) {
       connectionTitle.textContent = '✅ Connected to Telegram';
       connectionSub.textContent = "We'll notify you when it's your turn.";
@@ -922,7 +945,7 @@
     const p = Math.max(4, Math.min(100, Math.round(pct)));
     progressFill.style.width = p + '%';
     progressLabel.textContent = p + '%';
-    
+
     const st = String(status || '').toLowerCase();
     if (st === 'called' || st === 'serving' || st === 'your_turn') {
       progressCaption.textContent = "🎉 It's your turn!";
@@ -956,32 +979,30 @@
   // Compute estimates and check if it's user's turn
   async function computeEstimates() {
     if (!currentQueueData || redirecting) return;
-    
+
     // Get user's ticket info
     const myTicket = currentQueueData.queueId || currentQueueData.ticketNumber || currentQueueData.ticket || currentQueueData.number;
     const myNum = extractNumber(myTicket);
     const myStatus = String(currentQueueData.status || '').toLowerCase();
-    
+
     console.log('[STATUS] Computing estimates:', { myTicket, myNum, myStatus, called: currentQueueData.called });
-    
+
     // Check if already called by status
     if (myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn') {
-      console.log('[STATUS] Status indicates turn, redirecting...');
       redirectToTurn();
       return;
     }
-    
+
     // Check if marked as called
     if (currentQueueData.called === true || currentQueueData.notifiedAt || currentQueueData.calledAt) {
-      console.log('[STATUS] Queue marked as called, redirecting...');
       redirectToTurn();
       return;
     }
-    
+
     // Get nowServing from counter
     let servingNum = null;
     let counterData = null;
-    
+
     const counterId = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
     if (counterId) {
       try {
@@ -989,9 +1010,9 @@
         if (snap.exists()) {
           counterData = snap.val();
           servingNum = extractNumber(counterData.nowServing);
-          
+
           console.log('[STATUS] Counter data:', { counterId, nowServing: counterData.nowServing, servingNum, myNum });
-          
+
           // Update nowServing display with proper formatting
           const prefix = counterData.prefix || '';
           if (counterData.nowServing !== undefined && counterData.nowServing !== null) {
@@ -999,13 +1020,13 @@
             const digits = String(myTicket).match(/(\d+)$/);
             const len = digits ? digits[1].length : 3;
             const rawServingNum = extractNumber(counterData.nowServing);
-            
+
             // Check if myTicket has a prefix (like "COFFEE")
             const ticketPrefix = String(myTicket).replace(/\d+$/, '').trim();
             const formattedServing = ticketPrefix 
               ? `${ticketPrefix} ${String(rawServingNum).padStart(len, '0')}`
               : prefix + String(rawServingNum).padStart(len, '0');
-            
+
             nowServingEl.textContent = formattedServing;
           }
         }
@@ -1013,40 +1034,32 @@
         console.error('[STATUS] Error fetching counter:', e);
       }
     }
-    
+
     // *** FIXED LOGIC ***
     // Calculate people ahead CORRECTLY
     // peopleAhead = myNum - servingNum
     // Example: If nowServing = 0 (or "000") and myTicket = 1 (or "001"), there's 1 person ahead (me!)
     // When servingNum === myNum, it's MY turn (0 people ahead)
-    
+
     let peopleAhead = 0;
-    
+
     if (myNum !== null && servingNum !== null) {
-      // CORRECT CALCULATION:
-      // If nowServing is 0 and I'm 1, then peopleAhead = 1 - 0 = 1 (I'm waiting, not being served yet)
-      // If nowServing is 1 and I'm 1, then peopleAhead = 1 - 1 = 0 (It's my turn!)
-      // If nowServing is 2 and I'm 1, then I missed my turn (servingNum > myNum)
-      
       peopleAhead = myNum - servingNum;
-      
-      // Ensure non-negative (in case user missed their turn)
       peopleAhead = Math.max(0, peopleAhead);
-      
+
       console.log('[STATUS] People ahead calculation:', { myNum, servingNum, peopleAhead });
-      
+
       // Check if it's EXACTLY my turn (nowServing === myNum)
       if (servingNum === myNum) {
         console.log('[STATUS] nowServing === myNum, it is my turn! Redirecting...');
         redirectToTurn();
         return;
       }
-      
+
       // Check if I missed my turn (nowServing > myNum)
       if (servingNum > myNum) {
         console.log('[STATUS] Missed turn! servingNum > myNum');
         peopleAhead = 0;
-        // Optionally show "missed" state here
       }
     } else if (myNum === null) {
       console.log('[STATUS] Could not extract myNum from ticket:', myTicket);
@@ -1070,16 +1083,15 @@
         console.error('[STATUS] Fallback count error:', e);
       }
     }
-    
+
     // Update UI
     peopleAheadEl.textContent = peopleAhead;
-    
+
     // Estimated wait
     const estMin = peopleAhead * avgServiceTime;
     estimatedWaitEl.textContent = formatMinutes(estMin);
-    
+
     // Progress bar
-    // When peopleAhead is high, progress is low. When peopleAhead is 0, progress is 100%
     let progressPct;
     if (peopleAhead <= 0) {
       progressPct = 100;
@@ -1088,25 +1100,143 @@
     } else {
       progressPct = Math.round(100 - (peopleAhead / MAX_AHEAD) * 95);
     }
-    
+
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
   // Ads
-  function showAd(url) {
-    if (!url) { adPanel.style.display = 'none'; return; }
-    const u = String(url).trim();
-    if (!u) { adPanel.style.display = 'none'; return; }
-    
-    adPanel.style.display = 'block';
-    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
-    
-    if (isVideo) {
-      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
-    } else {
-      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
-    }
+  function isVideoUrl(u) {
+    return /\.(mp4|webm|ogg)(\?|$)/i.test(u);
   }
+  function isYouTube(u) {
+    return /(?:youtube\.com\/watch\?v=|youtu\.be\/)/i.test(u);
+  }
+  function isVimeo(u) {
+    return /vimeo\.com\//i.test(u);
+  }
+
+  // Robust showAd that handles: direct video files (mp4/webm/ogg), youtube/vimeo links, and images.
+  function showAd(url) {
+    if (!url) { adPanel.style.display = 'none'; adContainer.innerHTML = ''; return; }
+    const u = String(url).trim(); if (!u) { adPanel.style.display = 'none'; adContainer.innerHTML = ''; return; }
+
+    adContainer.innerHTML = '';
+    adPanel.style.display = 'block';
+
+    // If it's a YouTube link — embed an iframe
+    if (isYouTube(u)) {
+      let videoId = null;
+      const yMatch = u.match(/(?:v=|youtu\.be\/)([\w-]{6,})/i);
+      if (yMatch) videoId = yMatch[1];
+      if (videoId) {
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1&mute=1&playsinline=1`;
+        iframe.width = '100%';
+        iframe.height = '200';
+        iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+        iframe.setAttribute('frameborder','0');
+        iframe.setAttribute('allowfullscreen','');
+        iframe.className = 'ad-media';
+        adContainer.appendChild(iframe);
+        return;
+      }
+    }
+
+    // If it's a Vimeo link — embed
+    if (isVimeo(u)) {
+      const m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+      if (m && m[1]) {
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://player.vimeo.com/video/${m[1]}?autoplay=1&muted=1&loop=1`;
+        iframe.width = '100%';
+        iframe.height = '200';
+        iframe.setAttribute('frameborder','0');
+        iframe.setAttribute('allow','autoplay; fullscreen; picture-in-picture');
+        iframe.className = 'ad-media';
+        adContainer.appendChild(iframe);
+        return;
+      }
+    }
+
+    // Direct video file
+    if (isVideoUrl(u)) {
+      const wrap = document.createElement('div');
+      wrap.className = 'ad-wrap';
+      wrap.style.minHeight = '100px';
+
+      const video = document.createElement('video');
+      video.className = 'ad-media';
+      video.src = u;
+      video.autoplay = true;
+      video.muted = true; // muted is required on many browsers to allow autoplay
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.controls = false;
+      video.crossOrigin = 'anonymous';
+
+      // Play overlay (shown when autoplay is blocked)
+      const playBtn = document.createElement('button');
+      playBtn.className = 'ad-play-btn';
+      playBtn.innerHTML = '▶';
+      playBtn.onclick = async () => {
+        try { await video.play(); playBtn.classList.remove('show'); }
+        catch (e) { console.error('Play failed', e); }
+      };
+
+      // close button so user can dismiss ad
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'ad-close';
+      closeBtn.innerText = '✕';
+      closeBtn.onclick = () => { adPanel.style.display = 'none'; };
+
+      // Error handling: hide ad on error
+      let errored = false;
+      video.addEventListener('error', () => { console.error('Ad video failed to load'); errored = true; adPanel.style.display = 'none'; });
+
+      // If autoplay is blocked, show play overlay
+      const tryPlay = video.play();
+      if (tryPlay !== undefined) {
+        tryPlay.then(() => {
+          // autoplay succeeded
+          playBtn.classList.remove('show');
+        }).catch((err) => {
+          // autoplay blocked — show overlay so user can start
+          playBtn.classList.add('show');
+          console.warn('Autoplay blocked for ad video, showing play button.', err);
+        });
+      }
+
+      wrap.appendChild(video);
+      wrap.appendChild(playBtn);
+      wrap.appendChild(closeBtn);
+      adContainer.appendChild(wrap);
+
+      // Safety: if the video doesn't produce any frames quickly, hide it after a short timeout
+      setTimeout(() => {
+        if (errored) return;
+      }, 2500);
+
+      return;
+    }
+
+    // Fallback: image
+    const img = document.createElement('img');
+    img.className = 'ad-media';
+    img.src = u;
+    img.alt = 'Ad';
+    img.onerror = () => { adPanel.style.display = 'none'; };
+    adContainer.appendChild(img);
+  }
+
+  // Example usage: (in your app you already call onValue on settings/adImage)
+  // For demo/test, uncomment one of the following lines in dev:
+  // showAd('https://example.com/your-ad.mp4');
+  // showAd('https://youtu.be/dQw4w9WgXcQ');
+  // showAd('https://example.com/ad.jpg');
+
+  // Export to window for debugging/testing (optional)
+  window.QueueJoyAd = { showAd };
 
   // Logo
   async function loadLogo() {
@@ -1130,10 +1260,10 @@
     try {
       const snap = await get(ref(db, 'analytics/serviceEvents'));
       if (!snap.exists()) return;
-      
+
       const events = snap.val();
       const times = [];
-      
+
       for (const k in events) {
         const e = events[k];
         if (e.serviceMs && e.serviceMs > 0) {
@@ -1141,7 +1271,7 @@
           if (min <= 120) times.push(min);
         }
       }
-      
+
       if (times.length > 0) {
         const sum = times.reduce((a, b) => a + b, 0);
         avgServiceTime = Math.max(1, Math.round(sum / times.length));
@@ -1153,19 +1283,19 @@
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get('queueId') || params.get('queueid') || params.get('qid') || params.get('id');
-    
+
     if (!queueKey) {
       showError('Queue ID missing. Redirecting...');
       setTimeout(() => window.location.href = 'index.html', 1500);
       return;
     }
-    
+
     currentQueueKey = queueKey;
     console.log('[STATUS] Initialized with queueKey:', queueKey);
-    
+
     // Load initial data
     await Promise.all([loadLogo(), loadAvgServiceTime()]);
-    
+
     // Watch queue entry
     qRef = ref(db, `queue/${queueKey}`);
     onValue(qRef, (snap) => {
@@ -1174,22 +1304,22 @@
         setTimeout(() => window.location.href = 'index.html', 1500);
         return;
       }
-      
+
       currentQueueData = snap.val();
       console.log('[STATUS] Queue data updated:', currentQueueData);
-      
+
       const ticket = currentQueueData.queueId || currentQueueData.ticketNumber || currentQueueData.ticket || currentQueueData.number || '—';
       yourNumberEl.textContent = ticket;
-      
+
       // Check Telegram connection
       const connected = Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected || currentQueueData.telegramChatId);
       setTelegramUI(connected);
-      
+
       // Show modal on first visit if not connected
       if (!connected && !obModal.classList.contains('show') && !localStorage.getItem('qj_modal_skipped_' + queueKey)) {
         openModal();
       }
-      
+
       // Watch counter
       const cid = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
       if (cid && cid !== currentCounterId) {
@@ -1201,21 +1331,21 @@
           computeEstimates();
         });
       }
-      
+
       computeEstimates();
     });
-    
+
     // Watch ads
     adRef = ref(db, 'settings/adImage');
     onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
-    
+
     // Watch analytics for service time updates
     analyticsRef = ref(db, 'analytics/serviceEvents');
     onValue(analyticsRef, async () => {
       await loadAvgServiceTime();
       computeEstimates();
     });
-    
+
     // Cleanup
     window.addEventListener('beforeunload', () => {
       if (qRef) off(qRef);
