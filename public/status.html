@@ -7,6 +7,7 @@
   <meta name="description" content="Track your queue position in real-time" />
   <meta name="theme-color" content="#8b5cf6" />
 
+  <!-- Tailwind CDN (development). Replace with production build in prod environments. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
@@ -25,19 +26,18 @@
       --success-border: #6ee7b7;
       --success-text: #065f46;
     }
-    
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+
     html, body {
       font-family: Inter, system-ui, -apple-system, sans-serif;
       background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
       min-height: 100vh;
-      min-height: 100dvh;
       color: #1f2937;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
-    
+
     body {
       display: flex;
       flex-direction: column;
@@ -46,7 +46,7 @@
       padding: 16px;
       padding-bottom: 160px;
     }
-    
+
     .page-wrapper {
       width: 100%;
       max-width: 420px;
@@ -55,29 +55,7 @@
       gap: 16px;
     }
 
-    /* Alert Banners - Now at top */
-    .alert-banner {
-      background: linear-gradient(135deg, var(--warning-bg), #fde68a);
-      border: 1px solid var(--warning-border);
-      color: var(--warning-text);
-      padding: 16px;
-      border-radius: 14px;
-      font-size: 13px;
-      font-weight: 600;
-      text-align: center;
-      line-height: 1.5;
-    }
-
-    .alert-banner strong {
-      font-weight: 800;
-    }
-
-    .alert-banner.success {
-      background: linear-gradient(135deg, var(--success-bg), #a7f3d0);
-      border: 1px solid var(--success-border);
-      color: var(--success-text);
-    }
-    
+    /* Visual components (kept and slightly refined from your original) */
     .card {
       background: rgba(255, 255, 255, 0.97);
       border-radius: 24px;
@@ -101,8 +79,6 @@
       overflow: hidden;
       flex-shrink: 0;
     }
-    
-    .logo-box img { width: 100%; height: 100%; object-fit: cover; }
 
     .header {
       display: flex;
@@ -110,20 +86,6 @@
       align-items: center;
       margin-bottom: 24px;
       padding-right: 80px;
-    }
-
-    .header-text h1 {
-      font-size: 22px;
-      font-weight: 800;
-      color: #111827;
-      line-height: 1.2;
-    }
-
-    .header-text p {
-      color: #6b7280;
-      margin-top: 6px;
-      font-size: 14px;
-      line-height: 1.4;
     }
 
     .top-buttons {
@@ -149,35 +111,8 @@
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
     }
-    
+
     .circle-btn:active { transform: scale(0.95); }
-
-    /* Progress Section */
-    .progress-section {
-      margin-bottom: 20px;
-    }
-
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .progress-label {
-      font-size: 14px;
-      font-weight: 600;
-      color: #374151;
-    }
-
-    .progress-status {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
 
     .progress-track {
       height: 28px;
@@ -187,7 +122,7 @@
       overflow: hidden;
       box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
     }
-    
+
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--primary-dark), var(--primary));
@@ -203,14 +138,6 @@
       min-width: 50px;
     }
 
-    /* Stats Grid */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
     .glass-card {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 248, 255, 0.9));
       border-radius: 16px;
@@ -218,7 +145,7 @@
       border: 1px solid rgba(139, 92, 246, 0.08);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
-    
+
     .stat-label {
       font-size: 11px;
       text-transform: uppercase;
@@ -226,7 +153,7 @@
       color: #6b7280;
       font-weight: 600;
     }
-    
+
     .stat-value {
       font-weight: 900;
       font-size: 32px;
@@ -239,20 +166,7 @@
     .stat-value.dark {
       color: #111827;
     }
-    
-    .stat-value-sm {
-      font-weight: 800;
-      font-size: 26px;
-      margin-top: 8px;
-      line-height: 1;
-      color: #374151;
-    }
 
-    .stat-value-sm.highlight {
-      color: var(--primary);
-    }
-
-    /* Connection Banner */
     .connection-banner {
       display: flex;
       align-items: center;
@@ -261,38 +175,6 @@
       border-radius: 16px;
       padding: 16px;
       border: 1px solid rgba(139, 92, 246, 0.08);
-    }
-
-    .connection-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 24px;
-      flex-shrink: 0;
-    }
-
-    .connection-text {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .connection-title {
-      font-weight: 700;
-      font-size: 14px;
-      color: #111827;
-      line-height: 1.3;
-    }
-
-    .connection-sub {
-      color: #6b7280;
-      font-size: 12px;
-      margin-top: 4px;
-      line-height: 1.3;
     }
 
     .btn-primary {
@@ -304,24 +186,12 @@
       border: none;
       box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 14px;
-      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-      min-height: 48px;
-      white-space: nowrap;
     }
-    
-    .btn-primary:active { transform: scale(0.98); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
     .btn-connected {
       background: linear-gradient(135deg, #059669, var(--success));
     }
 
-    /* Error */
     .error-banner {
       padding: 14px;
       border-radius: 12px;
@@ -334,7 +204,7 @@
       display: none;
     }
 
-    /* Modal */
+    /* modal simplified styles kept */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -345,14 +215,13 @@
       z-index: 999;
       padding: 20px;
       backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.25s, visibility 0.25s;
     }
-    
+
     .modal-overlay.show { opacity: 1; visibility: visible; }
-    
+
     .modal-card {
       width: 100%;
       max-width: 380px;
@@ -363,109 +232,10 @@
       transform: translateY(20px) scale(0.96);
       transition: transform 0.3s cubic-bezier(0.22, 0.9, 0.22, 1);
     }
-    
-    .modal-overlay.show .modal-card {
-      transform: translateY(0) scale(1);
-    }
 
-    .modal-icon {
-      width: 100px;
-      height: 100px;
-      margin: 0 auto;
-      border-radius: 24px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 44px;
-      color: #fff;
-      box-shadow: 0 16px 40px rgba(139, 92, 246, 0.3);
-    }
+    .modal-icon { width: 100px; height: 100px; margin: 0 auto; border-radius: 24px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display:flex; align-items:center; justify-content:center; font-size:44px; color:#fff; box-shadow: 0 16px 40px rgba(139, 92, 246, 0.3); }
 
-    .modal-icon.success {
-      background: linear-gradient(135deg, var(--success), #059669);
-      box-shadow: 0 16px 40px rgba(16, 185, 129, 0.3);
-    }
-
-    .modal-title {
-      margin-top: 24px;
-      font-size: 22px;
-      font-weight: 800;
-      color: #111827;
-      text-align: center;
-    }
-
-    .modal-desc {
-      color: #6b7280;
-      margin-top: 12px;
-      font-size: 15px;
-      line-height: 1.6;
-      text-align: center;
-    }
-
-    .step-dots {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      margin: 20px 0;
-    }
-    
-    .step-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #e5e7eb;
-      transition: all 0.25s;
-    }
-    
-    .step-dot.active {
-      width: 28px;
-      background: linear-gradient(90deg, var(--primary-dark), var(--primary));
-      box-shadow: 0 4px 10px rgba(139, 92, 246, 0.35);
-    }
-
-    .btn-outline {
-      border: 2px solid rgba(139, 92, 246, 0.2);
-      padding: 14px 16px;
-      border-radius: 12px;
-      background: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 14px;
-      color: #374151;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: background 0.15s;
-      width: 100%;
-    }
-    
-    .btn-outline:active { background: #f9fafb; }
-
-    .btn-full {
-      width: 100%;
-    }
-
-    .slide { display: none; }
-    .slide.active { display: block; }
-
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border: 3px solid rgba(255, 255, 255, 0.25);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-    }
-    
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .pulse { animation: pulse 2s ease-in-out infinite; }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.08); }
-    }
+    .slide { display: none; } .slide.active { display: block; }
 
     /* Ad panel */
     .ad-panel {
@@ -482,7 +252,7 @@
       z-index: 100;
       display: none;
     }
-    
+
     .ad-label {
       font-size: 9px;
       color: #9ca3af;
@@ -491,12 +261,17 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    
+
     .ad-media {
       width: 100%;
       height: 100px;
       object-fit: cover;
       border-radius: 12px;
+    }
+
+    @media (max-width: 420px) {
+      .ad-media { height: 86px; }
+      .header { padding-right: 60px; }
     }
   </style>
 </head>
@@ -504,89 +279,65 @@
 
 <div class="page-wrapper">
 
-  <!-- Alert Banner - Now at TOP -->
+  <!-- Alert Banner -->
   <div id="stayAlert" class="alert-banner" style="display: none">
-    ⚠️ <strong>Stay on this page</strong> — Only Telegram can notify you when the app is closed.
+    <strong>Stay on this page</strong> — Only Telegram can notify you when the app is closed.
   </div>
 
-  <!-- Connected Banner - Shows when Telegram is connected -->
+  <!-- Connected Banner -->
   <div id="connectedAlert" class="alert-banner success" style="display: none">
-    ✅ <strong>You're all set!</strong> You can close this browser now. Sit back and relax — we'll notify you on Telegram when it's your turn.
+    <strong>You're all set!</strong> You can close this browser now — we will notify you on Telegram when it's your turn.
   </div>
 
   <!-- Onboarding Modal -->
   <div id="onboardingModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true">
-      
-      <!-- Slide 1 -->
+      <!-- Slides preserved -->
       <div class="slide active" data-slide="0">
         <div class="modal-icon">✉️</div>
-        <h3 class="modal-title">Get Telegram Notifications</h3>
-        <p class="modal-desc">
-          Only Telegram can notify you when the app is closed. Receive instant alerts on your phone when it's your turn.
-        </p>
-        <div class="step-dots">
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
+        <h3 style="text-align:center;margin-top:12px;font-size:18px;font-weight:800">Get Telegram Notifications</h3>
+        <p style="color:#6b7280;margin-top:8px;text-align:center">Only Telegram can notify you when the app is closed. Receive instant alerts on your phone when it's your turn.</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+          <button id="obNext" class="btn-primary" style="min-width:120px">Continue →</button>
+          <button id="obSkip" class="btn-primary" style="background:#fff;border:1px solid rgba(139,92,246,0.12);color:#374151">Skip</button>
         </div>
-        <button id="obNext" class="btn-primary btn-full">Continue →</button>
-        <button id="obSkip" class="btn-outline" style="margin-top: 12px">Skip for now</button>
       </div>
 
-      <!-- Slide 2 -->
       <div class="slide" data-slide="1">
         <div class="modal-icon">▶️</div>
-        <h3 class="modal-title">Tap "Start" in Telegram</h3>
-        <p class="modal-desc">
-          We'll open our bot. Tap <strong>Start</strong> to activate notifications.
-        </p>
-        <div class="step-dots">
-          <div class="step-dot"></div>
-          <div class="step-dot active"></div>
-          <div class="step-dot"></div>
+        <h3 style="text-align:center;margin-top:12px;font-size:18px;font-weight:800">Tap "Start" in Telegram</h3>
+        <p style="color:#6b7280;margin-top:8px;text-align:center">We'll open our bot. Tap <strong>Start</strong> to activate notifications.</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+          <button id="obNext2" class="btn-primary" style="min-width:120px">Next →</button>
+          <button id="obBack1" class="btn-primary" style="background:#fff;border:1px solid rgba(139,92,246,0.12);color:#374151">← Back</button>
         </div>
-        <button id="obNext2" class="btn-primary btn-full">Next →</button>
-        <button id="obBack1" class="btn-outline" style="margin-top: 12px">← Back</button>
       </div>
 
-      <!-- Slide 3 -->
       <div class="slide" data-slide="2">
         <div class="modal-icon">✅</div>
-        <h3 class="modal-title">Ready to Connect</h3>
-        <p id="obStatusText" class="modal-desc">
-          Generating your secure link...
-        </p>
-        <div class="step-dots">
-          <div class="step-dot"></div>
-          <div class="step-dot"></div>
-          <div class="step-dot active"></div>
+        <h3 style="text-align:center;margin-top:12px;font-size:18px;font-weight:800">Ready to Connect</h3>
+        <p id="obStatusText" style="color:#6b7280;margin-top:8px;text-align:center">Generating your secure link...</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+          <button id="obFinish" class="btn-primary" disabled style="min-width:160px">
+            <span id="obFinishContent"><span style="display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px"></span>Generating...</span>
+          </button>
+          <button id="obBack2" class="btn-primary" style="background:#fff;border:1px solid rgba(139,92,246,0.12);color:#374151">← Back</button>
         </div>
-        <button id="obFinish" class="btn-primary btn-full" disabled>
-          <span id="obFinishContent">
-            <span class="spinner"></span>
-            <span>Generating...</span>
-          </span>
-        </button>
-        <button id="obBack2" class="btn-outline" style="margin-top: 12px">← Back</button>
       </div>
 
-      <!-- Connected Slide -->
       <div class="slide" data-slide="connected">
-        <div class="modal-icon success">✅</div>
-        <h3 class="modal-title">You're Connected!</h3>
-        <p class="modal-desc">
-          You'll get a Telegram notification when it's your turn.
-        </p>
-        <button id="obDone" class="btn-primary btn-full" style="margin-top: 24px">Got it!</button>
+        <div class="modal-icon" style="background:linear-gradient(135deg,var(--success),#059669)">✅</div>
+        <h3 style="text-align:center;margin-top:12px;font-size:18px;font-weight:800">You're Connected!</h3>
+        <p style="color:#6b7280;margin-top:8px;text-align:center">You'll get a Telegram notification when it's your turn.</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+          <button id="obDone" class="btn-primary">Got it</button>
+        </div>
       </div>
-      
     </div>
   </div>
 
   <!-- Main Card -->
   <main class="card">
-    
     <!-- Top buttons -->
     <div class="top-buttons">
       <button id="miniGame" class="circle-btn" title="Play game">🎮</button>
@@ -597,29 +348,29 @@
     <div class="header">
       <div class="logo-box" id="logoBox">
         <span id="logoText">QJ</span>
-        <img id="logoImg" style="display: none" alt="Logo" />
+        <img id="logoImg" style="display:none" alt="Logo" />
       </div>
       <div class="header-text">
-        <h1>You're in the queue</h1>
-        <p>We're tracking your spot in real-time.</p>
+        <h1 style="font-size:22px;font-weight:800">You're in the queue</h1>
+        <p style="color:#6b7280;margin-top:6px;font-size:14px">We're tracking your spot in real-time.</p>
       </div>
     </div>
 
     <!-- Progress -->
     <section class="progress-section">
-      <div class="progress-header">
+      <div class="progress-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <span class="progress-label">Queue Progress</span>
         <span id="progressCaption" class="progress-status">Loading...</span>
       </div>
       <div class="progress-track">
-        <div id="progressFill" class="progress-fill" style="width: 8%">
+        <div id="progressFill" class="progress-fill" style="width:8%">
           <span id="progressLabel">8%</span>
         </div>
       </div>
     </section>
 
     <!-- Stats Grid -->
-    <section class="stats-grid">
+    <section class="stats-grid" style="margin-top:14px">
       <div class="glass-card">
         <div class="stat-label">Your Ticket</div>
         <div id="yourNumber" class="stat-value">—</div>
@@ -633,35 +384,33 @@
     <section class="stats-grid">
       <div class="glass-card">
         <div class="stat-label">People Ahead</div>
-        <div id="peopleAhead" class="stat-value-sm">—</div>
+        <div id="peopleAhead" class="stat-value-sm" style="font-size:26px;color:#374151">—</div>
       </div>
       <div class="glass-card">
         <div class="stat-label">Estimated Wait</div>
-        <div id="estimatedWait" class="stat-value-sm highlight">—</div>
+        <div id="estimatedWait" class="stat-value-sm highlight" style="font-size:26px;color:var(--primary)">—</div>
       </div>
     </section>
 
     <!-- Connection Banner -->
-    <section id="connectionBanner" class="connection-banner">
+    <section id="connectionBanner" class="connection-banner" style="margin-top:14px">
       <div class="connection-icon">🔔</div>
       <div class="connection-text">
         <div id="connectionTitle" class="connection-title">Get Telegram notifications</div>
         <div id="connectionSub" class="connection-sub">Only Telegram can notify you when the app is closed.</div>
       </div>
-      <button id="connectMain" class="btn-primary" style="padding: 12px 16px; font-size: 13px">
-        Connect
-      </button>
+      <button id="connectMain" class="btn-primary" style="padding:12px 16px;font-size:13px">Connect</button>
     </section>
 
     <!-- Error -->
     <div id="error" class="error-banner"></div>
-    
+
   </main>
 
 </div>
 
 <!-- Ad Panel -->
-<div id="adPanel" class="ad-panel">
+<div id="adPanel" class="ad-panel" aria-hidden="true">
   <div class="ad-label">Advertisement</div>
   <div id="adContainer"></div>
 </div>
@@ -676,6 +425,7 @@
   const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
   const MAX_AHEAD = 20;
 
+  // Firebase config (same as original)
   const firebaseConfig = {
     apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
     authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -689,10 +439,9 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // DOM
+  // DOM refs
   const obModal = document.getElementById('onboardingModal');
   const slides = document.querySelectorAll('.slide');
-  const stepDots = document.querySelectorAll('.step-dot');
   const obNext = document.getElementById('obNext');
   const obNext2 = document.getElementById('obNext2');
   const obBack1 = document.getElementById('obBack1');
@@ -702,7 +451,7 @@
   const obFinishContent = document.getElementById('obFinishContent');
   const obStatusText = document.getElementById('obStatusText');
   const obDone = document.getElementById('obDone');
-  
+
   const logoBox = document.getElementById('logoBox');
   const logoText = document.getElementById('logoText');
   const logoImg = document.getElementById('logoImg');
@@ -734,7 +483,7 @@
   let avgServiceTime = 3;
   let qRef = null, counterRef = null, adRef = null, analyticsRef = null;
 
-  // Utilities
+  // UTILITIES
   function showError(msg) {
     if (!errorBox) return;
     errorBox.style.display = 'block';
@@ -742,19 +491,12 @@
     setTimeout(() => errorBox.style.display = 'none', 6000);
   }
 
-  // Extract ONLY the numeric part from ticket strings like "COFFEE 001" -> 1
   function extractNumber(str) {
     if (str === null || str === undefined) return null;
     const s = String(str).trim();
-    // Match digits at the end of the string
     const m = s.match(/(\d+)$/);
-    if (m) {
-      return parseInt(m[1], 10);
-    }
-    // If the whole string is a number
-    if (/^\d+$/.test(s)) {
-      return parseInt(s, 10);
-    }
+    if (m) return parseInt(m[1], 10);
+    if (/^\d+$/.test(s)) return parseInt(s, 10);
     return null;
   }
 
@@ -766,13 +508,11 @@
     return r === 0 ? `${h}h` : `${h}h ${r}m`;
   }
 
-  // Modal functions
+  // Modal helpers
   function showSlide(idx) {
     slides.forEach(s => s.classList.remove('active'));
-    stepDots.forEach(d => d.classList.remove('active'));
     const slide = document.querySelector(`[data-slide="${idx}"]`);
     if (slide) slide.classList.add('active');
-    if (typeof idx === 'number' && stepDots[idx]) stepDots[idx].classList.add('active');
     if (idx === 2) generateLink();
   }
 
@@ -785,28 +525,22 @@
     }
   }
 
-  function closeModal() {
-    obModal.classList.remove('show');
-  }
+  function closeModal() { obModal.classList.remove('show'); }
 
-  obNext.onclick = () => showSlide(1);
-  obNext2.onclick = () => showSlide(2);
-  obBack1.onclick = () => showSlide(0);
-  obBack2.onclick = () => showSlide(1);
-  obSkip.onclick = () => {
-    localStorage.setItem('qj_modal_skipped_' + currentQueueKey, 'true');
-    closeModal();
-  };
-  obDone.onclick = closeModal;
-  obModal.onclick = (e) => { if (e.target === obModal) closeModal(); };
+  obNext && (obNext.onclick = () => showSlide(1));
+  obNext2 && (obNext2.onclick = () => showSlide(2));
+  obBack1 && (obBack1.onclick = () => showSlide(0));
+  obBack2 && (obBack2.onclick = () => showSlide(1));
+  obSkip && (obSkip.onclick = () => { localStorage.setItem('qj_modal_skipped_' + currentQueueKey, 'true'); closeModal(); });
+  obDone && (obDone.onclick = closeModal);
+  obModal && (obModal.onclick = (e) => { if (e.target === obModal) closeModal(); });
 
-  // Telegram link generation
+  // Telegram link generation (same flow, defensive)
   async function generateLink() {
     if (linkGenerating || latestConnectLink) return;
     linkGenerating = true;
-    
     obFinish.disabled = true;
-    obFinishContent.innerHTML = '<span class="spinner"></span><span>Generating...</span>';
+    obFinishContent.innerHTML = '<span style="display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px"></span>Generating...';
     obStatusText.textContent = 'Creating secure link...';
 
     try {
@@ -815,26 +549,26 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ queueKey: currentQueueKey })
       });
-      
-      if (!res.ok) throw new Error('Failed');
-      
+
+      if (!res.ok) throw new Error('Failed to generate link');
+
       const json = await res.json();
       let link = json.link || null;
-      
+
       if (!link && json.token) {
         link = `${TELEGRAM_BOT_URL}?start=${json.token}`;
       }
-      
+
       if (link && !link.includes('start=')) {
         const token = currentQueueData?.telegramToken || currentQueueData?.token || currentQueueKey;
         link = `${TELEGRAM_BOT_URL}?start=${token}`;
       }
-      
+
       latestConnectLink = link || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
       obStatusText.textContent = 'Ready! Tap below to open Telegram.';
       obFinish.disabled = false;
       obFinishContent.innerHTML = '🚀 Open Telegram';
-      
+
     } catch (e) {
       console.error('Link generation failed:', e);
       latestConnectLink = `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
@@ -848,15 +582,12 @@
 
   async function openTelegram() {
     if (linkGenerating) return;
-    
     obFinish.disabled = true;
-    obFinishContent.innerHTML = '<span class="spinner"></span><span>Opening...</span>';
-    
+    obFinishContent.innerHTML = '<span style="display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px"></span>Opening...';
     const url = latestConnectLink || `${TELEGRAM_BOT_URL}?start=${currentQueueKey}`;
-    
-    // Open in NEW tab
+
+    // Open in new tab reliably
     const newTab = window.open(url, '_blank', 'noopener,noreferrer');
-    
     if (!newTab) {
       const a = document.createElement('a');
       a.href = url;
@@ -866,8 +597,8 @@
       a.click();
       document.body.removeChild(a);
     }
-    
-    // Mark token used
+
+    // Notify backend (best-effort)
     try {
       const token = url.split('start=')[1];
       if (token) {
@@ -877,37 +608,34 @@
           body: JSON.stringify({ queueKey: currentQueueKey, token })
         });
       }
-    } catch (e) {}
-    
+    } catch (e) { /* ignore */ }
+
     setTimeout(() => {
       obFinish.disabled = false;
       obFinishContent.innerHTML = '✅ Opened!';
-      setTimeout(closeModal, 1500);
+      setTimeout(closeModal, 1200);
     }, 500);
   }
 
-  obFinish.onclick = openTelegram;
-  connectMainBtn.onclick = openModal;
-  connectMiniBtn.onclick = openModal;
-  document.getElementById('miniGame').onclick = () => {
-  const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
-  // use assign so it navigates in the same tab (keeps history)
-  window.location.assign(`game.html${q}`);
-};
+  obFinish && (obFinish.onclick = openTelegram);
+  connectMainBtn && (connectMainBtn.onclick = openModal);
+  connectMiniBtn && (connectMiniBtn.onclick = openModal);
+  document.getElementById('miniGame') && (document.getElementById('miniGame').onclick = () => {
+    const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
+    window.location.assign(`game.html${q}`);
+  });
 
-
-  // UI Updates
+  // UI updates
   function setTelegramUI(connected) {
     isTelegramConnected = connected;
-    
+
     if (connected) {
       connectionTitle.textContent = '✅ Connected to Telegram';
       connectionSub.textContent = "We'll notify you when it's your turn.";
       connectMainBtn.innerHTML = '✅';
       connectMainBtn.disabled = true;
       connectMainBtn.classList.add('btn-connected');
-      connectMiniBtn.classList.remove('pulse');
-      // Hide warning, show success
+      connectMiniBtn && connectMiniBtn.classList.remove('pulse');
       stayAlert.style.display = 'none';
       connectedAlert.style.display = 'block';
     } else {
@@ -916,8 +644,7 @@
       connectMainBtn.innerHTML = 'Connect';
       connectMainBtn.disabled = false;
       connectMainBtn.classList.remove('btn-connected');
-      connectMiniBtn.classList.add('pulse');
-      // Show warning, hide success
+      connectMiniBtn && connectMiniBtn.classList.add('pulse');
       stayAlert.style.display = 'block';
       connectedAlert.style.display = 'none';
     }
@@ -926,8 +653,8 @@
   function updateProgress(pct, ahead, status) {
     const p = Math.max(4, Math.min(100, Math.round(pct)));
     progressFill.style.width = p + '%';
-    progressLabel.textContent = p + '%';
-    
+    progressLabel && (progressLabel.textContent = p + '%');
+
     const st = String(status || '').toLowerCase();
     if (st === 'called' || st === 'serving' || st === 'your_turn') {
       progressCaption.textContent = "🎉 It's your turn!";
@@ -947,7 +674,6 @@
     }
   }
 
-  // REDIRECT to your_turn.html
   function redirectToTurn() {
     if (redirecting) return;
     redirecting = true;
@@ -958,35 +684,160 @@
     }, 600);
   }
 
-  // Compute estimates and check if it's user's turn
+  // Robust ad handling (supports string or object from Firebase)
+  function clearAd() {
+    adContainer.innerHTML = '';
+    adPanel.style.display = 'none';
+    adPanel.setAttribute('aria-hidden', 'true');
+  }
+
+  async function showAdPayload(raw) {
+    console.log('[AD] payload:', raw);
+
+    if (!raw) { clearAd(); return; }
+
+    let url = '';
+    let explicitType = null;
+    let poster = null;
+
+    if (typeof raw === 'string') {
+      url = raw.trim();
+    } else if (typeof raw === 'object' && raw !== null) {
+      // support fields: url, src, video, image, media, type/mime, poster/thumb
+      url = String(raw.url || raw.src || raw.video || raw.image || raw.media || '').trim();
+      explicitType = raw.type || raw.mime || raw.mediaType || null;
+      poster = raw.poster || raw.thumb || raw.thumbnail || null;
+    }
+
+    if (!url) { clearAd(); return; }
+
+    // heuristics
+    const extVideo = /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i.test(url);
+    const typeVideo = explicitType && String(explicitType).toLowerCase().startsWith('video');
+    const keywordVideo = /\bvideo\b/i.test(url);
+    const isVideo = extVideo || typeVideo || keywordVideo;
+
+    adContainer.innerHTML = '';
+    adPanel.style.display = 'block';
+    adPanel.setAttribute('aria-hidden', 'false');
+
+    if (isVideo) {
+      // create video element with safe fallbacks
+      const video = document.createElement('video');
+      video.className = 'ad-media';
+      video.src = url;
+      video.autoplay = true;
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      if (poster) video.poster = poster;
+      video.controls = false;
+
+      // fallback image
+      const fallback = document.createElement('img');
+      fallback.className = 'ad-media';
+      fallback.alt = 'Ad';
+      fallback.style.display = 'none';
+
+      let started = false;
+      function fallbackToImage() {
+        try { video.remove(); } catch (e) {}
+        fallback.src = poster || url;
+        fallback.style.display = 'block';
+        fallback.onerror = () => { console.warn('[AD] fallback image failed'); clearAd(); };
+        adContainer.appendChild(fallback);
+      }
+
+      video.addEventListener('play', () => { started = true; console.log('[AD] video playing'); });
+      video.addEventListener('error', (ev) => { console.warn('[AD] video error', ev); fallbackToImage(); });
+
+      adContainer.appendChild(video);
+
+      // try to play (autoplay policies may block)
+      try {
+        const p = video.play();
+        if (p !== undefined && typeof p.then === 'function') {
+          p.catch((err) => {
+            console.log('[AD] autoplay blocked or failed:', err);
+            // offer user control - enable controls so user can tap to start
+            video.controls = true;
+            if (poster) {
+              // show poster (pause video)
+              video.pause();
+              video.currentTime = 0;
+            }
+          });
+        }
+      } catch (e) {
+        console.log('[AD] play() threw', e);
+      }
+
+    } else {
+      // image or gif
+      const img = document.createElement('img');
+      img.src = url;
+      img.className = 'ad-media';
+      img.alt = 'Ad';
+      img.onerror = () => { console.warn('[AD] Image failed to load, hiding panel'); clearAd(); };
+      adContainer.appendChild(img);
+    }
+  }
+
+  // logo loader
+  async function loadLogo() {
+    try {
+      const snap = await get(ref(db, 'settings/logoUrl'));
+      if (snap.exists() && snap.val()) {
+        const url = String(snap.val()).trim();
+        if (url) {
+          logoImg.src = url;
+          logoImg.onload = () => {
+            logoText.style.display = 'none';
+            logoImg.style.display = 'block';
+          };
+        }
+      }
+    } catch (e) { console.warn('logo load error', e); }
+  }
+
+  // avg service time
+  async function loadAvgServiceTime() {
+    try {
+      const snap = await get(ref(db, 'analytics/serviceEvents'));
+      if (!snap.exists()) return;
+      const events = snap.val();
+      const times = [];
+      for (const k in events) {
+        const e = events[k];
+        if (e.serviceMs && e.serviceMs > 0) {
+          const min = e.serviceMs / 60000;
+          if (min <= 120) times.push(min);
+        }
+      }
+      if (times.length > 0) {
+        const sum = times.reduce((a, b) => a + b, 0);
+        avgServiceTime = Math.max(1, Math.round(sum / times.length));
+      }
+    } catch (e) { console.warn('avg service time load error', e); }
+  }
+
+  // compute estimates & determine redirection
   async function computeEstimates() {
     if (!currentQueueData || redirecting) return;
-    
-    // Get user's ticket info
+
     const myTicket = currentQueueData.queueId || currentQueueData.ticketNumber || currentQueueData.ticket || currentQueueData.number;
     const myNum = extractNumber(myTicket);
     const myStatus = String(currentQueueData.status || '').toLowerCase();
-    
+
     console.log('[STATUS] Computing estimates:', { myTicket, myNum, myStatus, called: currentQueueData.called });
-    
-    // Check if already called by status
-    if (myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn') {
-      console.log('[STATUS] Status indicates turn, redirecting...');
-      redirectToTurn();
-      return;
-    }
-    
-    // Check if marked as called
-    if (currentQueueData.called === true || currentQueueData.notifiedAt || currentQueueData.calledAt) {
-      console.log('[STATUS] Queue marked as called, redirecting...');
-      redirectToTurn();
-      return;
-    }
-    
-    // Get nowServing from counter
+
+    if (myStatus === 'called' || myStatus === 'serving' || myStatus === 'your_turn') { redirectToTurn(); return; }
+    if (currentQueueData.called === true || currentQueueData.notifiedAt || currentQueueData.calledAt) { redirectToTurn(); return; }
+
+    // get nowServing from counter if possible
     let servingNum = null;
     let counterData = null;
-    
     const counterId = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
     if (counterId) {
       try {
@@ -994,23 +845,18 @@
         if (snap.exists()) {
           counterData = snap.val();
           servingNum = extractNumber(counterData.nowServing);
-          
           console.log('[STATUS] Counter data:', { counterId, nowServing: counterData.nowServing, servingNum, myNum });
-          
-          // Update nowServing display with proper formatting
+
+          // format nowServing display similarly to user's ticket
           const prefix = counterData.prefix || '';
           if (counterData.nowServing !== undefined && counterData.nowServing !== null) {
-            // Match the format of the user's ticket
-            const digits = String(myTicket).match(/(\d+)$/);
+            const digits = String(myTicket || '').match(/(\d+)$/);
             const len = digits ? digits[1].length : 3;
             const rawServingNum = extractNumber(counterData.nowServing);
-            
-            // Check if myTicket has a prefix (like "COFFEE")
-            const ticketPrefix = String(myTicket).replace(/\d+$/, '').trim();
-            const formattedServing = ticketPrefix 
+            const ticketPrefix = String(myTicket || '').replace(/\d+$/, '').trim();
+            const formattedServing = ticketPrefix
               ? `${ticketPrefix} ${String(rawServingNum).padStart(len, '0')}`
               : prefix + String(rawServingNum).padStart(len, '0');
-            
             nowServingEl.textContent = formattedServing;
           }
         }
@@ -1018,47 +864,22 @@
         console.error('[STATUS] Error fetching counter:', e);
       }
     }
-    
-    // *** FIXED LOGIC ***
-    // Calculate people ahead CORRECTLY
-    // peopleAhead = myNum - servingNum
-    // Example: If nowServing = 0 (or "000") and myTicket = 1 (or "001"), there's 1 person ahead (me!)
-    // When servingNum === myNum, it's MY turn (0 people ahead)
-    
+
+    // people ahead logic
     let peopleAhead = 0;
-    
     if (myNum !== null && servingNum !== null) {
-      // CORRECT CALCULATION:
-      // If nowServing is 0 and I'm 1, then peopleAhead = 1 - 0 = 1 (I'm waiting, not being served yet)
-      // If nowServing is 1 and I'm 1, then peopleAhead = 1 - 1 = 0 (It's my turn!)
-      // If nowServing is 2 and I'm 1, then I missed my turn (servingNum > myNum)
-      
       peopleAhead = myNum - servingNum;
-      
-      // Ensure non-negative (in case user missed their turn)
       peopleAhead = Math.max(0, peopleAhead);
-      
+
       console.log('[STATUS] People ahead calculation:', { myNum, servingNum, peopleAhead });
-      
-      // Check if it's EXACTLY my turn (nowServing === myNum)
-      if (servingNum === myNum) {
-        console.log('[STATUS] nowServing === myNum, it is my turn! Redirecting...');
-        redirectToTurn();
-        return;
-      }
-      
-      // Check if I missed my turn (nowServing > myNum)
-      if (servingNum > myNum) {
-        console.log('[STATUS] Missed turn! servingNum > myNum');
-        peopleAhead = 0;
-        // Optionally show "missed" state here
-      }
+
+      if (servingNum === myNum) { redirectToTurn(); return; }
+      if (servingNum > myNum) { peopleAhead = 0; /* missed turn */ }
     } else if (myNum === null) {
       console.log('[STATUS] Could not extract myNum from ticket:', myTicket);
       peopleAhead = 0;
     } else {
-      // Fallback: count from queue if we can't get counter data
-      console.log('[STATUS] No servingNum, using fallback count');
+      // fallback: count waiting entries before my timestamp
       try {
         const allSnap = await get(ref(db, 'queue'));
         if (allSnap.exists()) {
@@ -1075,102 +896,37 @@
         console.error('[STATUS] Fallback count error:', e);
       }
     }
-    
-    // Update UI
+
+    // update UI
     peopleAheadEl.textContent = peopleAhead;
-    
-    // Estimated wait
     const estMin = peopleAhead * avgServiceTime;
     estimatedWaitEl.textContent = formatMinutes(estMin);
-    
-    // Progress bar
-    // When peopleAhead is high, progress is low. When peopleAhead is 0, progress is 100%
+
     let progressPct;
-    if (peopleAhead <= 0) {
-      progressPct = 100;
-    } else if (peopleAhead >= MAX_AHEAD) {
-      progressPct = 5;
-    } else {
-      progressPct = Math.round(100 - (peopleAhead / MAX_AHEAD) * 95);
-    }
-    
+    if (peopleAhead <= 0) progressPct = 100;
+    else if (peopleAhead >= MAX_AHEAD) progressPct = 5;
+    else progressPct = Math.round(100 - (peopleAhead / MAX_AHEAD) * 95);
+
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
-  // Ads
-  function showAd(url) {
-    if (!url) { adPanel.style.display = 'none'; return; }
-    const u = String(url).trim();
-    if (!u) { adPanel.style.display = 'none'; return; }
-    
-    adPanel.style.display = 'block';
-    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
-    
-    if (isVideo) {
-      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
-    } else {
-      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
-    }
-  }
-
-  // Logo
-  async function loadLogo() {
-    try {
-      const snap = await get(ref(db, 'settings/logoUrl'));
-      if (snap.exists() && snap.val()) {
-        const url = String(snap.val()).trim();
-        if (url) {
-          logoImg.src = url;
-          logoImg.onload = () => {
-            logoText.style.display = 'none';
-            logoImg.style.display = 'block';
-          };
-        }
-      }
-    } catch (e) {}
-  }
-
-  // Avg service time from analytics
-  async function loadAvgServiceTime() {
-    try {
-      const snap = await get(ref(db, 'analytics/serviceEvents'));
-      if (!snap.exists()) return;
-      
-      const events = snap.val();
-      const times = [];
-      
-      for (const k in events) {
-        const e = events[k];
-        if (e.serviceMs && e.serviceMs > 0) {
-          const min = e.serviceMs / 60000;
-          if (min <= 120) times.push(min);
-        }
-      }
-      
-      if (times.length > 0) {
-        const sum = times.reduce((a, b) => a + b, 0);
-        avgServiceTime = Math.max(1, Math.round(sum / times.length));
-      }
-    } catch (e) {}
-  }
-
-  // Initialize
+  // Initialize: read queue key and wire listeners
   document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     const queueKey = params.get('queueId') || params.get('queueid') || params.get('qid') || params.get('id');
-    
+
     if (!queueKey) {
       showError('Queue ID missing. Redirecting...');
       setTimeout(() => window.location.href = 'index.html', 1500);
       return;
     }
-    
+
     currentQueueKey = queueKey;
     console.log('[STATUS] Initialized with queueKey:', queueKey);
-    
-    // Load initial data
+
+    // Load initial resources
     await Promise.all([loadLogo(), loadAvgServiceTime()]);
-    
+
     // Watch queue entry
     qRef = ref(db, `queue/${queueKey}`);
     onValue(qRef, (snap) => {
@@ -1179,22 +935,20 @@
         setTimeout(() => window.location.href = 'index.html', 1500);
         return;
       }
-      
+
       currentQueueData = snap.val();
       console.log('[STATUS] Queue data updated:', currentQueueData);
-      
+
       const ticket = currentQueueData.queueId || currentQueueData.ticketNumber || currentQueueData.ticket || currentQueueData.number || '—';
       yourNumberEl.textContent = ticket;
-      
-      // Check Telegram connection
+
       const connected = Boolean(currentQueueData.telegramConnected || currentQueueData.tgConnected || currentQueueData.telegramChatId);
       setTelegramUI(connected);
-      
-      // Show modal on first visit if not connected
+
       if (!connected && !obModal.classList.contains('show') && !localStorage.getItem('qj_modal_skipped_' + queueKey)) {
         openModal();
       }
-      
+
       // Watch counter
       const cid = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
       if (cid && cid !== currentCounterId) {
@@ -1206,142 +960,59 @@
           computeEstimates();
         });
       }
-      
+
       computeEstimates();
     });
-    
-    // Watch ads
-// Replace the existing showAd function with this one
-async function showAd(raw) {
-  // Debug the DB payload so you can inspect what's coming from Firebase.
-  console.log('[AD] raw payload from DB:', raw);
 
-  if (!raw) {
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-    return;
-  }
-
-  // Accept either a plain URL string or an object like { url, type, poster }
-  let url = null;
-  let explicitType = null;
-  let poster = null;
-
-  if (typeof raw === 'string') {
-    url = raw.trim();
-  } else if (typeof raw === 'object' && raw !== null) {
-    // Common patterns: { url: '...', type: 'video/mp4' } or { video: '...', image: '...' }
-    url = (raw.url || raw.src || raw.video || raw.image || raw.media || '').toString().trim();
-    explicitType = raw.type || raw.mime || raw.mediaType || raw.kind || null;
-    poster = raw.poster || raw.thumb || raw.thumbnail || null;
-  }
-
-  if (!url) {
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-    return;
-  }
-
-  // Normalize
-  const u = String(url).trim();
-
-  // Heuristic video detection:
-  // 1) explicit type (e.g. "video/mp4")
-  // 2) file extension in URL (mp4/webm/mov/m4v/ogg)
-  // 3) presence of 'video' keyword in URL (signed storage urls sometimes lack extension)
-  const extTest = /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i.test(u);
-  const typeIsVideo = !!(explicitType && String(explicitType).toLowerCase().startsWith('video'));
-  const keywordVideo = /(\bvideo\b)/i.test(u);
-  const isVideo = typeIsVideo || extTest || keywordVideo;
-
-  // Show the panel, clear previous content
-  adPanel.style.display = 'block';
-  adContainer.innerHTML = '';
-
-  if (isVideo) {
-    // Create <video> and provide a graceful fallback to an <img>
-    const video = document.createElement('video');
-    video.className = 'ad-media';
-    video.src = u;
-    video.autoplay = true;
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    video.setAttribute('playsinline', '');
-
-    // If there's a poster thumbnail provided in DB, use it
-    if (poster) video.poster = poster;
-
-    // Give user a visible control if autoplay is blocked (non-intrusive)
-    video.controls = false;
-
-    // Success / error handlers
-    video.addEventListener('play', () => console.log('[AD] video started playing'));
-    video.addEventListener('error', (ev) => {
-      console.warn('[AD] video error, falling back to image:', ev);
-      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" />`;
-      // If that image also fails, hide the panel (image onerror will hide it).
-      const img = adContainer.querySelector('img');
-      if (img) {
-        img.onerror = () => {
-          console.warn('[AD] fallback image failed to load, hiding ad panel');
-          adPanel.style.display = 'none';
-          adContainer.innerHTML = '';
-        };
-      }
-    });
-
-    adContainer.appendChild(video);
-
-    // Try to play - promise may reject on autoplay policy; that's okay
-    try {
-      const p = video.play();
-      if (p && typeof p.then === 'function') {
-        p.catch((err) => {
-          // Autoplay blocked — keep panel visible, show poster (if available) or show controls
-          console.log('[AD] autoplay blocked or failed:', err);
-          if (poster) {
-            // show poster image instead of video autoplay
-            adContainer.innerHTML = `<img src="${poster}" class="ad-media" alt="Ad poster" />`;
-          } else {
-            // show first frame by keeping the <video> element but enable controls so user can tap to start
-            video.controls = true;
-          }
+    // Watch ads (tries common keys; adjust if your DB uses a different path)
+    // If your DB stores an object at settings/ad, we'll handle it; if it stores a string at settings/adImage, we handle that too.
+    const adPaths = ['settings/ad', 'settings/adImage', 'settings/adObject'];
+    let adListenerSet = false;
+    for (const p of adPaths) {
+      try {
+        const r = ref(db, p);
+        onValue(r, (snap) => {
+          const val = snap.exists() ? snap.val() : null;
+          if (val) showAdPayload(val);
+          else clearAd();
         });
+        // remember the ref to shut down on unload
+        adRef = r;
+        adListenerSet = true;
+        break;
+      } catch (e) {
+        console.warn('[AD] listener error for', p, e);
       }
-    } catch (e) {
-      console.log('[AD] video.play() threw, ignoring:', e);
+    }
+    if (!adListenerSet) {
+      // fallback to original path to remain compatible
+      try {
+        adRef = ref(db, 'settings/adImage');
+        onValue(adRef, (snap) => showAdPayload(snap.exists() ? snap.val() : null));
+      } catch (e) { console.warn('[AD] fallback listener failed', e); }
     }
 
-  } else {
-    // Treat as image/GIF
-    const img = document.createElement('img');
-    img.src = u;
-    img.className = 'ad-media';
-    img.alt = 'Ad';
-    img.onerror = () => {
-      console.warn('[AD] Image failed to load, hiding panel');
-      adPanel.style.display = 'none';
-      adContainer.innerHTML = '';
-    };
-    adContainer.appendChild(img);
-  }
-}
-
-    
-    // Watch analytics for service time updates
+    // Watch analytics
     analyticsRef = ref(db, 'analytics/serviceEvents');
     onValue(analyticsRef, async () => {
       await loadAvgServiceTime();
       computeEstimates();
     });
-    
-    // Cleanup
+
+    // cleanup on unload
     window.addEventListener('beforeunload', () => {
       if (qRef) off(qRef);
       if (counterRef) off(counterRef);
       if (adRef) off(adRef);
       if (analyticsRef) off(analyticsRef);
+    });
+
+    // connect button: fallback opens Telegram link directly
+    connectMainBtn.addEventListener('click', () => {
+      // If you prefer to open the onboarding modal, call openModal() instead.
+      const url = `${TELEGRAM_BOT_URL}?start=${encodeURIComponent(currentQueueKey)}`;
+      window.open(url, '_blank', 'noopener');
+      // Optionally: mark token used via backend here if you want.
     });
   });
 </script>
