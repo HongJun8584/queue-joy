@@ -1097,21 +1097,81 @@
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
-  // Ads
-  function showAd(url) {
-    if (!url) { adPanel.style.display = 'none'; return; }
-    const u = String(url).trim();
-    if (!u) { adPanel.style.display = 'none'; return; }
-    
-    adPanel.style.display = 'block';
-    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
-    
-    if (isVideo) {
-      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
-    } else {
-      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
-    }
+// REPLACE the old showAd() with this function
+function showAd(url) {
+  if (!url) { adPanel.style.display = 'none'; adContainer.innerHTML = ''; return; }
+  const u = String(url).trim();
+  if (!u) { adPanel.style.display = 'none'; adContainer.innerHTML = ''; return; }
+
+  // wider set of video extensions and allow query/hash
+  const videoExtRegex = /\.(mp4|webm|ogg|mov|m4v)(?:[?#].*)?$/i;
+
+  // Try to parse the pathname safely
+  let pathname = u;
+  try {
+    const parsed = new URL(u, window.location.href);
+    pathname = parsed.pathname || pathname;
+  } catch (e) {
+    // If URL constructor fails, keep original string
   }
+
+  const isVideo = videoExtRegex.test(pathname) || videoExtRegex.test(u);
+
+  // show panel now, hide only if media fails
+  adPanel.style.display = 'block';
+  adContainer.innerHTML = ''; // clear previous
+
+  if (isVideo) {
+    const video = document.createElement('video');
+    video.className = 'ad-media';
+    video.src = u;
+    video.autoplay = true;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', ''); // for iOS
+    // Don't hide the ad panel immediately — wait for load or error
+    let loaded = false;
+
+    const cleanup = () => {
+      video.onloadeddata = null;
+      video.onerror = null;
+    };
+
+    video.onloadeddata = () => {
+      loaded = true;
+      cleanup();
+      // keep panel visible (already set)
+    };
+
+    video.onerror = () => {
+      cleanup();
+      // hide panel on error
+      adPanel.style.display = 'none';
+      adContainer.innerHTML = '';
+    };
+
+    adContainer.appendChild(video);
+
+    // attempt to start play (some browsers block autoplay; muted should help)
+    // ignore returned promise
+    try { video.play().catch(() => {}); } catch (e) {}
+  } else {
+    // fallback: treat as image
+    const img = document.createElement('img');
+    img.className = 'ad-media';
+    img.src = u;
+    img.alt = 'Ad';
+    img.onload = () => { /* image loaded — do nothing */ };
+    img.onerror = () => {
+      // hide panel when image fails
+      adPanel.style.display = 'none';
+      adContainer.innerHTML = '';
+    };
+    adContainer.appendChild(img);
+  }
+}
+}
 
   // Logo
   async function loadLogo() {
