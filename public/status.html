@@ -1098,30 +1098,28 @@
   }
 
 function showAd(url) {
-  // Hide and clear when no valid url
-  if (!url) { adPanel.style.display = 'none'; adContainer.innerHTML = ''; return; }
-  const u = String(url).trim();
-  if (!u) { adPanel.style.display = 'none'; adContainer.innerHTML = ''; return; }
-
-  // Recognise common direct video file extensions
-  const videoExtRegex = /\.(mp4|webm|ogg|mov|m4v)(?:[?#].*)?$/i;
-
-  // Try to parse pathname
-  let pathname = u;
-  try {
-    const parsed = new URL(u, window.location.href);
-    pathname = parsed.pathname || pathname;
-  } catch (e) {
-    // keep original string if parsing fails
+  if (!url) {
+    adPanel.style.display = 'none';
+    adContainer.innerHTML = '';
+    return;
   }
 
-  const isVideo = videoExtRegex.test(pathname) || videoExtRegex.test(u);
+  const u = String(url).trim();
+  if (!u) {
+    adPanel.style.display = 'none';
+    adContainer.innerHTML = '';
+    return;
+  }
 
-  // show panel now, hide only when media fails
+  // Broader detection for video file types
+  const videoExt = /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i.test(u);
+
+  // Always show the ad panel (don't hide until real failure)
   adPanel.style.display = 'block';
   adContainer.innerHTML = '';
 
-  if (isVideo) {
+  if (videoExt) {
+    // Create the video element manually
     const video = document.createElement('video');
     video.className = 'ad-media';
     video.src = u;
@@ -1131,26 +1129,37 @@ function showAd(url) {
     video.playsInline = true;
     video.setAttribute('playsinline', '');
 
-    // attach handlers to hide panel only on actual load error
-    video.onloadeddata = function () {
-      // loaded successfully — nothing else to do
+    // Don't hide the panel on autoplay failure — just log it
+    video.onplay = () => {
+      console.log('[AD] Video playing');
     };
-    video.onerror = function () {
-      adPanel.style.display = 'none';
-      adContainer.innerHTML = '';
+    video.onerror = (err) => {
+      console.warn('[AD] Video failed, showing fallback image:', err);
+      adContainer.innerHTML =
+        `<img src="${u}" class="ad-media" alt="Ad" />`;
     };
 
     adContainer.appendChild(video);
-    try { video.play().catch(function(){}); } catch (e) {}
+
+    // Try to play — handle promise rejection silently
+    try {
+      const p = video.play();
+      if (p !== undefined) {
+        p.catch(() => {
+          console.log('[AD] Autoplay blocked, keeping panel visible.');
+        });
+      }
+    } catch (e) {
+      console.log('[AD] Play exception ignored.');
+    }
   } else {
+    // Normal image or GIF
     const img = document.createElement('img');
-    img.className = 'ad-media';
     img.src = u;
+    img.className = 'ad-media';
     img.alt = 'Ad';
-    img.onload = function () {
-      // image loaded — visible
-    };
-    img.onerror = function () {
+    img.onerror = () => {
+      console.warn('[AD] Image failed to load, hiding panel');
       adPanel.style.display = 'none';
       adContainer.innerHTML = '';
     };
