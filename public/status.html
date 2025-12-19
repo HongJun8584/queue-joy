@@ -1097,74 +1097,21 @@
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
-function showAd(url) {
-  if (!url) {
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-    return;
-  }
-
-  const u = String(url).trim();
-  if (!u) {
-    adPanel.style.display = 'none';
-    adContainer.innerHTML = '';
-    return;
-  }
-
-  // Broader detection for video file types
-  const videoExt = /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i.test(u);
-
-  // Always show the ad panel (don't hide until real failure)
-  adPanel.style.display = 'block';
-  adContainer.innerHTML = '';
-
-  if (videoExt) {
-    // Create the video element manually
-    const video = document.createElement('video');
-    video.className = 'ad-media';
-    video.src = u;
-    video.autoplay = true;
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    video.setAttribute('playsinline', '');
-
-    // Don't hide the panel on autoplay failure — just log it
-    video.onplay = () => {
-      console.log('[AD] Video playing');
-    };
-    video.onerror = (err) => {
-      console.warn('[AD] Video failed, showing fallback image:', err);
-      adContainer.innerHTML =
-        `<img src="${u}" class="ad-media" alt="Ad" />`;
-    };
-
-    adContainer.appendChild(video);
-
-    // Try to play — handle promise rejection silently
-    try {
-      const p = video.play();
-      if (p !== undefined) {
-        p.catch(() => {
-          console.log('[AD] Autoplay blocked, keeping panel visible.');
-        });
-      }
-    } catch (e) {
-      console.log('[AD] Play exception ignored.');
+  // Ads
+  function showAd(url) {
+    if (!url) { adPanel.style.display = 'none'; return; }
+    const u = String(url).trim();
+    if (!u) { adPanel.style.display = 'none'; return; }
+    
+    adPanel.style.display = 'block';
+    const isVideo = /\.(mp4|webm)(\?|$)/i.test(u);
+    
+    if (isVideo) {
+      adContainer.innerHTML = `<video src="${u}" class="ad-media" autoplay muted loop playsinline></video>`;
+    } else {
+      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" onerror="this.parentElement.parentElement.style.display='none'" />`;
     }
-  } else {
-    // Normal image or GIF
-    const img = document.createElement('img');
-    img.src = u;
-    img.className = 'ad-media';
-    img.alt = 'Ad';
-    img.onerror = () => {
-  console.warn('[AD] Image failed to load, keeping visible');
-};
-    adContainer.appendChild(img);
   }
-}
-
 
   // Logo
   async function loadLogo() {
@@ -1264,8 +1211,123 @@ function showAd(url) {
     });
     
     // Watch ads
-    adRef = ref(db, 'settings/adImage');
-    onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
+// Replace the existing showAd function with this one
+async function showAd(raw) {
+  // Debug the DB payload so you can inspect what's coming from Firebase.
+  console.log('[AD] raw payload from DB:', raw);
+
+  if (!raw) {
+    adPanel.style.display = 'none';
+    adContainer.innerHTML = '';
+    return;
+  }
+
+  // Accept either a plain URL string or an object like { url, type, poster }
+  let url = null;
+  let explicitType = null;
+  let poster = null;
+
+  if (typeof raw === 'string') {
+    url = raw.trim();
+  } else if (typeof raw === 'object' && raw !== null) {
+    // Common patterns: { url: '...', type: 'video/mp4' } or { video: '...', image: '...' }
+    url = (raw.url || raw.src || raw.video || raw.image || raw.media || '').toString().trim();
+    explicitType = raw.type || raw.mime || raw.mediaType || raw.kind || null;
+    poster = raw.poster || raw.thumb || raw.thumbnail || null;
+  }
+
+  if (!url) {
+    adPanel.style.display = 'none';
+    adContainer.innerHTML = '';
+    return;
+  }
+
+  // Normalize
+  const u = String(url).trim();
+
+  // Heuristic video detection:
+  // 1) explicit type (e.g. "video/mp4")
+  // 2) file extension in URL (mp4/webm/mov/m4v/ogg)
+  // 3) presence of 'video' keyword in URL (signed storage urls sometimes lack extension)
+  const extTest = /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i.test(u);
+  const typeIsVideo = !!(explicitType && String(explicitType).toLowerCase().startsWith('video'));
+  const keywordVideo = /(\bvideo\b)/i.test(u);
+  const isVideo = typeIsVideo || extTest || keywordVideo;
+
+  // Show the panel, clear previous content
+  adPanel.style.display = 'block';
+  adContainer.innerHTML = '';
+
+  if (isVideo) {
+    // Create <video> and provide a graceful fallback to an <img>
+    const video = document.createElement('video');
+    video.className = 'ad-media';
+    video.src = u;
+    video.autoplay = true;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+
+    // If there's a poster thumbnail provided in DB, use it
+    if (poster) video.poster = poster;
+
+    // Give user a visible control if autoplay is blocked (non-intrusive)
+    video.controls = false;
+
+    // Success / error handlers
+    video.addEventListener('play', () => console.log('[AD] video started playing'));
+    video.addEventListener('error', (ev) => {
+      console.warn('[AD] video error, falling back to image:', ev);
+      adContainer.innerHTML = `<img src="${u}" class="ad-media" alt="Ad" />`;
+      // If that image also fails, hide the panel (image onerror will hide it).
+      const img = adContainer.querySelector('img');
+      if (img) {
+        img.onerror = () => {
+          console.warn('[AD] fallback image failed to load, hiding ad panel');
+          adPanel.style.display = 'none';
+          adContainer.innerHTML = '';
+        };
+      }
+    });
+
+    adContainer.appendChild(video);
+
+    // Try to play - promise may reject on autoplay policy; that's okay
+    try {
+      const p = video.play();
+      if (p && typeof p.then === 'function') {
+        p.catch((err) => {
+          // Autoplay blocked — keep panel visible, show poster (if available) or show controls
+          console.log('[AD] autoplay blocked or failed:', err);
+          if (poster) {
+            // show poster image instead of video autoplay
+            adContainer.innerHTML = `<img src="${poster}" class="ad-media" alt="Ad poster" />`;
+          } else {
+            // show first frame by keeping the <video> element but enable controls so user can tap to start
+            video.controls = true;
+          }
+        });
+      }
+    } catch (e) {
+      console.log('[AD] video.play() threw, ignoring:', e);
+    }
+
+  } else {
+    // Treat as image/GIF
+    const img = document.createElement('img');
+    img.src = u;
+    img.className = 'ad-media';
+    img.alt = 'Ad';
+    img.onerror = () => {
+      console.warn('[AD] Image failed to load, hiding panel');
+      adPanel.style.display = 'none';
+      adContainer.innerHTML = '';
+    };
+    adContainer.appendChild(img);
+  }
+}
+
     
     // Watch analytics for service time updates
     analyticsRef = ref(db, 'analytics/serviceEvents');
