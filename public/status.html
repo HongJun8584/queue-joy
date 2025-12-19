@@ -1159,10 +1159,8 @@ function showAd(url) {
     img.className = 'ad-media';
     img.alt = 'Ad';
     img.onerror = () => {
-      console.warn('[AD] Image failed to load, hiding panel');
-      adPanel.style.display = 'none';
-      adContainer.innerHTML = '';
-    };
+  console.warn('[AD] Image failed to load, keeping visible');
+};
     adContainer.appendChild(img);
   }
 }
