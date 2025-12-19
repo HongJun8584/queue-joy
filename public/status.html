@@ -1097,35 +1097,34 @@
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
-// Replacement showAd function — paste over your existing one
+// Robust showAd — replace your existing showAd with this
 function showAd(url) {
-  // Clear previous content
+  // clear previous content
   adContainer.innerHTML = '';
 
   if (!url) {
     adPanel.style.display = 'none';
     return;
   }
-
   const u = String(url).trim();
   if (!u) {
     adPanel.style.display = 'none';
     return;
   }
 
-  // Make visible first (we'll hide if load fails)
-  adPanel.style.display = 'block';
+  // hide until we confirm the media loaded
+  adPanel.style.display = 'none';
 
-  // Simple host/type detection
+  // detection
+  const isDataVideo = /^data:video\//i.test(u);
+  const isBlobUrl = /^blob:/i.test(u);
+  const isDirectVideo = /\.(mp4|webm|ogg|mov)(?:[?#].*)?$/i.test(u);
   const isYouTubeOrVimeo = /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
-  const isDirectVideo = /\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(u);
 
-  // Handle YouTube / Vimeo embeds
+  // YouTube / Vimeo -> responsive iframe embed
   if (isYouTubeOrVimeo) {
     let embedSrc = u;
-
     try {
-      // Try to build a friendly embed URL for common patterns
       if (/youtube\.com\/watch\?v=/.test(u) || /youtube\.com\/shorts\//.test(u)) {
         const urlObj = new URL(u);
         const vid = urlObj.searchParams.get('v') || (u.match(/\/shorts\/([^?#]+)/) || [])[1];
@@ -1138,11 +1137,9 @@ function showAd(url) {
         if (id) embedSrc = `https://player.vimeo.com/video/${id}?autoplay=1&muted=1&playsinline=1`;
       }
     } catch (e) {
-      // fallback to original url if parsing fails
       embedSrc = u;
     }
 
-    // Responsive iframe wrapper to preserve aspect ratio
     adContainer.innerHTML = `
       <div style="position:relative;padding-top:56.25%;">
         <iframe src="${embedSrc}"
@@ -1151,13 +1148,13 @@ function showAd(url) {
                 allowfullscreen
                 style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:12px;overflow:hidden">
         </iframe>
-      </div>
-    `;
+      </div>`;
+    adPanel.style.display = 'block';
     return;
   }
 
-  // Handle direct video files (mp4/webm/ogg)
-  if (isDirectVideo) {
+  // Direct / data / blob video
+  if (isDataVideo || isBlobUrl || isDirectVideo) {
     const video = document.createElement('video');
     video.src = u;
     video.className = 'ad-media';
@@ -1165,20 +1162,24 @@ function showAd(url) {
     video.muted = true;        // required for autoplay in most browsers
     video.loop = true;
     video.playsInline = true;
+    video.setAttribute('playsinline', '');
     video.controls = false;
-    video.setAttribute('playsinline', ''); // extra safety for iOS
+    video.style.borderRadius = '12px';
 
-    // Show/hide based on load success
-    video.onloadeddata = () => {
+    let loaded = false;
+    video.addEventListener('loadedmetadata', () => {
+      loaded = true;
       adPanel.style.display = 'block';
-    };
-    video.onerror = () => {
-      // If video fails, hide the ad panel
-      adPanel.style.display = 'none';
-    };
+    });
+
+    video.addEventListener('error', (ev) => {
+      console.warn('Ad video failed to load:', u, ev);
+      // fallback — hide panel only when media truly fails
+      if (!loaded) adPanel.style.display = 'none';
+    });
 
     adContainer.appendChild(video);
-    // Try to play (some browsers require a user gesture; ignore promise rejection)
+    // try to play (some browsers require user gesture; ignore promise rejection)
     video.play().catch(() => {});
     return;
   }
@@ -1189,7 +1190,10 @@ function showAd(url) {
   img.className = 'ad-media';
   img.alt = 'Ad';
   img.onload = () => { adPanel.style.display = 'block'; };
-  img.onerror = () => { adPanel.style.display = 'none'; };
+  img.onerror = (e) => {
+    console.warn('Ad image failed to load:', u, e);
+    adPanel.style.display = 'none';
+  };
   adContainer.appendChild(img);
 }
 
