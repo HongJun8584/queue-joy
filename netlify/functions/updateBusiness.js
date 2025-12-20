@@ -6,9 +6,14 @@
 const { db } = require('./utils/firebase-admin');
 
 function getMasterKeyFromHeaders(headers = {}) {
+  const low = {};
+  for (const k of Object.keys(headers || {})) {
+    low[k.toLowerCase()] = headers[k];
+  }
+
   const master = process.env.MASTER_API_KEY || '';
   if (!master) throw new Error('MASTER_API_KEY not configured on server.');
-  const got = headers['x-master-key'] || headers['x-api-key'] || headers['authorization'] || '';
+  const got = low['x-master-key'] || low['x-api-key'] || low['authorization'] || '';
   if (!got) return null;
   return got.startsWith('Bearer ') ? got.slice(7) : got;
 }
