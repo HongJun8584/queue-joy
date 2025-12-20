@@ -6,9 +6,16 @@
 const { db } = require('./utils/firebase-admin');
 
 function getMasterKeyFromHeaders(headers = {}) {
+  // normalize header names to lowercase for robustness
+  const low = {};
+  for (const k of Object.keys(headers || {})) {
+    low[k.toLowerCase()] = headers[k];
+  }
+
   const master = process.env.MASTER_API_KEY || '';
   if (!master) throw new Error('MASTER_API_KEY not configured on server.');
-  const got = headers['x-master-key'] || headers['x-api-key'] || headers['authorization'] || '';
+
+  const got = low['x-master-key'] || low['x-api-key'] || low['authorization'] || '';
   if (!got) return null;
   return got.startsWith('Bearer ') ? got.slice(7) : got;
 }
@@ -79,7 +86,7 @@ exports.handler = async (event) => {
         createdBy,
         id: slug
       },
-      ... (defaults.extra && typeof defaults.extra === 'object' ? defaults.extra : {})
+      ...(defaults.extra && typeof defaults.extra === 'object' ? defaults.extra : {})
     };
 
     const ref = db.ref(`businesses/${slug}`);
@@ -87,8 +94,8 @@ exports.handler = async (event) => {
     // Use transaction to ensure uniqueness (atomic)
     const result = await ref.transaction(current => {
       if (current !== null) {
-        // keep current; returning undefined cancels the transaction, but we want to signal that it exists
-        return; // abort (no change)
+        // abort
+        return;
       }
       return data;
     }, undefined, false);
