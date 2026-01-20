@@ -1,8 +1,4 @@
 // netlify/functions/updateBusiness.js
-// POST { slug, data }
-// Protected by MASTER_API_KEY
-// Updates businesses/<slug>/settings/* safely (only allowlisted keys)
-
 const { db } = require('./utils/firebase-admin');
 
 function getMasterKeyFromHeaders(headers = {}) {
@@ -11,7 +7,7 @@ function getMasterKeyFromHeaders(headers = {}) {
     low[k.toLowerCase()] = headers[k];
   }
 
-  const master = process.env.MASTER_API_KEY || '';
+  const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
   if (!master) throw new Error('MASTER_API_KEY not configured on server.');
   const got = low['x-master-key'] || low['x-api-key'] || low['authorization'] || '';
   if (!got) return null;
@@ -48,7 +44,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Only POST allowed' });
 
     const token = getMasterKeyFromHeaders(event.headers || {});
-    if (!token || token !== process.env.MASTER_API_KEY) {
+    if (!token || token !== (process.env.MASTER_API_KEY || process.env.MASTER_KEY)) {
       return jsonResponse(403, { error: 'Unauthorized' });
     }
 
