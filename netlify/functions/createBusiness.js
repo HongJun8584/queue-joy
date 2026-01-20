@@ -1,18 +1,13 @@
 // netlify/functions/createBusiness.js
-// POST { slug, name?, defaults? }
-// Protected: requires x-master-key header (MASTER_API_KEY)
-// Creates businesses/<slug> (atomic check + write)
-
 const { db } = require('./utils/firebase-admin');
 
 function getMasterKeyFromHeaders(headers = {}) {
-  // normalize header names to lowercase for robustness
   const low = {};
   for (const k of Object.keys(headers || {})) {
     low[k.toLowerCase()] = headers[k];
   }
 
-  const master = process.env.MASTER_API_KEY || '';
+  const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
   if (!master) throw new Error('MASTER_API_KEY not configured on server.');
 
   const got = low['x-master-key'] || low['x-api-key'] || low['authorization'] || '';
@@ -57,7 +52,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Only POST allowed' });
 
     const token = getMasterKeyFromHeaders(event.headers || {});
-    if (!token || token !== process.env.MASTER_API_KEY) {
+    if (!token || token !== (process.env.MASTER_API_KEY || process.env.MASTER_KEY)) {
       return jsonResponse(403, { error: 'Unauthorized' });
     }
 
