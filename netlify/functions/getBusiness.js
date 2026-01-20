@@ -1,7 +1,4 @@
 // netlify/functions/getBusiness.js
-// GET ?slug=the-slug
-// returns businesses/<slug>/settings/* (or global settings if slug omitted)
-
 const { db } = require('./utils/firebase-admin');
 
 function normalizeSlug(raw = '') {
