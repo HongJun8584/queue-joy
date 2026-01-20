@@ -1,11 +1,11 @@
 // netlify/functions/utils/telegram.js
 // Simple wrapper to send Telegram messages using your centralized bot.
-// Requires TELEGRAM_BOT_TOKEN in env.
+// Accepts TELEGRAM_BOT_TOKEN or BOT_TOKEN (both supported).
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
-  // Don't throw at import-time in dev; functions using this should handle missing token.
-  console.warn('Warning: TELEGRAM_BOT_TOKEN not set.');
+  // Do not crash at import time; functions using telegram should handle missing token gracefully.
+  console.warn('Warning: TELEGRAM_BOT_TOKEN / BOT_TOKEN not set.');
 }
 const API_BASE = BOT_TOKEN ? `https://api.telegram.org/bot${BOT_TOKEN}` : null;
 
@@ -17,13 +17,12 @@ if (!fetchFn) {
     // eslint-disable-next-line global-require
     fetchFn = require('node-fetch');
   } catch (e) {
-    // We'll throw later when trying to send a message
     fetchFn = null;
   }
 }
 
 async function sendTelegramMessage(chatId, text, opts = {}) {
-  if (!API_BASE) throw new Error('TELEGRAM_BOT_TOKEN not configured.');
+  if (!API_BASE) throw new Error('TELEGRAM_BOT_TOKEN (or BOT_TOKEN) not configured.');
   if (!chatId) throw new Error('chatId required.');
 
   const body = Object.assign({
