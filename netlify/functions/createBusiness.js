@@ -1,7 +1,7 @@
 // netlify/functions/createBusiness.js
-// Single-file protected endpoint to create a tenant in Firebase Realtime Database.
+// Protected endpoint to provision a tenant in Realtime DB.
 // POST { slug, name?, defaults?, createdBy? }
-// Header: x-master-key: <MASTER_API_KEY>  OR Authorization: Bearer <MASTER_API_KEY>
+// Header: x-master-key: <MASTER_API_KEY> OR Authorization: Bearer <MASTER_API_KEY>
 
 const admin = require('firebase-admin');
 
@@ -16,6 +16,10 @@ function jsonResponse(status, body) {
     },
     body: JSON.stringify(body)
   };
+}
+
+function safeHeaderKeys(headers = {}) {
+  return Object.keys(headers || {}).map(k => k.toLowerCase());
 }
 
 function getMasterKeyFromHeaders(headers = {}) {
@@ -43,58 +47,89 @@ function sanitizeName(n) {
   return (n || '').toString().trim();
 }
 
-// ---- Firebase init helper (robust for netlify envs) ----
-let firebaseInitError = null;
-function ensureFirebase() {
-  if (firebaseInitError) return Promise.reject(firebaseInitError);
-  try {
-    if (admin.apps && admin.apps.length) {
-      // already initialized
-      const db = admin.database();
-      return Promise.resolve({ admin, db });
-    }
+/* ---------- Firebase lazy init (robust) ---------- */
+let initialized = false;
+let initError = null;
 
-    // Prefer a single JSON env var FIREBASE_SERVICE_ACCOUNT (stringified JSON)
-    let serviceAccount;
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      try {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      } catch (e) {
-        // maybe the var contains literal \n in private_key fields — that's fine
-        throw new Error('FIREBASE_SERVICE_ACCOUNT is present but not valid JSON.');
-      }
-    } else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
-      // Some deployments store private key with escaped newlines
-      const pk = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
-      serviceAccount = {
-        private_key: pk,
-        client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        project_id: process.env.FIREBASE_PROJECT_ID
-      };
+function tryParseJson(s) {
+  try { return JSON.parse(s); } catch { return null; }
+}
+
+function parseServiceAccountFromEnv() {
+  const candidates = [
+    'FIREBASE_SERVICE_ACCOUNT',
+    'FIREBASE_SERVICE_ACCOUNT_BASE64',
+    'FIREBASE_SA',
+    'FIREBASE_SA_BASE64'
+  ];
+
+  for (const name of candidates) {
+    const raw = process.env[name];
+    if (!raw) continue;
+    const trimmed = raw.trim();
+    if (trimmed[0] === '{') {
+      const parsed = tryParseJson(raw);
+      if (parsed) return parsed;
     } else {
-      throw new Error('No Firebase credentials found. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_PRIVATE_KEY+FIREBASE_CLIENT_EMAIL+FIREBASE_PROJECT_ID env vars.');
+      try {
+        const dec = Buffer.from(raw, 'base64').toString('utf8');
+        const parsed = tryParseJson(dec);
+        if (parsed) return parsed;
+      } catch {}
+    }
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (projectId && clientEmail && privateKey) {
+    privateKey = privateKey.replace(/\\n/g, '\n');
+    return {
+      type: 'service_account',
+      project_id: projectId,
+      client_email: clientEmail,
+      private_key: privateKey
+    };
+  }
+
+  return null;
+}
+
+async function ensureFirebase() {
+  if (initialized && admin.apps && admin.apps.length) return { admin, db: admin.database() };
+  if (initError) throw initError;
+
+  try {
+    const dbUrl =
+      process.env.FIREBASE_DATABASE_URL ||
+      process.env.FIREBASE_DB_URL ||
+      process.env.FIREBASE_RTDB_URL;
+
+    if (!dbUrl) throw new Error('FIREBASE_DB_URL (or FIREBASE_DATABASE_URL / FIREBASE_RTDB_URL) is not set.');
+
+    const serviceAccount = parseServiceAccountFromEnv();
+    if (!serviceAccount) throw new Error('Firebase service account not found. Provide FIREBASE_SERVICE_ACCOUNT (JSON) or FIREBASE_SERVICE_ACCOUNT_BASE64 or set FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
+
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: dbUrl
+      });
     }
 
-    const dbUrl = process.env.FIREBASE_DB_URL || '';
-    if (!dbUrl) throw new Error('FIREBASE_DB_URL not configured.');
-
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      databaseURL: dbUrl
-    });
-
-    const db = admin.database();
-    return Promise.resolve({ admin, db });
+    initialized = true;
+    return { admin, db: admin.database() };
   } catch (e) {
-    firebaseInitError = e;
-    return Promise.reject(e);
+    initError = e instanceof Error ? e : new Error(String(e));
+    throw initError;
   }
 }
 
-// ---- Handler ----
+/* ---------- Handler ---------- */
 exports.handler = async function handler(event) {
   try {
-    // OPTIONS / CORS quick reply
+    // Quick preflight
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: {
         'Access-Control-Allow-Origin': '*',
@@ -103,15 +138,17 @@ exports.handler = async function handler(event) {
       } };
     }
 
-    // Basic request logging (helps debug in Netlify logs) - no secrets printed
     console.log('createBusiness: incoming', {
       method: event.httpMethod,
-      headerKeys: event.headers ? Object.keys(event.headers).map(k => k.toLowerCase()) : []
+      headerKeys: safeHeaderKeys(event.headers),
+      path: event.path || null
     });
 
-    if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
+    if (event.httpMethod !== 'POST') {
+      return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
+    }
 
-    // init firebase
+    // Init Firebase (lazy)
     let db;
     try {
       const fb = await ensureFirebase();
@@ -142,7 +179,7 @@ exports.handler = async function handler(event) {
       return jsonResponse(400, { error: 'invalid_json', message: 'Request body must be valid JSON' });
     }
 
-    // slug / name
+    // Validate slug/name
     let slug = normalizeSlug(body.slug || '');
     if (!slug && body.name) slug = normalizeSlug(body.name);
     if (!slug) return jsonResponse(400, { error: 'invalid_slug', message: 'slug is required' });
@@ -181,7 +218,7 @@ exports.handler = async function handler(event) {
 
     const ref = db.ref(`businesses/${slug}`);
 
-    // Transaction to guarantee uniqueness
+    // Atomic creation via transaction to guarantee uniqueness
     let txRes;
     try {
       txRes = await ref.transaction(current => {
@@ -194,7 +231,6 @@ exports.handler = async function handler(event) {
     }
 
     if (!txRes.committed) {
-      // Already exists: return existing info
       const snap = await ref.once('value');
       const existing = snap.val() || {};
       return jsonResponse(409, { error: 'slug_exists', slug, existing });
