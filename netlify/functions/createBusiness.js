@@ -1,9 +1,9 @@
 // netlify/functions/createBusiness.js
-// Protected endpoint to provision a tenant in Realtime DB.
+// Single-file protected endpoint to create a tenant in Firebase Realtime Database.
 // POST { slug, name?, defaults?, createdBy? }
-// Requires header: x-master-key: <MASTER_API_KEY>
+// Header: x-master-key: <MASTER_API_KEY>  OR Authorization: Bearer <MASTER_API_KEY>
 
-const { ensureFirebase } = require('./utils/firebase-admin');
+const admin = require('firebase-admin');
 
 function jsonResponse(status, body) {
   return {
@@ -23,7 +23,7 @@ function getMasterKeyFromHeaders(headers = {}) {
   for (const k of Object.keys(headers || {})) low[k.toLowerCase()] = headers[k];
   const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
   if (!master) throw new Error('MASTER_API_KEY not configured on server.');
-  const got = low['x-master-key'] || low['x-api-key'] || low['authorization'] || '';
+  const got = (low['x-master-key'] || low['x-api-key'] || low['authorization'] || '').toString();
   if (!got) return null;
   return got.startsWith('Bearer ') ? got.slice(7) : got;
 }
@@ -43,9 +43,58 @@ function sanitizeName(n) {
   return (n || '').toString().trim();
 }
 
+// ---- Firebase init helper (robust for netlify envs) ----
+let firebaseInitError = null;
+function ensureFirebase() {
+  if (firebaseInitError) return Promise.reject(firebaseInitError);
+  try {
+    if (admin.apps && admin.apps.length) {
+      // already initialized
+      const db = admin.database();
+      return Promise.resolve({ admin, db });
+    }
+
+    // Prefer a single JSON env var FIREBASE_SERVICE_ACCOUNT (stringified JSON)
+    let serviceAccount;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      } catch (e) {
+        // maybe the var contains literal \n in private_key fields — that's fine
+        throw new Error('FIREBASE_SERVICE_ACCOUNT is present but not valid JSON.');
+      }
+    } else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
+      // Some deployments store private key with escaped newlines
+      const pk = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      serviceAccount = {
+        private_key: pk,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        project_id: process.env.FIREBASE_PROJECT_ID
+      };
+    } else {
+      throw new Error('No Firebase credentials found. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_PRIVATE_KEY+FIREBASE_CLIENT_EMAIL+FIREBASE_PROJECT_ID env vars.');
+    }
+
+    const dbUrl = process.env.FIREBASE_DB_URL || '';
+    if (!dbUrl) throw new Error('FIREBASE_DB_URL not configured.');
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: dbUrl
+    });
+
+    const db = admin.database();
+    return Promise.resolve({ admin, db });
+  } catch (e) {
+    firebaseInitError = e;
+    return Promise.reject(e);
+  }
+}
+
+// ---- Handler ----
 exports.handler = async function handler(event) {
   try {
-    // Respond to preflight quickly
+    // OPTIONS / CORS quick reply
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: {
         'Access-Control-Allow-Origin': '*',
@@ -54,17 +103,24 @@ exports.handler = async function handler(event) {
       } };
     }
 
-    // Lazy init Firebase so missing envs produce JSON error instead of crashing function
+    // Basic request logging (helps debug in Netlify logs) - no secrets printed
+    console.log('createBusiness: incoming', {
+      method: event.httpMethod,
+      headerKeys: event.headers ? Object.keys(event.headers).map(k => k.toLowerCase()) : []
+    });
+
+    if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
+
+    // init firebase
     let db;
     try {
       const fb = await ensureFirebase();
       db = fb.db;
+      console.log('createBusiness: firebase initialized');
     } catch (initErr) {
       console.error('createBusiness:init error', initErr && (initErr.stack || initErr.message || initErr));
       return jsonResponse(500, { error: 'firebase_init_failed', message: initErr.message || String(initErr) });
     }
-
-    if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
 
     // Auth: master key
     let token;
@@ -78,7 +134,7 @@ exports.handler = async function handler(event) {
       return jsonResponse(403, { error: 'unauthorized', message: 'invalid or missing master key' });
     }
 
-    // Parse body defensively
+    // Parse body
     let body = {};
     try {
       body = event.body ? JSON.parse(event.body) : {};
@@ -86,7 +142,9 @@ exports.handler = async function handler(event) {
       return jsonResponse(400, { error: 'invalid_json', message: 'Request body must be valid JSON' });
     }
 
-    const slug = normalizeSlug(body.slug || '');
+    // slug / name
+    let slug = normalizeSlug(body.slug || '');
+    if (!slug && body.name) slug = normalizeSlug(body.name);
     if (!slug) return jsonResponse(400, { error: 'invalid_slug', message: 'slug is required' });
 
     const name = sanitizeName(body.name || slug);
@@ -95,7 +153,6 @@ exports.handler = async function handler(event) {
     const defaults = body.defaults && typeof body.defaults === 'object' ? body.defaults : {};
     const createdBy = body.createdBy || 'admin';
 
-    // Build tenant object
     const nowIso = new Date().toISOString();
     const tenant = {
       slug,
@@ -124,20 +181,26 @@ exports.handler = async function handler(event) {
 
     const ref = db.ref(`businesses/${slug}`);
 
-    // Atomic creation via transaction to guarantee uniqueness
-    const txRes = await ref.transaction(current => {
-      if (current !== null) return; // abort if exists
-      return tenant;
-    }, undefined, false);
+    // Transaction to guarantee uniqueness
+    let txRes;
+    try {
+      txRes = await ref.transaction(current => {
+        if (current !== null) return; // abort if exists
+        return tenant;
+      }, undefined, false);
+    } catch (e) {
+      console.error('createBusiness:transaction failed', e && (e.stack || e.message || e));
+      return jsonResponse(500, { error: 'db_transaction_failed', message: e && e.message ? e.message : String(e) });
+    }
 
     if (!txRes.committed) {
-      // Already exists: return existing info (friendly)
+      // Already exists: return existing info
       const snap = await ref.once('value');
       const existing = snap.val() || {};
       return jsonResponse(409, { error: 'slug_exists', slug, existing });
     }
 
-    // Best-effort name index (avoid blocking tenant creation if this fails)
+    // Best-effort name index (non-blocking)
     (async () => {
       try {
         const nameKey = encodeURIComponent(name.toLowerCase().trim());
@@ -147,7 +210,6 @@ exports.handler = async function handler(event) {
       }
     })();
 
-    // Success
     return jsonResponse(200, { ok: true, slug, links: tenant.links, data: tenant });
   } catch (err) {
     console.error('createBusiness:unhandled error', err && (err.stack || err.message || err));
