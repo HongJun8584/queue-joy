@@ -1,22 +1,10 @@
 // netlify/functions/updateBusiness.js
-const { db } = require('./utils/firebase-admin');
+// POST /.netlify/functions/updateBusiness
+// Header: x-master-key or Authorization: Bearer <MASTER_API_KEY>
+// Body: { slug, updates }
+// updates: object with allowed fields to update (settings, links, counters, status, integrations, billing, etc.)
 
-function getMasterKeyFromHeaders(headers = {}) {
-  const low = {};
-  for (const k of Object.keys(headers || {})) {
-    low[k.toLowerCase()] = headers[k];
-  }
-
-  const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
-  if (!master) throw new Error('MASTER_API_KEY not configured on server.');
-  const got = low['x-master-key'] || low['x-api-key'] || low['authorization'] || '';
-  if (!got) return null;
-  return got.startsWith('Bearer ') ? got.slice(7) : got;
-}
-
-function normalizeSlug(raw = '') {
-  return (raw || '').toString().trim().toLowerCase().replace(/[^a-z0-9\-]/g, '-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-}
+const { ensureFirebase } = require('./utils/firebase-admin');
 
 function jsonResponse(status, body) {
   return {
@@ -31,7 +19,20 @@ function jsonResponse(status, body) {
   };
 }
 
-exports.handler = async (event) => {
+function getMasterKeyFromHeaders(headers = {}) {
+  const low = {};
+  for (const k of Object.keys(headers || {})) low[k.toLowerCase()] = headers[k];
+  const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
+  if (!master) throw new Error('MASTER_API_KEY not configured on server.');
+  const got = (low['x-master-key'] || low['x-api-key'] || low['authorization'] || '').toString();
+  if (!got) return null;
+  return got.startsWith('Bearer ') ? got.slice(7) : got;
+}
+
+function sanitizeName(n) { return (n || '').toString().trim(); }
+function normalizeSlug(raw = '') { return (raw || '').toString().trim().toLowerCase(); }
+
+exports.handler = async function handler(event) {
   try {
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: {
@@ -40,44 +41,90 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Methods': 'POST,OPTIONS'
       } };
     }
+    if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
 
-    if (event.httpMethod !== 'POST') return jsonResponse(405, { error: 'Only POST allowed' });
+    // init firebase
+    let db;
+    try {
+      const fb = await ensureFirebase();
+      db = fb.db;
+    } catch (initErr) {
+      console.error('updateBusiness:init error', initErr && (initErr.stack || initErr.message || initErr));
+      return jsonResponse(500, { error: 'firebase_init_failed', message: initErr.message || String(initErr) });
+    }
 
-    const token = getMasterKeyFromHeaders(event.headers || {});
+    // auth
+    let token;
+    try {
+      token = getMasterKeyFromHeaders(event.headers || {});
+    } catch (e) {
+      console.error('updateBusiness:masterkey config error', e && e.message);
+      return jsonResponse(500, { error: 'server_misconfigured', message: 'MASTER_API_KEY not configured on server' });
+    }
     if (!token || token !== (process.env.MASTER_API_KEY || process.env.MASTER_KEY)) {
-      return jsonResponse(403, { error: 'Unauthorized' });
+      return jsonResponse(403, { error: 'unauthorized', message: 'invalid or missing master key' });
     }
 
-    const body = event.body ? JSON.parse(event.body) : {};
+    // parse body
+    let body = {};
+    try {
+      body = event.body ? JSON.parse(event.body) : {};
+    } catch (e) {
+      return jsonResponse(400, { error: 'invalid_json', message: 'Request body must be valid JSON' });
+    }
+
     const slug = normalizeSlug(body.slug || '');
-    const data = body.data && typeof body.data === 'object' ? body.data : null;
+    const updates = body.updates && typeof body.updates === 'object' ? body.updates : null;
+    if (!slug) return jsonResponse(400, { error: 'invalid_slug', message: 'slug is required' });
+    if (!updates) return jsonResponse(400, { error: 'invalid_updates', message: 'updates object required' });
 
-    if (!slug) return jsonResponse(400, { error: 'slug required' });
-    if (!data) return jsonResponse(400, { error: 'data object required' });
-
-    const allowed = new Set(['name', 'introText', 'adText', 'adImage', 'logo', 'chatId']);
-    const update = {};
-    for (const k of Object.keys(data)) {
-      if (allowed.has(k)) update[k] = data[k];
+    // Prevent modification of immutable fields
+    const forbidden = ['slug', 'createdAt', 'createdBy'];
+    for (const f of forbidden) {
+      if (Object.prototype.hasOwnProperty.call(updates, f)) {
+        delete updates[f];
+      }
     }
 
-    if (Object.keys(update).length === 0) {
-      return jsonResponse(400, { error: 'no valid keys to update', allowed: Array.from(allowed) });
+    const ref = db.ref(`businesses/${slug}`);
+    const snap = await ref.once('value');
+    if (!snap.exists()) return jsonResponse(404, { error: 'not_found', slug });
+
+    const old = snap.val();
+
+    // If name changed, update businesses_by_name atomically
+    const nameChanged = updates.name && sanitizeName(updates.name) && sanitizeName(updates.name) !== (old.name || '');
+
+    // Build multi-path update to be atomic for name index + main record
+    const multi = {};
+    // apply the updates to the business node root
+    multi[`/businesses/${slug}`] = Object.assign({}, old, updates, { updatedAt: new Date().toISOString() });
+
+    if (nameChanged) {
+      try {
+        const newName = sanitizeName(updates.name);
+        const oldNameKey = encodeURIComponent((old.name || '').toLowerCase().trim());
+        const newNameKey = encodeURIComponent(newName.toLowerCase().trim());
+        // set new index key
+        multi[`/businesses_by_name/${newNameKey}`] = { slug, updatedAt: new Date().toISOString() };
+        // remove old index key (delete by setting null)
+        if (oldNameKey) multi[`/businesses_by_name/${oldNameKey}`] = null;
+      } catch (e) {
+        console.warn('updateBusiness: name index update failed to prepare', e && (e.message || e));
+      }
     }
 
-    const settingsRef = db.ref(`businesses/${slug}/settings`);
-
-    // ensure business exists before updating
-    const snap = await settingsRef.once('value');
-    if (!snap.exists()) {
-      return jsonResponse(404, { error: 'Business not found' });
+    try {
+      await db.ref().update(multi);
+    } catch (e) {
+      console.error('updateBusiness: db update failed', e && (e.stack || e.message || e));
+      return jsonResponse(500, { error: 'db_update_failed', message: e && e.message ? e.message : String(e) });
     }
 
-    await settingsRef.update(update);
-
-    return jsonResponse(200, { ok: true, slug, updated: update });
+    const updatedSnap = await ref.once('value');
+    return jsonResponse(200, { ok: true, data: updatedSnap.val() });
   } catch (err) {
-    console.error('updateBusiness error', err && (err.stack || err.message || err));
-    return jsonResponse(500, { error: err.message || String(err) });
+    console.error('updateBusiness:unhandled error', err && (err.stack || err.message || err));
+    return jsonResponse(500, { error: 'server_error', message: err && err.message ? err.message : String(err) });
   }
 };
