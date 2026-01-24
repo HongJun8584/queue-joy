@@ -1,9 +1,8 @@
 // netlify/functions/getBusiness.js
-const { db } = require('./utils/firebase-admin');
+// GET or POST /.netlify/functions/getBusiness
+// Query param: ?slug=the-slug OR POST body { slug }
 
-function normalizeSlug(raw = '') {
-  return (raw || '').toString().trim().toLowerCase().replace(/[^a-z0-9\-]/g, '-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-}
+const { ensureFirebase } = require('./utils/firebase-admin');
 
 function jsonResponse(status, body) {
   return {
@@ -11,43 +10,60 @@ function jsonResponse(status, body) {
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'GET,OPTIONS'
+      'Access-Control-Allow-Headers': 'Content-Type,x-master-key,authorization',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
     },
     body: JSON.stringify(body)
   };
 }
 
-exports.handler = async (event) => {
+exports.handler = async function handler(event) {
   try {
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS'
+        'Access-Control-Allow-Headers': 'Content-Type,x-master-key,authorization',
+        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
       } };
     }
 
-    if (event.httpMethod !== 'GET') return jsonResponse(405, { error: 'Only GET allowed' });
-
-    const params = event.queryStringParameters || {};
-    const slugRaw = params.slug || '';
-    const slug = normalizeSlug(slugRaw);
-
-    if (!slug) {
-      // global settings
-      const snap = await db.ref('settings').once('value');
-      return jsonResponse(200, { ok: true, source: 'global', data: snap.val() || {} });
+    // init firebase
+    let db;
+    try {
+      const fb = await ensureFirebase();
+      db = fb.db;
+    } catch (initErr) {
+      console.error('getBusiness:init error', initErr && (initErr.stack || initErr.message || initErr));
+      return jsonResponse(500, { error: 'firebase_init_failed', message: initErr.message || String(initErr) });
     }
 
-    const snap = await db.ref(`businesses/${slug}/settings`).once('value');
-    if (!snap.exists()) {
-      return jsonResponse(404, { error: 'Business not found' });
+    let slug = null;
+    if (event.httpMethod === 'GET') {
+      const params = event.queryStringParameters || {};
+      slug = params.slug || params.s;
+    } else if (event.httpMethod === 'POST') {
+      try {
+        const body = event.body ? JSON.parse(event.body) : {};
+        slug = body.slug || body.name;
+      } catch (e) {
+        return jsonResponse(400, { error: 'invalid_json', message: 'Request body must be valid JSON' });
+      }
+    } else {
+      return jsonResponse(405, { error: 'method_not_allowed', message: 'Only GET or POST allowed' });
     }
+
+    if (!slug) return jsonResponse(400, { error: 'invalid_slug', message: 'slug parameter required' });
+
+    const norm = (slug || '').toString().trim().toLowerCase();
+    const ref = db.ref(`businesses/${norm}`);
+    const snap = await ref.once('value');
     const data = snap.val();
-    return jsonResponse(200, { ok: true, slug, data });
+
+    if (!data) return jsonResponse(404, { error: 'not_found', slug: norm });
+
+    return jsonResponse(200, { ok: true, data });
   } catch (err) {
-    console.error('getBusiness error', err && (err.stack || err.message || err));
-    return jsonResponse(500, { error: err.message || String(err) });
+    console.error('getBusiness:unhandled error', err && (err.stack || err.message || err));
+    return jsonResponse(500, { error: 'server_error', message: err && err.message ? err.message : String(err) });
   }
 };
