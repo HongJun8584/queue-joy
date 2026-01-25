@@ -38,7 +38,7 @@ function normalizeSlug(raw = '') {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')          // spaces -> dash
-    .replace(/[^a-z0-9\-]/g, '-')  // allowed chars only
+    .replace(/[^a-z0-9\-]/g, '-')  // allowed chars only (consistent)
     .replace(/-+/g, '-')           // collapse repeated dashes
     .replace(/^-|-$/g, '');        // trim leading/trailing dash
 }
@@ -129,7 +129,6 @@ async function ensureFirebase() {
 /* ---------- Handler ---------- */
 exports.handler = async function handler(event) {
   try {
-    // Quick preflight
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: {
         'Access-Control-Allow-Origin': '*',
@@ -148,7 +147,7 @@ exports.handler = async function handler(event) {
       return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
     }
 
-    // Init Firebase (lazy)
+    // Init Firebase
     let db;
     try {
       const fb = await ensureFirebase();
@@ -189,9 +188,10 @@ exports.handler = async function handler(event) {
 
     const defaults = body.defaults && typeof body.defaults === 'object' ? body.defaults : {};
     const createdBy = body.createdBy || 'admin';
-
     const nowIso = new Date().toISOString();
-    const tenant = {
+
+    // Prepare the minimal business record (keeps existing shape)
+    const tenantMinimal = {
       slug,
       name,
       createdBy,
@@ -213,17 +213,18 @@ exports.handler = async function handler(event) {
         counter: `${process.env.SITE_BASE || ''}/${slug}/counter.html`,
         admin: `${process.env.SITE_BASE || ''}/${slug}/admin.html`
       },
+      // keep a simple counters object for backward compatibility on business object
       counters: { default: { name: 'Counter 1', value: 0, prefix: (defaults.defaultPrefix || 'COFFEE') } }
     };
 
-    const ref = db.ref(`businesses/${slug}`);
+    const businessRef = db.ref(`businesses/${slug}`);
 
-    // Atomic creation via transaction to guarantee uniqueness
+    // Transaction to ensure slug uniqueness
     let txRes;
     try {
-      txRes = await ref.transaction(current => {
+      txRes = await businessRef.transaction(current => {
         if (current !== null) return; // abort if exists
-        return tenant;
+        return tenantMinimal;
       }, undefined, false);
     } catch (e) {
       console.error('createBusiness:transaction failed', e && (e.stack || e.message || e));
@@ -231,22 +232,85 @@ exports.handler = async function handler(event) {
     }
 
     if (!txRes.committed) {
-      const snap = await ref.once('value');
+      const snap = await businessRef.once('value');
       const existing = snap.val() || {};
       return jsonResponse(409, { error: 'slug_exists', slug, existing });
     }
 
-    // Best-effort name index (non-blocking)
-    (async () => {
-      try {
-        const nameKey = encodeURIComponent(name.toLowerCase().trim());
-        await db.ref(`/businesses_by_name/${nameKey}`).set({ slug, createdAt: nowIso });
-      } catch (e) {
-        console.warn('createBusiness: name index set failed', e && (e.message || e));
-      }
-    })();
+    // After slug is created, create tenant-scoped system namespace under /tenants/<slug>
+    // This keeps all client data independent from global demo data.
+    const tenantNamespacePath = `tenants/${slug}`;
 
-    return jsonResponse(200, { ok: true, slug, links: tenant.links, data: tenant });
+    // Default tenant-scoped objects (empty/zeroed where appropriate)
+    const tenantScoped = {
+      settings: tenantMinimal.settings,
+      links: tenantMinimal.links,
+      slug,
+      name,
+      createdAt: nowIso,
+      createdBy,
+      status: 'active',
+
+      // isolated counters for this tenant
+      counters: {
+        default: { name: 'Counter 1', prefix: tenantMinimal.settings.defaultPrefix || 'COFFEE', lastIssued: 0, nowServing: 0, value: 0 }
+      },
+
+      // isolated queue and indexes
+      queue: {},
+      queueSubscriptions: {},
+      subscribers: {},
+
+      // isolated analytics + events
+      analytics: { serviceEvents: {} },
+
+      // isolated system meta (per-tenant indices)
+      system: {
+        lastAssignedCounterIndex: 0,
+        lastQueueNumber: 0
+      },
+
+      // isolated telegram tokens/pending for this tenant
+      telegramPending: {},
+      telegramTokens: {},
+
+      // isolated announcement / ad area
+      announcement: {
+        botToken: '',
+        chatIds: {}
+      }
+    };
+
+    // Multi-path update to create tenant namespace and a name index entry.
+    // It's not possible to do a single cross-path transaction easily; the slug existence is already guaranteed above.
+    const nameKey = encodeURIComponent(name.toLowerCase().trim());
+    const updates = {};
+    updates[tenantNamespacePath] = tenantScoped;
+    updates[`businesses_by_name/${nameKey}`] = { slug, createdAt: nowIso };
+
+    try {
+      await db.ref().update(updates);
+    } catch (e) {
+      console.error('createBusiness:post-create update failed', e && (e.stack || e.message || e));
+      // Attempt cleanup: remove businesses/<slug> if tenant namespace failed (best-effort)
+      try {
+        await businessRef.remove();
+      } catch (cleanupErr) {
+        console.error('createBusiness:cleanup failed', cleanupErr && (cleanupErr.stack || cleanupErr.message || cleanupErr));
+      }
+      return jsonResponse(500, { error: 'post_create_failed', message: 'Failed to create tenant namespace' });
+    }
+
+    // Success. Return the minimal business and tenant namespace path so frontend knows where to read.
+    return jsonResponse(200, {
+      ok: true,
+      slug,
+      links: tenantMinimal.links,
+      business: tenantMinimal,
+      tenantNamespace: tenantNamespacePath,
+      message: 'Business created. Client should read/write tenant-scoped data under /' + tenantNamespacePath
+    });
+
   } catch (err) {
     console.error('createBusiness:unhandled error', err && (err.stack || err.message || err));
     return jsonResponse(500, { error: 'server_error', message: err && err.message ? err.message : String(err) });
