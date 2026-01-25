@@ -46,6 +46,42 @@
     const db = getDatabase(app);
     window._db = db; // debug hook if needed in console
 
+    // ---------- tenant helper (add immediately after db init) ----------
+function getSlugFromPath() {
+  // primary: first path segment (e.g. /demo-cafe/admin.html -> demo-cafe)
+  const path = window.location.pathname || '/';
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length > 0) {
+    // If first part looks like a slug (contains dash or lower-case letters/numbers), use it
+    const p0 = parts[0];
+    if (/^[a-z0-9\-]+$/.test(p0)) return p0;
+  }
+  // fallback: ?slug=demo-cafe
+  try {
+    const qp = new URLSearchParams(window.location.search);
+    if (qp.has('slug')) return qp.get('slug');
+  } catch (e) {}
+  // fallback: no slug -> legacy demo mode
+  return null;
+}
+
+const __TENANT_SLUG = getSlugFromPath(); // computed once
+
+/**
+ * tenantRef(db, 'counters/xyz') -> ref(db, `tenants/${slug}/counters/xyz`)
+ * If no slug found, returns ref(db, relPath) (legacy).
+ */
+function tenantRef(dbInstance, relPath = '') {
+  relPath = String(relPath || '').replace(/^\/+/, '');
+  if (!__TENANT_SLUG) {
+    // legacy behavior when no tenant slug available
+    return ref(dbInstance, relPath || '/');
+  }
+  if (!relPath) return ref(dbInstance, `tenants/${__TENANT_SLUG}`);
+  return ref(dbInstance, `tenants/${__TENANT_SLUG}/${relPath}`);
+}
+
+
     /* ---------------- Helpers ---------------- */
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -107,7 +143,7 @@
       }
 
       /* -------- Settings listener (single source) -------- */
-      const settingsRef = ref(db, 'settings');
+      const settingsRef = tenantRef(db, 'settings');
       onValue(settingsRef, snap => {
         const s = snap.exists() ? snap.val() : {};
 
@@ -220,7 +256,7 @@ if (s.adImage) {
         try {
           const lastQueueId = sessionStorage.getItem('lastQueueId');
           if (!lastQueueId) return;
-          const snap = await get(child(ref(db), `queue/${lastQueueId}`));
+          const snap = await get(child(tenantRef(db, ''), `queue/${lastQueueId}`));
           if (snap.exists() && snap.val().status === 'waiting') {
             window.location.href = `status.html?queueId=${lastQueueId}`;
           }
@@ -231,7 +267,7 @@ if (s.adImage) {
 
       /* ------------ fetch active counters (deterministic) ------------ */
       async function fetchActiveCounters() {
-        const snap = await get(ref(db, 'counters'));
+        const snap = await get(tenantRef(db, 'counters'));
         if (!snap.exists()) return [];
 
         const raw = [];
@@ -281,7 +317,7 @@ if (s.adImage) {
           }
 
           // round-robin index (atomic)
-          const rrRef = ref(db, 'settings/lastCounterIndex');
+          const rrRef = tenantRef(db, 'settings/lastCounterIndex');
 
           const rrResult = await runTxWithRetries(rrRef, cur => {
             const ncur = Number(cur) || 0;
@@ -309,7 +345,7 @@ if (s.adImage) {
           console.info('Round-robin selected:', { globalCounter, index, chosenId: chosen.id });
 
           // increment per-counter lastIssued
-          const lastIssuedRef = ref(db, `counters/${chosen.id}/lastIssued`);
+          const lastIssuedRef = tenantRef(db, `counters/${chosen.id}/lastIssued`);
           const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
           if (!lastIssuedTx || lastIssuedTx.committed !== true) {
             throw new Error('Failed to increment counter issued number.');
@@ -322,7 +358,7 @@ if (s.adImage) {
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
           // push queue entry
-          const newNode = push(ref(db, 'queue'));
+          const newNode = push(tenantRef(db, 'queue'));
           await set(newNode, {
             counterId: chosen.id,
             queueId,
