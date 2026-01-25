@@ -1,6 +1,5 @@
 // netlify/functions/createBusiness.js
-// Protected endpoint to provision a tenant in Realtime DB.
-// POST { slug, name?, defaults?, createdBy? }
+// POST { slug?, name?, templatePath? (optional), defaults?, createdBy? }
 // Header: x-master-key: <MASTER_API_KEY> OR Authorization: Bearer <MASTER_API_KEY>
 
 const admin = require('firebase-admin');
@@ -47,7 +46,7 @@ function sanitizeName(n) {
   return (n || '').toString().trim();
 }
 
-/* ---------- Firebase lazy init (robust) ---------- */
+/* ---------- Firebase lazy init ---------- */
 let initialized = false;
 let initError = null;
 
@@ -126,6 +125,17 @@ async function ensureFirebase() {
   }
 }
 
+/* ---------- Helper: deep copy multiple paths ---------- */
+async function fetchTemplateNodes(db, templatePath, copyPaths = []) {
+  // returns object: { '<pathRel>': <value> } where pathRel is e.g. 'settings' or 'counters'
+  const out = {};
+  for (const p of copyPaths) {
+    const snap = await db.ref(`${templatePath}/${p}`).once('value');
+    out[p] = snap.exists() ? snap.val() : null;
+  }
+  return out;
+}
+
 /* ---------- Handler ---------- */
 exports.handler = async function handler(event) {
   try {
@@ -137,40 +147,33 @@ exports.handler = async function handler(event) {
       } };
     }
 
-    console.log('createBusiness: incoming', {
-      method: event.httpMethod,
-      headerKeys: safeHeaderKeys(event.headers),
-      path: event.path || null
-    });
-
     if (event.httpMethod !== 'POST') {
       return jsonResponse(405, { error: 'method_not_allowed', message: 'Only POST allowed' });
     }
 
-    // Init Firebase
+    // init firebase
     let db;
     try {
       const fb = await ensureFirebase();
       db = fb.db;
-      console.log('createBusiness: firebase initialized');
     } catch (initErr) {
-      console.error('createBusiness:init error', initErr && (initErr.stack || initErr.message || initErr));
+      console.error('init failed', initErr && (initErr.stack || initErr.message || initErr));
       return jsonResponse(500, { error: 'firebase_init_failed', message: initErr.message || String(initErr) });
     }
 
-    // Auth: master key
+    // auth
     let token;
     try {
       token = getMasterKeyFromHeaders(event.headers || {});
     } catch (e) {
-      console.error('createBusiness:masterkey config error', e && e.message);
+      console.error('masterkey config error', e && e.message);
       return jsonResponse(500, { error: 'server_misconfigured', message: 'MASTER_API_KEY not configured on server' });
     }
     if (!token || token !== (process.env.MASTER_API_KEY || process.env.MASTER_KEY)) {
       return jsonResponse(403, { error: 'unauthorized', message: 'invalid or missing master key' });
     }
 
-    // Parse body
+    // parse body
     let body = {};
     try {
       body = event.body ? JSON.parse(event.body) : {};
@@ -178,19 +181,39 @@ exports.handler = async function handler(event) {
       return jsonResponse(400, { error: 'invalid_json', message: 'Request body must be valid JSON' });
     }
 
-    // Validate slug/name
+    // slug & name
     let slug = normalizeSlug(body.slug || '');
     if (!slug && body.name) slug = normalizeSlug(body.name);
     if (!slug) return jsonResponse(400, { error: 'invalid_slug', message: 'slug is required' });
 
     const name = sanitizeName(body.name || slug);
-    if (!name || name.length < 1) return jsonResponse(400, { error: 'invalid_name', message: 'name is required' });
+    if (!name) return jsonResponse(400, { error: 'invalid_name', message: 'name is required' });
 
-    const defaults = body.defaults && typeof body.defaults === 'object' ? body.defaults : {};
+    const defaults = (body.defaults && typeof body.defaults === 'object') ? body.defaults : {};
     const createdBy = body.createdBy || 'admin';
     const nowIso = new Date().toISOString();
 
-    // Prepare the minimal business record (keeps existing shape)
+    // choose template path (default)
+    // Provide a safe template area in your DB at /templates/default
+    const templatePath = body.templatePath || 'templates/default';
+
+    // which nodes to copy from template into tenant
+    const copyNodes = [
+      'settings',
+      'links',
+      'counters',
+      'queue',
+      'queueSubscriptions',
+      'subscribers',
+      'analytics',
+      'announcement',
+      'system',
+      'telegramPending',
+      'telegramTokens',
+      'adPanel'
+    ];
+
+    // minimal business object (keeps old shape)
     const tenantMinimal = {
       slug,
       name,
@@ -198,7 +221,7 @@ exports.handler = async function handler(event) {
       createdAt: nowIso,
       status: 'active',
       billing: { provider: (body.billing && body.billing.provider) || 'stripe', createdAt: nowIso },
-      settings: {
+      settings: Object.assign({
         name,
         introText: defaults.introText || '',
         adText: defaults.adText || '',
@@ -206,20 +229,19 @@ exports.handler = async function handler(event) {
         logo: defaults.logo || '',
         chatId: defaults.chatId || '',
         timezone: defaults.timezone || 'Asia/Kuala_Lumpur',
-        defaultPrefix: defaults.defaultPrefix || 'COFFEE'
-      },
+        defaultPrefix: defaults.defaultPrefix || 'Q'
+      }, defaults.settings || {}),
       links: {
         home: `${process.env.SITE_BASE || ''}/${slug}`,
         counter: `${process.env.SITE_BASE || ''}/${slug}/counter.html`,
         admin: `${process.env.SITE_BASE || ''}/${slug}/admin.html`
       },
-      // keep a simple counters object for backward compatibility on business object
-      counters: { default: { name: 'Counter 1', value: 0, prefix: (defaults.defaultPrefix || 'COFFEE') } }
+      counters: { default: { name: 'Counter 1', value: 0, prefix: (defaults.defaultPrefix || 'Q') } }
     };
 
     const businessRef = db.ref(`businesses/${slug}`);
 
-    // Transaction to ensure slug uniqueness
+    // ensure uniqueness
     let txRes;
     try {
       txRes = await businessRef.transaction(current => {
@@ -227,7 +249,7 @@ exports.handler = async function handler(event) {
         return tenantMinimal;
       }, undefined, false);
     } catch (e) {
-      console.error('createBusiness:transaction failed', e && (e.stack || e.message || e));
+      console.error('transaction failed', e && (e.stack || e.message || e));
       return jsonResponse(500, { error: 'db_transaction_failed', message: e && e.message ? e.message : String(e) });
     }
 
@@ -237,82 +259,74 @@ exports.handler = async function handler(event) {
       return jsonResponse(409, { error: 'slug_exists', slug, existing });
     }
 
-    // After slug is created, create tenant-scoped system namespace under /tenants/<slug>
-    // This keeps all client data independent from global demo data.
-    const tenantNamespacePath = `tenants/${slug}`;
+    // fetch template nodes
+    let templateValues = {};
+    try {
+      templateValues = await fetchTemplateNodes(db, templatePath, copyNodes);
+    } catch (e) {
+      console.warn('failed to read template nodes', e && e.message);
+      // continue with nulls — we'll create sensible defaults below
+    }
 
-    // Default tenant-scoped objects (empty/zeroed where appropriate)
-    const tenantScoped = {
-      settings: tenantMinimal.settings,
-      links: tenantMinimal.links,
-      slug,
-      name,
-      createdAt: nowIso,
-      createdBy,
-      status: 'active',
+    // build tenant namespace object with fallbacks
+    const tenantPath = `tenants/${slug}`;
+    const tenantScoped = {};
 
-      // isolated counters for this tenant
-      counters: {
-        default: { name: 'Counter 1', prefix: tenantMinimal.settings.defaultPrefix || 'COFFEE', lastIssued: 0, nowServing: 0, value: 0 }
-      },
+    // settings: prefer template.settings -> defaults -> tenantMinimal.settings
+    tenantScoped.settings = templateValues.settings || tenantMinimal.settings;
 
-      // isolated queue and indexes
-      queue: {},
-      queueSubscriptions: {},
-      subscribers: {},
+    // links: template.links or derived from SITE_BASE
+    tenantScoped.links = templateValues.links || tenantMinimal.links;
 
-      // isolated analytics + events
-      analytics: { serviceEvents: {} },
-
-      // isolated system meta (per-tenant indices)
-      system: {
-        lastAssignedCounterIndex: 0,
-        lastQueueNumber: 0
-      },
-
-      // isolated telegram tokens/pending for this tenant
-      telegramPending: {},
-      telegramTokens: {},
-
-      // isolated announcement / ad area
-      announcement: {
-        botToken: '',
-        chatIds: {}
-      }
+    // counters: either template counters or a sane default single counter
+    tenantScoped.counters = templateValues.counters || {
+      default: { name: 'Counter 1', prefix: tenantScoped.settings.defaultPrefix || 'Q', active: true, lastIssued: 0, nowServing: 0 }
     };
 
-    // Multi-path update to create tenant namespace and a name index entry.
-    // It's not possible to do a single cross-path transaction easily; the slug existence is already guaranteed above.
-    const nameKey = encodeURIComponent(name.toLowerCase().trim());
+    tenantScoped.queue = templateValues.queue || {};
+    tenantScoped.queueSubscriptions = templateValues.queueSubscriptions || {};
+    tenantScoped.subscribers = templateValues.subscribers || {};
+    tenantScoped.analytics = templateValues.analytics || { events: {} };
+    tenantScoped.announcement = templateValues.announcement || { message: '', active: false };
+    tenantScoped.system = templateValues.system || { lastAssignedCounterIndex: 0, lastQueueNumber: 0 };
+    tenantScoped.telegramPending = templateValues.telegramPending || {};
+    tenantScoped.telegramTokens = templateValues.telegramTokens || {};
+    tenantScoped.adPanel = templateValues.adPanel || {};
+    tenantScoped.slug = slug;
+    tenantScoped.name = name;
+    tenantScoped.createdAt = nowIso;
+    tenantScoped.createdBy = createdBy;
+    tenantScoped.status = 'active';
+
+    // multipath update: write tenant namespace and index entry
     const updates = {};
-    updates[tenantNamespacePath] = tenantScoped;
+    updates[tenantPath] = tenantScoped;
+    const nameKey = encodeURIComponent(name.toLowerCase().trim());
     updates[`businesses_by_name/${nameKey}`] = { slug, createdAt: nowIso };
 
     try {
       await db.ref().update(updates);
     } catch (e) {
-      console.error('createBusiness:post-create update failed', e && (e.stack || e.message || e));
-      // Attempt cleanup: remove businesses/<slug> if tenant namespace failed (best-effort)
-      try {
-        await businessRef.remove();
-      } catch (cleanupErr) {
-        console.error('createBusiness:cleanup failed', cleanupErr && (cleanupErr.stack || cleanupErr.message || cleanupErr));
-      }
-      return jsonResponse(500, { error: 'post_create_failed', message: 'Failed to create tenant namespace' });
+      console.error('post-create update failed', e && (e.stack || e.message || e));
+      // rollback businesses/<slug> created earlier
+      try { await businessRef.remove(); } catch (remErr) { console.error('rollback failed', remErr && remErr.message); }
+      return jsonResponse(500, { error: 'post_create_failed', message: 'Failed to write tenant namespace' });
     }
 
-    // Success. Return the minimal business and tenant namespace path so frontend knows where to read.
-    return jsonResponse(200, {
+    // optionally return the template copy summary for diagnostics
+    const summary = {
       ok: true,
       slug,
-      links: tenantMinimal.links,
-      business: tenantMinimal,
-      tenantNamespace: tenantNamespacePath,
-      message: 'Business created. Client should read/write tenant-scoped data under /' + tenantNamespacePath
-    });
+      tenantPath,
+      links: tenantScoped.links,
+      createdAt: nowIso,
+      copied: copyNodes.reduce((acc, k) => { acc[k] = !!templateValues[k]; return acc; }, {})
+    };
+
+    return jsonResponse(200, summary);
 
   } catch (err) {
-    console.error('createBusiness:unhandled error', err && (err.stack || err.message || err));
+    console.error('unhandled error', err && (err.stack || err.message || err));
     return jsonResponse(500, { error: 'server_error', message: err && err.message ? err.message : String(err) });
   }
 };
