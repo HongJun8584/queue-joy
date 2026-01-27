@@ -254,7 +254,8 @@ if (s.adImage) {
       /* --- auto-redirect if lastQueueId still waiting --- */
       (async function autoRedirect() {
         try {
-          const lastQueueId = sessionStorage.getItem('lastQueueId');
+          const LAST_KEY = 'lastQueueId_' + ( __TENANT_SLUG || 'root' );
+          const lastQueueId = sessionStorage.getItem(LAST_KEY);
           if (!lastQueueId) return;
           const snap = await get(child(tenantRef(db, ''), `queue/${lastQueueId}`));
           if (snap.exists() && snap.val().status === 'waiting') {
@@ -369,7 +370,7 @@ if (s.adImage) {
             status: 'waiting'
           });
 
-          try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
+          try { sessionStorage.setItem('lastQueueId_' + ( __TENANT_SLUG || 'root' ), newNode.key); } catch (e) { /* ignore */ }
 
           showSuccess(`You're number ${queueId}`);
           setTimeout(() => {
