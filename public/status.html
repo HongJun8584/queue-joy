@@ -688,6 +688,35 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  // ---------- TENANT RESOLUTION (ADD THIS) ----------
+function getTenantSlug() {
+  // primary: first path segment (e.g. /demo-cafe/status.html -> demo-cafe)
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts.length > 0) {
+    const p0 = parts[0];
+    if (/^[a-z0-9\-]+$/.test(p0)) return p0;
+  }
+  // fallback: ?slug=demo-cafe
+  try {
+    const qp = new URLSearchParams(window.location.search);
+    if (qp.has('slug')) return qp.get('slug');
+  } catch (e) {}
+  return null;
+}
+const TENANT_SLUG = getTenantSlug();
+
+// tenantRef wraps ref(db, ...) to point to tenants/<slug>/...
+function tenantRef(dbInstance, relPath = '') {
+  relPath = String(relPath || '').replace(/^\/+/, '');
+  if (!TENANT_SLUG) {
+    // legacy (no slug) uses root
+    return ref(dbInstance, relPath || '/');
+  }
+  if (!relPath) return ref(dbInstance, `tenants/${TENANT_SLUG}`);
+  return ref(dbInstance, `tenants/${TENANT_SLUG}/${relPath}`);
+}
+// ---------- end tenant resolution ----------
+
 
   // DOM
   const obModal = document.getElementById('onboardingModal');
@@ -990,7 +1019,7 @@
     const counterId = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
     if (counterId) {
       try {
-        const snap = await get(ref(db, `counters/${counterId}`));
+        const snap = await get(tenantRef(db, `counters/${counterId}`));
         if (snap.exists()) {
           counterData = snap.val();
           servingNum = extractNumber(counterData.nowServing);
@@ -1060,7 +1089,7 @@
       // Fallback: count from queue if we can't get counter data
       console.log('[STATUS] No servingNum, using fallback count');
       try {
-        const allSnap = await get(ref(db, 'queue'));
+        const allSnap = await get(tenantRef(db, 'queue'));
         if (allSnap.exists()) {
           const all = allSnap.val();
           const myTime = currentQueueData.timestamp || 0;
@@ -1201,7 +1230,7 @@ function showAd(url) {
   // Logo
   async function loadLogo() {
     try {
-      const snap = await get(ref(db, 'settings/logoUrl'));
+      const snap = await get(tenantRef(db, 'settings/logoUrl'));
       if (snap.exists() && snap.val()) {
         const url = String(snap.val()).trim();
         if (url) {
@@ -1218,7 +1247,7 @@ function showAd(url) {
   // Avg service time from analytics
   async function loadAvgServiceTime() {
     try {
-      const snap = await get(ref(db, 'analytics/serviceEvents'));
+      const snap = await get(tenantRef(db, 'analytics/serviceEvents'));
       if (!snap.exists()) return;
       
       const events = snap.val();
@@ -1257,7 +1286,7 @@ function showAd(url) {
     await Promise.all([loadLogo(), loadAvgServiceTime()]);
     
     // Watch queue entry
-    qRef = ref(db, `queue/${queueKey}`);
+    qRef = tenantRef(db, `queue/${queueKey}`);
     onValue(qRef, (snap) => {
       if (!snap.exists()) {
         showError('Queue not found. Redirecting...');
@@ -1285,7 +1314,7 @@ function showAd(url) {
       if (cid && cid !== currentCounterId) {
         if (counterRef) off(counterRef);
         currentCounterId = cid;
-        counterRef = ref(db, `counters/${cid}`);
+        counterRef = tenantRef(db, `counters/${cid}`);
         onValue(counterRef, (cSnap) => {
           console.log('[STATUS] Counter data updated');
           computeEstimates();
@@ -1296,11 +1325,11 @@ function showAd(url) {
     });
     
     // Watch ads
-    adRef = ref(db, 'settings/adImage');
+    adRef = tenantRef(db, 'settings/adImage');
     onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
     
     // Watch analytics for service time updates
-    analyticsRef = ref(db, 'analytics/serviceEvents');
+    analyticsRef = tenantRef(db, 'analytics/serviceEvents');
     onValue(analyticsRef, async () => {
       await loadAvgServiceTime();
       computeEstimates();
