@@ -667,6 +667,13 @@
 </div>
 
 <script type="module">
+/* ===== BOOT GUARD (MUST BE FIRST) ===== */
+if (window.__QJ_BOOTED__) {
+  console.warn('QJ already booted, skipping init');
+  throw new Error('QJ double boot prevented');
+}
+window.__QJ_BOOTED__ = true;
+  
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
