@@ -17,19 +17,26 @@
     .db-image { max-height: 180px; object-fit: cover; }
   </style>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      set,
-      get,
-      child,
-      push,
-      onValue,
-      runTransaction
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+ <script type="module">
+/* ===== BOOT GUARD (MUST BE FIRST EXECUTED CODE) ===== */
+if (window.__QJ_BOOTED__) {
+  console.warn('QJ already booted, skipping init');
+  throw new Error('QJ double boot prevented');
+}
+window.__QJ_BOOTED__ = true;
 
+/* ===== IMPORTS (TOP-LEVEL ONLY) ===== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  child,
+  push,
+  onValue,
+  runTransaction
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
     // ----- Firebase config -----
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
