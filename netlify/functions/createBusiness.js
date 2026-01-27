@@ -1,5 +1,5 @@
 // netlify/functions/createBusiness.js
-// POST { slug?, name?, templatePath? (optional), defaults?, createdBy? }
+// POST { slug?, name?, templatePath? (optional), defaults? / settings?, counters? }
 // Header: x-master-key: <MASTER_API_KEY> OR Authorization: Bearer <MASTER_API_KEY>
 
 const admin = require('firebase-admin');
@@ -16,39 +16,6 @@ function jsonResponse(status, body) {
     body: JSON.stringify(body)
   };
 }
-
-function safeHeaderKeys(headers = {}) {
-  return Object.keys(headers || {}).map(k => k.toLowerCase());
-}
-
-function getMasterKeyFromHeaders(headers = {}) {
-  const low = {};
-  for (const k of Object.keys(headers || {})) low[k.toLowerCase()] = headers[k];
-  const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
-  if (!master) throw new Error('MASTER_API_KEY not configured on server.');
-  const got = (low['x-master-key'] || low['x-api-key'] || low['authorization'] || '').toString();
-  if (!got) return null;
-  return got.startsWith('Bearer ') ? got.slice(7) : got;
-}
-
-function normalizeSlug(raw = '') {
-  return (raw || '')
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')          // spaces -> dash
-    .replace(/[^a-z0-9\-]/g, '-')  // allowed chars only (consistent)
-    .replace(/-+/g, '-')           // collapse repeated dashes
-    .replace(/^-|-$/g, '');        // trim leading/trailing dash
-}
-
-function sanitizeName(n) {
-  return (n || '').toString().trim();
-}
-
-/* ---------- Firebase lazy init ---------- */
-let initialized = false;
-let initError = null;
 
 function tryParseJson(s) {
   try { return JSON.parse(s); } catch { return null; }
@@ -95,6 +62,10 @@ function parseServiceAccountFromEnv() {
   return null;
 }
 
+/* ---------- Firebase lazy init ---------- */
+let initialized = false;
+let initError = null;
+
 async function ensureFirebase() {
   if (initialized && admin.apps && admin.apps.length) return { admin, db: admin.database() };
   if (initError) throw initError;
@@ -105,10 +76,10 @@ async function ensureFirebase() {
       process.env.FIREBASE_DB_URL ||
       process.env.FIREBASE_RTDB_URL;
 
-    if (!dbUrl) throw new Error('FIREBASE_DB_URL (or FIREBASE_DATABASE_URL / FIREBASE_RTDB_URL) is not set.');
+    if (!dbUrl) throw new Error('FIREBASE_DB_URL is not set.');
 
     const serviceAccount = parseServiceAccountFromEnv();
-    if (!serviceAccount) throw new Error('Firebase service account not found. Provide FIREBASE_SERVICE_ACCOUNT (JSON) or FIREBASE_SERVICE_ACCOUNT_BASE64 or set FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
+    if (!serviceAccount) throw new Error('Firebase service account not found.');
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -125,13 +96,42 @@ async function ensureFirebase() {
   }
 }
 
-/* ---------- Helper: deep copy multiple paths ---------- */
+function normalizeSlug(raw = '') {
+  return (raw || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function sanitizeName(n) {
+  return (n || '').toString().trim();
+}
+
 async function fetchTemplateNodes(db, templatePath, copyPaths = []) {
-  // returns object: { '<pathRel>': <value> } where pathRel is e.g. 'settings' or 'counters'
   const out = {};
   for (const p of copyPaths) {
     const snap = await db.ref(`${templatePath}/${p}`).once('value');
     out[p] = snap.exists() ? snap.val() : null;
+  }
+  return out;
+}
+
+function ensureCounterShape(counterObj, defaultPrefix) {
+  // Normalize counters object entries so they have active/lastIssued/nowServing/prefix/name
+  const out = {};
+  for (const k of Object.keys(counterObj || {})) {
+    const c = counterObj[k] || {};
+    out[k] = {
+      name: c.name || c.title || 'Counter 1',
+      prefix: (c.prefix || c.p || defaultPrefix || 'Q').toString(),
+      active: (typeof c.active === 'boolean') ? c.active : true,
+      lastIssued: typeof c.lastIssued === 'number' ? c.lastIssued : (typeof c.value === 'number' ? c.value : 0),
+      nowServing: typeof c.nowServing === 'number' ? c.nowServing : 0
+    };
   }
   return out;
 }
@@ -162,16 +162,18 @@ exports.handler = async function handler(event) {
     }
 
     // auth
-    let token;
-    try {
-      token = getMasterKeyFromHeaders(event.headers || {});
-    } catch (e) {
-      console.error('masterkey config error', e && e.message);
+    const lowHeaders = {};
+    for (const k of Object.keys(event.headers || {})) lowHeaders[k.toLowerCase()] = event.headers[k];
+    const master = process.env.MASTER_API_KEY || process.env.MASTER_KEY || '';
+    if (!master) {
+      console.error('MASTER key missing server-side');
       return jsonResponse(500, { error: 'server_misconfigured', message: 'MASTER_API_KEY not configured on server' });
     }
-    if (!token || token !== (process.env.MASTER_API_KEY || process.env.MASTER_KEY)) {
-      return jsonResponse(403, { error: 'unauthorized', message: 'invalid or missing master key' });
-    }
+
+    let got = (lowHeaders['x-master-key'] || lowHeaders['x-api-key'] || lowHeaders['authorization'] || '').toString();
+    if (!got) return jsonResponse(403, { error: 'unauthorized', message: 'missing master key' });
+    if (got.startsWith('Bearer ')) got = got.slice(7);
+    if (got !== master) return jsonResponse(403, { error: 'unauthorized', message: 'invalid master key' });
 
     // parse body
     let body = {};
@@ -189,31 +191,25 @@ exports.handler = async function handler(event) {
     const name = sanitizeName(body.name || slug);
     if (!name) return jsonResponse(400, { error: 'invalid_name', message: 'name is required' });
 
-    const defaults = (body.defaults && typeof body.defaults === 'object') ? body.defaults : {};
     const createdBy = body.createdBy || 'admin';
     const nowIso = new Date().toISOString();
 
-    // choose template path (default)
-    // Provide a safe template area in your DB at /templates/default
-    const templatePath = body.templatePath || 'templates/default';
+    // accept settings from body.settings or body.defaults (backwards compat)
+    let providedSettings = {};
+    if (body.settings && typeof body.settings === 'object') providedSettings = body.settings;
+    else if (body.defaults && typeof body.defaults === 'object') {
+      // body.defaults may be either a settings object or contain .settings
+      providedSettings = body.defaults.settings && typeof body.defaults.settings === 'object'
+        ? body.defaults.settings
+        : body.defaults;
+    }
 
-    // which nodes to copy from template into tenant
-    const copyNodes = [
-      'settings',
-      'links',
-      'counters',
-      'queue',
-      'queueSubscriptions',
-      'subscribers',
-      'analytics',
-      'announcement',
-      'system',
-      'telegramPending',
-      'telegramTokens',
-      'adPanel'
-    ];
+    const providedCounters = (body.counters && typeof body.counters === 'object') ? body.counters : (providedSettings.counters && typeof providedSettings.counters === 'object' ? providedSettings.counters : null);
 
-    // minimal business object (keeps old shape)
+    // minimal business object (keeps old shape but with extended settings)
+    const defaultPrefix = (providedSettings.defaultPrefix || providedSettings.prefix || 'Q').toString();
+    const siteBase = (process.env.SITE_BASE || '').replace(/\/$/, '');
+
     const tenantMinimal = {
       slug,
       name,
@@ -221,27 +217,38 @@ exports.handler = async function handler(event) {
       createdAt: nowIso,
       status: 'active',
       billing: { provider: (body.billing && body.billing.provider) || 'stripe', createdAt: nowIso },
+      // sensible default settings (include the keys your SPA expects)
       settings: Object.assign({
         name,
-        introText: defaults.introText || '',
-        adText: defaults.adText || '',
-        adImage: defaults.adImage || '',
-        logo: defaults.logo || '',
-        chatId: defaults.chatId || '',
-        timezone: defaults.timezone || 'Asia/Kuala_Lumpur',
-        defaultPrefix: defaults.defaultPrefix || 'Q'
-      }, defaults.settings || {}),
+        mainTitle: providedSettings.mainTitle || providedSettings.title || '',
+        smallTextOnTop: providedSettings.smallTextOnTop || providedSettings.smallTop || '',
+        introText: providedSettings.introText || providedSettings.welcomeMessage || '',
+        titleinmiddle: providedSettings.titleinmiddle || providedSettings.titleInMiddle || '',
+        ctaText: providedSettings.ctaText || providedSettings.cta || 'Get your queue number',
+        adText: providedSettings.adText || '',
+        adImage: providedSettings.adImage || '',
+        adLink: providedSettings.adLink || '',
+        logo: providedSettings.logo || '',
+        logoUrl: providedSettings.logoUrl || providedSettings.logo || '',
+        chatId: providedSettings.chatId || '',
+        timezone: providedSettings.timezone || 'Asia/Kuala_Lumpur',
+        defaultPrefix: defaultPrefix,
+        hashtags: providedSettings.hashtags || providedSettings.tags || ''
+      }, providedSettings || {}),
       links: {
-        home: `${process.env.SITE_BASE || ''}/${slug}`,
-        counter: `${process.env.SITE_BASE || ''}/${slug}/counter.html`,
-        admin: `${process.env.SITE_BASE || ''}/${slug}/admin.html`
+        home: `${siteBase}/${slug}`,
+        counter: `${siteBase}/${slug}/counter.html`,
+        admin: `${siteBase}/${slug}/admin.html`
       },
-      counters: { default: { name: 'Counter 1', value: 0, prefix: (defaults.defaultPrefix || 'Q') } }
+      // initial counters (if provided) else single sane default
+      counters: providedCounters ? ensureCounterShape(providedCounters, defaultPrefix) : {
+        default: { name: 'Counter 1', prefix: defaultPrefix, active: true, lastIssued: 0, nowServing: 0 }
+      }
     };
 
     const businessRef = db.ref(`businesses/${slug}`);
 
-    // ensure uniqueness
+    // ensure uniqueness (atomic)
     let txRes;
     try {
       txRes = await businessRef.transaction(current => {
@@ -259,29 +266,50 @@ exports.handler = async function handler(event) {
       return jsonResponse(409, { error: 'slug_exists', slug, existing });
     }
 
-    // fetch template nodes
+    // fetch template nodes (if any)
+    const templatePath = body.templatePath || 'templates/default';
+    const copyNodes = [
+      'settings',
+      'links',
+      'counters',
+      'queue',
+      'queueSubscriptions',
+      'subscribers',
+      'analytics',
+      'announcement',
+      'system',
+      'telegramPending',
+      'telegramTokens',
+      'adPanel'
+    ];
+
     let templateValues = {};
     try {
       templateValues = await fetchTemplateNodes(db, templatePath, copyNodes);
     } catch (e) {
       console.warn('failed to read template nodes', e && e.message);
-      // continue with nulls — we'll create sensible defaults below
     }
 
-    // build tenant namespace object with fallbacks
+    // build tenant namespace with merging rules:
+    // prefer template values as base, but let tenantMinimal (which includes providedSettings) override template
     const tenantPath = `tenants/${slug}`;
     const tenantScoped = {};
 
-    // settings: prefer template.settings -> defaults -> tenantMinimal.settings
-    tenantScoped.settings = templateValues.settings || tenantMinimal.settings;
+    tenantScoped.settings = Object.assign(
+      {},
+      templateValues.settings || {},
+      tenantMinimal.settings // tenantMinimal.settings already contains providedSettings merged above
+    );
 
-    // links: template.links or derived from SITE_BASE
-    tenantScoped.links = templateValues.links || tenantMinimal.links;
+    tenantScoped.links = Object.assign({}, templateValues.links || {}, tenantMinimal.links);
 
-    // counters: either template counters or a sane default single counter
-    tenantScoped.counters = templateValues.counters || {
-      default: { name: 'Counter 1', prefix: tenantScoped.settings.defaultPrefix || 'Q', active: true, lastIssued: 0, nowServing: 0 }
-    };
+    // counters: allow provided counters to override template; tenantMinimal.counters already holds providedDefaults
+    tenantScoped.counters = Object.keys(templateValues.counters || {}).length
+      ? Object.assign({}, templateValues.counters, tenantMinimal.counters)
+      : tenantMinimal.counters;
+
+    // normalize counters shape
+    tenantScoped.counters = ensureCounterShape(tenantScoped.counters, tenantScoped.settings.defaultPrefix || defaultPrefix);
 
     tenantScoped.queue = templateValues.queue || {};
     tenantScoped.queueSubscriptions = templateValues.queueSubscriptions || {};
@@ -313,14 +341,15 @@ exports.handler = async function handler(event) {
       return jsonResponse(500, { error: 'post_create_failed', message: 'Failed to write tenant namespace' });
     }
 
-    // optionally return the template copy summary for diagnostics
     const summary = {
       ok: true,
       slug,
       tenantPath,
       links: tenantScoped.links,
       createdAt: nowIso,
-      copied: copyNodes.reduce((acc, k) => { acc[k] = !!templateValues[k]; return acc; }, {})
+      copied: copyNodes.reduce((acc, k) => { acc[k] = !!templateValues[k]; return acc; }, {}),
+      settings: tenantScoped.settings,
+      counters: tenantScoped.counters
     };
 
     return jsonResponse(200, summary);
