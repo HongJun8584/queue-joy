@@ -258,8 +258,11 @@ if (s.adImage) {
           if (!lastQueueId) return;
           const snap = await get(child(tenantRef(db, ''), `queue/${lastQueueId}`));
           if (snap.exists() && snap.val().status === 'waiting') {
-            window.location.href = `status.html?queueId=${lastQueueId}`;
+            const slug = __TENANT_SLUG || getSlugFromPath();
+            const prefix = slug ? `/${slug}` : '';
+            window.location.href = `${prefix}/status.html?queueId=${lastQueueId}`;
           }
+
         } catch (e) {
           console.warn('autoRedirect check failed', e);
         }
@@ -369,7 +372,12 @@ if (s.adImage) {
           try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
 
           showSuccess(`You're number ${queueId}`);
-          setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 750);
+          setTimeout(() => {
+            const slug = __TENANT_SLUG || getSlugFromPath();
+            const prefix = slug ? `/${slug}` : '';
+            window.location.href = `${prefix}/status.html?queueId=${newNode.key}`;
+          }, 750);
+
 
         } catch (err) {
           console.error('getQueueNumber error', err);
