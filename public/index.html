@@ -46,31 +46,6 @@
     const db = getDatabase(app);
     window._db = db; // debug hook if needed in console
 
-    // ---------- tenant helper (add immediately after db init) ----------
-function getSlugFromPath() {
-  // primary: first path segment (e.g. /demo-cafe/index.html -> demo-cafe)
-  const path = window.location.pathname || '/';
-  const parts = path.split('/').filter(Boolean);
-  if (parts.length > 0) {
-    const p0 = parts[0];
-    if (/^[a-z0-9\-]+$/.test(p0)) return p0;
-  }
-  try {
-    const qp = new URLSearchParams(window.location.search);
-    if (qp.has('slug')) return qp.get('slug');
-  } catch (e) {}
-  return null;
-}
-
-const __TENANT_SLUG = getSlugFromPath();
-
-function tenantRef(dbInstance, relPath = '') {
-  relPath = String(relPath || '').replace(/^\/+/, '');
-  if (!__TENANT_SLUG) return ref(dbInstance, relPath || '/');
-  if (!relPath) return ref(dbInstance, `tenants/${__TENANT_SLUG}`);
-  return ref(dbInstance, `tenants/${__TENANT_SLUG}/${relPath}`);
-}
-
     /* ---------------- Helpers ---------------- */
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -92,25 +67,7 @@ function tenantRef(dbInstance, relPath = '') {
       throw lastErr || new Error('Transaction failed after retries');
     }
 
-    // ----- Safety: sanitize links from remote settings -----
-    function isSafeLinkCandidate(raw) {
-      if (!raw || typeof raw !== 'string') return false;
-      const trimmed = raw.trim();
-      // explicitly block javascript: and other dangerous schemes
-      if (/^(javascript|data|vbscript):/i.test(trimmed)) return false;
-
-      try {
-        const u = new URL(trimmed, window.location.href);
-        // allow only same-origin or relative links
-        if (u.origin === window.location.origin) return true;
-        // optionally allow fully-qualified HTTPS same-host (if hosting uses custom domain)
-        // disallow any other external host to ensure independence per-tenant
-        return false;
-      } catch (e) {
-        return false;
-      }
-    }
-
+    /* ---------------- DOM Ready ---------------- */
     document.addEventListener('DOMContentLoaded', () => {
       // UI elements
       const siteTitleEl = document.getElementById('siteTitle');
@@ -128,7 +85,6 @@ function tenantRef(dbInstance, relPath = '') {
       const adTextEl = document.getElementById('adText');
       const noAd = document.getElementById('noAd');
       const smallTopTextEl = document.getElementById('smallTopText');
-      const adContainer = document.getElementById('adContainer');
 
       function showError(msg) {
         console.warn(msg);
@@ -151,9 +107,10 @@ function tenantRef(dbInstance, relPath = '') {
       }
 
       /* -------- Settings listener (single source) -------- */
-      const settingsRef = tenantRef(db, 'settings');
+      const settingsRef = ref(db, 'settings');
       onValue(settingsRef, snap => {
         const s = snap.exists() ? snap.val() : {};
+
         const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
 
         // header logo
@@ -165,7 +122,7 @@ function tenantRef(dbInstance, relPath = '') {
         siteTitleEl.textContent = topTitle;
         document.title = topTitle + ' - Digital Queue System';
 
-        // small text on top
+        // small text on top (NEW: map settings.smallTextOnTop -> #smallTopText)
         if (smallTopTextEl) {
           smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
         }
@@ -184,77 +141,88 @@ function tenantRef(dbInstance, relPath = '') {
         introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // --- AD handling (robust & safe) ---
-        adContainer.innerHTML = '';
+        // --- AD handling (robust) ---
+const adContainer = document.getElementById('adContainer');
+adContainer.innerHTML = ''; // clear previous
 
-        if (s.adImage) {
-          const url = String(s.adImage).trim();
-          const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
+if (s.adImage) {
+  const url = String(s.adImage).trim();
 
-          if (isVideo) {
-            const videoEl = document.createElement('video');
-            videoEl.setAttribute('playsinline', '');
-            videoEl.setAttribute('autoplay', '');
-            videoEl.setAttribute('loop', '');
-            videoEl.setAttribute('muted', '');
-            videoEl.setAttribute('preload', 'metadata');
-            videoEl.playsInline = true; videoEl.autoplay = true; videoEl.loop = true; videoEl.muted = true; videoEl.preload = 'metadata';
-            videoEl.className = 'w-full object-cover db-image';
-            videoEl.src = url;
-            adContainer.appendChild(videoEl);
-            videoEl.addEventListener('error', (ev) => console.warn('Ad video error', ev));
-            videoEl.play().catch(err => { console.warn('Video play failed', err); videoEl.setAttribute('controls', ''); });
-          } else {
-            const imgEl = document.createElement('img');
-            imgEl.src = url;
-            imgEl.alt = 'Advertisement';
-            imgEl.className = 'w-full object-cover db-image';
-            imgEl.onload = () => console.info('Ad image loaded', url);
-            imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
-            adContainer.appendChild(imgEl);
-          }
+  // detect video extension OR base64 video
+  const isVideo =
+    /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) ||
+    url.startsWith('data:video/');
 
-          adContainer.classList.remove('hidden');
-          noAd.classList.add('hidden');
+  if (isVideo) {
+    const videoEl = document.createElement('video');
 
-        } else {
-          adContainer.innerHTML = '';
-          adContainer.classList.add('hidden');
-          noAd.classList.remove('hidden');
-        }
+    // autoplay-safe config
+    videoEl.setAttribute('playsinline', '');
+    videoEl.setAttribute('autoplay', '');
+    videoEl.setAttribute('loop', '');
+    videoEl.setAttribute('muted', '');
+    videoEl.setAttribute('preload', 'metadata');
 
+    videoEl.playsInline = true;
+    videoEl.autoplay = true;
+    videoEl.loop = true;
+    videoEl.muted = true;
+    videoEl.preload = 'metadata';
+
+    videoEl.className = 'w-full object-cover db-image';
+    videoEl.src = url;
+
+    adContainer.appendChild(videoEl);
+
+    videoEl.addEventListener('error', (ev) => {
+      console.warn('Ad video error', ev, videoEl.error && videoEl.error.code);
+    });
+
+    videoEl.addEventListener('loadedmetadata', () => {
+      console.info('Ad video metadata loaded', videoEl.currentSrc);
+    });
+
+    videoEl.play().catch(err => {
+      console.warn('Video play() failed:', err);
+      videoEl.setAttribute('controls', '');
+    });
+
+  } else {
+    // image / gif
+    const imgEl = document.createElement('img');
+    imgEl.src = url;
+    imgEl.alt = 'Advertisement';
+    imgEl.className = 'w-full object-cover db-image';
+    imgEl.onload = () => console.info('Ad image loaded', url);
+    imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
+    adContainer.appendChild(imgEl);
+  }
+
+  adContainer.classList.remove('hidden');
+  noAd.classList.add('hidden');
+
+} else {
+  adContainer.innerHTML = '';
+  adContainer.classList.add('hidden');
+  noAd.classList.remove('hidden');
+}
+
+        // ad text and link handling (unchanged)
         adTextEl.textContent = pick(s.adText) || '';
         adTextEl.classList.toggle('hidden', !adTextEl.textContent);
-
-        // === IMPORTANT: sanitize ad link from remote settings ===
-        const rawAdLink = (s.adLink || '').toString();
-        if (isSafeLinkCandidate(rawAdLink)) {
-          // only set links that are same-origin/relative -> will not navigate away to queuejoy.netlify.app
-          const safeUrl = new URL(rawAdLink, window.location.href).href;
-          adLinkEl.href = safeUrl;
-          adLinkEl.removeAttribute('target');
-          adLinkEl.setAttribute('rel', 'noopener');
-        } else {
-          // force no-op link (no external redirects)
-          adLinkEl.href = '#';
-          adLinkEl.removeAttribute('target');
-          adLinkEl.removeAttribute('rel');
-          if (rawAdLink && rawAdLink.trim()) console.warn('Blocked unsafe adLink from settings:', rawAdLink);
-        }
+        if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
+        else { adLinkEl.href = 'helloqueuejoy.netlify.app'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
 
       }, err => console.warn('settings read failed', err));
 
-      /* --- auto-redirect if lastQueueId still waiting (STRICT: only to local status.html) --- */
+      /* --- auto-redirect if lastQueueId still waiting --- */
       (async function autoRedirect() {
         try {
           const lastQueueId = sessionStorage.getItem('lastQueueId');
           if (!lastQueueId) return;
-          const snap = await get(child(tenantRef(db, ''), `queue/${lastQueueId}`));
+          const snap = await get(child(ref(db), `queue/${lastQueueId}`));
           if (snap.exists() && snap.val().status === 'waiting') {
-            // always use relative path to ensure same-host navigation
-            const target = `status.html?queueId=${encodeURIComponent(lastQueueId)}`;
-            console.info('Auto-redirecting to local status page ->', target);
-            window.location.href = target;
+            window.location.href = `status.html?queueId=${lastQueueId}`;
           }
         } catch (e) {
           console.warn('autoRedirect check failed', e);
@@ -263,7 +231,7 @@ function tenantRef(dbInstance, relPath = '') {
 
       /* ------------ fetch active counters (deterministic) ------------ */
       async function fetchActiveCounters() {
-        const snap = await get(tenantRef(db, 'counters'));
+        const snap = await get(ref(db, 'counters'));
         if (!snap.exists()) return [];
 
         const raw = [];
@@ -313,7 +281,7 @@ function tenantRef(dbInstance, relPath = '') {
           }
 
           // round-robin index (atomic)
-          const rrRef = tenantRef(db, 'settings/lastCounterIndex');
+          const rrRef = ref(db, 'settings/lastCounterIndex');
 
           const rrResult = await runTxWithRetries(rrRef, cur => {
             const ncur = Number(cur) || 0;
@@ -341,7 +309,7 @@ function tenantRef(dbInstance, relPath = '') {
           console.info('Round-robin selected:', { globalCounter, index, chosenId: chosen.id });
 
           // increment per-counter lastIssued
-          const lastIssuedRef = tenantRef(db, `counters/${chosen.id}/lastIssued`);
+          const lastIssuedRef = ref(db, `counters/${chosen.id}/lastIssued`);
           const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
           if (!lastIssuedTx || lastIssuedTx.committed !== true) {
             throw new Error('Failed to increment counter issued number.');
@@ -354,7 +322,7 @@ function tenantRef(dbInstance, relPath = '') {
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
           // push queue entry
-          const newNode = push(tenantRef(db, 'queue'));
+          const newNode = push(ref(db, 'queue'));
           await set(newNode, {
             counterId: chosen.id,
             queueId,
@@ -365,10 +333,7 @@ function tenantRef(dbInstance, relPath = '') {
           try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
 
           showSuccess(`You're number ${queueId}`);
-          setTimeout(() => {
-            // must be relative local status page
-            window.location.href = `status.html?queueId=${encodeURIComponent(newNode.key)}`;
-          }, 750);
+          setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 750);
 
         } catch (err) {
           console.error('getQueueNumber error', err);
@@ -377,25 +342,6 @@ function tenantRef(dbInstance, relPath = '') {
           setLoading(false);
         }
       }
-
-      // Prevent accidental external navigation via ad link (double-safety)
-      adLinkEl.addEventListener('click', (ev) => {
-        const href = adLinkEl.getAttribute('href') || '';
-        if (!href || href === '#') {
-          ev.preventDefault();
-          return;
-        }
-        // If it's not same-origin, block navigation entirely to enforce tenant independence
-        try {
-          const u = new URL(href, window.location.href);
-          if (u.origin !== window.location.origin) {
-            ev.preventDefault();
-            console.warn('Blocked external navigation to', href);
-          }
-        } catch (e) {
-          ev.preventDefault();
-        }
-      });
 
       // wire button
       getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
@@ -453,7 +399,7 @@ function tenantRef(dbInstance, relPath = '') {
     <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <a id="adLink" href="#" class="block relative">
+      <a id="adLink" href="helloqueuejoy.netlify.app" class="block relative">
         <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
           <!-- ad content (img/video) will be injected here dynamically -->
         </div>
