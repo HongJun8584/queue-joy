@@ -2,6 +2,8 @@
 // POST { slug?, name?, templatePath? (optional), defaults? / settings?, counters? }
 // Header: x-master-key: <MASTER_API_KEY> OR Authorization: Bearer <MASTER_API_KEY>
 
+// IMPORTANT: ensure Node runtime supports global fetch (Node 18+). Netlify functions on modern runtimes expose fetch.
+
 const admin = require('firebase-admin');
 
 function jsonResponse(status, body) {
@@ -121,7 +123,6 @@ async function fetchTemplateNodes(db, templatePath, copyPaths = []) {
 }
 
 function ensureCounterShape(counterObj, defaultPrefix) {
-  // Normalize counters object entries so they have active/lastIssued/nowServing/prefix/name
   const out = {};
   for (const k of Object.keys(counterObj || {})) {
     const c = counterObj[k] || {};
@@ -134,6 +135,137 @@ function ensureCounterShape(counterObj, defaultPrefix) {
     };
   }
   return out;
+}
+
+/* ---------- Helper: GitHub copy (template -> slug folder) ---------- */
+/*
+  This routine uses GitHub Contents API:
+  - Reads files under TEMPLATE_PATH_IN_REPO (recursively)
+  - Creates the same files under TARGET_BASE_PATH (i.e. "<slug>/...") by PUTting /repos/:owner/:repo/contents/:path
+  Requirements:
+    - GITHUB_TOKEN with repo:contents write access (repo scope)
+    - GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH (branch to commit to)
+    - TEMPLATE_PATH_IN_REPO (e.g. "template")
+    - TARGET_BASE_PATH optional (defaults to slug)
+  NOTE: This implementation is intentionally simple and creates/overwrites individual files.
+  For large template trees or high-frequency creates, consider using a CI workflow or Netlify deploy API instead.
+*/
+
+async function githubApiFetch(path, method = 'GET', body = null, token) {
+  const url = `https://api.github.com${path}`;
+  const opts = { method, headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'queuejoy-createbusiness' } };
+  if (token) opts.headers['Authorization'] = `token ${token}`;
+  if (body) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { json = { text }; }
+  return { ok: res.ok, status: res.status, body: json };
+}
+
+// recursively list files in repo path -> returns array of { path, type, sha, content(base64) if file }
+async function listRepoFilesRecursive(owner, repo, path, branch, token) {
+  const out = [];
+
+  async function walk(p) {
+    const apiPath = `/repos/${owner}/${repo}/contents/${encodeURIComponent(p)}?ref=${encodeURIComponent(branch)}`;
+    const r = await githubApiFetch(apiPath, 'GET', null, token);
+    if (!r.ok) {
+      // If path missing, just return empty
+      return;
+    }
+    const items = r.body;
+    if (!Array.isArray(items)) {
+      // it's a file
+      if (items && items.type === 'file') {
+        out.push({ path: items.path, sha: items.sha, content: items.content, encoding: items.encoding || null });
+      }
+      return;
+    }
+    for (const it of items) {
+      if (it.type === 'file') {
+        out.push({ path: it.path, sha: it.sha, size: it.size });
+      } else if (it.type === 'dir') {
+        await walk(it.path);
+      } else {
+        // ignore submodules etc
+      }
+    }
+  }
+
+  await walk(path);
+  // fetch content for each file (we need base64 content for PUT)
+  for (const f of out) {
+    const r = await githubApiFetch(`/repos/${owner}/${repo}/contents/${encodeURIComponent(f.path)}?ref=${encodeURIComponent(branch)}`, 'GET', null, token);
+    if (r.ok && r.body && r.body.content) {
+      f.content = r.body.content; // base64
+      f.encoding = r.body.encoding;
+    } else {
+      f.content = null;
+      f.encoding = null;
+    }
+  }
+  return out;
+}
+
+async function deployTenantToRepo(slug, options = {}) {
+  const {
+    GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH = 'main',
+    TEMPLATE_PATH_IN_REPO = 'template', TARGET_BASE_PATH = slug, COMMITTER = null
+  } = options;
+
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    throw new Error('Missing GitHub deployment env (GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO)');
+  }
+
+  // Step 1: list template files recursively
+  const templatePath = TEMPLATE_PATH_IN_REPO.replace(/^\/+|\/+$/g, '') || 'template';
+  const files = await listRepoFilesRecursive(GITHUB_OWNER, GITHUB_REPO, templatePath, GITHUB_BRANCH, GITHUB_TOKEN);
+  if (!files || files.length === 0) {
+    throw new Error(`Template path "${templatePath}" is empty or not found in repo`);
+  }
+
+  // Step 2: create/overwrite files under TARGET_BASE_PATH/<relative>
+  // For each file path: source: templatePath/some/path -> targetPath: TARGET_BASE_PATH/some/path
+  const created = [];
+  for (const f of files) {
+    // compute relative path
+    if (!f.path || !f.content) continue;
+    let rel = f.path.replace(new RegExp(`^${templatePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?`), '');
+    if (rel.startsWith('/')) rel = rel.slice(1);
+    const targetPath = `${TARGET_BASE_PATH}/${rel}`;
+
+    // Prepare payload for PUT /repos/:owner/:repo/contents/:path
+    const message = `Create tenant ${slug} - add ${targetPath}`;
+    const payload = {
+      message,
+      content: f.content.replace(/\n/g,''), // keep base64; github accepts base64 content
+      branch: GITHUB_BRANCH
+    };
+    if (COMMITTER && COMMITTER.name && COMMITTER.email) payload.committer = { name: COMMITTER.name, email: COMMITTER.email };
+
+    // PUT to create file (if exists, GitHub requires sha to update; we try create first and fall back to update)
+    const apiPathCreate = `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(targetPath)}`;
+    let r = await githubApiFetch(apiPathCreate, 'PUT', payload, GITHUB_TOKEN);
+
+    if (!r.ok && (r.status === 422 || (r.body && r.body.message && /exists/i.test(r.body.message)))) {
+      // file exists: need to GET current sha and re-PUT with sha
+      const getRes = await githubApiFetch(`${apiPathCreate}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, 'GET', null, GITHUB_TOKEN);
+      if (getRes.ok && getRes.body && getRes.body.sha) {
+        payload.sha = getRes.body.sha;
+        r = await githubApiFetch(apiPathCreate, 'PUT', payload, GITHUB_TOKEN);
+      }
+    }
+
+    if (!r.ok) {
+      // log and continue (we don't abort whole deploy for one file)
+      created.push({ path: targetPath, ok: false, status: r.status, body: r.body });
+    } else {
+      created.push({ path: targetPath, ok: true, url: r.body && r.body.content && r.body.content.html_url ? r.body.content.html_url : null });
+    }
+  }
+
+  return created;
 }
 
 /* ---------- Handler ---------- */
@@ -198,7 +330,6 @@ exports.handler = async function handler(event) {
     let providedSettings = {};
     if (body.settings && typeof body.settings === 'object') providedSettings = body.settings;
     else if (body.defaults && typeof body.defaults === 'object') {
-      // body.defaults may be either a settings object or contain .settings
       providedSettings = body.defaults.settings && typeof body.defaults.settings === 'object'
         ? body.defaults.settings
         : body.defaults;
@@ -217,7 +348,6 @@ exports.handler = async function handler(event) {
       createdAt: nowIso,
       status: 'active',
       billing: { provider: (body.billing && body.billing.provider) || 'stripe', createdAt: nowIso },
-      // sensible default settings (include the keys your SPA expects)
       settings: Object.assign({
         name,
         mainTitle: providedSettings.mainTitle || providedSettings.title || '',
@@ -240,7 +370,6 @@ exports.handler = async function handler(event) {
         counter: `${siteBase}/${slug}/counter.html`,
         admin: `${siteBase}/${slug}/admin.html`
       },
-      // initial counters (if provided) else single sane default
       counters: providedCounters ? ensureCounterShape(providedCounters, defaultPrefix) : {
         default: { name: 'Counter 1', prefix: defaultPrefix, active: true, lastIssued: 0, nowServing: 0 }
       }
@@ -252,7 +381,7 @@ exports.handler = async function handler(event) {
     let txRes;
     try {
       txRes = await businessRef.transaction(current => {
-        if (current !== null) return; // abort if exists
+        if (current !== null) return;
         return tenantMinimal;
       }, undefined, false);
     } catch (e) {
@@ -266,23 +395,11 @@ exports.handler = async function handler(event) {
       return jsonResponse(409, { error: 'slug_exists', slug, existing });
     }
 
-    // fetch template nodes (if any)
+    // fetch template nodes (if any) and build tenantScoped as before
     const templatePath = body.templatePath || 'templates/default';
     const copyNodes = [
-      'settings',
-      'links',
-      'counters',
-      'queue',
-      'queueSubscriptions',
-      'subscribers',
-      'analytics',
-      'announcement',
-      'system',
-      'telegramPending',
-      'telegramTokens',
-      'adPanel'
+      'settings','links','counters','queue','queueSubscriptions','subscribers','analytics','announcement','system','telegramPending','telegramTokens','adPanel'
     ];
-
     let templateValues = {};
     try {
       templateValues = await fetchTemplateNodes(db, templatePath, copyNodes);
@@ -290,25 +407,14 @@ exports.handler = async function handler(event) {
       console.warn('failed to read template nodes', e && e.message);
     }
 
-    // build tenant namespace with merging rules:
-    // prefer template values as base, but let tenantMinimal (which includes providedSettings) override template
     const tenantPath = `tenants/${slug}`;
     const tenantScoped = {};
 
-    tenantScoped.settings = Object.assign(
-      {},
-      templateValues.settings || {},
-      tenantMinimal.settings // tenantMinimal.settings already contains providedSettings merged above
-    );
-
+    tenantScoped.settings = Object.assign({}, templateValues.settings || {}, tenantMinimal.settings);
     tenantScoped.links = Object.assign({}, templateValues.links || {}, tenantMinimal.links);
-
-    // counters: allow provided counters to override template; tenantMinimal.counters already holds providedDefaults
     tenantScoped.counters = Object.keys(templateValues.counters || {}).length
       ? Object.assign({}, templateValues.counters, tenantMinimal.counters)
       : tenantMinimal.counters;
-
-    // normalize counters shape
     tenantScoped.counters = ensureCounterShape(tenantScoped.counters, tenantScoped.settings.defaultPrefix || defaultPrefix);
 
     tenantScoped.queue = templateValues.queue || {};
@@ -336,9 +442,33 @@ exports.handler = async function handler(event) {
       await db.ref().update(updates);
     } catch (e) {
       console.error('post-create update failed', e && (e.stack || e.message || e));
-      // rollback businesses/<slug> created earlier
       try { await businessRef.remove(); } catch (remErr) { console.error('rollback failed', remErr && remErr.message); }
       return jsonResponse(500, { error: 'post_create_failed', message: 'Failed to write tenant namespace' });
+    }
+
+    // ------------------ Optional: create tenant folder in GitHub repo (Netlify will serve it) ------------------
+    // Enable by setting ENABLE_REPO_DEPLOY=true and providing GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO env vars.
+    const repoDeployEnabled = String(process.env.ENABLE_REPO_DEPLOY || 'false').toLowerCase() === 'true';
+    let repoResult = null;
+
+    if (repoDeployEnabled) {
+      try {
+        const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+        const GITHUB_OWNER = process.env.GITHUB_OWNER;
+        const GITHUB_REPO = process.env.GITHUB_REPO;
+        const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+        const TEMPLATE_PATH_IN_REPO = (process.env.TEMPLATE_PATH_IN_REPO || 'template').replace(/^\/+|\/+$/g, '');
+        const TARGET_BASE_PATH = slug; // create files at <slug>/...
+        const COMMITTER = (process.env.GITHUB_COMMITTERNAME && process.env.GITHUB_COMMITTEREMAIL) ? { name: process.env.GITHUB_COMMITTERNAME, email: process.env.GITHUB_COMMITTEREMAIL } : null;
+
+        repoResult = await deployTenantToRepo(slug, {
+          GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, TEMPLATE_PATH_IN_REPO, TARGET_BASE_PATH, COMMITTER
+        });
+      } catch (e) {
+        // Do NOT roll back Firebase on deploy failure — you still created tenant data.
+        console.error('repo deploy failed', e && (e.stack || e.message || e));
+        repoResult = { error: true, message: e && e.message ? e.message : String(e) };
+      }
     }
 
     const summary = {
@@ -349,7 +479,8 @@ exports.handler = async function handler(event) {
       createdAt: nowIso,
       copied: copyNodes.reduce((acc, k) => { acc[k] = !!templateValues[k]; return acc; }, {}),
       settings: tenantScoped.settings,
-      counters: tenantScoped.counters
+      counters: tenantScoped.counters,
+      repoDeploy: repoResult
     };
 
     return jsonResponse(200, summary);
