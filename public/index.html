@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Queue Joy - Digital Queue System</title>
 
-  <!-- Tailwind (dev) + font -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -15,9 +14,10 @@
     .fade-in { animation: fadeIn 0.45s cubic-bezier(.2,.9,.2,1); }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
     .db-image { max-height: 180px; object-fit: cover; }
+    .hidden { display: none !important; }
+    .muted { color: #6b7280; }
   </style>
 
-  <!-- Firebase v10 (module) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -31,7 +31,7 @@
       runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ----- Firebase config (unchanged) -----
+    // ---------- CONFIG ----------
     const firebaseConfig = {
       apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
       authDomain: "queue-joy-aa21b.firebaseapp.com",
@@ -44,12 +44,10 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window._db = db; // debug hook if needed in console
+    window._db = db; // debug hook
 
-    /* ---------------- Helpers ---------------- */
+    // ---------- UTILS ----------
     const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-    // transaction with retries + jittered backoff
     async function runTxWithRetries(pathRef, updater, maxRetries = 6) {
       let lastErr = null;
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -67,9 +65,44 @@
       throw lastErr || new Error('Transaction failed after retries');
     }
 
-    /* ---------------- DOM Ready ---------------- */
+    // slug extraction: first path segment if valid (alphanum + dash), or ?slug= override
+    function getTenantSlug() {
+      try {
+        const qp = new URLSearchParams(window.location.search);
+        const qslug = qp.get('slug');
+        if (qslug && /^[a-z0-9\-]+$/.test(qslug)) return qslug;
+      } catch (e) {}
+      try {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        if (parts.length === 0) return null;
+        const p0 = parts[0];
+        // avoid treating filenames (index.html) as slug
+        if (p0.includes('.')) return null;
+        if (/^[a-z0-9\-]+$/.test(p0)) return p0;
+      } catch (e) {}
+      return null;
+    }
+
+    // tenant-scoped ref helper
+    function tenantRef(relPath = '') {
+      relPath = String(relPath || '').replace(/^\/+/, '');
+      if (!CURRENT_SLUG) {
+        // demo (legacy) mode uses root paths
+        return ref(db, relPath || '/');
+      }
+      if (!relPath) return ref(db, `tenants/${CURRENT_SLUG}`);
+      return ref(db, `tenants/${CURRENT_SLUG}/${relPath}`);
+    }
+
+    // safe pick: returns trimmed string or null
+    const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
+
+    // ---------- DOM refs ----------
+    let CURRENT_SLUG = null;
+    let DEMO_MODE = true;
+
     document.addEventListener('DOMContentLoaded', () => {
-      // UI elements
+      // ui nodes
       const siteTitleEl = document.getElementById('siteTitle');
       const siteLogoEl = document.getElementById('siteLogo');
       const centerLogoImg = document.getElementById('centerLogo');
@@ -84,156 +117,131 @@
       const adLinkEl = document.getElementById('adLink');
       const adTextEl = document.getElementById('adText');
       const noAd = document.getElementById('noAd');
+      const adContainer = document.getElementById('adContainer');
       const smallTopTextEl = document.getElementById('smallTopText');
 
       function showError(msg) {
         console.warn(msg);
-        errorMessage.querySelector('p').textContent = msg;
+        const p = errorMessage.querySelector('p');
+        if (p) p.textContent = msg;
         errorMessage.classList.remove('hidden');
         successMessage.classList.add('hidden');
         setTimeout(() => errorMessage.classList.add('hidden'), 6000);
       }
       function showSuccess(msg) {
-        successMessage.querySelector('p').textContent = msg;
+        const p = successMessage.querySelector('p');
+        if (p) p.textContent = msg;
         successMessage.classList.remove('hidden');
         errorMessage.classList.add('hidden');
         setTimeout(() => successMessage.classList.add('hidden'), 6000);
       }
       function setLoading(flag) {
+        if (!getNumberBtn) return;
         getNumberBtn.disabled = flag;
         btnText.classList.toggle('hidden', flag);
         btnSpinner.classList.toggle('hidden', !flag);
         getNumberBtn.setAttribute('aria-busy', String(flag));
       }
 
-      /* -------- Settings listener (single source) -------- */
-      const settingsRef = ref(db, 'settings');
+      // determine mode
+      CURRENT_SLUG = getTenantSlug();
+      DEMO_MODE = !CURRENT_SLUG;
+      console.info('[INIT] slug:', CURRENT_SLUG, 'demo:', DEMO_MODE);
+
+      // settings listener: tenant-scoped or root
+      const settingsPath = DEMO_MODE ? 'settings' : 'settings';
+      // use tenantRef to point to correct db path
+      const settingsRef = tenantRef(settingsPath);
       onValue(settingsRef, snap => {
         const s = snap.exists() ? snap.val() : {};
-
-        const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
-
         // header logo
-        if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); }
+        const logoUrl = pick(s.logoUrl) || pick(s.logo) || null;
+        if (logoUrl) { siteLogoEl.src = logoUrl; siteLogoEl.classList.remove('hidden'); }
         else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
 
-        // page title — use new key mainTitle if present
+        // title
         const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
         siteTitleEl.textContent = topTitle;
         document.title = topTitle + ' - Digital Queue System';
 
-        // small text on top (NEW: map settings.smallTextOnTop -> #smallTopText)
-        if (smallTopTextEl) {
-          smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
-        }
+        // small text
+        smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || (DEMO_MODE ? 'Digital Queue System' : '');
 
-        // center logo (big)
-        if (s.logoUrl) {
-          centerLogoImg.src = s.logoUrl; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
-        } else if (s.logo) {
-          centerLogoImg.src = s.logo; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
-        } else {
-          centerLogoImg.src = ''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden');
-        }
+        // center logo
+        const center = pick(s.logoUrl) || pick(s.logo) || null;
+        if (center) { centerLogoImg.src = center; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden'); }
+        else { centerLogoImg.src = ''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden'); }
 
         // main headline & intro
         mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
         introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // --- AD handling (robust) ---
-const adContainer = document.getElementById('adContainer');
-adContainer.innerHTML = ''; // clear previous
+        // advertise handling (robust)
+        adContainer.innerHTML = '';
+        if (pick(s.adImage)) {
+          const url = String(s.adImage).trim();
+          const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
+          if (isVideo) {
+            const videoEl = document.createElement('video');
+            videoEl.setAttribute('playsinline','');
+            videoEl.autoplay = true;
+            videoEl.loop = true;
+            videoEl.muted = true;
+            videoEl.preload = 'metadata';
+            videoEl.className = 'w-full object-cover db-image';
+            videoEl.src = url;
+            adContainer.appendChild(videoEl);
+            videoEl.play().catch(()=>{ videoEl.setAttribute('controls',''); });
+            noAd.classList.add('hidden');
+          } else {
+            const imgEl = document.createElement('img');
+            imgEl.src = url;
+            imgEl.alt = 'Advertisement';
+            imgEl.className = 'w-full object-cover db-image';
+            imgEl.onload = () => {};
+            imgEl.onerror = () => { adContainer.innerHTML=''; noAd.classList.remove('hidden'); };
+            adContainer.appendChild(imgEl);
+            noAd.classList.add('hidden');
+          }
+        } else {
+          noAd.classList.remove('hidden');
+        }
 
-if (s.adImage) {
-  const url = String(s.adImage).trim();
-
-  // detect video extension OR base64 video
-  const isVideo =
-    /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) ||
-    url.startsWith('data:video/');
-
-  if (isVideo) {
-    const videoEl = document.createElement('video');
-
-    // autoplay-safe config
-    videoEl.setAttribute('playsinline', '');
-    videoEl.setAttribute('autoplay', '');
-    videoEl.setAttribute('loop', '');
-    videoEl.setAttribute('muted', '');
-    videoEl.setAttribute('preload', 'metadata');
-
-    videoEl.playsInline = true;
-    videoEl.autoplay = true;
-    videoEl.loop = true;
-    videoEl.muted = true;
-    videoEl.preload = 'metadata';
-
-    videoEl.className = 'w-full object-cover db-image';
-    videoEl.src = url;
-
-    adContainer.appendChild(videoEl);
-
-    videoEl.addEventListener('error', (ev) => {
-      console.warn('Ad video error', ev, videoEl.error && videoEl.error.code);
-    });
-
-    videoEl.addEventListener('loadedmetadata', () => {
-      console.info('Ad video metadata loaded', videoEl.currentSrc);
-    });
-
-    videoEl.play().catch(err => {
-      console.warn('Video play() failed:', err);
-      videoEl.setAttribute('controls', '');
-    });
-
-  } else {
-    // image / gif
-    const imgEl = document.createElement('img');
-    imgEl.src = url;
-    imgEl.alt = 'Advertisement';
-    imgEl.className = 'w-full object-cover db-image';
-    imgEl.onload = () => console.info('Ad image loaded', url);
-    imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
-    adContainer.appendChild(imgEl);
-  }
-
-  adContainer.classList.remove('hidden');
-  noAd.classList.add('hidden');
-
-} else {
-  adContainer.innerHTML = '';
-  adContainer.classList.add('hidden');
-  noAd.classList.remove('hidden');
-}
-
-        // ad text and link handling (unchanged)
         adTextEl.textContent = pick(s.adText) || '';
         adTextEl.classList.toggle('hidden', !adTextEl.textContent);
         if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
-        else { adLinkEl.href = 'helloqueuejoy.netlify.app'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
-
+        else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
       }, err => console.warn('settings read failed', err));
 
-      /* --- auto-redirect if lastQueueId still waiting --- */
+      // -------- auto-redirect if lastQueueId_{slug} still waiting -----------
       (async function autoRedirect() {
         try {
-          const lastQueueId = sessionStorage.getItem('lastQueueId');
+          const key = DEMO_MODE ? 'lastQueueId' : `lastQueueId_${CURRENT_SLUG}`;
+          const lastQueueId = sessionStorage.getItem(key);
           if (!lastQueueId) return;
-          const snap = await get(child(ref(db), `queue/${lastQueueId}`));
-          if (snap.exists() && snap.val().status === 'waiting') {
-            window.location.href = `status.html?queueId=${lastQueueId}`;
+          // verify under correct namespace
+          const qSnap = await get( tenantRef(`queue/${lastQueueId}`) );
+          if (qSnap.exists() && qSnap.val().status === 'waiting') {
+            // redirect to tenant-scoped status page
+            if (DEMO_MODE) {
+              window.location.href = `status.html?queueId=${encodeURIComponent(lastQueueId)}`;
+            } else {
+              window.location.href = `/${CURRENT_SLUG}/status.html?queueId=${encodeURIComponent(lastQueueId)}`;
+            }
+          } else {
+            // not waiting anymore, clear stale
+            try { sessionStorage.removeItem(key); } catch(e) {}
           }
         } catch (e) {
           console.warn('autoRedirect check failed', e);
         }
       })();
 
-      /* ------------ fetch active counters (deterministic) ------------ */
+      // ---------- Active counters (tenant-scoped) ----------
       async function fetchActiveCounters() {
-        const snap = await get(ref(db, 'counters'));
+        const snap = await get( tenantRef('counters') );
         if (!snap.exists()) return [];
-
         const raw = [];
         snap.forEach(s => {
           const val = s.val() || {};
@@ -247,73 +255,50 @@ if (s.adImage) {
             activeRaw === '1' ||
             String(activeRaw).toLowerCase() === 'yes' ||
             String(activeRaw).toLowerCase() === 'y';
-
           raw.push({ id: s.key, ...val, _active: !!active });
         });
-
         const activeList = raw.filter(c => c && c._active);
-
-        activeList.sort((a, b) => {
+        activeList.sort((a,b) => {
           const ao = (a.order !== undefined && a.order !== '' && a.order !== null) ? Number(a.order) : Number.POSITIVE_INFINITY;
           const bo = (b.order !== undefined && b.order !== '' && b.order !== null) ? Number(b.order) : Number.POSITIVE_INFINITY;
           if (ao !== bo) return ao - bo;
-
           const ai = a.id, bi = b.id;
           if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
-
           return String(ai).localeCompare(String(bi), undefined, { numeric: true, sensitivity: 'base' });
         });
-
         return activeList;
       }
 
-      /* ---------------- core: getQueueNumber ---------------- */
+      // ---------- Core: getQueueNumber (tenant-scoped) ----------
       async function getQueueNumber() {
         setLoading(true);
-
         try {
           const activeCounters = await fetchActiveCounters();
-          console.debug('Active counters:', activeCounters.map(c => ({ id: c.id, order: c.order, active: c._active })));
-
           if (!activeCounters || activeCounters.length === 0) {
             showError('No active counters available right now.');
             return;
           }
 
-          // round-robin index (atomic)
-          const rrRef = ref(db, 'settings/lastCounterIndex');
-
+          // round-robin counter index lives under tenant settings
+          const rrRef = tenantRef('settings/lastCounterIndex');
           const rrResult = await runTxWithRetries(rrRef, cur => {
             const ncur = Number(cur) || 0;
             return ncur + 1;
           }, 8);
 
-          if (!rrResult || rrResult.committed !== true) {
-            throw new Error('Round-robin transaction failed to commit.');
-          }
-
+          if (!rrResult || rrResult.committed !== true) throw new Error('Round-robin transaction failed to commit.');
           const rrVal = rrResult.snapshot && rrResult.snapshot.val();
           const globalCounter = Number(rrVal);
-          if (!Number.isFinite(globalCounter)) {
-            throw new Error('Invalid round-robin counter value returned.');
-          }
+          if (!Number.isFinite(globalCounter)) throw new Error('Invalid round-robin counter value returned.');
 
           const n = activeCounters.length;
           const index = ((globalCounter - 1) % n + n) % n;
-          let chosen = activeCounters[index];
-          if (!chosen) {
-            console.warn('Round-robin: chosen counter missing for index, falling back to first active counter', { globalCounter, index, n });
-            chosen = activeCounters[0];
-          }
+          let chosen = activeCounters[index] || activeCounters[0];
 
-          console.info('Round-robin selected:', { globalCounter, index, chosenId: chosen.id });
-
-          // increment per-counter lastIssued
-          const lastIssuedRef = ref(db, `counters/${chosen.id}/lastIssued`);
+          // increment per-counter lastIssued under tenant
+          const lastIssuedRef = tenantRef(`counters/${chosen.id}/lastIssued`);
           const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
-          if (!lastIssuedTx || lastIssuedTx.committed !== true) {
-            throw new Error('Failed to increment counter issued number.');
-          }
+          if (!lastIssuedTx || lastIssuedTx.committed !== true) throw new Error('Failed to increment counter issued number.');
 
           const nextNumber = Number(lastIssuedTx.snapshot && lastIssuedTx.snapshot.val());
           if (!Number.isFinite(nextNumber)) throw new Error('Invalid nextNumber from counter transaction.');
@@ -321,8 +306,8 @@ if (s.adImage) {
           const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // push queue entry
-          const newNode = push(ref(db, 'queue'));
+          // push queue entry under tenant namespace
+          const newNode = push( tenantRef('queue') );
           await set(newNode, {
             counterId: chosen.id,
             queueId,
@@ -330,10 +315,22 @@ if (s.adImage) {
             status: 'waiting'
           });
 
-          try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
+          // sessionStorage per tenant
+          try {
+            const key = DEMO_MODE ? 'lastQueueId' : `lastQueueId_${CURRENT_SLUG}`;
+            sessionStorage.setItem(key, newNode.key);
+          } catch (e) {}
 
           showSuccess(`You're number ${queueId}`);
-          setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 750);
+
+          // redirect to status (tenant-scoped path)
+          setTimeout(() => {
+            if (DEMO_MODE) {
+              window.location.href = `status.html?queueId=${encodeURIComponent(newNode.key)}`;
+            } else {
+              window.location.href = `/${CURRENT_SLUG}/status.html?queueId=${encodeURIComponent(newNode.key)}`;
+            }
+          }, 600);
 
         } catch (err) {
           console.error('getQueueNumber error', err);
@@ -346,7 +343,9 @@ if (s.adImage) {
       // wire button
       getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
 
-    }); // DOMContentLoaded end
+      // debug info
+      console.info('[INDEX INIT] Mode:', DEMO_MODE ? 'DEMO' : 'TENANT', 'slug:', CURRENT_SLUG);
+    }); // DOMContentLoaded
   </script>
 </head>
 
@@ -399,7 +398,7 @@ if (s.adImage) {
     <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <a id="adLink" href="helloqueuejoy.netlify.app" class="block relative">
+      <a id="adLink" href="#" class="block relative">
         <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
           <!-- ad content (img/video) will be injected here dynamically -->
         </div>
