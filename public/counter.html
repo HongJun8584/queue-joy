@@ -146,25 +146,59 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, update, remove, push, get, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, update, remove, push, get, runTransaction, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // ===== CONFIG =====
+    const SITE_URL = ''; // optional fixed base host (e.g. https://queuejoy.netlify.app)
+    const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.firebasestorage.app",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // ---------- TENANT RESOLUTION ----------
+    function getTenantSlugFromUrl() {
+      // 1) explicit ?slug= override
+      try {
+        const qp = new URLSearchParams(window.location.search);
+        const s = qp.get('slug');
+        if (s && /^[a-z0-9\-]+$/i.test(s)) return s.toLowerCase();
+      } catch (e) {}
+
+      // 2) path first segment (e.g. /demo-cafe/counter.html)
+      try {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        if (parts.length === 0) return null;
+        const p0 = parts[0];
+        // avoid treating filenames (index.html) as slug
+        if (p0.includes('.')) return null;
+        if (/^[a-z0-9\-]+$/i.test(p0)) return p0.toLowerCase();
+      } catch (e) {}
+
+      return null;
+    }
+
+    const TENANT = getTenantSlugFromUrl(); // null => legacy/demo root
+    const TENANT_PREFIX = TENANT ? `tenants/${TENANT}` : '';
+
+    function tenantRef(dbInstance, relPath = '') {
+      relPath = String(relPath || '').replace(/^\/+/, '');
+      if (!TENANT) return ref(dbInstance, relPath || '/'); // legacy root mode
+      if (!relPath) return ref(dbInstance, `tenants/${TENANT}`);
+      return ref(dbInstance, `tenants/${TENANT}/${relPath}`);
+    }
+    // ---------- end tenant resolution ----------
 
     document.addEventListener('DOMContentLoaded', () => {
-      const SITE_URL = ''; // set to your production URL if you want a fixed host
-      const NOTIFY_ENDPOINT = '/.netlify/functions/notifyCounter';
-
-      const firebaseConfig = {
-        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-        authDomain: "queue-joy-aa21b.firebaseapp.com",
-        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "queue-joy-aa21b",
-        storageBucket: "queue-joy-aa21b.firebasestorage.app",
-        messagingSenderId: "950240394209",
-        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const db = getDatabase(app);
-
       // DOM refs
       const countersGrid = document.getElementById('countersGrid');
       const emptyState = document.getElementById('emptyState');
@@ -207,23 +241,22 @@
           o.connect(g);
           g.connect(ctx.destination);
           o.start();
-          // short tone
           setTimeout(() => {
             o.stop();
-            // close context for mobile Safari
             try { ctx.close(); } catch(_) {}
           }, 160);
         } catch (e) {
-          // fallback: small DOM audio beep (optional)
           console.warn('beep failed', e);
         }
       }
 
-      // Listen to counters node
-      const countersRef = ref(db, 'counters');
+      // ---------- LISTENERS (tenant-scoped) ----------
+      const countersRef = tenantRef(db, 'counters');
       onValue(countersRef, snapshot => {
         countersData = snapshot.val() || {};
         renderCounters();
+      }, (err) => {
+        console.warn('counters read failed', err);
       });
 
       function renderCounters() {
@@ -247,7 +280,6 @@
           const lastIssued = c.lastIssued || 0;
           const prefix = c.prefix || '';
           const isActive = c.active !== false;
-          // NOTE: busy no longer controls UI; we removed cooldown
           const nowServingFormatted = `${prefix}${String(nowServing).padStart(3, '0')}`;
           const nextNumFormatted = `${prefix}${String((lastIssued || 0) + 1).padStart(3,'0')}`;
 
@@ -280,7 +312,6 @@
             </div>
 
             <div class="flex gap-2">
-              <!-- always enabled; removed cooldown/busy blocking -->
               <button class="callBtn flex-1 py-3 rounded-xl font-semibold text-white ${isActive ? '' : 'opacity-50 cursor-not-allowed'}" ${isActive ? '' : 'disabled'} style="background: linear-gradient(90deg,#10b981,#14b8a6);">Call Next</button>
               <button class="resetBtn px-4 py-3 bg-orange-500 text-white font-semibold rounded-xl">Reset</button>
             </div>
@@ -290,11 +321,9 @@
           card.querySelector('.editBtn').addEventListener('click', () => openEditCounter(counterId));
           card.querySelector('.deleteBtn').addEventListener('click', () => openDeleteCounter(counterId));
           card.querySelector('.callBtn').addEventListener('click', (ev) => {
-            // small visual feedback
             card.classList.add('called-flash');
             setTimeout(() => card.classList.remove('called-flash'), 900);
-
-            callNext(counterId); // no cooldown — transactions handle atomicity
+            callNext(counterId);
           });
           card.querySelector('.resetBtn').addEventListener('click', () => resetCounter(counterId));
 
@@ -331,7 +360,7 @@
         counterModal.classList.add('show');
       }
 
-      // Save counter
+      // Save counter (tenant-scoped)
       counterForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = counterNameInput.value.trim();
@@ -341,13 +370,13 @@
         const editingId = counterIdInput.value;
         try {
           if (editingId) {
-            await update(ref(db, `counters/${editingId}`), { name, prefix });
+            await update(tenantRef(db, `counters/${editingId}`), { name, prefix });
           } else {
-            const lastAssignedRef = ref(db, 'lastAssignedCounter');
+            const lastAssignedRef = tenantRef(db, 'lastAssignedCounter');
             const tx = await runTransaction(lastAssignedRef, (curr) => (curr || 0) + 1);
             const newNum = tx.snapshot.val();
             const newId = `counter${newNum}`;
-            await set(ref(db, `counters/${newId}`), {
+            await set(tenantRef(db, `counters/${newId}`), {
               name, prefix, active: true, busy: false, nowServing: 0, lastIssued: 0, lastAdvanceAt: Date.now()
             });
           }
@@ -366,7 +395,7 @@
       confirmDeleteBtn.addEventListener('click', async () => {
         if (!deleteTargetId) return;
         try {
-          await remove(ref(db, `counters/${deleteTargetId}`));
+          await remove(tenantRef(db, `counters/${deleteTargetId}`));
           deleteModal.classList.remove('show');
           deleteTargetId = null;
         } catch (err) {
@@ -376,15 +405,14 @@
       });
       cancelDeleteBtn.addEventListener('click', () => { deleteModal.classList.remove('show'); deleteTargetId = null; });
 
-
-      // reset: clears counter fields and FULL /queue (kept as requested)
+      // reset: clears counter fields and FULL /queue (tenant-scoped)
       async function resetCounter(counterId) {
-        const ok = confirm('Reset this counter to 0 AND clear the entire /queue data in Firebase? This will remove all waiting tickets for all counters. Proceed?');
+        const ok = confirm('Reset this counter to 0 AND clear the entire /queue data for this tenant? This will remove all waiting tickets. Proceed?');
         if (!ok) return;
         try {
-          await update(ref(db, `counters/${counterId}`), { nowServing: 0, lastIssued: 0, busy: false, lastAdvanceAt: Date.now() });
-          await remove(ref(db, 'queue'));
-          alert('Counter reset and /queue cleared.');
+          await update(tenantRef(db, `counters/${counterId}`), { nowServing: 0, lastIssued: 0, busy: false, lastAdvanceAt: Date.now() });
+          await remove(tenantRef(db, 'queue'));
+          alert('Counter reset and tenant /queue cleared.');
         } catch (err) {
           console.error('Reset error', err);
           alert('Failed to reset / clear queue (see console).');
@@ -392,29 +420,20 @@
       }
 
       /**
-       * CALL NEXT:
-       * - Uses runTransaction on counters/{id} to atomically advance nowServing.
-       * - If lastIssued < nowServing, it is bumped to match so calling next is possible
-       *   even if there were no issued tickets previously.
-       * - After transaction completes, collects recipients from /queue for this counter
-       *   and posts the payload to NOTIFY_ENDPOINT.
-       * - Plays a short beep when a new number is served.
+       * CALL NEXT (tenant-scoped)
        */
       async function callNext(counterId) {
         try {
-          const counterNodeRef = ref(db, `counters/${counterId}`);
+          const counterNodeRef = tenantRef(db, `counters/${counterId}`);
 
-          // Atomic transaction on the whole counter object
           const tx = await runTransaction(counterNodeRef, (curr) => {
             if (!curr) {
-              // shouldn't happen, but initialize
               return { nowServing: 1, lastIssued: 1, lastAdvanceAt: Date.now(), name: counterId, prefix: '' };
             }
             const prevNow = curr.nowServing || 0;
             const prevLast = curr.lastIssued || 0;
             const nextNow = prevNow + 1;
-
-            const nextLast = Math.max(prevLast, nextNow); // ensure lastIssued >= nowServing
+            const nextLast = Math.max(prevLast, nextNow);
             return Object.assign({}, curr, { nowServing: nextNow, lastIssued: nextLast, lastAdvanceAt: Date.now() });
           });
 
@@ -431,8 +450,8 @@
           // Play beep for admin
           playBeep();
 
-          // Collect recipients from /queue who are waiting for this counter and have chatId
-          const qSnap = await get(ref(db, 'queue'));
+          // Collect recipients from tenant's /queue who are waiting for this counter and have chatId
+          const qSnap = await get(tenantRef(db, 'queue'));
           const recipients = [];
           if (qSnap.exists()) {
             const allQ = qSnap.val();
@@ -449,13 +468,15 @@
             try {
               let site = (SITE_URL && SITE_URL.trim()) ? SITE_URL.trim() : window.location.origin;
               site = site.replace(/\/$/, '');
+              // if tenant present, ensure site includes tenant path (for server logic if it needs it)
+              const siteWithTenant = TENANT ? `${site}/${TENANT}` : site;
               const payload = {
                 calledFull,
                 counterName: updated.name || counterId,
                 recipients
               };
 
-              const res = await fetch(`${site}${NOTIFY_ENDPOINT}`, {
+              const res = await fetch(`${siteWithTenant}${NOTIFY_ENDPOINT}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -486,14 +507,14 @@
       });
       closeTicketModalBtn.addEventListener('click', () => ticketModal.classList.remove('show'));
 
-      // Generate QR ONLY (no DB writes, no lastIssued update, no /queue entry)
+      // Generate QR ONLY (tenant-scoped link)
       ticketForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         try {
           let base = (SITE_URL && SITE_URL.trim()) ? SITE_URL.trim() : window.location.origin;
           base = base.replace(/\/$/, '');
-          const statusUrl = `${base}/index.html`;
+          const statusUrl = TENANT ? `${base}/${TENANT}/index.html` : `${base}/index.html`;
 
           ticketQRCode.innerHTML = '';
           const qrCanvas = document.createElement('canvas');
@@ -515,7 +536,7 @@
 
           openStatusBtn.classList.remove('hidden');
           downloadQRBtn.classList.remove('hidden');
-          openStatusBtn.onclick = () => window.open(statusUrl, '_blank');
+          openStatusBtn.onclick = () => window.open(statusUrl, '_blank', 'noopener');
           downloadQRBtn.onclick = () => downloadCanvasPNG(qrCanvas, `ticket-${ts}.png`);
 
         } catch (err) {
@@ -546,6 +567,11 @@
           emptyState.classList.remove('hidden');
         }
       })();
+
+      // cleanup: detach any open listeners when leaving
+      window.addEventListener('beforeunload', () => {
+        try { off(countersRef); } catch(_) {}
+      });
 
     }); // DOMContentLoaded end
   </script>
