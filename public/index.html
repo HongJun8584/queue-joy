@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Queue Joy - Digital Queue System</title>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
+  <!-- quick CSS to avoid flash: page starts hidden until JS marks ready -->
   <style>
+    /* Start hidden to avoid brand-flash; script will flip data-app to "ready" */
+    html[data-app="booting"] body { visibility: hidden !important; }
     :root { --card-radius: 1rem; }
     body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
     .fade-in { animation: fadeIn 0.45s cubic-bezier(.2,.9,.2,1); }
@@ -18,6 +18,40 @@
     .muted { color: #6b7280; }
   </style>
 
+  <!-- very small, early script: resolve slug BEFORE module executes -->
+  <script>
+    (function quickSlug() {
+      // compute tenant slug as early as possible to avoid flashing the wrong UI
+      function getCandidate() {
+        try {
+          const qp = new URLSearchParams(location.search);
+          const s = qp.get('slug');
+          if (s && /^[a-z0-9\-]+$/.test(s)) return s;
+        } catch (e) {}
+        try {
+          const parts = location.pathname.split('/').filter(Boolean);
+          if (!parts.length) return null;
+          const p0 = parts[0];
+          if (p0.includes('.')) return null;
+          if (/^[a-z0-9\-]+$/.test(p0)) return p0;
+        } catch (e) {}
+        return null;
+      }
+      const slug = getCandidate();
+      // expose very early for module script to read synchronously
+      window.__QJ_SLUG__ = slug || null;
+      // set booting flag (page hidden until we set ready)
+      document.documentElement.setAttribute('data-app', 'booting');
+      // also expose quick debug
+      console.info('[BOOT] early slug resolved:', window.__QJ_SLUG__);
+    })();
+  </script>
+
+  <!-- Tailwind dev CDN (you already had it; warning in console is fine) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- main module (tenant-aware) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -25,7 +59,6 @@
       ref,
       set,
       get,
-      child,
       push,
       onValue,
       runTransaction
@@ -46,7 +79,7 @@
     const db = getDatabase(app);
     window._db = db; // debug hook
 
-    // ---------- UTILS ----------
+    // ---------- small helpers ----------
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     async function runTxWithRetries(pathRef, updater, maxRetries = 6) {
       let lastErr = null;
@@ -65,44 +98,25 @@
       throw lastErr || new Error('Transaction failed after retries');
     }
 
-    // slug extraction: first path segment if valid (alphanum + dash), or ?slug= override
-    function getTenantSlug() {
-      try {
-        const qp = new URLSearchParams(window.location.search);
-        const qslug = qp.get('slug');
-        if (qslug && /^[a-z0-9\-]+$/.test(qslug)) return qslug;
-      } catch (e) {}
-      try {
-        const parts = window.location.pathname.split('/').filter(Boolean);
-        if (parts.length === 0) return null;
-        const p0 = parts[0];
-        // avoid treating filenames (index.html) as slug
-        if (p0.includes('.')) return null;
-        if (/^[a-z0-9\-]+$/.test(p0)) return p0;
-      } catch (e) {}
-      return null;
-    }
+    // safe pick
+    const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
+
+    // ---------- tenant resolution (read early slug set by inline script) ----------
+    const CURRENT_SLUG = (window.__QJ_SLUG__ && String(window.__QJ_SLUG__).trim()) ? String(window.__QJ_SLUG__).trim() : null;
+    const DEMO_MODE = !CURRENT_SLUG;
+    console.info('[INIT] CURRENT_SLUG:', CURRENT_SLUG, 'DEMO_MODE:', DEMO_MODE);
 
     // tenant-scoped ref helper
     function tenantRef(relPath = '') {
       relPath = String(relPath || '').replace(/^\/+/, '');
-      if (!CURRENT_SLUG) {
-        // demo (legacy) mode uses root paths
-        return ref(db, relPath || '/');
-      }
+      if (!CURRENT_SLUG) return ref(db, relPath || '/');
       if (!relPath) return ref(db, `tenants/${CURRENT_SLUG}`);
       return ref(db, `tenants/${CURRENT_SLUG}/${relPath}`);
     }
 
-    // safe pick: returns trimmed string or null
-    const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
-
-    // ---------- DOM refs ----------
-    let CURRENT_SLUG = null;
-    let DEMO_MODE = true;
-
+    // ---------- DOM and init ----------
     document.addEventListener('DOMContentLoaded', () => {
-      // ui nodes
+      // DOM nodes
       const siteTitleEl = document.getElementById('siteTitle');
       const siteLogoEl = document.getElementById('siteLogo');
       const centerLogoImg = document.getElementById('centerLogo');
@@ -143,102 +157,94 @@
         getNumberBtn.setAttribute('aria-busy', String(flag));
       }
 
-      // determine mode
-      CURRENT_SLUG = getTenantSlug();
-      DEMO_MODE = !CURRENT_SLUG;
-      console.info('[INIT] slug:', CURRENT_SLUG, 'demo:', DEMO_MODE);
+      // show UI (unhide page). Called once initial data load or fallback timer runs.
+      let uiShown = false;
+      function showUI() {
+        if (uiShown) return;
+        uiShown = true;
+        document.documentElement.setAttribute('data-app', 'ready');
+        // remove inline visibility (if any)
+        document.documentElement.removeAttribute('data-app'); // remove booting marker to reveal
+        console.info('[UI] shown');
+      }
 
-      // settings listener: tenant-scoped or root
-      const settingsPath = DEMO_MODE ? 'settings' : 'settings';
-      // use tenantRef to point to correct db path
-      const settingsRef = tenantRef(settingsPath);
-      onValue(settingsRef, snap => {
+      // ---------- Settings listener (tenant or root) ----------
+      const settingsRef = tenantRef('settings');
+      let settingsInitial = false;
+      const settingsUnsub = onValue(settingsRef, snap => {
+        settingsInitial = true;
         const s = snap.exists() ? snap.val() : {};
-        // header logo
         const logoUrl = pick(s.logoUrl) || pick(s.logo) || null;
-        if (logoUrl) { siteLogoEl.src = logoUrl; siteLogoEl.classList.remove('hidden'); }
-        else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
-
-        // title
+        if (logoUrl) { siteLogoEl.src = logoUrl; siteLogoEl.classList.remove('hidden'); } else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
         const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
         siteTitleEl.textContent = topTitle;
         document.title = topTitle + ' - Digital Queue System';
-
-        // small text
         smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || (DEMO_MODE ? 'Digital Queue System' : '');
-
-        // center logo
         const center = pick(s.logoUrl) || pick(s.logo) || null;
         if (center) { centerLogoImg.src = center; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden'); }
         else { centerLogoImg.src = ''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden'); }
-
-        // main headline & intro
         mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
         introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // advertise handling (robust)
+        // ad handling
         adContainer.innerHTML = '';
         if (pick(s.adImage)) {
           const url = String(s.adImage).trim();
           const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
           if (isVideo) {
-            const videoEl = document.createElement('video');
-            videoEl.setAttribute('playsinline','');
-            videoEl.autoplay = true;
-            videoEl.loop = true;
-            videoEl.muted = true;
-            videoEl.preload = 'metadata';
-            videoEl.className = 'w-full object-cover db-image';
-            videoEl.src = url;
-            adContainer.appendChild(videoEl);
-            videoEl.play().catch(()=>{ videoEl.setAttribute('controls',''); });
+            const v = document.createElement('video');
+            v.setAttribute('playsinline','');
+            v.autoplay = true; v.loop = true; v.muted = true; v.preload = 'metadata';
+            v.className = 'w-full object-cover db-image'; v.src = url; adContainer.appendChild(v);
+            v.play().catch(()=>v.setAttribute('controls',''));
             noAd.classList.add('hidden');
           } else {
-            const imgEl = document.createElement('img');
-            imgEl.src = url;
-            imgEl.alt = 'Advertisement';
-            imgEl.className = 'w-full object-cover db-image';
-            imgEl.onload = () => {};
-            imgEl.onerror = () => { adContainer.innerHTML=''; noAd.classList.remove('hidden'); };
-            adContainer.appendChild(imgEl);
+            const img = document.createElement('img');
+            img.src = url; img.alt = 'Advertisement'; img.className='w-full object-cover db-image';
+            img.onerror = ()=>{ adContainer.innerHTML=''; noAd.classList.remove('hidden'); };
+            adContainer.appendChild(img);
             noAd.classList.add('hidden');
           }
         } else {
           noAd.classList.remove('hidden');
         }
-
         adTextEl.textContent = pick(s.adText) || '';
         adTextEl.classList.toggle('hidden', !adTextEl.textContent);
         if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
         else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
-      }, err => console.warn('settings read failed', err));
 
-      // -------- auto-redirect if lastQueueId_{slug} still waiting -----------
+        // now we have initial settings -> show UI
+        showUI();
+      }, err => {
+        console.warn('[settings] read failed', err);
+      });
+
+      // safety: if settings never fires, reveal UI after short timeout (prevents permanent hidden)
+      setTimeout(() => {
+        if (!uiShown) {
+          console.warn('[UI] fallback reveal after timeout');
+          showUI();
+        }
+      }, 2000);
+
+      // -------- auto-redirect if lastQueueId still waiting (tenant aware) ----------
       (async function autoRedirect() {
         try {
           const key = DEMO_MODE ? 'lastQueueId' : `lastQueueId_${CURRENT_SLUG}`;
           const lastQueueId = sessionStorage.getItem(key);
           if (!lastQueueId) return;
-          // verify under correct namespace
           const qSnap = await get( tenantRef(`queue/${lastQueueId}`) );
           if (qSnap.exists() && qSnap.val().status === 'waiting') {
-            // redirect to tenant-scoped status page
-            if (DEMO_MODE) {
-              window.location.href = `status.html?queueId=${encodeURIComponent(lastQueueId)}`;
-            } else {
-              window.location.href = `/${CURRENT_SLUG}/status.html?queueId=${encodeURIComponent(lastQueueId)}`;
-            }
+            if (DEMO_MODE) window.location.href = `status.html?queueId=${encodeURIComponent(lastQueueId)}`;
+            else window.location.href = `/${CURRENT_SLUG}/status.html?queueId=${encodeURIComponent(lastQueueId)}`;
           } else {
-            // not waiting anymore, clear stale
             try { sessionStorage.removeItem(key); } catch(e) {}
           }
-        } catch (e) {
-          console.warn('autoRedirect check failed', e);
-        }
+        } catch (e) { console.warn('autoRedirect check failed', e); }
       })();
 
-      // ---------- Active counters (tenant-scoped) ----------
+      // ---------- fetch active counters (tenant-scoped) ----------
       async function fetchActiveCounters() {
         const snap = await get( tenantRef('counters') );
         if (!snap.exists()) return [];
@@ -269,7 +275,7 @@
         return activeList;
       }
 
-      // ---------- Core: getQueueNumber (tenant-scoped) ----------
+      // ---------- getQueueNumber (tenant-scoped) ----------
       async function getQueueNumber() {
         setLoading(true);
         try {
@@ -279,7 +285,6 @@
             return;
           }
 
-          // round-robin counter index lives under tenant settings
           const rrRef = tenantRef('settings/lastCounterIndex');
           const rrResult = await runTxWithRetries(rrRef, cur => {
             const ncur = Number(cur) || 0;
@@ -295,7 +300,6 @@
           const index = ((globalCounter - 1) % n + n) % n;
           let chosen = activeCounters[index] || activeCounters[0];
 
-          // increment per-counter lastIssued under tenant
           const lastIssuedRef = tenantRef(`counters/${chosen.id}/lastIssued`);
           const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
           if (!lastIssuedTx || lastIssuedTx.committed !== true) throw new Error('Failed to increment counter issued number.');
@@ -306,7 +310,7 @@
           const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // push queue entry under tenant namespace
+          // push queue entry under tenant
           const newNode = push( tenantRef('queue') );
           await set(newNode, {
             counterId: chosen.id,
@@ -315,7 +319,6 @@
             status: 'waiting'
           });
 
-          // sessionStorage per tenant
           try {
             const key = DEMO_MODE ? 'lastQueueId' : `lastQueueId_${CURRENT_SLUG}`;
             sessionStorage.setItem(key, newNode.key);
@@ -323,13 +326,9 @@
 
           showSuccess(`You're number ${queueId}`);
 
-          // redirect to status (tenant-scoped path)
           setTimeout(() => {
-            if (DEMO_MODE) {
-              window.location.href = `status.html?queueId=${encodeURIComponent(newNode.key)}`;
-            } else {
-              window.location.href = `/${CURRENT_SLUG}/status.html?queueId=${encodeURIComponent(newNode.key)}`;
-            }
+            if (DEMO_MODE) window.location.href = `status.html?queueId=${encodeURIComponent(newNode.key)}`;
+            else window.location.href = `/${CURRENT_SLUG}/status.html?queueId=${encodeURIComponent(newNode.key)}`;
           }, 600);
 
         } catch (err) {
@@ -343,7 +342,7 @@
       // wire button
       getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
 
-      // debug info
+      // debug
       console.info('[INDEX INIT] Mode:', DEMO_MODE ? 'DEMO' : 'TENANT', 'slug:', CURRENT_SLUG);
     }); // DOMContentLoaded
   </script>
