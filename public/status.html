@@ -670,39 +670,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // ---------- TENANT RESOLUTION (insert near top) ----------
-  function getTenantSlugFromUrl() {
-    // 1) ?slug= override
-    try {
-      const qp = new URLSearchParams(window.location.search);
-      const s = qp.get('slug');
-      if (s && /^[a-z0-9\-]+$/.test(s)) return s;
-    } catch (e) {}
-  
-    // 2) path first segment (e.g. /demo-cafe/status.html)
-    try {
-      const parts = window.location.pathname.split('/').filter(Boolean);
-      if (parts.length === 0) return null;
-      const p0 = parts[0];
-      if (p0.includes('.')) return null; // avoid treating filenames as slug
-      if (/^[a-z0-9\-]+$/.test(p0)) return p0;
-    } catch (e) {}
-  
-    return null;
-  }
-  
-  const CURRENT_SLUG = getTenantSlugFromUrl();   // null => demo/root mode
-  const DEMO_MODE = !CURRENT_SLUG;
-  
-  function tenantRef(relPath = '') {
-    relPath = String(relPath || '').replace(/^\/+/, '');
-    if (!CURRENT_SLUG) return ref(db, relPath || '/');           // legacy/demo root
-    if (!relPath) return ref(db, `tenants/${CURRENT_SLUG}`);
-    return ref(db, `tenants/${CURRENT_SLUG}/${relPath}`);
-  }
-  // ---------- end tenant resolution ----------
-
-
   // Config
   const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
   const MARK_TOKEN_USED = '/.netlify/functions/markTokenUsed';
@@ -827,8 +794,7 @@
   obBack1.onclick = () => showSlide(0);
   obBack2.onclick = () => showSlide(1);
   obSkip.onclick = () => {
-    const modalKey = `qj_modal_skipped_${CURRENT_SLUG || 'root'}_${currentQueueKey}`;
-    localStorage.setItem(modalKey, 'true');
+    localStorage.setItem('qj_modal_skipped_' + currentQueueKey, 'true');
     closeModal();
   };
   obDone.onclick = closeModal;
@@ -847,7 +813,7 @@
       const res = await fetch(CREATE_LINK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queueKey: currentQueueKey, slug: CURRENT_SLUG })
+        body: JSON.stringify({ queueKey: currentQueueKey })
       });
       
       if (!res.ok) throw new Error('Failed');
@@ -988,11 +954,7 @@
     console.log('[STATUS] Redirecting to your_turn.html with queueKey:', currentQueueKey);
     updateProgress(100, 0, 'serving');
     setTimeout(() => {
-        if (DEMO_MODE) {
-          window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
-        } else {
-          window.location.href = `/${CURRENT_SLUG}/your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
-        }
+      window.location.href = `your_turn.html?queueId=${encodeURIComponent(currentQueueKey)}`;
     }, 600);
   }
 
@@ -1028,7 +990,7 @@
     const counterId = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
     if (counterId) {
       try {
-        const snap = await get( tenantRef(`counters/${counterId}`) );
+        const snap = await get(ref(db, `counters/${counterId}`));
         if (snap.exists()) {
           counterData = snap.val();
           servingNum = extractNumber(counterData.nowServing);
@@ -1098,7 +1060,7 @@
       // Fallback: count from queue if we can't get counter data
       console.log('[STATUS] No servingNum, using fallback count');
       try {
-        const allSnap = await get(tenantRef('queue'));
+        const allSnap = await get(ref(db, 'queue'));
         if (allSnap.exists()) {
           const all = allSnap.val();
           const myTime = currentQueueData.timestamp || 0;
@@ -1239,7 +1201,7 @@ function showAd(url) {
   // Logo
   async function loadLogo() {
     try {
-      const snap = await get(tenantRef('settings/logoUrl'));
+      const snap = await get(ref(db, 'settings/logoUrl'));
       if (snap.exists() && snap.val()) {
         const url = String(snap.val()).trim();
         if (url) {
@@ -1256,7 +1218,7 @@ function showAd(url) {
   // Avg service time from analytics
   async function loadAvgServiceTime() {
     try {
-      const snap = await get(tenantRef('analytics/serviceEvents'));
+      const snap = await get(ref(db, 'analytics/serviceEvents'));
       if (!snap.exists()) return;
       
       const events = snap.val();
@@ -1295,7 +1257,7 @@ function showAd(url) {
     await Promise.all([loadLogo(), loadAvgServiceTime()]);
     
     // Watch queue entry
-    qRef = tenantRef(`queue/${queueKey}`);
+    qRef = ref(db, `queue/${queueKey}`);
     onValue(qRef, (snap) => {
       if (!snap.exists()) {
         showError('Queue not found. Redirecting...');
@@ -1323,7 +1285,7 @@ function showAd(url) {
       if (cid && cid !== currentCounterId) {
         if (counterRef) off(counterRef);
         currentCounterId = cid;
-        counterRef = tenantRef(`counters/${cid}`);
+        counterRef = ref(db, `counters/${cid}`);
         onValue(counterRef, (cSnap) => {
           console.log('[STATUS] Counter data updated');
           computeEstimates();
@@ -1334,11 +1296,11 @@ function showAd(url) {
     });
     
     // Watch ads
-    adRef = tenantRef('settings/adImage');
+    adRef = ref(db, 'settings/adImage');
     onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
     
     // Watch analytics for service time updates
-    analyticsRef = tenantRef('analytics/serviceEvents');
+    analyticsRef = ref(db, 'analytics/serviceEvents');
     onValue(analyticsRef, async () => {
       await loadAvgServiceTime();
       computeEstimates();
