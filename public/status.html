@@ -666,75 +666,28 @@
   <div id="adContainer"></div>
 </div>
 
-<!-- runtime env injected by serverless function; must run before app -->
-<script src="/.netlify/functions/env.js"></script>
-
 <script type="module">
-  // ---------- runtime-aware firebase init & tenant resolution ----------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue, off, get, push, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  // Resolve firebaseConfig from window.__ENV__ (stringified JSON) if provided
-  let firebaseConfig = null;
-  try {
-    const rawCfg = window.__ENV && window.__ENV.FIREBASE_CONFIG;
-    firebaseConfig = rawCfg ? JSON.parse(rawCfg) : null;
-  } catch (e) {
-    console.warn('Invalid FIREBASE_CONFIG in window.__ENV__', e);
-    firebaseConfig = null;
-  }
-
-  // fallback DEV/demo config (keep only for local dev)
-  if (!firebaseConfig) {
-    firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.appspot.com",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-    };
-    console.warn('Using fallback firebase config — replace with FIREBASE_CONFIG at build/runtime for production');
-  }
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // Tenant detection order:
-  // 1) window.__ENV__.TENANT_ID
-  // 2) URL param ?tenant= or ?slug=
-  // 3) first path segment (/<slug>/status.html)
-  // 4) hostname subdomain (slug.example.netlify.app)
-  function normalizeSlug(raw=''){ return (raw||'').toString().trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,''); }
-  function detectTenant() {
-    try { if (window.__ENV && window.__ENV.TENANT_ID) { const s = normalizeSlug(window.__ENV.TENANT_ID); if (s) return s; } } catch {}
-    try { const qp = (new URL(location)).searchParams; const v = qp.get('tenant') || qp.get('slug'); if (v) return normalizeSlug(v); } catch {}
-    try { const parts = location.pathname.split('/').filter(Boolean); if (parts.length && !/status\.html|admin\.html/i.test(parts[0])) return normalizeSlug(parts[0]); } catch {}
-    try { const host = location.hostname || ''; const hp = host.split('.'); if (hp.length >= 3) return normalizeSlug(hp[0]); } catch {}
-    return '';
-  }
-
-  const TENANT_ID = detectTenant();
-  if (!TENANT_ID) {
-    document.addEventListener('DOMContentLoaded', () => {
-      const err = document.getElementById('error');
-      if (err) { err.style.display = 'block'; err.textContent = 'Tenant not configured. Contact the owner.'; }
-      else alert('Tenant not configured. Contact the owner.');
-    });
-    // Prevent any DB reads/writes — throw to stop script execution
-    throw new Error('TENANT_ID not found — aborting to avoid writing to root');
-  }
-  const TENANT_PATH = (window.__ENV && window.__ENV.FIREBASE_PATH) || `tenants/${TENANT_ID}`;
-
-  // Helper to build refs: tRef('settings') -> ref(db, `${TENANT_PATH}/settings`)
-  function tRef(path){ path = (path||'').replace(/^\/+|\/+$/g,''); return ref(db, `${TENANT_PATH}/${path}`); }
+  import { getDatabase, ref, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   // Config
   const CREATE_LINK_ENDPOINT = '/.netlify/functions/createTelegramLink';
   const MARK_TOKEN_USED = '/.netlify/functions/markTokenUsed';
   const TELEGRAM_BOT_URL = 'https://t.me/QueueJoyBot';
   const MAX_AHEAD = 20;
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+    authDomain: "queue-joy-aa21b.firebaseapp.com",
+    databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "queue-joy-aa21b",
+    storageBucket: "queue-joy-aa21b.firebasestorage.app",
+    messagingSenderId: "950240394209",
+    appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
   // DOM
   const obModal = document.getElementById('onboardingModal');
@@ -841,7 +794,7 @@
   obBack1.onclick = () => showSlide(0);
   obBack2.onclick = () => showSlide(1);
   obSkip.onclick = () => {
-    localStorage.setItem('qj_modal_skipped_' + TENANT_ID + ':' + currentQueueKey, 'true');
+    localStorage.setItem('qj_modal_skipped_' + currentQueueKey, 'true');
     closeModal();
   };
   obDone.onclick = closeModal;
@@ -860,7 +813,7 @@
       const res = await fetch(CREATE_LINK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: TENANT_ID, queueKey: currentQueueKey })
+        body: JSON.stringify({ queueKey: currentQueueKey })
       });
       
       if (!res.ok) throw new Error('Failed');
@@ -921,7 +874,7 @@
         await fetch(MARK_TOKEN_USED, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId: TENANT_ID, queueKey: currentQueueKey, token })
+          body: JSON.stringify({ queueKey: currentQueueKey, token })
         });
       }
     } catch (e) {}
@@ -937,10 +890,10 @@
   connectMainBtn.onclick = openModal;
   connectMiniBtn.onclick = openModal;
   document.getElementById('miniGame').onclick = () => {
-    const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
-    // use assign so it navigates in the same tab (keeps history)
-    window.location.assign(`game.html${q}`);
-  };
+  const q = currentQueueKey ? `?queueId=${encodeURIComponent(currentQueueKey)}` : '';
+  // use assign so it navigates in the same tab (keeps history)
+  window.location.assign(`game.html${q}`);
+};
 
 
   // UI Updates
@@ -1037,7 +990,7 @@
     const counterId = currentQueueData.counterId || currentQueueData.counter || currentQueueData.counterAssigned;
     if (counterId) {
       try {
-        const snap = await get(tRef(`counters/${counterId}`));
+        const snap = await get(ref(db, `counters/${counterId}`));
         if (snap.exists()) {
           counterData = snap.val();
           servingNum = extractNumber(counterData.nowServing);
@@ -1053,7 +1006,7 @@
             const rawServingNum = extractNumber(counterData.nowServing);
             
             // Check if myTicket has a prefix (like "COFFEE")
-            const ticketPrefix = String(myTicket).replace(/\d+$/g, '').trim();
+            const ticketPrefix = String(myTicket).replace(/\d+$/, '').trim();
             const formattedServing = ticketPrefix 
               ? `${ticketPrefix} ${String(rawServingNum).padStart(len, '0')}`
               : prefix + String(rawServingNum).padStart(len, '0');
@@ -1107,7 +1060,7 @@
       // Fallback: count from queue if we can't get counter data
       console.log('[STATUS] No servingNum, using fallback count');
       try {
-        const allSnap = await get(tRef('queue'));
+        const allSnap = await get(ref(db, 'queue'));
         if (allSnap.exists()) {
           const all = allSnap.val();
           const myTime = currentQueueData.timestamp || 0;
@@ -1144,111 +1097,111 @@
     updateProgress(progressPct, peopleAhead, myStatus);
   }
 
-  // Robust showAd — replace your existing showAd with this
-  function showAd(url) {
-    // clear previous content
-    adContainer.innerHTML = '';
+// Robust showAd — replace your existing showAd with this
+function showAd(url) {
+  // clear previous content
+  adContainer.innerHTML = '';
 
-    if (!url) {
-      adPanel.style.display = 'none';
-      return;
-    }
-    const u = String(url).trim();
-    if (!u) {
-      adPanel.style.display = 'none';
-      return;
-    }
-
-    // hide until we confirm the media loaded
+  if (!url) {
     adPanel.style.display = 'none';
-
-    // detection
-    const isDataVideo = /^data:video\//i.test(u);
-    const isBlobUrl = /^blob:/i.test(u);
-    const isDirectVideo = /\.(mp4|webm|ogg|mov)(?:[?#].*)?$/i.test(u);
-    const isYouTubeOrVimeo = /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
-
-    // YouTube / Vimeo -> responsive iframe embed
-    if (isYouTubeOrVimeo) {
-      let embedSrc = u;
-      try {
-        if (/youtube\.com\/watch\?v=/.test(u) || /youtube\.com\/shorts\//.test(u)) {
-          const urlObj = new URL(u);
-          const vid = urlObj.searchParams.get('v') || (u.match(/\/shorts\/([^?#]+)/) || [])[1];
-          if (vid) embedSrc = `https://www.youtube.com/embed/${vid}?rel=0&autoplay=1&mute=1&playsinline=1`;
-        } else if (/youtu\.be\//.test(u)) {
-          const id = u.split('youtu.be/')[1].split(/[?#]/)[0];
-          if (id) embedSrc = `https://www.youtube.com/embed/${id}?rel=0&autoplay=1&mute=1&playsinline=1`;
-        } else if (/vimeo\.com/.test(u)) {
-          const id = u.split('/').pop().split(/[?#]/)[0];
-          if (id) embedSrc = `https://player.vimeo.com/video/${id}?autoplay=1&muted=1&playsinline=1`;
-        }
-      } catch (e) {
-        embedSrc = u;
-      }
-
-      adContainer.innerHTML = `
-        <div style="position:relative;padding-top:56.25%;">
-          <iframe src="${embedSrc}"
-                  frameborder="0"
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowfullscreen
-                  style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:12px;overflow:hidden">
-          </iframe>
-        </div>`;
-      adPanel.style.display = 'block';
-      return;
-    }
-
-    // Direct / data / blob video
-    if (isDataVideo || isBlobUrl || isDirectVideo) {
-      const video = document.createElement('video');
-      video.src = u;
-      video.className = 'ad-media';
-      video.autoplay = true;
-      video.muted = true;        // required for autoplay in most browsers
-      video.loop = true;
-      video.playsInline = true;
-      video.setAttribute('playsinline', '');
-      video.controls = false;
-      video.style.borderRadius = '12px';
-
-      let loaded = false;
-      video.addEventListener('loadedmetadata', () => {
-        loaded = true;
-        adPanel.style.display = 'block';
-      });
-
-      video.addEventListener('error', (ev) => {
-        console.warn('Ad video failed to load:', u, ev);
-        // fallback — hide panel only when media truly fails
-        if (!loaded) adPanel.style.display = 'none';
-      });
-
-      adContainer.appendChild(video);
-      // try to play (some browsers require user gesture; ignore promise rejection)
-      video.play().catch(() => {});
-      return;
-    }
-
-    // Fallback: treat as image
-    const img = document.createElement('img');
-    img.src = u;
-    img.className = 'ad-media';
-    img.alt = 'Ad';
-    img.onload = () => { adPanel.style.display = 'block'; };
-    img.onerror = (e) => {
-      console.warn('Ad image failed to load:', u, e);
-      adPanel.style.display = 'none';
-    };
-    adContainer.appendChild(img);
+    return;
   }
+  const u = String(url).trim();
+  if (!u) {
+    adPanel.style.display = 'none';
+    return;
+  }
+
+  // hide until we confirm the media loaded
+  adPanel.style.display = 'none';
+
+  // detection
+  const isDataVideo = /^data:video\//i.test(u);
+  const isBlobUrl = /^blob:/i.test(u);
+  const isDirectVideo = /\.(mp4|webm|ogg|mov)(?:[?#].*)?$/i.test(u);
+  const isYouTubeOrVimeo = /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
+
+  // YouTube / Vimeo -> responsive iframe embed
+  if (isYouTubeOrVimeo) {
+    let embedSrc = u;
+    try {
+      if (/youtube\.com\/watch\?v=/.test(u) || /youtube\.com\/shorts\//.test(u)) {
+        const urlObj = new URL(u);
+        const vid = urlObj.searchParams.get('v') || (u.match(/\/shorts\/([^?#]+)/) || [])[1];
+        if (vid) embedSrc = `https://www.youtube.com/embed/${vid}?rel=0&autoplay=1&mute=1&playsinline=1`;
+      } else if (/youtu\.be\//.test(u)) {
+        const id = u.split('youtu.be/')[1].split(/[?#]/)[0];
+        if (id) embedSrc = `https://www.youtube.com/embed/${id}?rel=0&autoplay=1&mute=1&playsinline=1`;
+      } else if (/vimeo\.com/.test(u)) {
+        const id = u.split('/').pop().split(/[?#]/)[0];
+        if (id) embedSrc = `https://player.vimeo.com/video/${id}?autoplay=1&muted=1&playsinline=1`;
+      }
+    } catch (e) {
+      embedSrc = u;
+    }
+
+    adContainer.innerHTML = `
+      <div style="position:relative;padding-top:56.25%;">
+        <iframe src="${embedSrc}"
+                frameborder="0"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowfullscreen
+                style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:12px;overflow:hidden">
+        </iframe>
+      </div>`;
+    adPanel.style.display = 'block';
+    return;
+  }
+
+  // Direct / data / blob video
+  if (isDataVideo || isBlobUrl || isDirectVideo) {
+    const video = document.createElement('video');
+    video.src = u;
+    video.className = 'ad-media';
+    video.autoplay = true;
+    video.muted = true;        // required for autoplay in most browsers
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.controls = false;
+    video.style.borderRadius = '12px';
+
+    let loaded = false;
+    video.addEventListener('loadedmetadata', () => {
+      loaded = true;
+      adPanel.style.display = 'block';
+    });
+
+    video.addEventListener('error', (ev) => {
+      console.warn('Ad video failed to load:', u, ev);
+      // fallback — hide panel only when media truly fails
+      if (!loaded) adPanel.style.display = 'none';
+    });
+
+    adContainer.appendChild(video);
+    // try to play (some browsers require user gesture; ignore promise rejection)
+    video.play().catch(() => {});
+    return;
+  }
+
+  // Fallback: treat as image
+  const img = document.createElement('img');
+  img.src = u;
+  img.className = 'ad-media';
+  img.alt = 'Ad';
+  img.onload = () => { adPanel.style.display = 'block'; };
+  img.onerror = (e) => {
+    console.warn('Ad image failed to load:', u, e);
+    adPanel.style.display = 'none';
+  };
+  adContainer.appendChild(img);
+}
 
 
   // Logo
   async function loadLogo() {
     try {
-      const snap = await get(tRef('settings/logoUrl'));
+      const snap = await get(ref(db, 'settings/logoUrl'));
       if (snap.exists() && snap.val()) {
         const url = String(snap.val()).trim();
         if (url) {
@@ -1265,7 +1218,7 @@
   // Avg service time from analytics
   async function loadAvgServiceTime() {
     try {
-      const snap = await get(tRef('analytics/serviceEvents'));
+      const snap = await get(ref(db, 'analytics/serviceEvents'));
       if (!snap.exists()) return;
       
       const events = snap.val();
@@ -1304,7 +1257,7 @@
     await Promise.all([loadLogo(), loadAvgServiceTime()]);
     
     // Watch queue entry
-    qRef = tRef(`queue/${queueKey}`);
+    qRef = ref(db, `queue/${queueKey}`);
     onValue(qRef, (snap) => {
       if (!snap.exists()) {
         showError('Queue not found. Redirecting...');
@@ -1323,7 +1276,7 @@
       setTelegramUI(connected);
       
       // Show modal on first visit if not connected
-      if (!connected && !obModal.classList.contains('show') && !localStorage.getItem('qj_modal_skipped_' + TENANT_ID + ':' + queueKey)) {
+      if (!connected && !obModal.classList.contains('show') && !localStorage.getItem('qj_modal_skipped_' + queueKey)) {
         openModal();
       }
       
@@ -1332,7 +1285,7 @@
       if (cid && cid !== currentCounterId) {
         if (counterRef) off(counterRef);
         currentCounterId = cid;
-        counterRef = tRef(`counters/${cid}`);
+        counterRef = ref(db, `counters/${cid}`);
         onValue(counterRef, (cSnap) => {
           console.log('[STATUS] Counter data updated');
           computeEstimates();
@@ -1343,11 +1296,11 @@
     });
     
     // Watch ads
-    adRef = tRef('settings/adImage');
+    adRef = ref(db, 'settings/adImage');
     onValue(adRef, (snap) => showAd(snap.exists() ? snap.val() : null));
     
     // Watch analytics for service time updates
-    analyticsRef = tRef('analytics/serviceEvents');
+    analyticsRef = ref(db, 'analytics/serviceEvents');
     onValue(analyticsRef, async () => {
       await loadAvgServiceTime();
       computeEstimates();
