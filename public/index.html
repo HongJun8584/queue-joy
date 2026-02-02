@@ -6,7 +6,7 @@
   <title>QueueJoy — Get a Number</title>
   <meta name="description" content="QueueJoy demo" />
 
-  <!-- Tailwind CDN note: fine for demo. Build Tailwind for production. -->
+  <!-- Tailwind CDN acceptable for demo. Build Tailwind for production. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
@@ -18,14 +18,7 @@
     .db-image { max-height: 180px; object-fit: cover; }
   </style>
 
-  <!--
-    Safe env loader:
-    - Attempts to fetch /.netlify/functions/env.js as text (non-blocking).
-    - If response looks like JS (or has application/javascript CT), it evaluates it.
-    - If fetch fails / returns HTML, it will NOT throw a parse error.
-    - In demo mode (localhost or ?demo=true) the loader will inject a minimal safe demo env.
-    IMPORTANT: Deploy the function in Netlify — this loader is a robust safety net for preview and local dev.
-  -->
+  <!-- Safe runtime env loader (fetch-based) -->
   <script>
   (function () {
     const PATH = '/.netlify/functions/env.js';
@@ -50,25 +43,24 @@
           appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
         });
       }
-      console.info('[env loader] Demo env injected (demo mode). Use ?demo=true or set TENANT_ID site env in Netlify.');
+      console.info('[env loader] Demo env injected (demo mode). Use ?demo=true or set TENANT_ID in Netlify site envs.');
     }
 
     function safeEvalJs(text) {
       try {
-        // evaluated in global scope
+        // Evaluate in global scope
         (new Function(text))();
-        console.info('[env loader] env.js evaluated successfully.');
         return true;
       } catch (e) {
-        console.warn('[env loader] env.js evaluation failed:', e);
+        console.warn('[env loader] eval failed:', e);
         return false;
       }
     }
 
-    // Try to fetch the function with a short timeout (non-blocking)
+    // quick non-blocking fetch with timeout
     const controller = new AbortController();
-    const timeout = 1400; // ms — quick fallback for UI preview
-    const timer = setTimeout(() => controller.abort(), timeout);
+    const timeoutMs = 1500;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     fetch(PATH, { signal: controller.signal, cache: 'no-cache' })
       .then(async res => {
@@ -77,33 +69,50 @@
         const text = await res.text().catch(() => '');
 
         if (!res.ok) {
-          console.warn('[env loader] env function returned non-OK status', res.status);
+          console.warn('[env loader] env function returned status', res.status);
           if (demoForced) injectDemoEnv();
           return;
         }
 
-        // Heuristics: JS content-type OR the body starts with "window.__ENV" or contains "window.__ENV"
-        const looksLikeJs = ct.includes('javascript') || /^\s*window\.__ENV\b/m.test(text) || /window\.__ENV/.test(text);
-        if (looksLikeJs && text.trim().length > 10) {
-          if (!safeEvalJs(text)) {
+        const trimmed = text.trim();
+        // if it looks like HTML, skip eval (prevents SyntaxError)
+        if (!trimmed || trimmed.charAt(0) === '<') {
+          console.warn('[env loader] env.js response looks like HTML; skipped eval.');
+          if (demoForced) injectDemoEnv();
+          return;
+        }
+
+        // heuristics: content-type is javascript OR body contains env assignment patterns
+        const looksLikeJs = ct.includes('javascript') || /window\.__ENV\b|window\.__ENV__\b/.test(text);
+        if (looksLikeJs && text.length > 10) {
+          const ok = safeEvalJs(text);
+          if (!ok) {
+            console.warn('[env loader] eval returned false; using demo if forced.');
             if (demoForced) injectDemoEnv();
+          } else {
+            console.info('[env loader] env.js evaluated.');
           }
         } else {
-          // response might be HTML (starts with <) — do not eval — use demo fallback on local/demo
-          console.warn('[env loader] env.js response does not look like JS; skipping eval.');
+          console.warn('[env loader] env.js response does not look like JS; skipped eval.');
           if (demoForced) injectDemoEnv();
         }
       })
       .catch(err => {
         clearTimeout(timer);
-        // fetch error (timeout, network, aborted)
-        console.warn('[env loader] failed to fetch env.js', err);
+        console.warn('[env loader] fetch failed or timed out:', err);
         if (demoForced) injectDemoEnv();
+      })
+      .finally(() => {
+        // Normalize whichever global name the function set (single vs double underscore)
+        // Do this after a tiny delay to allow eval path to set window.__ENV__ synchronously.
+        setTimeout(() => {
+          window.__ENV = window.__ENV || window.__ENV__ || {};
+        }, 0);
       });
   })();
   </script>
 
-  <!-- Firebase + app logic (module). Runs after the loader attempts to populate window.__ENV -->
+  <!-- App (module) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -114,7 +123,6 @@
       child,
       push,
       onValue,
-      off,
       runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
@@ -167,18 +175,26 @@
       return '';
     }
 
-    // Demo mode enabled when ?demo=true OR on localhost
     const urlParams = (() => { try { return new URL(location).searchParams; } catch { return new URLSearchParams(); } })();
     const DEMO_FORCED = (urlParams.get('demo') === 'true') || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
     /* ---------- Firebase config (runtime-friendly) ---------- */
+    // window.__ENV may be set by the loader (or by the function's script if you prefer to use <script src=...>)
+    // We normalize both possible names already (window.__ENV or window.__ENV__ -> window.__ENV)
+    let runtimeEnv = window.__ENV || {};
+    // If runtimeEnv.FIREBASE_CONFIG is a JSON string, parse it; else leave null
     let firebaseConfig = null;
     try {
-      if (window.__ENV && window.__ENV.FIREBASE_CONFIG) {
-        firebaseConfig = JSON.parse(window.__ENV.FIREBASE_CONFIG);
+      if (runtimeEnv.FIREBASE_CONFIG) {
+        // could be a JSON string or a plain object encoded as string
+        try { firebaseConfig = JSON.parse(runtimeEnv.FIREBASE_CONFIG); }
+        catch (e) {
+          // if parsing fails but it's already an object, use it
+          if (typeof runtimeEnv.FIREBASE_CONFIG === 'object') firebaseConfig = runtimeEnv.FIREBASE_CONFIG;
+        }
       }
     } catch (e) {
-      console.warn('Invalid window.__ENV.FIREBASE_CONFIG', e);
+      console.warn('Invalid runtimeEnv.FIREBASE_CONFIG', e);
     }
 
     // fallback demo config — safe defaults for preview
@@ -197,14 +213,14 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window._db = db; // debug hook (dev only)
+    window._db = db; // debug
 
     /* ---------- Tenant base path ---------- */
-    let tenantId = detectTenant();
+    let tenantId = detectTenant() || (runtimeEnv && runtimeEnv.TENANT_ID) || '';
     let demoMode = false;
     if (!tenantId) {
       if (DEMO_FORCED) {
-        tenantId = 'demo'; // safe demo namespace
+        tenantId = 'demo';
         demoMode = true;
         console.info('DEMO MODE: tenant set to "demo". Use ?demo=true to force demo.');
       } else {
@@ -220,9 +236,8 @@
     const basePath = `tenants/${tenantId}`;
     const tRef = (p='') => ref(db, `${basePath}/${String(p||'').replace(/^\/+|\/+$/g,'')}`);
 
-    /* ---------- Minimal UI wiring (keeps your original DOM) ---------- */
+    /* ---------- Minimal UI wiring ---------- */
     document.addEventListener('DOMContentLoaded', () => {
-      // UI elements (same ids as before)
       const siteTitleEl = document.getElementById('siteTitle');
       const siteLogoEl = document.getElementById('siteLogo');
       const centerLogoImg = document.getElementById('centerLogo');
@@ -269,24 +284,21 @@
         }
       }
 
-      /* -------- Settings listener (tenant-scoped) -------- */
+      /* Settings listener */
       const settingsRef = tRef('settings');
       onValue(settingsRef, snap => {
         const s = snap.exists() ? snap.val() : {};
         const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
 
-        // header logo
         if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); }
         else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
 
-        // page title
         const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
         if (siteTitleEl) siteTitleEl.textContent = topTitle;
         document.title = topTitle + ' - Digital Queue System';
 
         if (smallTopTextEl) smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
 
-        // center logo
         if (s.logoUrl) {
           centerLogoImg.src = s.logoUrl; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
         } else if (s.logo) {
@@ -299,7 +311,6 @@
         introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly.';
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // ad
         const adContainer = document.getElementById('adContainer');
         adContainer && (adContainer.innerHTML = '');
         if (s.adImage) {
@@ -332,13 +343,13 @@
 
         adTextEl.textContent = pick(s.adText) || '';
         adTextEl.classList.toggle('hidden', !adTextEl.textContent);
-        const siteBase = (window.__ENV && window.__ENV.SITE_BASE) ? window.__ENV.SITE_BASE.replace(/\/$/, '') : null;
+        const siteBase = (runtimeEnv && runtimeEnv.SITE_BASE) ? runtimeEnv.SITE_BASE.replace(/\/$/, '') : null;
         if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
         else if (siteBase) { adLinkEl.href = `${siteBase}/${tenantId}`; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
         else { adLinkEl.href = '#'; adLinkEl.removeAttribute('target'); adLinkEl.removeAttribute('rel'); }
       }, err => console.warn('settings read failed', err));
 
-      /* --- auto-redirect if lastQueueId still waiting (tenant-scoped) --- */
+      /* auto-redirect if lastQueueId still waiting */
       (async function autoRedirect() {
         try {
           const lastQueueId = sessionStorage.getItem(`lastQueueId:${tenantId}`);
@@ -350,13 +361,12 @@
         } catch (e) { console.warn('autoRedirect check failed', e); }
       })();
 
-      /* ------------ fetch active counters (tenant-scoped) ------------ */
+      /* fetchActiveCounters */
       async function fetchActiveCounters() {
         try {
           const snap = await get(tRef('counters'));
           if (!snap.exists()) {
             if (demoMode) {
-              // in-memory demo counter so demo preview works without DB entries
               return [{ id: 'demo-counter-1', name: 'Counter 1', prefix: 'Q', active: true, lastIssued: 0, nowServing: 0 }];
             }
             return [];
@@ -395,7 +405,7 @@
         }
       }
 
-      /* ---------------- core: getQueueNumber (tenant-scoped) ---------------- */
+      /* getQueueNumber */
       async function getQueueNumber() {
         setLoading(true);
         try {
@@ -405,13 +415,10 @@
             return;
           }
 
-          // round-robin index (tenant-scoped system path)
           const rrRef = tRef('system/lastCounterIndex');
 
-          // If demoMode we simulate runTxWithRetries locally to avoid write conflicts
           let globalCounter;
           if (demoMode) {
-            // simple in-memory counter for demo (not persisted)
             if (!window.__QJ_DEMO_STATE) window.__QJ_DEMO_STATE = { rr: 0, counters: {} };
             window.__QJ_DEMO_STATE.rr = (window.__QJ_DEMO_STATE.rr || 0) + 1;
             globalCounter = window.__QJ_DEMO_STATE.rr;
@@ -426,7 +433,6 @@
           let chosen = activeCounters[index];
           if (!chosen) chosen = activeCounters[0];
 
-          // increment per-counter lastIssued (tenant-scoped)
           let nextNumber;
           if (demoMode) {
             const cid = chosen.id || 'demo-counter-1';
@@ -444,12 +450,9 @@
           const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
-          // push queue entry (tenant-scoped)
           let newNodeKey;
           if (demoMode) {
-            // emulate new node key
             newNodeKey = `demo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
-            // do NOT write to DB in demo mode
           } else {
             const newNode = push(tRef('queue'));
             await set(newNode, {
@@ -476,7 +479,6 @@
 
       // wire button
       getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
-
     }); // DOMContentLoaded
   </script>
 </head>
@@ -530,9 +532,7 @@
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
       <a id="adLink" href="#" class="block relative" target="_blank" rel="noopener noreferrer">
-        <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
-          <!-- ad content (img/video) will be injected here dynamically -->
-        </div>
+        <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden"></div>
       </a>
       <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
       <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
