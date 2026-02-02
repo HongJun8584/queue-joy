@@ -6,7 +6,7 @@
   <title>QueueJoy — Get a Number</title>
   <meta name="description" content="QueueJoy demo" />
 
-  <!-- Tailwind CDN is OK for demo. Replace with real build for production. -->
+  <!-- Tailwind CDN note: fine for demo. Build Tailwind for production. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
@@ -18,10 +18,92 @@
     .db-image { max-height: 180px; object-fit: cover; }
   </style>
 
-  <!-- runtime env — must be loaded before the app module so window.__ENV__ is available -->
-  <script src="/.netlify/functions/env.js"></script>
+  <!--
+    Safe env loader:
+    - Attempts to fetch /.netlify/functions/env.js as text (non-blocking).
+    - If response looks like JS (or has application/javascript CT), it evaluates it.
+    - If fetch fails / returns HTML, it will NOT throw a parse error.
+    - In demo mode (localhost or ?demo=true) the loader will inject a minimal safe demo env.
+    IMPORTANT: Deploy the function in Netlify — this loader is a robust safety net for preview and local dev.
+  -->
+  <script>
+  (function () {
+    const PATH = '/.netlify/functions/env.js';
+    const demoForced = (() => {
+      try { const qp = new URL(location).searchParams; return qp.get('demo') === 'true' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'; }
+      catch { return location.hostname === 'localhost' || location.hostname === '127.0.0.1'; }
+    })();
 
-  <!-- Firebase + app logic (module) -->
+    function injectDemoEnv() {
+      window.__ENV = window.__ENV || {};
+      window.__ENV.TENANT_ID = window.__ENV.TENANT_ID || 'demo';
+      window.__ENV.FIREBASE_PATH = window.__ENV.FIREBASE_PATH || 'tenants/demo';
+      window.__ENV.SITE_BASE = window.__ENV.SITE_BASE || location.origin;
+      if (!window.__ENV.FIREBASE_CONFIG) {
+        window.__ENV.FIREBASE_CONFIG = JSON.stringify({
+          apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+          authDomain: "queue-joy-aa21b.firebaseapp.com",
+          databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "queue-joy-aa21b",
+          storageBucket: "queue-joy-aa21b.appspot.com",
+          messagingSenderId: "950240394209",
+          appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+        });
+      }
+      console.info('[env loader] Demo env injected (demo mode). Use ?demo=true or set TENANT_ID site env in Netlify.');
+    }
+
+    function safeEvalJs(text) {
+      try {
+        // evaluated in global scope
+        (new Function(text))();
+        console.info('[env loader] env.js evaluated successfully.');
+        return true;
+      } catch (e) {
+        console.warn('[env loader] env.js evaluation failed:', e);
+        return false;
+      }
+    }
+
+    // Try to fetch the function with a short timeout (non-blocking)
+    const controller = new AbortController();
+    const timeout = 1400; // ms — quick fallback for UI preview
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    fetch(PATH, { signal: controller.signal, cache: 'no-cache' })
+      .then(async res => {
+        clearTimeout(timer);
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        const text = await res.text().catch(() => '');
+
+        if (!res.ok) {
+          console.warn('[env loader] env function returned non-OK status', res.status);
+          if (demoForced) injectDemoEnv();
+          return;
+        }
+
+        // Heuristics: JS content-type OR the body starts with "window.__ENV" or contains "window.__ENV"
+        const looksLikeJs = ct.includes('javascript') || /^\s*window\.__ENV\b/m.test(text) || /window\.__ENV/.test(text);
+        if (looksLikeJs && text.trim().length > 10) {
+          if (!safeEvalJs(text)) {
+            if (demoForced) injectDemoEnv();
+          }
+        } else {
+          // response might be HTML (starts with <) — do not eval — use demo fallback on local/demo
+          console.warn('[env loader] env.js response does not look like JS; skipping eval.');
+          if (demoForced) injectDemoEnv();
+        }
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        // fetch error (timeout, network, aborted)
+        console.warn('[env loader] failed to fetch env.js', err);
+        if (demoForced) injectDemoEnv();
+      });
+  })();
+  </script>
+
+  <!-- Firebase + app logic (module). Runs after the loader attempts to populate window.__ENV -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -60,37 +142,29 @@
 
     /* ---------- Tenant detection + demo mode ---------- */
     function detectTenant() {
-      // 1. window.__ENV__.TENANT_ID (best)
       try {
         if (window.__ENV && window.__ENV.TENANT_ID) {
           const s = normalizeSlug(window.__ENV.TENANT_ID);
           if (s) return s;
         }
       } catch (e) {}
-
-      // 2. URL query tenant= or slug=
       try {
         const qp = new URL(location).searchParams;
         const q = qp.get('tenant') || qp.get('slug');
         if (q) return normalizeSlug(q);
       } catch (e) {}
-
-      // 3. path first segment /<slug>/...
       try {
         const parts = location.pathname.split('/').filter(Boolean);
         if (parts.length > 0 && !/status\.html|admin\.html|index\.html/i.test(parts[0])) {
           return normalizeSlug(parts[0]);
         }
       } catch (e) {}
-
-      // 4. subdomain (slug.example.netlify.app)
       try {
         const host = location.hostname || '';
         const parts = host.split('.');
         if (parts.length >= 3) return normalizeSlug(parts[0]);
       } catch (e) {}
-
-      return ''; // not found
+      return '';
     }
 
     // Demo mode enabled when ?demo=true OR on localhost
@@ -104,7 +178,7 @@
         firebaseConfig = JSON.parse(window.__ENV.FIREBASE_CONFIG);
       }
     } catch (e) {
-      console.warn('Invalid window.__ENV__.FIREBASE_CONFIG', e);
+      console.warn('Invalid window.__ENV.FIREBASE_CONFIG', e);
     }
 
     // fallback demo config — safe defaults for preview
@@ -118,7 +192,7 @@
         messagingSenderId: "950240394209",
         appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
       };
-      console.warn('Using fallback demo Firebase config — replace with window.__ENV__.FIREBASE_CONFIG for production.');
+      console.warn('Using fallback demo Firebase config — replace with window.__ENV.FIREBASE_CONFIG for production.');
     }
 
     const app = initializeApp(firebaseConfig);
@@ -408,7 +482,6 @@
 </head>
 
 <body class="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-rose-50 flex flex-col items-center p-6 pb-20">
-
   <!-- Header -->
   <header class="w-full max-w-3xl mb-6">
     <div class="bg-white rounded-2xl shadow-md p-4 flex items-center gap-4">
