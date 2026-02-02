@@ -1,11 +1,13 @@
 // netlify/functions/env.js
+// Returns JS that sets window.__ENV for tenant sites.
+// Must return valid JS (not HTML). Content-Type = application/javascript
+
 exports.handler = async function handler() {
-  const TENANT = process.env.TENANT_ID || ''; // Netlify site env set by createNetlifySite
+  // Read Netlify site envs (these are set in Site settings -> Environment)
+  const TENANT = process.env.TENANT_ID || '';
   const FIREBASE_PATH = process.env.FIREBASE_PATH || (TENANT ? `tenants/${TENANT}` : '');
   const SITE_BASE = (process.env.SITE_BASE || '').replace(/\/$/, '');
-
-  // Optionally include FIREBASE_CONFIG if you injected it as stringified JSON
-  const FIREBASE_CONFIG = process.env.FIREBASE_CONFIG || '';
+  const FIREBASE_CONFIG = process.env.FIREBASE_CONFIG || ''; // optional stringified JSON
 
   return {
     statusCode: 200,
@@ -15,6 +17,7 @@ exports.handler = async function handler() {
       "Access-Control-Allow-Origin": "*"
     },
     body: `
+      // runtime env injected by Netlify function
       window.__ENV__ = {
         TENANT_ID: ${JSON.stringify(TENANT)},
         FIREBASE_PATH: ${JSON.stringify(FIREBASE_PATH)},
