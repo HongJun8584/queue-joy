@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Queue Joy - Digital Queue System</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>QueueJoy — Get a Number</title>
+  <meta name="description" content="QueueJoy demo" />
 
-  <!-- Tailwind (dev) + font -->
+  <!-- Tailwind CDN is OK for demo. Replace with real build for production. -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <style>
     :root { --card-radius: 1rem; }
@@ -17,132 +18,137 @@
     .db-image { max-height: 180px; object-fit: cover; }
   </style>
 
-  <!-- Firebase v10 (module) -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getDatabase,
-    ref,
-    set,
-    get,
-    child,
-    push,
-    onValue,
-    runTransaction
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  <!-- runtime env — must be loaded before the app module so window.__ENV__ is available -->
+  <script src="/.netlify/functions/env.js"></script>
 
-  // ---------- Helpers ----------
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  async function runTxWithRetries(pathRef, updater, maxRetries = 6) {
-    let lastErr = null;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  <!-- Firebase + app logic (module) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+      get,
+      child,
+      push,
+      onValue,
+      off,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    /* ---------- Utilities ---------- */
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    async function runTxWithRetries(pathRef, updater, maxRetries = 6) {
+      let lastErr = null;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await runTransaction(pathRef, updater, { applyLocally: false });
+          if (result && result.committed) return result;
+          lastErr = new Error(`Transaction not committed (attempt ${attempt})`);
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[tx] attempt ${attempt} failed`, err);
+        }
+        const backoff = 100 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 120);
+        await sleep(backoff);
+      }
+      throw lastErr || new Error('Transaction failed after retries');
+    }
+    function normalizeSlug(raw = '') {
+      return (raw || '').toString().trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    /* ---------- Tenant detection + demo mode ---------- */
+    function detectTenant() {
+      // 1. window.__ENV__.TENANT_ID (best)
       try {
-        const result = await runTransaction(pathRef, updater, { applyLocally: false });
-        if (result && result.committed) return result;
-        lastErr = new Error(`Transaction not committed (attempt ${attempt})`);
-      } catch (err) {
-        lastErr = err;
-        console.warn(`[tx] attempt ${attempt} failed`, err);
-      }
-      const backoff = 100 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 120);
-      await sleep(backoff);
+        if (window.__ENV && window.__ENV.TENANT_ID) {
+          const s = normalizeSlug(window.__ENV.TENANT_ID);
+          if (s) return s;
+        }
+      } catch (e) {}
+
+      // 2. URL query tenant= or slug=
+      try {
+        const qp = new URL(location).searchParams;
+        const q = qp.get('tenant') || qp.get('slug');
+        if (q) return normalizeSlug(q);
+      } catch (e) {}
+
+      // 3. path first segment /<slug>/...
+      try {
+        const parts = location.pathname.split('/').filter(Boolean);
+        if (parts.length > 0 && !/status\.html|admin\.html|index\.html/i.test(parts[0])) {
+          return normalizeSlug(parts[0]);
+        }
+      } catch (e) {}
+
+      // 4. subdomain (slug.example.netlify.app)
+      try {
+        const host = location.hostname || '';
+        const parts = host.split('.');
+        if (parts.length >= 3) return normalizeSlug(parts[0]);
+      } catch (e) {}
+
+      return ''; // not found
     }
-    throw lastErr || new Error('Transaction failed after retries');
-  }
 
-  function normalizeSlug(raw = '') {
-    return (raw || '').toString().trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  }
+    // Demo mode enabled when ?demo=true OR on localhost
+    const urlParams = (() => { try { return new URL(location).searchParams; } catch { return new URLSearchParams(); } })();
+    const DEMO_FORCED = (urlParams.get('demo') === 'true') || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
-  // ---------- Tenant resolution ----------
-  function getTenantId() {
-    // 1) window.__ENV__ injection (Netlify per-site env recommended)
+    /* ---------- Firebase config (runtime-friendly) ---------- */
+    let firebaseConfig = null;
     try {
-      if (window.__ENV && window.__ENV.TENANT_ID) {
-        const t = normalizeSlug(window.__ENV.TENANT_ID);
-        if (t) return t;
+      if (window.__ENV && window.__ENV.FIREBASE_CONFIG) {
+        firebaseConfig = JSON.parse(window.__ENV.FIREBASE_CONFIG);
       }
-    } catch (e) { /* ignore */ }
-
-    // 2) URL params: ?tenant= or ?slug=
-    try {
-      const qp = new URLSearchParams(location.search);
-      const q = qp.get('tenant') || qp.get('slug');
-      if (q) return normalizeSlug(q);
-    } catch (e) { /* ignore */ }
-
-    // 3) first path segment: /<slug>/...
-    try {
-      const parts = location.pathname.split('/').filter(Boolean);
-      if (parts.length > 0 && parts[0] !== 'status.html' && parts[0] !== 'admin.html') {
-        return normalizeSlug(parts[0]);
-      }
-    } catch (e) { /* ignore */ }
-
-    // 4) subdomain: slug.domain.netlify.app
-    try {
-      const host = location.hostname || '';
-      const hparts = host.split('.');
-      if (hparts.length >= 3) {
-        const candidate = normalizeSlug(hparts[0]);
-        if (candidate) return candidate;
-      }
-    } catch (e) { /* ignore */ }
-
-    return ''; // not found
-  }
-
-  // ---------- Firebase config resolution ----------
-  // Prefer runtime-injected config: window.__ENV__.FIREBASE_CONFIG (stringified JSON)
-  let firebaseConfig = null;
-  try {
-    if (window.__ENV && window.__ENV.FIREBASE_CONFIG) {
-      firebaseConfig = JSON.parse(window.__ENV.FIREBASE_CONFIG);
+    } catch (e) {
+      console.warn('Invalid window.__ENV__.FIREBASE_CONFIG', e);
     }
-  } catch (e) { console.warn('Invalid window.__ENV__.FIREBASE_CONFIG', e); }
 
-  // fallback: keep your demo config here only if you intend to run the demo (replace or remove in prod)
-  if (!firebaseConfig) {
-    firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.appspot.com",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-    };
-    console.warn('Using fallback demo Firebase config — replace with window.__ENV__.FIREBASE_CONFIG for production.');
-  }
+    // fallback demo config — safe defaults for preview
+    if (!firebaseConfig) {
+      firebaseConfig = {
+        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+        authDomain: "queue-joy-aa21b.firebaseapp.com",
+        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "queue-joy-aa21b",
+        storageBucket: "queue-joy-aa21b.appspot.com",
+        messagingSenderId: "950240394209",
+        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+      };
+      console.warn('Using fallback demo Firebase config — replace with window.__ENV__.FIREBASE_CONFIG for production.');
+    }
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  window._db = db; // debug hook
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    window._db = db; // debug hook (dev only)
 
-  // ---------- Tenant base ----------
-  const tenantId = getTenantId();
-  if (!tenantId) {
-    // show user-friendly error in UI
-    document.addEventListener('DOMContentLoaded', () => {
-      const err = document.getElementById('errorMessage');
-      if (err) {
-        err.querySelector('p').textContent = 'This site is not configured for a tenant. Contact the owner.';
-        err.classList.remove('hidden');
+    /* ---------- Tenant base path ---------- */
+    let tenantId = detectTenant();
+    let demoMode = false;
+    if (!tenantId) {
+      if (DEMO_FORCED) {
+        tenantId = 'demo'; // safe demo namespace
+        demoMode = true;
+        console.info('DEMO MODE: tenant set to "demo". Use ?demo=true to force demo.');
       } else {
-        alert('Tenant not found. Contact site admin.');
+        // show friendly error and stop execution to avoid writing to root
+        document.addEventListener('DOMContentLoaded', () => {
+          document.body.innerHTML = '<div style="padding:24px;max-width:720px;margin:40px auto;font-family:Inter,system-ui;"><h2>Site not configured for tenant</h2><p>This site instance is not associated with a tenant. If you are the owner, provision a tenant site. For demo preview, add <code>?demo=true</code> to the URL.</p></div>';
+        });
+        console.error('TENANT_ID not found and demo not enabled. Aborting to avoid root writes.');
+        throw new Error('TENANT_ID not found — aborting');
       }
-    });
-    // stop further execution to avoid writing to root paths
-    console.error('TENANT_ID not found. Aborting DB reads/writes to avoid global root mutation.');
-    // return early by not wiring listeners (we stop here)
-  } else {
-    const basePath = `tenants/${tenantId}`;
-    // helper to build refs
-    const refAt = (p) => ref(db, `${basePath}/${p.replace(/^\/+|\/+$/g, '')}`);
+    }
 
-    /* ---------------- DOM Ready ---------------- */
+    const basePath = `tenants/${tenantId}`;
+    const tRef = (p='') => ref(db, `${basePath}/${String(p||'').replace(/^\/+|\/+$/g,'')}`);
+
+    /* ---------- Minimal UI wiring (keeps your original DOM) ---------- */
     document.addEventListener('DOMContentLoaded', () => {
-      // UI elements
+      // UI elements (same ids as before)
       const siteTitleEl = document.getElementById('siteTitle');
       const siteLogoEl = document.getElementById('siteLogo');
       const centerLogoImg = document.getElementById('centerLogo');
@@ -161,26 +167,36 @@
 
       function showError(msg) {
         console.warn(msg);
-        errorMessage.querySelector('p').textContent = msg;
-        errorMessage.classList.remove('hidden');
-        successMessage.classList.add('hidden');
-        setTimeout(() => errorMessage.classList.add('hidden'), 6000);
+        if (errorMessage) {
+          errorMessage.querySelector('p').textContent = msg;
+          errorMessage.classList.remove('hidden');
+          successMessage.classList.add('hidden');
+          setTimeout(() => errorMessage.classList.add('hidden'), 6000);
+        } else {
+          alert(msg);
+        }
       }
       function showSuccess(msg) {
-        successMessage.querySelector('p').textContent = msg;
-        successMessage.classList.remove('hidden');
-        errorMessage.classList.add('hidden');
-        setTimeout(() => successMessage.classList.add('hidden'), 6000);
+        if (successMessage) {
+          successMessage.querySelector('p').textContent = msg;
+          successMessage.classList.remove('hidden');
+          errorMessage.classList.add('hidden');
+          setTimeout(() => successMessage.classList.add('hidden'), 6000);
+        } else {
+          console.info(msg);
+        }
       }
       function setLoading(flag) {
-        getNumberBtn.disabled = flag;
-        btnText.classList.toggle('hidden', flag);
-        btnSpinner.classList.toggle('hidden', !flag);
-        getNumberBtn.setAttribute('aria-busy', String(flag));
+        if (getNumberBtn) {
+          getNumberBtn.disabled = flag;
+          if (btnText) btnText.classList.toggle('hidden', flag);
+          if (btnSpinner) btnSpinner.classList.toggle('hidden', !flag);
+          getNumberBtn.setAttribute('aria-busy', String(flag));
+        }
       }
 
       /* -------- Settings listener (tenant-scoped) -------- */
-      const settingsRef = refAt('settings');
+      const settingsRef = tRef('settings');
       onValue(settingsRef, snap => {
         const s = snap.exists() ? snap.val() : {};
         const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
@@ -189,16 +205,14 @@
         if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); }
         else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
 
-        // page title — use new key mainTitle if present
+        // page title
         const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
-        siteTitleEl.textContent = topTitle;
+        if (siteTitleEl) siteTitleEl.textContent = topTitle;
         document.title = topTitle + ' - Digital Queue System';
 
-        if (smallTopTextEl) {
-          smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
-        }
+        if (smallTopTextEl) smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
 
-        // center logo (big)
+        // center logo
         if (s.logoUrl) {
           centerLogoImg.src = s.logoUrl; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
         } else if (s.logo) {
@@ -207,15 +221,13 @@
           centerLogoImg.src = ''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden');
         }
 
-        // main headline & intro
         mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
-        introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
+        introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly.';
         btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
 
-        // AD handling (tenant-scoped)
+        // ad
         const adContainer = document.getElementById('adContainer');
-        adContainer.innerHTML = '';
-
+        adContainer && (adContainer.innerHTML = '');
         if (s.adImage) {
           const url = String(s.adImage).trim();
           const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
@@ -225,29 +237,27 @@
             videoEl.setAttribute('autoplay','');
             videoEl.setAttribute('loop','');
             videoEl.setAttribute('muted','');
-            videoEl.setAttribute('preload','metadata');
             videoEl.className = 'w-full object-cover db-image';
             videoEl.src = url;
-            adContainer.appendChild(videoEl);
-            videoEl.play().catch(err => { console.warn('Video play failed', err); videoEl.setAttribute('controls',''); });
+            adContainer && adContainer.appendChild(videoEl);
+            videoEl.play().catch(()=>{});
           } else {
             const imgEl = document.createElement('img');
             imgEl.src = url;
             imgEl.alt = 'Advertisement';
             imgEl.className = 'w-full object-cover db-image';
-            adContainer.appendChild(imgEl);
+            adContainer && adContainer.appendChild(imgEl);
           }
-          adContainer.classList.remove('hidden');
-          noAd.classList.add('hidden');
+          adContainer && adContainer.classList.remove('hidden');
+          noAd && noAd.classList.add('hidden');
         } else {
-          adContainer.innerHTML = '';
-          adContainer.classList.add('hidden');
-          noAd.classList.remove('hidden');
+          adContainer && (adContainer.innerHTML = '');
+          adContainer && adContainer.classList.add('hidden');
+          noAd && noAd.classList.remove('hidden');
         }
 
         adTextEl.textContent = pick(s.adText) || '';
         adTextEl.classList.toggle('hidden', !adTextEl.textContent);
-        // default to SITE_BASE if provided
         const siteBase = (window.__ENV && window.__ENV.SITE_BASE) ? window.__ENV.SITE_BASE.replace(/\/$/, '') : null;
         if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
         else if (siteBase) { adLinkEl.href = `${siteBase}/${tenantId}`; adLinkEl.target = '_blank'; adLinkEl.rel = 'noopener noreferrer'; }
@@ -263,42 +273,52 @@
           if (snap.exists() && snap.val().status === 'waiting') {
             window.location.href = `status.html?queueId=${lastQueueId}`;
           }
-        } catch (e) {
-          console.warn('autoRedirect check failed', e);
-        }
+        } catch (e) { console.warn('autoRedirect check failed', e); }
       })();
 
       /* ------------ fetch active counters (tenant-scoped) ------------ */
       async function fetchActiveCounters() {
-        const snap = await get(ref(db, `${basePath}/counters`));
-        if (!snap.exists()) return [];
-        const raw = [];
-        snap.forEach(s => {
-          const val = s.val() || {};
-          const activeRaw = val.active;
-          const active =
-            activeRaw === undefined ||
-            activeRaw === null ||
-            activeRaw === true ||
-            activeRaw === 'true' ||
-            activeRaw === 1 ||
-            activeRaw === '1' ||
-            String(activeRaw).toLowerCase() === 'yes' ||
-            String(activeRaw).toLowerCase() === 'y';
-          raw.push({ id: s.key, ...val, _active: !!active });
-        });
+        try {
+          const snap = await get(tRef('counters'));
+          if (!snap.exists()) {
+            if (demoMode) {
+              // in-memory demo counter so demo preview works without DB entries
+              return [{ id: 'demo-counter-1', name: 'Counter 1', prefix: 'Q', active: true, lastIssued: 0, nowServing: 0 }];
+            }
+            return [];
+          }
 
-        const activeList = raw.filter(c => c && c._active);
-        activeList.sort((a, b) => {
-          const ao = (a.order !== undefined && a.order !== '' && a.order !== null) ? Number(a.order) : Number.POSITIVE_INFINITY;
-          const bo = (b.order !== undefined && b.order !== '' && b.order !== null) ? Number(b.order) : Number.POSITIVE_INFINITY;
-          if (ao !== bo) return ao - bo;
-          const ai = a.id, bi = b.id;
-          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
-          return String(ai).localeCompare(String(bi), undefined, { numeric: true, sensitivity: 'base' });
-        });
+          const raw = [];
+          snap.forEach(s => {
+            const val = s.val() || {};
+            const activeRaw = val.active;
+            const active =
+              activeRaw === undefined ||
+              activeRaw === null ||
+              activeRaw === true ||
+              activeRaw === 'true' ||
+              activeRaw === 1 ||
+              activeRaw === '1' ||
+              String(activeRaw).toLowerCase() === 'yes' ||
+              String(activeRaw).toLowerCase() === 'y';
+            raw.push({ id: s.key, ...val, _active: !!active });
+          });
 
-        return activeList;
+          const activeList = raw.filter(c => c && c._active);
+          activeList.sort((a, b) => {
+            const ao = (a.order !== undefined && a.order !== '' && a.order !== null) ? Number(a.order) : Number.POSITIVE_INFINITY;
+            const bo = (b.order !== undefined && b.order !== '' && b.order !== null) ? Number(b.order) : Number.POSITIVE_INFINITY;
+            if (ao !== bo) return ao - bo;
+            const ai = a.id, bi = b.id;
+            if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
+            return String(ai).localeCompare(String(bi), undefined, { numeric: true, sensitivity: 'base' });
+          });
+
+          return activeList;
+        } catch (e) {
+          console.warn('fetchActiveCounters error', e);
+          return demoMode ? [{ id: 'demo-counter-1', name: 'Counter 1', prefix: 'Q', active: true, lastIssued: 0, nowServing: 0 }] : [];
+        }
       }
 
       /* ---------------- core: getQueueNumber (tenant-scoped) ---------------- */
@@ -312,15 +332,20 @@
           }
 
           // round-robin index (tenant-scoped system path)
-          const rrRef = ref(db, `${basePath}/system/lastCounterIndex`);
-          const rrResult = await runTxWithRetries(rrRef, cur => {
-            const ncur = Number(cur) || 0;
-            return ncur + 1;
-          }, 8);
-          if (!rrResult || rrResult.committed !== true) throw new Error('Round-robin transaction failed to commit.');
-          const rrVal = rrResult.snapshot && rrResult.snapshot.val();
-          const globalCounter = Number(rrVal);
-          if (!Number.isFinite(globalCounter)) throw new Error('Invalid round-robin counter value returned.');
+          const rrRef = tRef('system/lastCounterIndex');
+
+          // If demoMode we simulate runTxWithRetries locally to avoid write conflicts
+          let globalCounter;
+          if (demoMode) {
+            // simple in-memory counter for demo (not persisted)
+            if (!window.__QJ_DEMO_STATE) window.__QJ_DEMO_STATE = { rr: 0, counters: {} };
+            window.__QJ_DEMO_STATE.rr = (window.__QJ_DEMO_STATE.rr || 0) + 1;
+            globalCounter = window.__QJ_DEMO_STATE.rr;
+          } else {
+            const rrResult = await runTxWithRetries(rrRef, cur => { const ncur = Number(cur) || 0; return ncur + 1; }, 8);
+            if (!rrResult || rrResult.committed !== true) throw new Error('Round-robin transaction failed to commit.');
+            globalCounter = Number(rrResult.snapshot && rrResult.snapshot.val());
+          }
 
           const n = activeCounters.length;
           const index = ((globalCounter - 1) % n + n) % n;
@@ -328,29 +353,44 @@
           if (!chosen) chosen = activeCounters[0];
 
           // increment per-counter lastIssued (tenant-scoped)
-          const lastIssuedRef = ref(db, `${basePath}/counters/${chosen.id}/lastIssued`);
-          const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
-          if (!lastIssuedTx || lastIssuedTx.committed !== true) throw new Error('Failed to increment counter issued number.');
+          let nextNumber;
+          if (demoMode) {
+            const cid = chosen.id || 'demo-counter-1';
+            window.__QJ_DEMO_STATE.counters[cid] = (window.__QJ_DEMO_STATE.counters[cid] || 0) + 1;
+            nextNumber = window.__QJ_DEMO_STATE.counters[cid];
+          } else {
+            const lastIssuedRef = tRef(`counters/${chosen.id}/lastIssued`);
+            const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
+            if (!lastIssuedTx || lastIssuedTx.committed !== true) throw new Error('Failed to increment counter issued number.');
+            nextNumber = Number(lastIssuedTx.snapshot && lastIssuedTx.snapshot.val());
+          }
 
-          const nextNumber = Number(lastIssuedTx.snapshot && lastIssuedTx.snapshot.val());
           if (!Number.isFinite(nextNumber)) throw new Error('Invalid nextNumber from counter transaction.');
 
           const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
           const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
 
           // push queue entry (tenant-scoped)
-          const newNode = push(ref(db, `${basePath}/queue`));
-          await set(newNode, {
-            counterId: chosen.id,
-            queueId,
-            timestamp: Date.now(),
-            status: 'waiting'
-          });
+          let newNodeKey;
+          if (demoMode) {
+            // emulate new node key
+            newNodeKey = `demo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
+            // do NOT write to DB in demo mode
+          } else {
+            const newNode = push(tRef('queue'));
+            await set(newNode, {
+              counterId: chosen.id,
+              queueId,
+              timestamp: Date.now(),
+              status: 'waiting'
+            });
+            newNodeKey = newNode.key;
+          }
 
-          try { sessionStorage.setItem(`lastQueueId:${tenantId}`, newNode.key); } catch (e) { /* ignore */ }
+          try { sessionStorage.setItem(`lastQueueId:${tenantId}`, newNodeKey); } catch (e) { /* ignore */ }
 
           showSuccess(`You're number ${queueId}`);
-          setTimeout(() => window.location.href = `status.html?queueId=${newNode.key}`, 750);
+          setTimeout(() => window.location.href = `status.html?queueId=${newNodeKey}`, 750);
 
         } catch (err) {
           console.error('getQueueNumber error', err);
@@ -362,10 +402,9 @@
 
       // wire button
       getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
-    }); // DOMContentLoaded
-  } // end else tenantId present
-</script>
 
+    }); // DOMContentLoaded
+  </script>
 </head>
 
 <body class="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-rose-50 flex flex-col items-center p-6 pb-20">
@@ -417,7 +456,7 @@
     <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <a id="adLink" href="helloqueuejoy.netlify.app" class="block relative">
+      <a id="adLink" href="#" class="block relative" target="_blank" rel="noopener noreferrer">
         <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
           <!-- ad content (img/video) will be injected here dynamically -->
         </div>
