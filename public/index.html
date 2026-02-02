@@ -5,18 +5,405 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Queue Joy - Digital Queue System</title>
 
-  <!-- Tailwind CDN ok for demo; compile / build for prod later -->
+  <!-- Tailwind (dev) + font -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
     :root { --card-radius: 1rem; }
-    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial; }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
     .fade-in { animation: fadeIn 0.45s cubic-bezier(.2,.9,.2,1); }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
     .db-image { max-height: 180px; object-fit: cover; }
   </style>
+
+  <!-- Firebase v10 (module) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+      get,
+      child,
+      push,
+      onValue,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // ----- Firebase config (unchanged) -----
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
+      authDomain: "queue-joy-aa21b.firebaseapp.com",
+      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "queue-joy-aa21b",
+      storageBucket: "queue-joy-aa21b.appspot.com",
+      messagingSenderId: "950240394209",
+      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    window._db = db; // debug hook if needed in console
+
+    // ---------- tenant helper (add immediately after db init) ----------
+function getSlugFromPath() {
+  // primary: first path segment (e.g. /demo-cafe/index.html -> demo-cafe)
+  const path = window.location.pathname || '/';
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length > 0) {
+    const p0 = parts[0];
+    if (/^[a-z0-9\-]+$/.test(p0)) return p0;
+  }
+  try {
+    const qp = new URLSearchParams(window.location.search);
+    if (qp.has('slug')) return qp.get('slug');
+  } catch (e) {}
+  return null;
+}
+
+const __TENANT_SLUG = getSlugFromPath();
+
+function tenantRef(dbInstance, relPath = '') {
+  relPath = String(relPath || '').replace(/^\/+/, '');
+  if (!__TENANT_SLUG) return ref(dbInstance, relPath || '/');
+  if (!relPath) return ref(dbInstance, `tenants/${__TENANT_SLUG}`);
+  return ref(dbInstance, `tenants/${__TENANT_SLUG}/${relPath}`);
+}
+
+    /* ---------------- Helpers ---------------- */
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    // transaction with retries + jittered backoff
+    async function runTxWithRetries(pathRef, updater, maxRetries = 6) {
+      let lastErr = null;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await runTransaction(pathRef, updater, { applyLocally: false });
+          if (result && result.committed) return result;
+          lastErr = new Error(`Transaction not committed (attempt ${attempt})`);
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[tx] attempt ${attempt} failed`, err);
+        }
+        const backoff = 100 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 120);
+        await sleep(backoff);
+      }
+      throw lastErr || new Error('Transaction failed after retries');
+    }
+
+    // ----- Safety: sanitize links from remote settings -----
+    function isSafeLinkCandidate(raw) {
+      if (!raw || typeof raw !== 'string') return false;
+      const trimmed = raw.trim();
+      // explicitly block javascript: and other dangerous schemes
+      if (/^(javascript|data|vbscript):/i.test(trimmed)) return false;
+
+      try {
+        const u = new URL(trimmed, window.location.href);
+        // allow only same-origin or relative links
+        if (u.origin === window.location.origin) return true;
+        // optionally allow fully-qualified HTTPS same-host (if hosting uses custom domain)
+        // disallow any other external host to ensure independence per-tenant
+        return false;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // UI elements
+      const siteTitleEl = document.getElementById('siteTitle');
+      const siteLogoEl = document.getElementById('siteLogo');
+      const centerLogoImg = document.getElementById('centerLogo');
+      const centerIcon = document.getElementById('centerIcon');
+      const mainHeading = document.getElementById('mainHeading');
+      const introText = document.getElementById('introText');
+      const getNumberBtn = document.getElementById('getNumberBtn');
+      const btnText = document.getElementById('btnText');
+      const btnSpinner = document.getElementById('btnSpinner');
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const adLinkEl = document.getElementById('adLink');
+      const adTextEl = document.getElementById('adText');
+      const noAd = document.getElementById('noAd');
+      const smallTopTextEl = document.getElementById('smallTopText');
+      const adContainer = document.getElementById('adContainer');
+
+      function showError(msg) {
+        console.warn(msg);
+        errorMessage.querySelector('p').textContent = msg;
+        errorMessage.classList.remove('hidden');
+        successMessage.classList.add('hidden');
+        setTimeout(() => errorMessage.classList.add('hidden'), 6000);
+      }
+      function showSuccess(msg) {
+        successMessage.querySelector('p').textContent = msg;
+        successMessage.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+        setTimeout(() => successMessage.classList.add('hidden'), 6000);
+      }
+      function setLoading(flag) {
+        getNumberBtn.disabled = flag;
+        btnText.classList.toggle('hidden', flag);
+        btnSpinner.classList.toggle('hidden', !flag);
+        getNumberBtn.setAttribute('aria-busy', String(flag));
+      }
+
+      /* -------- Settings listener (single source) -------- */
+      const settingsRef = tenantRef(db, 'settings');
+      onValue(settingsRef, snap => {
+        const s = snap.exists() ? snap.val() : {};
+        const pick = v => (typeof v === 'string' && v.trim()) ? v.trim() : (typeof v === 'number' || typeof v === 'boolean') ? v : null;
+
+        // header logo
+        if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); }
+        else { siteLogoEl.src = ''; siteLogoEl.classList.add('hidden'); }
+
+        // page title — use new key mainTitle if present
+        const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
+        siteTitleEl.textContent = topTitle;
+        document.title = topTitle + ' - Digital Queue System';
+
+        // small text on top
+        if (smallTopTextEl) {
+          smallTopTextEl.textContent = pick(s.smallTextOnTop) || pick(s.smallTopText) || 'Digital Queue System';
+        }
+
+        // center logo (big)
+        if (s.logoUrl) {
+          centerLogoImg.src = s.logoUrl; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
+        } else if (s.logo) {
+          centerLogoImg.src = s.logo; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden');
+        } else {
+          centerLogoImg.src = ''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden');
+        }
+
+        // main headline & intro
+        mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number';
+        introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly. No app needed.';
+        btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number');
+
+        // --- AD handling (robust & safe) ---
+        adContainer.innerHTML = '';
+
+        if (s.adImage) {
+          const url = String(s.adImage).trim();
+          const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
+
+          if (isVideo) {
+            const videoEl = document.createElement('video');
+            videoEl.setAttribute('playsinline', '');
+            videoEl.setAttribute('autoplay', '');
+            videoEl.setAttribute('loop', '');
+            videoEl.setAttribute('muted', '');
+            videoEl.setAttribute('preload', 'metadata');
+            videoEl.playsInline = true; videoEl.autoplay = true; videoEl.loop = true; videoEl.muted = true; videoEl.preload = 'metadata';
+            videoEl.className = 'w-full object-cover db-image';
+            videoEl.src = url;
+            adContainer.appendChild(videoEl);
+            videoEl.addEventListener('error', (ev) => console.warn('Ad video error', ev));
+            videoEl.play().catch(err => { console.warn('Video play failed', err); videoEl.setAttribute('controls', ''); });
+          } else {
+            const imgEl = document.createElement('img');
+            imgEl.src = url;
+            imgEl.alt = 'Advertisement';
+            imgEl.className = 'w-full object-cover db-image';
+            imgEl.onload = () => console.info('Ad image loaded', url);
+            imgEl.onerror = (e) => console.warn('Ad image failed to load', e, url);
+            adContainer.appendChild(imgEl);
+          }
+
+          adContainer.classList.remove('hidden');
+          noAd.classList.add('hidden');
+
+        } else {
+          adContainer.innerHTML = '';
+          adContainer.classList.add('hidden');
+          noAd.classList.remove('hidden');
+        }
+
+        adTextEl.textContent = pick(s.adText) || '';
+        adTextEl.classList.toggle('hidden', !adTextEl.textContent);
+
+        // === IMPORTANT: sanitize ad link from remote settings ===
+        const rawAdLink = (s.adLink || '').toString();
+        if (isSafeLinkCandidate(rawAdLink)) {
+          // only set links that are same-origin/relative -> will not navigate away to queuejoy.netlify.app
+          const safeUrl = new URL(rawAdLink, window.location.href).href;
+          adLinkEl.href = safeUrl;
+          adLinkEl.removeAttribute('target');
+          adLinkEl.setAttribute('rel', 'noopener');
+        } else {
+          // force no-op link (no external redirects)
+          adLinkEl.href = '#';
+          adLinkEl.removeAttribute('target');
+          adLinkEl.removeAttribute('rel');
+          if (rawAdLink && rawAdLink.trim()) console.warn('Blocked unsafe adLink from settings:', rawAdLink);
+        }
+
+      }, err => console.warn('settings read failed', err));
+
+      /* --- auto-redirect if lastQueueId still waiting (STRICT: only to local status.html) --- */
+      (async function autoRedirect() {
+        try {
+          const lastQueueId = sessionStorage.getItem('lastQueueId');
+          if (!lastQueueId) return;
+          const snap = await get(child(tenantRef(db, ''), `queue/${lastQueueId}`));
+          if (snap.exists() && snap.val().status === 'waiting') {
+            // always use relative path to ensure same-host navigation
+            const target = `status.html?queueId=${encodeURIComponent(lastQueueId)}`;
+            console.info('Auto-redirecting to local status page ->', target);
+            window.location.href = target;
+          }
+        } catch (e) {
+          console.warn('autoRedirect check failed', e);
+        }
+      })();
+
+      /* ------------ fetch active counters (deterministic) ------------ */
+      async function fetchActiveCounters() {
+        const snap = await get(tenantRef(db, 'counters'));
+        if (!snap.exists()) return [];
+
+        const raw = [];
+        snap.forEach(s => {
+          const val = s.val() || {};
+          const activeRaw = val.active;
+          const active =
+            activeRaw === undefined ||
+            activeRaw === null ||
+            activeRaw === true ||
+            activeRaw === 'true' ||
+            activeRaw === 1 ||
+            activeRaw === '1' ||
+            String(activeRaw).toLowerCase() === 'yes' ||
+            String(activeRaw).toLowerCase() === 'y';
+
+          raw.push({ id: s.key, ...val, _active: !!active });
+        });
+
+        const activeList = raw.filter(c => c && c._active);
+
+        activeList.sort((a, b) => {
+          const ao = (a.order !== undefined && a.order !== '' && a.order !== null) ? Number(a.order) : Number.POSITIVE_INFINITY;
+          const bo = (b.order !== undefined && b.order !== '' && b.order !== null) ? Number(b.order) : Number.POSITIVE_INFINITY;
+          if (ao !== bo) return ao - bo;
+
+          const ai = a.id, bi = b.id;
+          if (!isNaN(Number(ai)) && !isNaN(Number(bi))) return Number(ai) - Number(bi);
+
+          return String(ai).localeCompare(String(bi), undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        return activeList;
+      }
+
+      /* ---------------- core: getQueueNumber ---------------- */
+      async function getQueueNumber() {
+        setLoading(true);
+
+        try {
+          const activeCounters = await fetchActiveCounters();
+          console.debug('Active counters:', activeCounters.map(c => ({ id: c.id, order: c.order, active: c._active })));
+
+          if (!activeCounters || activeCounters.length === 0) {
+            showError('No active counters available right now.');
+            return;
+          }
+
+          // round-robin index (atomic)
+          const rrRef = tenantRef(db, 'settings/lastCounterIndex');
+
+          const rrResult = await runTxWithRetries(rrRef, cur => {
+            const ncur = Number(cur) || 0;
+            return ncur + 1;
+          }, 8);
+
+          if (!rrResult || rrResult.committed !== true) {
+            throw new Error('Round-robin transaction failed to commit.');
+          }
+
+          const rrVal = rrResult.snapshot && rrResult.snapshot.val();
+          const globalCounter = Number(rrVal);
+          if (!Number.isFinite(globalCounter)) {
+            throw new Error('Invalid round-robin counter value returned.');
+          }
+
+          const n = activeCounters.length;
+          const index = ((globalCounter - 1) % n + n) % n;
+          let chosen = activeCounters[index];
+          if (!chosen) {
+            console.warn('Round-robin: chosen counter missing for index, falling back to first active counter', { globalCounter, index, n });
+            chosen = activeCounters[0];
+          }
+
+          console.info('Round-robin selected:', { globalCounter, index, chosenId: chosen.id });
+
+          // increment per-counter lastIssued
+          const lastIssuedRef = tenantRef(db, `counters/${chosen.id}/lastIssued`);
+          const lastIssuedTx = await runTxWithRetries(lastIssuedRef, cur => (Number(cur) || 0) + 1, 8);
+          if (!lastIssuedTx || lastIssuedTx.committed !== true) {
+            throw new Error('Failed to increment counter issued number.');
+          }
+
+          const nextNumber = Number(lastIssuedTx.snapshot && lastIssuedTx.snapshot.val());
+          if (!Number.isFinite(nextNumber)) throw new Error('Invalid nextNumber from counter transaction.');
+
+          const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
+          const queueId = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+
+          // push queue entry
+          const newNode = push(tenantRef(db, 'queue'));
+          await set(newNode, {
+            counterId: chosen.id,
+            queueId,
+            timestamp: Date.now(),
+            status: 'waiting'
+          });
+
+          try { sessionStorage.setItem('lastQueueId', newNode.key); } catch (e) { /* ignore */ }
+
+          showSuccess(`You're number ${queueId}`);
+          setTimeout(() => {
+            // must be relative local status page
+            window.location.href = `status.html?queueId=${encodeURIComponent(newNode.key)}`;
+          }, 750);
+
+        } catch (err) {
+          console.error('getQueueNumber error', err);
+          showError(err && err.message ? err.message : 'Failed to get queue number. Try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // Prevent accidental external navigation via ad link (double-safety)
+      adLinkEl.addEventListener('click', (ev) => {
+        const href = adLinkEl.getAttribute('href') || '';
+        if (!href || href === '#') {
+          ev.preventDefault();
+          return;
+        }
+        // If it's not same-origin, block navigation entirely to enforce tenant independence
+        try {
+          const u = new URL(href, window.location.href);
+          if (u.origin !== window.location.origin) {
+            ev.preventDefault();
+            console.warn('Blocked external navigation to', href);
+          }
+        } catch (e) {
+          ev.preventDefault();
+        }
+      });
+
+      // wire button
+      getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
+
+    }); // DOMContentLoaded end
+  </script>
 </head>
+
 <body class="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-rose-50 flex flex-col items-center p-6 pb-20">
 
   <!-- Header -->
@@ -38,8 +425,7 @@
         <img id="centerLogo" class="w-20 h-20 rounded-full object-cover hidden mx-auto shadow-sm border" alt="center logo"/>
         <div id="centerIcon" class="w-20 h-20 bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full flex items-center justify-center mx-auto">
           <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
           </svg>
         </div>
       </div>
@@ -67,290 +453,14 @@
     <!-- Advertisement card -->
     <aside class="w-full max-w-md bg-white rounded-xl shadow-lg p-3">
       <p class="text-xs text-gray-500 text-center mb-2">Advertisement</p>
-      <a id="adLink" href="#" class="block relative" target="_blank" rel="noopener noreferrer">
-        <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden"></div>
+      <a id="adLink" href="#" class="block relative">
+        <div id="adContainer" class="w-full rounded-lg shadow-md overflow-hidden">
+          <!-- ad content (img/video) will be injected here dynamically -->
+        </div>
       </a>
       <div id="noAd" class="text-center text-gray-400 text-sm py-6">No advertisement available</div>
       <div id="adText" class="text-xs text-gray-600 text-center mt-2 hidden"></div>
     </aside>
   </main>
-
-<script type="module">
-(async function(){
-  // --- helpers ---
-  const sleep = ms => new Promise(r=>setTimeout(r,ms));
-  const safeJSON = s => { try { return JSON.parse(s); } catch { return null; } };
-  const normalizeSlug = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-  const el = id => document.getElementById(id);
-
-  // --- safe fetch text ---
-  async function fetchText(url){
-    try {
-      const r = await fetch(url, { cache: 'no-store' });
-      if (!r.ok) return null;
-      return await r.text();
-    } catch(e){ return null; }
-  }
-
-  // --- load env robustly without eval ---
-  async function loadRuntimeEnv(){
-    // 1) try server function
-    let txt = await fetchText('/.netlify/functions/env.js');
-    if (txt && txt.trim().startsWith('<')) txt = null; // HTML error -> ignore
-    if (txt) {
-      // try extract object assigned to window.__ENV__
-      const m = txt.match(/window\.__ENV__\s*=\s*(\{[\s\S]*?\})/m);
-      if (m && m[1]) {
-        const parsed = safeJSON(m[1]);
-        if (parsed) return parsed;
-      }
-      // try raw JSON
-      const parsedRaw = safeJSON(txt.trim());
-      if (parsedRaw) return parsedRaw;
-    }
-    // 2) fallback to static /env.js
-    const txt2 = await fetchText('/env.js');
-    if (txt2 && !txt2.trim().startsWith('<')) {
-      const m2 = txt2.match(/window\.__ENV__\s*=\s*(\{[\s\S]*?\})/m);
-      if (m2 && m2[1]) {
-        const p = safeJSON(m2[1]);
-        if (p) return p;
-      }
-      const pr = safeJSON(txt2.trim());
-      if (pr) return pr;
-    }
-    // 3) query or demo fallback
-    const qp = (()=>{ try { return new URL(location).searchParams; } catch { return new URLSearchParams(); } })();
-    const qTenant = qp.get('tenant') || qp.get('slug') || null;
-    const demoForced = qp.get('demo')==='true' || location.hostname==='localhost' || location.hostname==='127.0.0.1';
-    const env = {};
-    if (qTenant) env.TENANT_ID = normalizeSlug(qTenant);
-    if (demoForced) {
-      env.TENANT_ID = env.TENANT_ID || 'demo';
-      env.FIREBASE_PATH = env.FIREBASE_PATH || `tenants/${env.TENANT_ID}`;
-      env.FIREBASE_CONFIG = env.FIREBASE_CONFIG || JSON.stringify({
-        apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-        authDomain: "queue-joy-aa21b.firebaseapp.com",
-        databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "queue-joy-aa21b",
-        storageBucket: "queue-joy-aa21b.appspot.com",
-        messagingSenderId: "950240394209",
-        appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-      });
-      env._DEMO = true;
-    }
-    env.SITE_BASE = env.SITE_BASE || location.origin;
-    return env;
-  }
-
-  const runtimeEnv = await loadRuntimeEnv();
-  // detect tenant order: env -> query param -> path -> subdomain -> demo
-  function detectTenant(env){
-    if (env && env.TENANT_ID) return normalizeSlug(env.TENANT_ID);
-    try { const qp=new URL(location).searchParams; const q=qp.get('tenant')||qp.get('slug'); if (q) return normalizeSlug(q); } catch {}
-    try { const parts = location.pathname.split('/').filter(Boolean); if (parts.length) return normalizeSlug(parts[0]); } catch {}
-    try { const host = location.hostname.split('.'); if (host.length>=3) return normalizeSlug(host[0]); } catch {}
-    return (env && env._DEMO) ? 'demo' : '';
-  }
-
-  const tenantId = detectTenant(runtimeEnv);
-  const demoMode = !!(runtimeEnv && runtimeEnv._DEMO) || tenantId==='demo';
-
-  if (!tenantId) {
-    document.body.innerHTML = '<div style="padding:24px;max-width:720px;margin:40px auto;font-family:Inter,system-ui;"><h2>Not configured for tenant</h2><p>Open with <code>?demo=true</code> or use tenant site.</p></div>';
-    console.error('TENANT_ID missing — aborting to avoid root writes.');
-    return;
-  }
-
-  // --- firebase config resolution ---
-  let firebaseConfig = null;
-  try {
-    if (runtimeEnv && runtimeEnv.FIREBASE_CONFIG) {
-      firebaseConfig = typeof runtimeEnv.FIREBASE_CONFIG === 'string' ? safeJSON(runtimeEnv.FIREBASE_CONFIG) : runtimeEnv.FIREBASE_CONFIG;
-    }
-  } catch(e){ console.warn('bad FIREBASE_CONFIG', e); firebaseConfig = null; }
-  if (!firebaseConfig && demoMode) {
-    firebaseConfig = {
-      apiKey: "AIzaSyDiRGvkQbnLlpnJT3fEEQrY1A3nwLVIFY0",
-      authDomain: "queue-joy-aa21b.firebaseapp.com",
-      databaseURL: "https://queue-joy-aa21b-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "queue-joy-aa21b",
-      storageBucket: "queue-joy-aa21b.appspot.com",
-      messagingSenderId: "950240394209",
-      appId: "1:950240394209:web:78d4f2471d2d89ac91f0a0"
-    };
-    console.info('Using demo Firebase config.');
-  }
-  if (!firebaseConfig) {
-    document.body.innerHTML = '<div style="padding:24px;max-width:720px;margin:40px auto;font-family:Inter,system-ui;"><h2>Missing Firebase config</h2><p>Set FIREBASE_CONFIG or open with <code>?demo=true</code>.</p></div>';
-    console.error('Missing firebase config');
-    return;
-  }
-
-  // --- init firebase (dynamic import) ---
-  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-  const { getDatabase, ref, push, set, get, onValue, off, runTransaction } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  window._db = db; // debug
-
-  // tenant-scoped ref builder
-  const basePath = runtimeEnv && runtimeEnv.FIREBASE_PATH ? runtimeEnv.FIREBASE_PATH : `tenants/${tenantId}`;
-  function tenantRef(rel=''){ rel = String(rel||'').replace(/^\/+|\/+$/g,''); return ref(db, rel ? `${basePath}/${rel}` : `${basePath}`); }
-
-  // tx helper
-  async function runTxWithRetries(pathRef, updater, maxRetries=6){
-    let lastErr = null;
-    for (let attempt=1; attempt<=maxRetries; attempt++){
-      try {
-        const res = await runTransaction(pathRef, updater, { applyLocally:false });
-        if (res && res.committed) return res;
-        lastErr = new Error('Transaction not committed');
-      } catch(e) { lastErr = e; console.warn('[tx] attempt',attempt,'failed',e); }
-      await sleep(100 * Math.pow(2, attempt-1) + Math.floor(Math.random()*120));
-    }
-    throw lastErr || new Error('Transaction failed after retries');
-  }
-
-  // UI refs
-  const siteTitleEl = el('siteTitle'), siteLogoEl = el('siteLogo'), centerLogoImg = el('centerLogo');
-  const centerIcon = el('centerIcon'), mainHeading = el('mainHeading'), introText = el('introText');
-  const getNumberBtn = el('getNumberBtn'), btnText = el('btnText'), btnSpinner = el('btnSpinner');
-  const errorMessage = el('errorMessage'), successMessage = el('successMessage');
-  const adContainer = el('adContainer'), adLinkEl = el('adLink'), adTextEl = el('adText'), noAd = el('noAd');
-
-  function showError(msg){ console.warn(msg); if (errorMessage){ errorMessage.querySelector('p').textContent = msg; errorMessage.classList.remove('hidden'); successMessage.classList.add('hidden'); setTimeout(()=>errorMessage.classList.add('hidden'),6000);} else alert(msg); }
-  function showSuccess(msg){ if (successMessage){ successMessage.querySelector('p').textContent = msg; successMessage.classList.remove('hidden'); errorMessage.classList.add('hidden'); setTimeout(()=>successMessage.classList.add('hidden'),6000);} else console.info(msg); }
-  function setLoading(flag){ if (getNumberBtn){ getNumberBtn.disabled = flag; btnText && btnText.classList.toggle('hidden', flag); btnSpinner && btnSpinner.classList.toggle('hidden', !flag); getNumberBtn.setAttribute('aria-busy', String(flag)); } }
-
-  // load business settings (tenant-scoped)
-  try {
-    onValue(tenantRef('settings'), snap => {
-      const s = snap.exists() ? snap.val() : {};
-      const pick = v => (typeof v==='string' && v.trim()) ? v.trim() : (typeof v==='number' || typeof v==='boolean') ? v : null;
-
-      if (s.logo) { siteLogoEl.src = s.logo; siteLogoEl.classList.remove('hidden'); } else { siteLogoEl.src=''; siteLogoEl.classList.add('hidden'); }
-      const topTitle = pick(s.mainTitle) || pick(s.name) || 'Queue Joy';
-      siteTitleEl && (siteTitleEl.textContent = topTitle);
-      document.title = topTitle + ' - Digital Queue System';
-      if (s.logoUrl){ centerLogoImg.src = s.logoUrl; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden'); }
-      else if (s.logo){ centerLogoImg.src = s.logo; centerLogoImg.classList.remove('hidden'); centerIcon.classList.add('hidden'); }
-      else { centerLogoImg.src=''; centerLogoImg.classList.add('hidden'); centerIcon.classList.remove('hidden'); }
-
-      mainHeading && (mainHeading.textContent = pick(s.titleinmiddle) || pick(s.ctaTitle) || 'Get your queue number');
-      introText && (introText.textContent = pick(s.introText) || pick(s.smallTextOnTop) || 'Real-time queueing system. Mobile-friendly.');
-      btnText && (btnText.textContent = '🎫 ' + (pick(s.ctaText) || 'Get your queue number'));
-
-      // ad handling
-      adContainer && (adContainer.innerHTML='');
-      if (s.adImage) {
-        const url = String(s.adImage).trim();
-        const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || url.startsWith('data:video/');
-        if (isVideo) {
-          const v = document.createElement('video'); v.src=url; v.autoplay=true; v.loop=true; v.muted=true; v.playsInline=true; v.className='w-full db-image'; adContainer.appendChild(v); v.play().catch(()=>{});
-        } else {
-          const i = document.createElement('img'); i.src=url; i.className='w-full db-image'; adContainer.appendChild(i);
-        }
-        adContainer.classList.remove('hidden'); noAd.classList.add('hidden');
-      } else { adContainer.innerHTML=''; adContainer.classList.add('hidden'); noAd.classList.remove('hidden'); }
-      adTextEl && (adTextEl.textContent = pick(s.adText) || ''); adTextEl && adTextEl.classList.toggle('hidden', !adTextEl.textContent);
-      if (s.adLink) { adLinkEl.href = s.adLink; adLinkEl.target='_blank'; adLinkEl.rel='noopener noreferrer'; } else { adLinkEl.href = `${runtimeEnv.SITE_BASE || location.origin}/${tenantId}`; }
-    });
-  } catch(e){ console.warn('settings listener failed', e); }
-
-  // fetch counters
-  async function fetchActiveCounters(){
-    try {
-      const snap = await get(tenantRef('counters'));
-      if (!snap.exists()) {
-        if (demoMode) return [{ id:'demo-1', name:'Counter 1', prefix:'Q', digits:3, active:true, lastIssued:0, nowServing:0 }];
-        return [];
-      }
-      const arr=[];
-      snap.forEach(s => {
-        const v = s.val()||{};
-        const activeRaw = v.active;
-        const active = activeRaw===undefined || activeRaw===null || activeRaw===true || String(activeRaw).toLowerCase()==='true' || activeRaw===1 || String(activeRaw)==='1';
-        arr.push({ id:s.key, ...v, _active:!!active });
-      });
-      const out = arr.filter(c=>c && c._active);
-      out.sort((a,b)=>{
-        const ao = (a.order!==undefined && a.order!=='')?Number(a.order):Number.POSITIVE_INFINITY;
-        const bo = (b.order!==undefined && b.order!=='')?Number(b.order):Number.POSITIVE_INFINITY;
-        if (ao!==bo) return ao-bo;
-        if (!isNaN(Number(a.id)) && !isNaN(Number(b.id))) return Number(a.id)-Number(b.id);
-        return String(a.id).localeCompare(String(b.id), undefined, { numeric:true });
-      });
-      return out;
-    } catch(e){ console.warn('fetchActiveCounters error', e); return demoMode? [{ id:'demo-1', name:'Counter 1', prefix:'Q', digits:3, active:true }] : []; }
-  }
-
-  // main: getQueueNumber -> uses prefix/digits
-  async function getQueueNumber(){
-    setLoading(true);
-    try {
-      const activeCounters = await fetchActiveCounters();
-      if (!activeCounters || activeCounters.length===0) { showError('No active counters available right now.'); return; }
-
-      // round-robin tenant-scoped
-      let globalCounter;
-      if (demoMode) {
-        if (!window.__QJ_DEMO) window.__QJ_DEMO = { rr:0, counters:{} };
-        window.__QJ_DEMO.rr = (window.__QJ_DEMO.rr||0) + 1;
-        globalCounter = window.__QJ_DEMO.rr;
-      } else {
-        const rrTx = await runTxWithRetries(tenantRef('system/lastCounterIndex'), cur => { const n=Number(cur)||0; return n+1; }, 8);
-        if (!rrTx || rrTx.committed!==true) throw new Error('Round-robin tx failed');
-        globalCounter = Number(rrTx.snapshot && rrTx.snapshot.val());
-      }
-
-      const n = activeCounters.length;
-      const index = ((globalCounter - 1) % n + n) % n;
-      let chosen = activeCounters[index] || activeCounters[0];
-
-      // increment per-counter lastIssued
-      let nextNumber;
-      if (demoMode) {
-        const cid = chosen.id || 'demo-1';
-        window.__QJ_DEMO.counters[cid] = (window.__QJ_DEMO.counters[cid]||0) + 1;
-        nextNumber = window.__QJ_DEMO.counters[cid];
-      } else {
-        const lastIssuedTx = await runTxWithRetries(tenantRef(`counters/${chosen.id}/lastIssued`), cur => (Number(cur)||0)+1, 8);
-        if (!lastIssuedTx || lastIssuedTx.committed!==true) throw new Error('increment lastIssued failed');
-        nextNumber = Number(lastIssuedTx.snapshot && lastIssuedTx.snapshot.val());
-      }
-
-      if (!Number.isFinite(nextNumber)) throw new Error('Invalid next number');
-
-      const prefix = (chosen.prefix && String(chosen.prefix)) || 'Q';
-      const digits = Number(chosen.digits) || 3;
-      const queueId = `${prefix}${String(nextNumber).padStart(digits, '0')}`;
-
-      // push queue entry
-      let nodeKey;
-      if (demoMode) {
-        nodeKey = `demo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
-        // not writing to DB for demo
-      } else {
-        const newNode = push(tenantRef('queue'));
-        await set(newNode, { counterId: chosen.id, queueId, timestamp: Date.now(), status: 'waiting' });
-        nodeKey = newNode.key;
-      }
-
-      try { sessionStorage.setItem(`lastQueueId:${tenantId}`, nodeKey); } catch(e){}
-
-      showSuccess(`You're number ${queueId}`);
-      setTimeout(()=> location.href = `status.html?queueId=${encodeURIComponent(nodeKey)}`, 650);
-
-    } catch(e){ console.error('getQueueNumber error', e); showError(e && e.message ? e.message : 'Failed to get queue number'); }
-    finally { setLoading(false); }
-  }
-
-  // wire
-  getNumberBtn && getNumberBtn.addEventListener('click', e => { e.preventDefault(); getQueueNumber(); });
-
-})(); // end IIFE
-</script>
-
 </body>
 </html>
