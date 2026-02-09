@@ -1,0 +1,20 @@
+# Netlify configuration for tenant-template
+# Each tenant uses its own public folder and functions
+
+[build]
+  command = ""                     # skip build, use pre-built tenant assets
+  functions = "functions"          # tenant-specific serverless functions
+  publish = "public"               # tenant public folder (tenant-template/public)
+
+[functions]
+  directory = "functions"
+  node_bundler = "esbuild"
+  included_files = ["functions/**"]
+
+[dev]
+  functions = "functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
