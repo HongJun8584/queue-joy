@@ -1,5 +1,5 @@
-// tenant-template/functions/createBusiness.js
-// Node 18+ runtime (global fetch available)
+// netlify/functions/createBusiness.js
+// Node 18+ runtime expected (global fetch available)
 
 const admin = require('firebase-admin');
 
@@ -122,7 +122,6 @@ async function listRepoFilesRecursive(owner, repo, path, branch, token) {
     }
   }
   await walk(path);
-  // fetch content for each file
   for (const f of out) {
     const r = await githubApiFetch(`/repos/${owner}/${repo}/contents/${encodeURIComponent(f.path)}?ref=${encodeURIComponent(branch)}`, 'GET', null, token);
     if (r.ok && r.body && r.body.content) { f.content = r.body.content; f.encoding = r.body.encoding; } else { f.content = null; f.encoding = null; }
@@ -138,23 +137,20 @@ async function deployTenantToRepo(slug, options = {}) {
   if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
     throw new Error('Missing GitHub deployment env (GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO)');
   }
-  const templatePath = (TEMPLATE_PATH_IN_REPO || 'template').replace(/^\/+|\/+$/g, '');
+  const templatePath = TEMPLATE_PATH_IN_REPO.replace(/^\/+|\/+$/g, '') || 'template';
   const files = await listRepoFilesRecursive(GITHUB_OWNER, GITHUB_REPO, templatePath, GITHUB_BRANCH, GITHUB_TOKEN);
   if (!files || files.length === 0) throw new Error(`Template path "${templatePath}" is empty or not found in repo`);
   const created = [];
   for (const f of files) {
     if (!f.path || !f.content) continue;
-    // relative path inside template
     let rel = f.path.replace(new RegExp(`^${templatePath.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}/?`), '');
     if (rel.startsWith('/')) rel = rel.slice(1);
-    const targetPath = `${TARGET_BASE_PATH}/${rel}`; // e.g., myshop/index.html
+    const targetPath = `${TARGET_BASE_PATH}/${rel}`;
     const message = `Create tenant ${slug} - add ${targetPath}`;
-    const payload = { message, content: f.content.replace(/\r?\n/g,''), branch: GITHUB_BRANCH };
+    const payload = { message, content: f.content.replace(/\n/g,''), branch: GITHUB_BRANCH };
     if (COMMITTER && COMMITTER.name && COMMITTER.email) payload.committer = { name: COMMITTER.name, email: COMMITTER.email };
     const apiPathCreate = `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(targetPath)}`;
-    // try create
     let r = await githubApiFetch(apiPathCreate, 'PUT', payload, GITHUB_TOKEN);
-    // if exists, fetch sha and update (idempotent)
     if (!r.ok && (r.status === 422 || (r.body && r.body.message && /exists/i.test(r.body.message)))) {
       const getRes = await githubApiFetch(`${apiPathCreate}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, 'GET', null, GITHUB_TOKEN);
       if (getRes.ok && getRes.body && getRes.body.sha) {
@@ -171,9 +167,11 @@ async function deployTenantToRepo(slug, options = {}) {
 /* ---------- Netlify helper (create site from repo) ---------- */
 async function createNetlifySiteFromRepo({ NETLIFY_AUTH_TOKEN, GITHUB_OWNER, GITHUB_REPO, branch = 'main', siteName }) {
   if (!NETLIFY_AUTH_TOKEN) throw new Error('NETLIFY_AUTH_TOKEN missing');
+  // Netlify API: create site with repo object
   const url = 'https://api.netlify.com/api/v1/sites';
   const body = {
     name: siteName,
+    // instruct Netlify to link to the GitHub repo
     repo: {
       provider: 'github',
       owner: GITHUB_OWNER,
@@ -191,7 +189,7 @@ async function createNetlifySiteFromRepo({ NETLIFY_AUTH_TOKEN, GITHUB_OWNER, GIT
   });
   const j = await res.json();
   if (!res.ok) throw new Error(JSON.stringify(j));
-  return j;
+  return j; // contains site.url, id, build_settings...
 }
 
 /* ---------- Notifications (Telegram and optional SendGrid email) ---------- */
@@ -250,33 +248,8 @@ exports.handler = async function handler(event) {
     const createdBy = body.createdBy || 'landing-page';
     const nowIso = new Date().toISOString();
 
-    const force = !!body.force; // allow overwriting existing tenant when true
-
-    // Step 0: try init firebase (non-fatal)
-    let dbClient = null;
-    try {
-      const fb = await ensureFirebase();
-      dbClient = fb.db;
-    } catch (initErr) {
-      // we will continue for repo/netlify, but warn and continue
-      console.warn('firebase init failed (will continue):', initErr && initErr.message);
-      dbClient = null;
-    }
-
-    // If tenant exists and not forced, abort
-    if (dbClient) {
-      try {
-        const snap = await dbClient.ref(`tenants/${slug}`).get();
-        if (snap && snap.exists() && !force) {
-          return jsonResponse(409, { error: 'tenant_exists', message: `tenant "${slug}" already exists. Use force=true to overwrite.` });
-        }
-      } catch (e) {
-        console.warn('tenant existence check failed', e && e.message);
-      }
-    }
-
-    // Step A: Copy template into GitHub under folder <slug>/... (optional)
-    const repoDeployEnabled = String(process.env.ENABLE_REPO_DEPLOY || body.enableRepoDeploy || 'false').toLowerCase() === 'true';
+    // Step A: Copy template into GitHub under folder <slug>/...
+    const repoDeployEnabled = String(process.env.ENABLE_REPO_DEPLOY || 'false').toLowerCase() === 'true';
     let repoResult = null;
     if (repoDeployEnabled) {
       try {
@@ -284,7 +257,7 @@ exports.handler = async function handler(event) {
         const GITHUB_OWNER = process.env.GITHUB_OWNER;
         const GITHUB_REPO = process.env.GITHUB_REPO;
         const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
-        const TEMPLATE_PATH_IN_REPO = (process.env.TEMPLATE_PATH_IN_REPO || body.templatePath || 'tenant-template').replace(/^\/+|\/+$/g, '');
+        const TEMPLATE_PATH_IN_REPO = (process.env.TEMPLATE_PATH_IN_REPO || body.templatePath || 'template').replace(/^\/+|\/+$/g, '');
         const TARGET_BASE_PATH = slug;
         const COMMITTER = (process.env.GITHUB_COMMITTERNAME && process.env.GITHUB_COMMITTEREMAIL) ? { name: process.env.GITHUB_COMMITTERNAME, email: process.env.GITHUB_COMMITTEREMAIL } : null;
         repoResult = await deployTenantToRepo(slug, { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, TEMPLATE_PATH_IN_REPO, TARGET_BASE_PATH, COMMITTER });
@@ -294,8 +267,8 @@ exports.handler = async function handler(event) {
       }
     }
 
-    // Step B: Create Netlify site (optional)
-    const netlifyEnabled = String(process.env.ENABLE_NETLIFY_CREATE || body.createNetlify || 'false').toLowerCase() === 'true';
+    // Step B: Create Netlify site that uses this repo path (optional)
+    const netlifyEnabled = String(process.env.ENABLE_NETLIFY_CREATE || 'false').toLowerCase() === 'true';
     let netlifyResult = null;
     if (netlifyEnabled) {
       try {
@@ -303,7 +276,7 @@ exports.handler = async function handler(event) {
         const GITHUB_OWNER = process.env.GITHUB_OWNER;
         const GITHUB_REPO = process.env.GITHUB_REPO;
         const branch = process.env.GITHUB_BRANCH || 'main';
-        const siteName = `${slug}-${Math.random().toString(36).slice(2,8)}`;
+        const siteName = `${slug}-${Math.random().toString(36).slice(2,8)}`; // ensure uniqueness
         netlifyResult = await createNetlifySiteFromRepo({ NETLIFY_AUTH_TOKEN, GITHUB_OWNER, GITHUB_REPO, branch, siteName });
       } catch (e) {
         console.error('netlify create failed', e && (e.stack || e.message || e));
@@ -311,97 +284,47 @@ exports.handler = async function handler(event) {
       }
     }
 
-    // Step C: Persist tenant config into Firebase (this step intended to run if Firebase init succeeded)
+    // Step C: Persist tenant config into Firebase (this step intended to always run)
+    let db;
+    try {
+      const fb = await ensureFirebase();
+      db = fb.db;
+    } catch (initErr) {
+      console.error('firebase init failed', initErr && (initErr.stack || initErr.message || initErr));
+      // we continue but return error later
+    }
+
     let firebaseWriteResult = null;
-    if (dbClient) {
+    if (db) {
       try {
         const siteBase = (process.env.SITE_BASE || '').replace(/\/$/, '');
-        // Compose default tenant object
-        const defaultSettings = Object.assign({
-          mainTitle: name,
-          introText: 'Welcome to our queue',
-          smallTextOnTop: '',
-          titleinmiddle: name,
-          adImage: '',
-          logo: '',
-          logoUrl: ''
-        }, body.settings || body.defaults || {});
-
-        // default counters: if body.counters provided, use it; else create a single counter stub
-        const defaultCounters = {};
-        if (Array.isArray(body.counters) && body.counters.length) {
-          body.counters.forEach((c, i) => {
-            const id = c.id || `counter${i+1}`;
-            defaultCounters[id] = {
-              name: c.name || `Counter ${i+1}`,
-              prefix: (c.prefix || '').toString().toUpperCase().slice(0,7),
-              nowServing: c.nowServing || 0,
-              lastIssued: c.lastIssued || 0,
-              active: c.active !== false,
-              lastAdvanceAt: Date.now()
-            };
-          });
-        } else {
-          defaultCounters['counter1'] = { name: 'Counter 1', prefix: 'A', nowServing: 0, lastIssued: 0, active: true, lastAdvanceAt: Date.now() };
-        }
-
-        // announcement defaults
-        const announcementDefaults = {
-          chatIds: {},
-          botToken: process.env.TELEGRAM_BOT_TOKEN || null
-        };
-
         const tenant = {
-          slug,
-          name,
-          createdBy,
-          createdAt: nowIso,
-          links: {
-            home: siteBase ? `${siteBase}/${slug}/index.html` : (netlifyResult && netlifyResult.url ? `${netlifyResult.url}` : null),
-            counter: siteBase ? `${siteBase}/${slug}/counter.html` : null,
-            admin: siteBase ? `${siteBase}/${slug}/admin.html` : null
-          },
+          slug, name, createdBy, createdAt: nowIso,
+          links: { home: `${siteBase}/${slug}`, counter: `${siteBase}/${slug}/counter.html`, admin: `${siteBase}/${slug}/admin.html` },
           repo: { deployed: !!repoResult, details: repoResult },
           netlify: netlifyResult,
-          settings: defaultSettings,
-          counters: defaultCounters,
-          announcement: announcementDefaults,
-          analytics: {},
-          meta: { seededFromTemplate: true, templatePath: process.env.TEMPLATE_PATH_IN_REPO || body.templatePath || 'tenant-template' }
+          settings: body.settings || body.defaults || {},
         };
-
-        // If overwriting, use set; otherwise set only if not exists
-        if (!force) {
-          await dbClient.ref(`tenants/${slug}`).set(tenant);
-        } else {
-          await dbClient.ref(`tenants/${slug}`).set(tenant);
-        }
-        // Also write top-level quick access keys for backward compatibility (optional)
-        try {
-          await dbClient.ref(`tenants_index/${slug}`).set({ slug, name, createdAt: nowIso });
-        } catch (e) {
-          // non-fatal
-        }
+        await db.ref(`tenants/${slug}`).set(tenant);
         firebaseWriteResult = { ok: true };
       } catch (e) {
         console.error('firebase write failed', e && (e.stack || e.message || e));
         firebaseWriteResult = { error: true, message: e && e.message ? e.message : String(e) };
       }
-    } else {
-      firebaseWriteResult = { skipped: true, reason: 'firebase_not_initialized' };
     }
 
-    // Step D: Notify (Telegram + optional SendGrid)
+    // Step D: Notify user via Telegram and (optionally) email
     const notifyText = (() => {
       const base = process.env.SITE_BASE ? process.env.SITE_BASE.replace(/\/$/, '') : '';
       const siteUrl = base ? `${base}/${slug}` : (netlifyResult && netlifyResult.url ? netlifyResult.url : null);
       let t = `Your QueueJoy site is ready!\n\nName: ${name}\nSlug: ${slug}\n`;
       if (siteUrl) t += `Site: ${siteUrl}\n`;
-      t += `CreatedAt: ${nowIso}\n\nVisit the admin at: ${base ? `${base}/${slug}/admin.html` : '(use Netlify or dashboard)'}`;
+      t += `CreatedAt: ${nowIso}\n\nVisit the admin: ${base ? `${base}/${slug}/admin.html` : '(use Netlify admin or your dashboard)'}`;
       return t;
     })();
 
-    const telegramToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || body.telegramBotToken;
+    // Telegram: send to chat id provided in body.notifyChatId or global CHAT_ID
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
     const chatId = body.notifyChatId || process.env.CHAT_ID;
     let telegramResult = null;
     if (telegramToken && chatId) {
@@ -410,6 +333,7 @@ exports.handler = async function handler(event) {
       telegramResult = { skipped: true };
     }
 
+    // Optional SendGrid email
     let emailResult = null;
     if (process.env.SENDGRID_API_KEY && body.notifyEmail) {
       try { emailResult = await sendEmailViaSendGrid(process.env.SENDGRID_API_KEY, body.notifyEmail, 'Your QueueJoy site is ready', notifyText); } catch (e) { console.error('sendgrid failed', e && e.message); emailResult = { error: true, message: String(e) }; }
@@ -418,8 +342,7 @@ exports.handler = async function handler(event) {
     }
 
     const summary = {
-      ok: true,
-      slug, name, createdAt: nowIso,
+      ok: true, slug, name, createdAt: nowIso,
       repoDeploy: repoResult,
       netlify: netlifyResult,
       firebase: firebaseWriteResult,
